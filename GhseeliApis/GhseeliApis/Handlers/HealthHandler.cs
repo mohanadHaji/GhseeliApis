@@ -1,21 +1,20 @@
-using GhseeliApis.Data;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using GhseeliApis.Repositories.Interfaces;
 
 namespace GhseeliApis.Handlers;
 
 /// <summary>
-/// Handler for health check operations
+/// Handler for health check business logic
 /// </summary>
 public class HealthHandler : IHealthHandler
 {
-    private readonly ApplicationDbContext _db;
+    private readonly IHealthRepository _healthRepository;
     private readonly IAppLogger _logger;
 
-    public HealthHandler(ApplicationDbContext db, IAppLogger logger)
+    public HealthHandler(IHealthRepository healthRepository, IAppLogger logger)
     {
-        _db = db;
+        _healthRepository = healthRepository;
         _logger = logger;
     }
 
@@ -29,7 +28,7 @@ public class HealthHandler : IHealthHandler
             _logger.LogInfo("CheckDatabaseHealthAsync: Starting database health check...");
 
             var startTime = DateTime.UtcNow;
-            var canConnect = await _db.Database.CanConnectAsync();
+            var canConnect = await _healthRepository.CanConnectAsync();
             var duration = (DateTime.UtcNow - startTime).TotalMilliseconds;
 
             if (canConnect)
@@ -39,7 +38,7 @@ public class HealthHandler : IHealthHandler
                 // Check if we can query the database
                 try
                 {
-                    var userCount = await _db.Users.CountAsync();
+                    var userCount = await _healthRepository.GetUserCountAsync();
                     _logger.LogInfo($"CheckDatabaseHealthAsync: Database query successful - Current user count: {userCount}");
                 }
                 catch (Exception queryEx)

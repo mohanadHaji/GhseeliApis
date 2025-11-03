@@ -8,15 +8,15 @@ namespace GhseeliApis.Tests.Models;
 /// </summary>
 public class UserValidationTests
 {
-    #region Name Validation Tests
+    #region UserName Validation Tests
 
     [Fact]
-    public void Validate_ReturnsError_WhenNameIsEmpty()
+    public void Validate_ReturnsError_WhenUserNameIsEmpty()
     {
         // Arrange
         var user = new User
         {
-            Name = "",
+            UserName = "",
             Email = "test@example.com"
         };
 
@@ -25,16 +25,16 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain("Name is required.");
+        result.Errors.Should().Contain("Username is required.");
     }
 
     [Fact]
-    public void Validate_ReturnsError_WhenNameIsWhitespace()
+    public void Validate_ReturnsError_WhenUserNameIsWhitespace()
     {
         // Arrange
         var user = new User
         {
-            Name = "   ",
+            UserName = "   ",
             Email = "test@example.com"
         };
 
@@ -43,16 +43,16 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain("Name is required.");
+        result.Errors.Should().Contain("Username is required.");
     }
 
     [Fact]
-    public void Validate_ReturnsError_WhenNameIsTooShort()
+    public void Validate_ReturnsError_WhenUserNameIsTooShort()
     {
         // Arrange
         var user = new User
         {
-            Name = "A",
+            UserName = "A",
             Email = "test@example.com"
         };
 
@@ -61,16 +61,16 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain("Name must be at least 2 characters long.");
+        result.Errors.Should().Contain("Username must be at least 2 characters long.");
     }
 
     [Fact]
-    public void Validate_ReturnsError_WhenNameIsTooLong()
+    public void Validate_ReturnsError_WhenUserNameIsTooLong()
     {
         // Arrange
         var user = new User
         {
-            Name = new string('A', 101), // 101 characters
+            UserName = new string('A', 257), // 257 characters (max is 256)
             Email = "test@example.com"
         };
 
@@ -79,16 +79,16 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain("Name cannot exceed 100 characters.");
+        result.Errors.Should().Contain("Username cannot exceed 256 characters.");
     }
 
     [Fact]
-    public void Validate_Succeeds_WhenNameIsValid()
+    public void Validate_Succeeds_WhenUserNameIsValid()
     {
         // Arrange
         var user = new User
         {
-            Name = "John Doe",
+            UserName = "JohnDoe",
             Email = "john@example.com"
         };
 
@@ -110,7 +110,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "John Doe",
+            UserName = "JohnDoe",
             Email = ""
         };
 
@@ -128,7 +128,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "John Doe",
+            UserName = "JohnDoe",
             Email = "   "
         };
 
@@ -158,7 +158,7 @@ public class UserValidationTests
         {
             var user = new User
             {
-                Name = "John Doe",
+                UserName = "JohnDoe",
                 Email = email
             };
 
@@ -177,8 +177,8 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "John Doe",
-            Email = new string('a', 190) + "@example.com" // 201 characters total
+            UserName = "JohnDoe",
+            Email = new string('a', 246) + "@example.com" // 257 characters total (max is 256)
         };
 
         // Act
@@ -186,7 +186,7 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain("Email cannot exceed 200 characters.");
+        result.Errors.Should().Contain("Email cannot exceed 256 characters.");
     }
 
     [Theory]
@@ -199,7 +199,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "John Doe",
+            UserName = "JohnDoe",
             Email = email
         };
 
@@ -221,7 +221,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "", // Invalid - empty
+            UserName = "", // Invalid - empty
             Email = "notanemail" // Invalid - bad format
         };
 
@@ -231,7 +231,7 @@ public class UserValidationTests
         // Assert
         result.IsValid.Should().BeFalse();
         result.Errors.Should().HaveCount(2);
-        result.Errors.Should().Contain("Name is required.");
+        result.Errors.Should().Contain("Username is required.");
         result.Errors.Should().Contain("Email format is invalid.");
     }
 
@@ -241,7 +241,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "A", // Too short
+            UserName = "A", // Too short
             Email = "invalid" // Bad format
         };
 
@@ -263,7 +263,7 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = "AB", // Minimum 2 characters
+            UserName = "AB", // Minimum 2 characters
             Email = "a@b.c" // Minimum valid email
         };
 
@@ -281,8 +281,8 @@ public class UserValidationTests
         // Arrange
         var user = new User
         {
-            Name = new string('A', 100), // Maximum 100 characters
-            Email = new string('a', 188) + "@example.com" // Maximum 200 characters
+            UserName = new string('A', 256), // Maximum 256 characters
+            Email = new string('a', 244) + "@example.com" // Maximum 256 characters
         };
 
         // Act

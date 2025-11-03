@@ -1,22 +1,22 @@
-using GhseeliApis.Data;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using GhseeliApis.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace GhseeliApis.Handlers;
 
 /// <summary>
-/// Handler for user-related database operations
+/// Handler for user-related business logic
 /// </summary>
 public class UserHandler : IUserHandler
 {
-    private readonly ApplicationDbContext _db;
+    private readonly IUserRepository _userRepository;
     private readonly IAppLogger _logger;
 
-    public UserHandler(ApplicationDbContext db, IAppLogger logger)
+    public UserHandler(IUserRepository userRepository, IAppLogger logger)
     {
-        _db = db;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -29,7 +29,7 @@ public class UserHandler : IUserHandler
         {
             _logger.LogInfo("GetAllUsersAsync: Starting to retrieve all users from database");
             
-            var users = await _db.Users.ToListAsync();
+            var users = await _userRepository.GetAllAsync();
             
             _logger.LogInfo($"GetAllUsersAsync: Successfully retrieved {users.Count} user(s)");
             
@@ -56,7 +56,7 @@ public class UserHandler : IUserHandler
         {
             _logger.LogInfo($"GetUserByIdAsync: Attempting to retrieve user with ID={id}");
             
-            var user = await _db.Users.FindAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
             
             if (user == null)
             {
@@ -64,7 +64,7 @@ public class UserHandler : IUserHandler
                 return null;
             }
             
-            _logger.LogInfo($"GetUserByIdAsync: Successfully retrieved user ID={id}, Name='{user.Name}', Email='{user.Email}', IsActive={user.IsActive}");
+            _logger.LogInfo($"GetUserByIdAsync: Successfully retrieved user ID={id}, UserName='{user.UserName}', Email='{user.Email}', IsActive={user.IsActive}");
             return user;
         }
         catch (Exception ex)
@@ -81,25 +81,22 @@ public class UserHandler : IUserHandler
     {
         try
         {
-            _logger.LogInfo($"CreateUserAsync: Starting user creation - Name='{user.Name}', Email='{user.Email}', IsActive={user.IsActive}");
+            _logger.LogInfo($"CreateUserAsync: Starting user creation - UserName='{user.UserName}', Email='{user.Email}', IsActive={user.IsActive}");
             
-            _db.Users.Add(user);
+            var createdUser = await _userRepository.AddAsync(user);
             
-            _logger.LogInfo("CreateUserAsync: User entity added to context, saving changes...");
-            await _db.SaveChangesAsync();
+            _logger.LogInfo($"CreateUserAsync: User created successfully - ID={createdUser.Id}, UserName='{createdUser.UserName}', CreatedAt={createdUser.CreatedAt:yyyy-MM-dd HH:mm:ss}");
             
-            _logger.LogInfo($"CreateUserAsync: User created successfully - ID={user.Id}, Name='{user.Name}', CreatedAt={user.CreatedAt:yyyy-MM-dd HH:mm:ss}");
-            
-            return user;
+            return createdUser;
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogError($"CreateUserAsync: Database update failed for user Name='{user.Name}', Email='{user.Email}' - Possible duplicate or constraint violation", ex);
+            _logger.LogError($"CreateUserAsync: Database update failed for user UserName='{user.UserName}', Email='{user.Email}' - Possible duplicate or constraint violation", ex);
             throw;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"CreateUserAsync: Unexpected error while creating user Name='{user.Name}', Email='{user.Email}'", ex);
+            _logger.LogError($"CreateUserAsync: Unexpected error while creating user UserName='{user.UserName}', Email='{user.Email}'", ex);
             throw;
         }
     }
@@ -111,9 +108,9 @@ public class UserHandler : IUserHandler
     {
         try
         {
-            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id} with new data - Name='{updatedUser.Name}', Email='{updatedUser.Email}', IsActive={updatedUser.IsActive}");
+            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id} with new data - UserName='{updatedUser.UserName}', Email='{updatedUser.Email}', IsActive={updatedUser.IsActive}");
             
-            var user = await _db.Users.FindAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
             
             if (user is null)
             {
@@ -121,22 +118,22 @@ public class UserHandler : IUserHandler
                 return null;
             }
 
-            var oldName = user.Name;
+            var oldUserName = user.UserName;
             var oldEmail = user.Email;
             var oldIsActive = user.IsActive;
 
-            user.Name = updatedUser.Name;
+            user.UserName = updatedUser.UserName;
             user.Email = updatedUser.Email;
             user.IsActive = updatedUser.IsActive;
             user.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInfo($"UpdateUserAsync: Saving changes for user ID={id} - Changed: Name '{oldName}'=>'{user.Name}', Email '{oldEmail}'=>'{user.Email}', IsActive {oldIsActive}=>{user.IsActive}");
+            _logger.LogInfo($"UpdateUserAsync: Saving changes for user ID={id} - Changed: UserName '{oldUserName}'=>'{user.UserName}', Email '{oldEmail}'=>'{user.Email}', IsActive {oldIsActive}=>{user.IsActive}");
             
-            await _db.SaveChangesAsync();
+            var result = await _userRepository.UpdateAsync(user);
             
-            _logger.LogInfo($"UpdateUserAsync: User ID={id} updated successfully at {user.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
+            _logger.LogInfo($"UpdateUserAsync: User ID={id} updated successfully at {result.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
             
-            return user;
+            return result;
         }
         catch (DbUpdateConcurrencyException ex)
         {
@@ -164,7 +161,7 @@ public class UserHandler : IUserHandler
         {
             _logger.LogInfo($"DeleteUserAsync: Attempting to delete user with ID={id}");
             
-            var user = await _db.Users.FindAsync(id);
+            var user = await _userRepository.GetByIdAsync(id);
             
             if (user is null)
             {
@@ -172,14 +169,12 @@ public class UserHandler : IUserHandler
                 return false;
             }
 
-            var userName = user.Name;
+            var userName = user.UserName;
             var userEmail = user.Email;
 
-            _db.Users.Remove(user);
+            _logger.LogInfo($"DeleteUserAsync: Removing user ID={id}, UserName='{userName}', Email='{userEmail}' from database...");
             
-            _logger.LogInfo($"DeleteUserAsync: Removing user ID={id}, Name='{userName}', Email='{userEmail}' from database...");
-            
-            await _db.SaveChangesAsync();
+            await _userRepository.DeleteAsync(user);
             
             _logger.LogInfo($"DeleteUserAsync: User ID={id} ('{userName}') deleted successfully from database");
             

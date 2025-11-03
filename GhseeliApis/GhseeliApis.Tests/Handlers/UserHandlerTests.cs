@@ -1,9 +1,11 @@
 using FluentAssertions;
-using GhseeliApis.Data;
+using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using GhseeliApis.Repositories;
+using GhseeliApis.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace GhseeliApis.Tests.Handlers;
@@ -15,6 +17,7 @@ public class UserHandlerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly IAppLogger _logger;
+    private readonly IUserRepository _repository;
     private readonly UserHandler _handler;
 
     public UserHandlerTests()
@@ -25,7 +28,8 @@ public class UserHandlerTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _logger = new ConsoleLogger();
-        _handler = new UserHandler(_context, _logger);
+        _repository = new UserRepository(_context);
+        _handler = new UserHandler(_repository, _logger);
     }
 
     public void Dispose()
@@ -52,9 +56,9 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var testUsers = new List<User>
         {
-            new User { Name = "User 1", Email = "user1@test.com" },
-            new User { Name = "User 2", Email = "user2@test.com" },
-            new User { Name = "User 3", Email = "user3@test.com" }
+            new User { UserName = "User 1", Email = "user1@test.com" },
+            new User { UserName = "User 2", Email = "user2@test.com" },
+            new User { UserName = "User 3", Email = "user3@test.com" }
         };
         _context.Users.AddRange(testUsers);
         await _context.SaveChangesAsync();
@@ -64,9 +68,9 @@ public class UserHandlerTests : IDisposable
 
         // Assert
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.Name == "User 1");
-        users.Should().Contain(u => u.Name == "User 2");
-        users.Should().Contain(u => u.Name == "User 3");
+        users.Should().Contain(u => u.UserName == "User 1");
+        users.Should().Contain(u => u.UserName == "User 2");
+        users.Should().Contain(u => u.UserName == "User 3");
     }
 
     #endregion
@@ -89,7 +93,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com"
         };
         _context.Users.Add(testUser);
@@ -101,7 +105,7 @@ public class UserHandlerTests : IDisposable
         // Assert
         user.Should().NotBeNull();
         user!.Id.Should().Be(testUser.Id);
-        user.Name.Should().Be("Test User");
+        user.UserName.Should().Be("Test User");
         user.Email.Should().Be("test@example.com");
     }
 
@@ -115,7 +119,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "New User",
+            UserName = "New User",
             Email = "newuser@example.com"
         };
 
@@ -125,12 +129,12 @@ public class UserHandlerTests : IDisposable
         // Assert
         createdUser.Should().NotBeNull();
         createdUser.Id.Should().BeGreaterThan(0);
-        createdUser.Name.Should().Be("New User");
+        createdUser.UserName.Should().Be("New User");
 
         // Verify it's in the database
         var dbUser = await _context.Users.FindAsync(createdUser.Id);
         dbUser.Should().NotBeNull();
-        dbUser!.Name.Should().Be("New User");
+        dbUser!.UserName.Should().Be("New User");
     }
 
     [Fact]
@@ -139,7 +143,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "New User",
+            UserName = "New User",
             Email = "newuser@example.com"
         };
 
@@ -160,7 +164,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var updateData = new User
         {
-            Name = "Updated",
+            UserName = "Updated",
             Email = "updated@example.com"
         };
 
@@ -177,7 +181,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var existingUser = new User
         {
-            Name = "Original",
+            UserName = "Original",
             Email = "original@example.com",
             IsActive = true
         };
@@ -186,7 +190,7 @@ public class UserHandlerTests : IDisposable
 
         var updateData = new User
         {
-            Name = "Updated",
+            UserName = "Updated",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -196,7 +200,7 @@ public class UserHandlerTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result!.Name.Should().Be("Updated");
+        result!.UserName.Should().Be("Updated");
         result.Email.Should().Be("updated@example.com");
         result.IsActive.Should().BeFalse();
         result.UpdatedAt.Should().NotBeNull();
@@ -208,7 +212,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var existingUser = new User
         {
-            Name = "Original",
+            UserName = "Original",
             Email = "original@example.com"
         };
         _context.Users.Add(existingUser);
@@ -216,7 +220,7 @@ public class UserHandlerTests : IDisposable
 
         var updateData = new User
         {
-            Name = "Updated",
+            UserName = "Updated",
             Email = "updated@example.com"
         };
 
@@ -226,7 +230,7 @@ public class UserHandlerTests : IDisposable
         // Assert
         var dbUser = await _context.Users.FindAsync(existingUser.Id);
         dbUser.Should().NotBeNull();
-        dbUser!.Name.Should().Be("Updated");
+        dbUser!.UserName.Should().Be("Updated");
         dbUser.Email.Should().Be("updated@example.com");
     }
 
@@ -250,7 +254,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com"
         };
         _context.Users.Add(testUser);
@@ -269,7 +273,7 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com"
         };
         _context.Users.Add(testUser);
@@ -288,8 +292,8 @@ public class UserHandlerTests : IDisposable
     public async Task DeleteUserAsync_OnlyDeletesSpecifiedUser()
     {
         // Arrange
-        var user1 = new User { Name = "User 1", Email = "user1@test.com" };
-        var user2 = new User { Name = "User 2", Email = "user2@test.com" };
+        var user1 = new User { UserName = "User 1", Email = "user1@test.com" };
+        var user2 = new User { UserName = "User 2", Email = "user2@test.com" };
         _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 

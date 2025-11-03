@@ -1,11 +1,13 @@
 using FluentAssertions;
 using GhseeliApis.Controllers;
-using GhseeliApis.Data;
+using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using GhseeliApis.Repositories;
+using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -18,6 +20,7 @@ public class UsersControllerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly IAppLogger _logger;
+    private readonly IUserRepository _repository;
     private readonly IUserHandler _userHandler;
     private readonly UsersController _controller;
 
@@ -30,7 +33,8 @@ public class UsersControllerTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _logger = new ConsoleLogger();
-        _userHandler = new UserHandler(_context, _logger);
+        _repository = new UserRepository(_context);
+        _userHandler = new UserHandler(_repository, _logger);
         _controller = new UsersController(_userHandler, _logger);
     }
 
@@ -60,9 +64,9 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var testUsers = new List<User>
         {
-            new User { Name = "User 1", Email = "user1@test.com", IsActive = true },
-            new User { Name = "User 2", Email = "user2@test.com", IsActive = false },
-            new User { Name = "User 3", Email = "user3@test.com", IsActive = true }
+            new User { UserName = "User 1", Email = "user1@test.com", IsActive = true },
+            new User { UserName = "User 2", Email = "user2@test.com", IsActive = false },
+            new User { UserName = "User 3", Email = "user3@test.com", IsActive = true }
         };
         _context.Users.AddRange(testUsers);
         await _context.SaveChangesAsync();
@@ -74,9 +78,9 @@ public class UsersControllerTests : IDisposable
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var users = okResult.Value.Should().BeAssignableTo<List<User>>().Subject;
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.Name == "User 1");
-        users.Should().Contain(u => u.Name == "User 2");
-        users.Should().Contain(u => u.Name == "User 3");
+        users.Should().Contain(u => u.UserName == "User 1");
+        users.Should().Contain(u => u.UserName == "User 2");
+        users.Should().Contain(u => u.UserName == "User 3");
     }
 
     #endregion
@@ -127,7 +131,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com",
             IsActive = true
         };
@@ -141,7 +145,7 @@ public class UsersControllerTests : IDisposable
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var user = okResult.Value.Should().BeOfType<User>().Subject;
         user.Id.Should().Be(testUser.Id);
-        user.Name.Should().Be("Test User");
+        user.UserName.Should().Be("Test User");
         user.Email.Should().Be("test@example.com");
         user.IsActive.Should().BeTrue();
     }
@@ -156,7 +160,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "New User",
+            UserName = "New User",
             Email = "newuser@example.com",
             IsActive = true
         };
@@ -169,7 +173,7 @@ public class UsersControllerTests : IDisposable
         createdResult.ActionName.Should().Be(nameof(UsersController.GetUserById));
         
         var returnedUser = createdResult.Value.Should().BeOfType<User>().Subject;
-        returnedUser.Name.Should().Be("New User");
+        returnedUser.UserName.Should().Be("New User");
         returnedUser.Email.Should().Be("newuser@example.com");
         returnedUser.IsActive.Should().BeTrue();
         returnedUser.Id.Should().BeGreaterThan(0);
@@ -177,7 +181,7 @@ public class UsersControllerTests : IDisposable
         // Verify user was actually saved to database
         var savedUser = await _context.Users.FindAsync(returnedUser.Id);
         savedUser.Should().NotBeNull();
-        savedUser!.Name.Should().Be("New User");
+        savedUser!.UserName.Should().Be("New User");
     }
 
     [Fact]
@@ -186,7 +190,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "New User",
+            UserName = "New User",
             Email = "newuser@example.com",
             IsActive = true
         };
@@ -206,7 +210,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "",
+            UserName = "",
             Email = "test@example.com"
         };
 
@@ -224,7 +228,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "notanemail"
         };
 
@@ -242,7 +246,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            Name = "", // Invalid
+            UserName = "", // Invalid
             Email = "invalid" // Invalid
         };
 
@@ -274,7 +278,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var updatedUser = new User
         {
-            Name = "Updated Name",
+            UserName = "Updated Name",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -293,7 +297,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var updatedUser = new User
         {
-            Name = "Updated Name",
+            UserName = "Updated Name",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -318,7 +322,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var updatedUser = new User
         {
-            Name = "Updated Name",
+            UserName = "Updated Name",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -338,7 +342,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var existingUser = new User
         {
-            Name = "Original Name",
+            UserName = "Original Name",
             Email = "original@example.com",
             IsActive = true
         };
@@ -347,7 +351,7 @@ public class UsersControllerTests : IDisposable
 
         var updatedData = new User
         {
-            Name = "Updated Name",
+            UserName = "Updated Name",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -360,7 +364,7 @@ public class UsersControllerTests : IDisposable
         var returnedUser = okResult.Value.Should().BeOfType<User>().Subject;
         
         returnedUser.Id.Should().Be(existingUser.Id);
-        returnedUser.Name.Should().Be("Updated Name");
+        returnedUser.UserName.Should().Be("Updated Name");
         returnedUser.Email.Should().Be("updated@example.com");
         returnedUser.IsActive.Should().BeFalse();
         returnedUser.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
@@ -372,7 +376,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var existingUser = new User
         {
-            Name = "Original Name",
+            UserName = "Original Name",
             Email = "original@example.com",
             IsActive = true
         };
@@ -381,7 +385,7 @@ public class UsersControllerTests : IDisposable
 
         var updatedData = new User
         {
-            Name = "Updated Name",
+            UserName = "Updated Name",
             Email = "updated@example.com",
             IsActive = false
         };
@@ -392,7 +396,7 @@ public class UsersControllerTests : IDisposable
         // Assert
         var savedUser = await _context.Users.FindAsync(existingUser.Id);
         savedUser.Should().NotBeNull();
-        savedUser!.Name.Should().Be("Updated Name");
+        savedUser!.UserName.Should().Be("Updated Name");
         savedUser.Email.Should().Be("updated@example.com");
         savedUser.IsActive.Should().BeFalse();
     }
@@ -403,7 +407,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var existingUser = new User
         {
-            Name = "Original Name",
+            UserName = "Original Name",
             Email = "original@example.com",
             IsActive = true
         };
@@ -412,7 +416,7 @@ public class UsersControllerTests : IDisposable
 
         var invalidUpdate = new User
         {
-            Name = "", // Invalid
+            UserName = "", // Invalid
             Email = "notanemail", // Invalid
             IsActive = true
         };
@@ -473,7 +477,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com",
             IsActive = true
         };
@@ -493,7 +497,7 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var testUser = new User
         {
-            Name = "Test User",
+            UserName = "Test User",
             Email = "test@example.com",
             IsActive = true
         };
@@ -513,8 +517,8 @@ public class UsersControllerTests : IDisposable
     public async Task DeleteUser_OnlyDeletesSpecificUser()
     {
         // Arrange
-        var user1 = new User { Name = "User 1", Email = "user1@test.com", IsActive = true };
-        var user2 = new User { Name = "User 2", Email = "user2@test.com", IsActive = true };
+        var user1 = new User { UserName = "User 1", Email = "user1@test.com", IsActive = true };
+        var user2 = new User { UserName = "User 2", Email = "user2@test.com", IsActive = true };
         _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 
@@ -527,7 +531,7 @@ public class UsersControllerTests : IDisposable
         
         deletedUser.Should().BeNull();
         remainingUser.Should().NotBeNull();
-        remainingUser!.Name.Should().Be("User 2");
+        remainingUser!.UserName.Should().Be("User 2");
     }
 
     #endregion

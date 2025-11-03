@@ -102,7 +102,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateUser([FromBody] User user)
     {
-        _logger.LogInfo($"POST /api/users - Request received to create user: Name='{user?.Name}', Email='{user?.Email}'");
+        _logger.LogInfo($"POST /api/users - Request received to create user: UserName='{user?.UserName}', Email='{user?.Email}'");
         
         if (user == null)
         {
@@ -131,7 +131,7 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError($"POST /api/users - Failed to create user: Name='{user.Name}', Email='{user.Email}'", ex);
+            _logger.LogError($"POST /api/users - Failed to create user: UserName='{user.UserName}', Email='{user.Email}'", ex);
             return StatusCode(500, new { Message = "An error occurred while creating the user" });
         }
     }
@@ -148,7 +148,7 @@ public class UsersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdateUser(int id, [FromBody] User updatedUser)
     {
-        _logger.LogInfo($"PUT /api/users/{id} - Request received to update user with new data: Name='{updatedUser?.Name}', Email='{updatedUser?.Email}'");
+        _logger.LogInfo($"PUT /api/users/{id} - Request received to update user with new data: UserName='{updatedUser?.UserName}', Email='{updatedUser?.Email}'");
         
         if (updatedUser == null)
         {
@@ -221,7 +221,7 @@ public class UsersController : ControllerBase
             return BadRequest(new
             {
                 Message = "Validation failed",
-                idValidation.Errors
+                Errors = idValidation.Errors
             });
         }
 

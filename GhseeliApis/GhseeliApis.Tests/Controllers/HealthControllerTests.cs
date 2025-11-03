@@ -1,10 +1,12 @@
 using FluentAssertions;
 using GhseeliApis.Controllers;
-using GhseeliApis.Data;
+using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
+using GhseeliApis.Repositories;
+using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +19,7 @@ public class HealthControllerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly IAppLogger _logger;
+    private readonly IHealthRepository _repository;
     private readonly IHealthHandler _healthHandler;
     private readonly HealthController _controller;
 
@@ -29,7 +32,8 @@ public class HealthControllerTests : IDisposable
 
         _context = new ApplicationDbContext(options);
         _logger = new ConsoleLogger();
-        _healthHandler = new HealthHandler(_context, _logger);
+        _repository = new HealthRepository(_context);
+        _healthHandler = new HealthHandler(_repository, _logger);
         _controller = new HealthController(_healthHandler, _logger);
     }
 
@@ -206,7 +210,8 @@ public class HealthControllerDatabaseFailureTests
         await context.DisposeAsync();
         
         var logger = new ConsoleLogger();
-        var healthHandler = new HealthHandler(context, logger);
+        var repository = new HealthRepository(context);
+        var healthHandler = new HealthHandler(repository, logger);
         var controller = new HealthController(healthHandler, logger);
 
         // Act

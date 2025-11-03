@@ -65,7 +65,7 @@ public class UserRepository : IUserRepository
     /// <summary>
     /// Checks if a user exists by ID
     /// </summary>
-    public async Task<bool> ExistsAsync(int id)
+    public async Task<bool> ExistsAsync(Guid id)
     {
         return await _context.Users.AnyAsync(u => u.Id == id);
     }

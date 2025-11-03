@@ -1,37 +1,34 @@
+using System.ComponentModel.DataAnnotations;
 using GhseeliApis.Interfaces;
 using Microsoft.AspNetCore.Identity;
-using System.Text.RegularExpressions;
+using ValidationResult = GhseeliApis.Interfaces.ValidationResult;
 
 namespace GhseeliApis.Models;
 
 /// <summary>
-/// User entity extending IdentityUser with custom properties
+/// Represents a user (car owner) in the system
 /// </summary>
-public class User : IdentityUser<int>, IValidatable
+public class User : IdentityUser<Guid>, IValidatable
 {
-    // Custom properties (in addition to IdentityUser properties)
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [MaxLength(150)]
+    public string FullName { get; set; } = string.Empty;
     
-    public DateTime? UpdatedAt { get; set; }
-    
+    [MaxLength(30)]
+    public string? Phone { get; set; }
+
     public bool IsActive { get; set; } = true;
 
-    // IdentityUser<int> already provides:
-    // - Id (int)
-    // - UserName (string)
-    // - NormalizedUserName (string)
-    // - Email (string)
-    // - NormalizedEmail (string)
-    // - EmailConfirmed (bool)
-    // - PasswordHash (string)
-    // - SecurityStamp (string)
-    // - ConcurrencyStamp (string)
-    // - PhoneNumber (string)
-    // - PhoneNumberConfirmed (bool)
-    // - TwoFactorEnabled (bool)
-    // - LockoutEnd (DateTimeOffset?)
-    // - LockoutEnabled (bool)
-    // - AccessFailedCount (int)
+    // Navigation properties
+    public Wallet? Wallet { get; set; }
+    public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
+    public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+
+    // Audit fields
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     /// <summary>
     /// Validates the User model
@@ -40,21 +37,21 @@ public class User : IdentityUser<int>, IValidatable
     {
         var result = new ValidationResult { IsValid = true };
 
-        // Validate UserName (instead of Name)
-        if (string.IsNullOrWhiteSpace(UserName))
+        // Validate FullName
+        if (string.IsNullOrWhiteSpace(FullName))
         {
-            result.AddError("Username is required.");
+            result.AddError("Full name is required.");
         }
-        else if (UserName.Length < 2)
+        else if (FullName.Length < 2)
         {
-            result.AddError("Username must be at least 2 characters long.");
+            result.AddError("Full name must be at least 2 characters long.");
         }
-        else if (UserName.Length > 256)
+        else if (FullName.Length > 150)
         {
-            result.AddError("Username cannot exceed 256 characters.");
+            result.AddError("Full name cannot exceed 150 characters.");
         }
 
-        // Validate Email
+        // Validate Email (from IdentityUser)
         if (string.IsNullOrWhiteSpace(Email))
         {
             result.AddError("Email is required.");
@@ -68,12 +65,29 @@ public class User : IdentityUser<int>, IValidatable
             result.AddError("Email cannot exceed 256 characters.");
         }
 
+        // Validate UserName (from IdentityUser)
+        if (string.IsNullOrWhiteSpace(UserName))
+        {
+            result.AddError("Username is required.");
+        }
+        else if (UserName.Length < 2)
+        {
+            result.AddError("Username must be at least 2 characters long.");
+        }
+        else if (UserName.Length > 256)
+        {
+            result.AddError("Username cannot exceed 256 characters.");
+        }
+
+        // Validate Phone (optional but must be valid if provided)
+        if (!string.IsNullOrWhiteSpace(Phone) && Phone.Length > 30)
+        {
+            result.AddError("Phone number cannot exceed 30 characters.");
+        }
+
         return result;
     }
 
-    /// <summary>
-    /// Validates email format using regex
-    /// </summary>
     private static bool IsValidEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
@@ -81,15 +95,14 @@ public class User : IdentityUser<int>, IValidatable
 
         try
         {
-            // Simple email validation regex
-            var emailRegex = new Regex(
+            var emailRegex = new System.Text.RegularExpressions.Regex(
                 @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
-                RegexOptions.IgnoreCase | RegexOptions.Compiled,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled,
                 TimeSpan.FromMilliseconds(250));
 
             return emailRegex.IsMatch(email);
         }
-        catch (RegexMatchTimeoutException)
+        catch (System.Text.RegularExpressions.RegexMatchTimeoutException)
         {
             return false;
         }

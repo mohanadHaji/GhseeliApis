@@ -28,7 +28,7 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddGoogleCloudSql(builder.Configuration);
 
 // Configure ASP.NET Core Identity
-builder.Services.AddIdentity<User, IdentityRole<int>>(options =>
+builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
 {
     // Password settings
     options.Password.RequireDigit = true;

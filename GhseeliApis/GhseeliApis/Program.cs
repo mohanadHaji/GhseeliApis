@@ -61,10 +61,28 @@ builder.Services.AddAuthorization();
 // Register Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
+builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
+builder.Services.AddScoped<IUserAddressRepository, UserAddressRepository>();
+builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
+builder.Services.AddScoped<IServiceOptionRepository, ServiceOptionRepository>();
+builder.Services.AddScoped<IBookingRepository, BookingRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<ICompanyAvailabilityRepository, CompanyAvailabilityRepository>();
 
 // Register Handlers
 builder.Services.AddScoped<IUserHandler, UserHandler>();
 builder.Services.AddScoped<IHealthHandler, HealthHandler>();
+builder.Services.AddScoped<IVehicleHandler, VehicleHandler>();
+builder.Services.AddScoped<IUserAddressHandler, UserAddressHandler>();
+builder.Services.AddScoped<IBookingHandler, BookingHandler>();
+builder.Services.AddScoped<ICompanyHandler, CompanyHandler>();
+builder.Services.AddScoped<IServiceHandler, ServiceHandler>();
+builder.Services.AddScoped<IServiceOptionHandler, ServiceOptionHandler>();
+builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 
 // Register Logger
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();

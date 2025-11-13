@@ -17,7 +17,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "",
-            Email = "test@example.com"
+            Email = "test@example.com",
+            FullName = "Test User"
         };
 
         // Act
@@ -35,7 +36,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "   ",
-            Email = "test@example.com"
+            Email = "test@example.com",
+            FullName = "Test User"
         };
 
         // Act
@@ -53,7 +55,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "A",
-            Email = "test@example.com"
+            Email = "test@example.com",
+            FullName = "Test User"
         };
 
         // Act
@@ -71,7 +74,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = new string('A', 257), // 257 characters (max is 256)
-            Email = "test@example.com"
+            Email = "test@example.com",
+            FullName = "Test User"
         };
 
         // Act
@@ -89,7 +93,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "JohnDoe",
-            Email = "john@example.com"
+            Email = "john@example.com",
+            FullName = "John Doe"
         };
 
         // Act
@@ -111,7 +116,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "JohnDoe",
-            Email = ""
+            Email = "",
+            FullName = "John Doe"
         };
 
         // Act
@@ -129,7 +135,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "JohnDoe",
-            Email = "   "
+            Email = "   ",
+            FullName = "John Doe"
         };
 
         // Act
@@ -159,7 +166,8 @@ public class UserValidationTests
             var user = new User
             {
                 UserName = "JohnDoe",
-                Email = email
+                Email = email,
+                FullName = "John Doe"
             };
 
             // Act
@@ -178,7 +186,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "JohnDoe",
-            Email = new string('a', 246) + "@example.com" // 257 characters total (max is 256)
+            Email = new string('a', 246) + "@example.com", // 257 characters total (max is 256)
+            FullName = "John Doe"
         };
 
         // Act
@@ -200,7 +209,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "JohnDoe",
-            Email = email
+            Email = email,
+            FullName = "John Doe"
         };
 
         // Act
@@ -222,7 +232,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "", // Invalid - empty
-            Email = "notanemail" // Invalid - bad format
+            Email = "notanemail", // Invalid - bad format
+            FullName = "" // Invalid - empty
         };
 
         // Act
@@ -230,9 +241,10 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().HaveCount(2);
-        result.Errors.Should().Contain("Username is required.");
+        result.Errors.Should().HaveCount(3);
+        result.Errors.Should().Contain("Full name is required.");
         result.Errors.Should().Contain("Email format is invalid.");
+        result.Errors.Should().Contain("Username is required.");
     }
 
     [Fact]
@@ -242,7 +254,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "A", // Too short
-            Email = "invalid" // Bad format
+            Email = "invalid", // Bad format
+            FullName = "A" // Too short
         };
 
         // Act
@@ -250,7 +263,7 @@ public class UserValidationTests
 
         // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().HaveCountGreaterThanOrEqualTo(2);
+        result.Errors.Should().HaveCountGreaterThanOrEqualTo(3);
     }
 
     #endregion
@@ -264,7 +277,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = "AB", // Minimum 2 characters
-            Email = "a@b.c" // Minimum valid email
+            Email = "a@b.c", // Minimum valid email
+            FullName = "AB" // Minimum 2 characters
         };
 
         // Act
@@ -282,7 +296,8 @@ public class UserValidationTests
         var user = new User
         {
             UserName = new string('A', 256), // Maximum 256 characters
-            Email = new string('a', 244) + "@example.com" // Maximum 256 characters
+            Email = new string('a', 244) + "@example.com", // Maximum 256 characters
+            FullName = new string('A', 150) // Maximum 150 characters
         };
 
         // Act

@@ -18,7 +18,7 @@ public interface IUserRepository
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>User if found, null otherwise</returns>
-    Task<User?> GetByIdAsync(int id);
+    Task<User?> GetByIdAsync(Guid id);
 
     /// <summary>
     /// Adds a new user to the database
@@ -46,7 +46,7 @@ public interface IUserRepository
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>True if exists, false otherwise</returns>
-    Task<bool> ExistsAsync(int id);
+    Task<bool> ExistsAsync(Guid id);
 
     /// <summary>
     /// Gets a user by email

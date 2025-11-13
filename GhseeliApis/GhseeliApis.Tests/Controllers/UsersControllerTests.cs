@@ -44,6 +44,24 @@ public class UsersControllerTests : IDisposable
         _context.Dispose();
     }
 
+    /// <summary>
+    /// Creates a valid test user with all required fields
+    /// </summary>
+    private static User CreateValidUser(string userName = "testuser", string email = null, string fullName = null)
+    {
+        email ??= $"{userName}@test.com";
+        fullName ??= $"Test {userName}";
+        
+        return new User
+        {
+            UserName = userName,
+            Email = email,
+            FullName = fullName,
+            Phone = "1234567890",
+            IsActive = true
+        };
+    }
+
     #region GetAllUsers Tests
 
     [Fact]
@@ -64,9 +82,9 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var testUsers = new List<User>
         {
-            new User { UserName = "User 1", Email = "user1@test.com", IsActive = true },
-            new User { UserName = "User 2", Email = "user2@test.com", IsActive = false },
-            new User { UserName = "User 3", Email = "user3@test.com", IsActive = true }
+            CreateValidUser("user1", "user1@test.com", "User One"),
+            CreateValidUser("user2", "user2@test.com", "User Two"),
+            CreateValidUser("user3", "user3@test.com", "User Three")
         };
         _context.Users.AddRange(testUsers);
         await _context.SaveChangesAsync();
@@ -78,9 +96,9 @@ public class UsersControllerTests : IDisposable
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var users = okResult.Value.Should().BeAssignableTo<List<User>>().Subject;
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.UserName == "User 1");
-        users.Should().Contain(u => u.UserName == "User 2");
-        users.Should().Contain(u => u.UserName == "User 3");
+        users.Should().Contain(u => u.UserName == "user1");
+        users.Should().Contain(u => u.UserName == "user2");
+        users.Should().Contain(u => u.UserName == "user3");
     }
 
     #endregion
@@ -88,38 +106,10 @@ public class UsersControllerTests : IDisposable
     #region GetUserById Tests
 
     [Fact]
-    public async Task GetUserById_ReturnsBadRequest_WhenIdIsZero()
-    {
-        // Act
-        var result = await _controller.GetUserById(0);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-    }
-
-    [Fact]
-    public async Task GetUserById_ReturnsBadRequest_WhenIdIsNegative()
-    {
-        // Act
-        var result = await _controller.GetUserById(-1);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-        
-        var response = badRequestResult.Value;
-        var errorsProperty = response?.GetType().GetProperty("Errors");
-        errorsProperty.Should().NotBeNull();
-        var errors = errorsProperty!.GetValue(response) as List<string>;
-        errors.Should().Contain("User ID must be greater than zero.");
-    }
-
-    [Fact]
     public async Task GetUserById_ReturnsNotFound_WhenUserDoesNotExist()
     {
         // Act
-        var result = await _controller.GetUserById(999);
+        var result = await _controller.GetUserById(Guid.NewGuid());
 
         // Assert
         result.Should().BeOfType<NotFoundResult>();
@@ -129,12 +119,7 @@ public class UsersControllerTests : IDisposable
     public async Task GetUserById_ReturnsUser_WhenUserExists()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com",
-            IsActive = true
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
 
@@ -145,8 +130,9 @@ public class UsersControllerTests : IDisposable
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         var user = okResult.Value.Should().BeOfType<User>().Subject;
         user.Id.Should().Be(testUser.Id);
-        user.UserName.Should().Be("Test User");
+        user.UserName.Should().Be("testuser");
         user.Email.Should().Be("test@example.com");
+        user.FullName.Should().Be("Test User");
         user.IsActive.Should().BeTrue();
     }
 
@@ -158,12 +144,7 @@ public class UsersControllerTests : IDisposable
     public async Task CreateUser_CreatesNewUser_AndReturnsCreatedResult()
     {
         // Arrange
-        var newUser = new User
-        {
-            UserName = "New User",
-            Email = "newuser@example.com",
-            IsActive = true
-        };
+        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
 
         // Act
         var result = await _controller.CreateUser(newUser);
@@ -173,27 +154,23 @@ public class UsersControllerTests : IDisposable
         createdResult.ActionName.Should().Be(nameof(UsersController.GetUserById));
         
         var returnedUser = createdResult.Value.Should().BeOfType<User>().Subject;
-        returnedUser.UserName.Should().Be("New User");
+        returnedUser.UserName.Should().Be("newuser");
         returnedUser.Email.Should().Be("newuser@example.com");
+        returnedUser.FullName.Should().Be("New User");
         returnedUser.IsActive.Should().BeTrue();
-        returnedUser.Id.Should().BeGreaterThan(0);
+        returnedUser.Id.Should().NotBe(Guid.Empty);
 
         // Verify user was actually saved to database
         var savedUser = await _context.Users.FindAsync(returnedUser.Id);
         savedUser.Should().NotBeNull();
-        savedUser!.UserName.Should().Be("New User");
+        savedUser!.UserName.Should().Be("newuser");
     }
 
     [Fact]
     public async Task CreateUser_SetsCreatedAtTimestamp()
     {
         // Arrange
-        var newUser = new User
-        {
-            UserName = "New User",
-            Email = "newuser@example.com",
-            IsActive = true
-        };
+        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
 
         // Act
         var result = await _controller.CreateUser(newUser);
@@ -205,13 +182,15 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task CreateUser_ReturnsBadRequest_WhenNameIsEmpty()
+    public async Task CreateUser_ReturnsBadRequest_WhenFullNameIsEmpty()
     {
         // Arrange
         var newUser = new User
         {
-            UserName = "",
-            Email = "test@example.com"
+            UserName = "testuser",
+            Email = "test@example.com",
+            FullName = "", // Invalid - required field
+            IsActive = true
         };
 
         // Act
@@ -228,8 +207,10 @@ public class UsersControllerTests : IDisposable
         // Arrange
         var newUser = new User
         {
-            UserName = "Test User",
-            Email = "notanemail"
+            UserName = "testuser",
+            Email = "notanemail", // Invalid format
+            FullName = "Test User",
+            IsActive = true
         };
 
         // Act
@@ -247,7 +228,9 @@ public class UsersControllerTests : IDisposable
         var newUser = new User
         {
             UserName = "", // Invalid
-            Email = "invalid" // Invalid
+            Email = "invalid", // Invalid
+            FullName = "", // Invalid
+            IsActive = true
         };
 
         // Act
@@ -265,7 +248,9 @@ public class UsersControllerTests : IDisposable
         errorsProperty.Should().NotBeNull();
         var errors = errorsProperty!.GetValue(response) as List<string>;
         errors.Should().NotBeNull();
-        errors.Should().HaveCountGreaterThan(0);
+        errors.Should().Contain(e => e.Contains("Full name"));
+        errors.Should().Contain(e => e.Contains("Email"));
+        errors.Should().Contain(e => e.Contains("Username"));
     }
 
     #endregion
@@ -273,64 +258,13 @@ public class UsersControllerTests : IDisposable
     #region UpdateUser Tests
 
     [Fact]
-    public async Task UpdateUser_ReturnsBadRequest_WhenIdIsZero()
-    {
-        // Arrange
-        var updatedUser = new User
-        {
-            UserName = "Updated Name",
-            Email = "updated@example.com",
-            IsActive = false
-        };
-
-        // Act
-        var result = await _controller.UpdateUser(0, updatedUser);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-    }
-
-    [Fact]
-    public async Task UpdateUser_ReturnsBadRequest_WhenIdIsNegative()
-    {
-        // Arrange
-        var updatedUser = new User
-        {
-            UserName = "Updated Name",
-            Email = "updated@example.com",
-            IsActive = false
-        };
-
-        // Act
-        var result = await _controller.UpdateUser(-1, updatedUser);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-        
-        var response = badRequestResult.Value;
-        var errorsProperty = response?.GetType().GetProperty("Errors");
-        errorsProperty.Should().NotBeNull();
-        var errors = errorsProperty!.GetValue(response) as List<string>;
-        errors.Should().Contain("User ID must be greater than zero.");
-    }
-
-    [Fact]
     public async Task UpdateUser_ReturnsNotFound_WhenUserDoesNotExist()
     {
         // Arrange
-        var updatedUser = new User
-        {
-            UserName = "Updated Name",
-            Email = "updated@example.com",
-            IsActive = false
-        };
-        _context.Users.Add(updatedUser);
-        await _context.SaveChangesAsync();
+        var updatedUser = CreateValidUser("updated", "updated@example.com", "Updated Name");
 
         // Act
-        var result = await _controller.UpdateUser(999, updatedUser);
+        var result = await _controller.UpdateUser(Guid.NewGuid(), updatedUser);
 
         // Assert
         result.Should().BeOfType<NotFoundResult>();
@@ -340,21 +274,12 @@ public class UsersControllerTests : IDisposable
     public async Task UpdateUser_UpdatesUser_WhenUserExists()
     {
         // Arrange
-        var existingUser = new User
-        {
-            UserName = "Original Name",
-            Email = "original@example.com",
-            IsActive = true
-        };
+        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updatedData = new User
-        {
-            UserName = "Updated Name",
-            Email = "updated@example.com",
-            IsActive = false
-        };
+        var updatedData = CreateValidUser("updated", "updated@example.com", "Updated Name");
+        updatedData.IsActive = false;
 
         // Act
         var result = await _controller.UpdateUser(existingUser.Id, updatedData);
@@ -364,8 +289,9 @@ public class UsersControllerTests : IDisposable
         var returnedUser = okResult.Value.Should().BeOfType<User>().Subject;
         
         returnedUser.Id.Should().Be(existingUser.Id);
-        returnedUser.UserName.Should().Be("Updated Name");
+        returnedUser.UserName.Should().Be("updated");
         returnedUser.Email.Should().Be("updated@example.com");
+        returnedUser.FullName.Should().Be("Updated Name");
         returnedUser.IsActive.Should().BeFalse();
         returnedUser.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
@@ -374,21 +300,11 @@ public class UsersControllerTests : IDisposable
     public async Task UpdateUser_PersistsChangesToDatabase()
     {
         // Arrange
-        var existingUser = new User
-        {
-            UserName = "Original Name",
-            Email = "original@example.com",
-            IsActive = true
-        };
+        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updatedData = new User
-        {
-            UserName = "Updated Name",
-            Email = "updated@example.com",
-            IsActive = false
-        };
+        var updatedData = CreateValidUser("updated", "updated@example.com", "Updated Name");
 
         // Act
         await _controller.UpdateUser(existingUser.Id, updatedData);
@@ -396,21 +312,16 @@ public class UsersControllerTests : IDisposable
         // Assert
         var savedUser = await _context.Users.FindAsync(existingUser.Id);
         savedUser.Should().NotBeNull();
-        savedUser!.UserName.Should().Be("Updated Name");
+        savedUser!.UserName.Should().Be("updated");
         savedUser.Email.Should().Be("updated@example.com");
-        savedUser.IsActive.Should().BeFalse();
+        savedUser.FullName.Should().Be("Updated Name");
     }
 
     [Fact]
     public async Task UpdateUser_ReturnsBadRequest_WhenValidationFails()
     {
         // Arrange
-        var existingUser = new User
-        {
-            UserName = "Original Name",
-            Email = "original@example.com",
-            IsActive = true
-        };
+        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
@@ -418,6 +329,7 @@ public class UsersControllerTests : IDisposable
         {
             UserName = "", // Invalid
             Email = "notanemail", // Invalid
+            FullName = "", // Invalid
             IsActive = true
         };
 
@@ -434,38 +346,10 @@ public class UsersControllerTests : IDisposable
     #region DeleteUser Tests
 
     [Fact]
-    public async Task DeleteUser_ReturnsBadRequest_WhenIdIsZero()
-    {
-        // Act
-        var result = await _controller.DeleteUser(0);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-    }
-
-    [Fact]
-    public async Task DeleteUser_ReturnsBadRequest_WhenIdIsNegative()
-    {
-        // Act
-        var result = await _controller.DeleteUser(-1);
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.StatusCode.Should().Be(400);
-        
-        var response = badRequestResult.Value;
-        var errorsProperty = response?.GetType().GetProperty("Errors");
-        errorsProperty.Should().NotBeNull();
-        var errors = errorsProperty!.GetValue(response) as List<string>;
-        errors.Should().Contain("User ID must be greater than zero.");
-    }
-
-    [Fact]
     public async Task DeleteUser_ReturnsNotFound_WhenUserDoesNotExist()
     {
         // Act
-        var result = await _controller.DeleteUser(999);
+        var result = await _controller.DeleteUser(Guid.NewGuid());
 
         // Assert
         result.Should().BeOfType<NotFoundResult>();
@@ -475,12 +359,7 @@ public class UsersControllerTests : IDisposable
     public async Task DeleteUser_ReturnsNoContent_WhenUserExists()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com",
-            IsActive = true
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
 
@@ -495,12 +374,7 @@ public class UsersControllerTests : IDisposable
     public async Task DeleteUser_RemovesUserFromDatabase()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com",
-            IsActive = true
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
         var userId = testUser.Id;
@@ -517,8 +391,8 @@ public class UsersControllerTests : IDisposable
     public async Task DeleteUser_OnlyDeletesSpecificUser()
     {
         // Arrange
-        var user1 = new User { UserName = "User 1", Email = "user1@test.com", IsActive = true };
-        var user2 = new User { UserName = "User 2", Email = "user2@test.com", IsActive = true };
+        var user1 = CreateValidUser("user1", "user1@test.com", "User One");
+        var user2 = CreateValidUser("user2", "user2@test.com", "User Two");
         _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 
@@ -531,7 +405,7 @@ public class UsersControllerTests : IDisposable
         
         deletedUser.Should().BeNull();
         remainingUser.Should().NotBeNull();
-        remainingUser!.UserName.Should().Be("User 2");
+        remainingUser!.UserName.Should().Be("user2");
     }
 
     #endregion

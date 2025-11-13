@@ -52,25 +52,13 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>User details</returns>
-    [HttpGet("{id:int}")]
+    [HttpGet("{id:guid}")]
     [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetUserById(int id)
+    public async Task<IActionResult> GetUserById(Guid id)
     {
         _logger.LogInfo($"GET /api/users/{id} - Request received to retrieve user");
-        
-        // Validate input using IdValidator
-        var idValidation = IdValidator.ValidateId(id);
-        if (!idValidation.IsValid)
-        {
-            _logger.LogWarning($"GET /api/users/{id} - Validation failed: {string.Join(", ", idValidation.Errors)}");
-            return BadRequest(new
-            {
-                Message = "Validation failed",
-                Errors = idValidation.Errors
-            });
-        }
 
         try
         {
@@ -142,11 +130,11 @@ public class UsersController : ControllerBase
     /// <param name="id">User ID</param>
     /// <param name="updatedUser">Updated user details</param>
     /// <returns>Updated user</returns>
-    [HttpPut("{id:int}")]
+    [HttpPut("{id:guid}")]
     [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpdateUser(int id, [FromBody] User updatedUser)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] User updatedUser)
     {
         _logger.LogInfo($"PUT /api/users/{id} - Request received to update user with new data: UserName='{updatedUser?.UserName}', Email='{updatedUser?.Email}'");
         
@@ -154,18 +142,6 @@ public class UsersController : ControllerBase
         {
             _logger.LogWarning($"PUT /api/users/{id} - Request body is null or invalid");
             return BadRequest(new { Message = "User data is required" });
-        }
-
-        // Validate input ID using IdValidator
-        var idValidation = IdValidator.ValidateId(id);
-        if (!idValidation.IsValid)
-        {
-            _logger.LogWarning($"PUT /api/users/{id} - ID validation failed: {string.Join(", ", idValidation.Errors)}");
-            return BadRequest(new
-            {
-                Message = "Validation failed",
-                Errors = idValidation.Errors
-            });
         }
 
         // Validate the updated user model
@@ -205,25 +181,13 @@ public class UsersController : ControllerBase
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>No content</returns>
-    [HttpDelete("{id:int}")]
+    [HttpDelete("{id:guid}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteUser(int id)
+    public async Task<IActionResult> DeleteUser(Guid id)
     {
         _logger.LogInfo($"DELETE /api/users/{id} - Request received to delete user");
-        
-        // Validate input using IdValidator
-        var idValidation = IdValidator.ValidateId(id);
-        if (!idValidation.IsValid)
-        {
-            _logger.LogWarning($"DELETE /api/users/{id} - Validation failed: {string.Join(", ", idValidation.Errors)}");
-            return BadRequest(new
-            {
-                Message = "Validation failed",
-                Errors = idValidation.Errors
-            });
-        }
 
         try
         {

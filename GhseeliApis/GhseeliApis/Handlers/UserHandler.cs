@@ -50,7 +50,7 @@ public class UserHandler : IUserHandler
     /// <summary>
     /// Gets a user by ID
     /// </summary>
-    public async Task<User?> GetUserByIdAsync(int id)
+    public async Task<User?> GetUserByIdAsync(Guid id)
     {
         try
         {
@@ -104,11 +104,11 @@ public class UserHandler : IUserHandler
     /// <summary>
     /// Updates an existing user
     /// </summary>
-    public async Task<User?> UpdateUserAsync(int id, User updatedUser)
+    public async Task<User?> UpdateUserAsync(Guid id, User updatedUser)
     {
         try
         {
-            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id} with new data - UserName='{updatedUser.UserName}', Email='{updatedUser.Email}', IsActive={updatedUser.IsActive}");
+            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id} with new data - UserName='{updatedUser.UserName}', Email='{updatedUser.Email}', FullName='{updatedUser.FullName}', IsActive={updatedUser.IsActive}");
             
             var user = await _userRepository.GetByIdAsync(id);
             
@@ -120,14 +120,17 @@ public class UserHandler : IUserHandler
 
             var oldUserName = user.UserName;
             var oldEmail = user.Email;
+            var oldFullName = user.FullName;
             var oldIsActive = user.IsActive;
 
             user.UserName = updatedUser.UserName;
             user.Email = updatedUser.Email;
+            user.FullName = updatedUser.FullName;
+            user.Phone = updatedUser.Phone;
             user.IsActive = updatedUser.IsActive;
             user.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInfo($"UpdateUserAsync: Saving changes for user ID={id} - Changed: UserName '{oldUserName}'=>'{user.UserName}', Email '{oldEmail}'=>'{user.Email}', IsActive {oldIsActive}=>{user.IsActive}");
+            _logger.LogInfo($"UpdateUserAsync: Saving changes for user ID={id} - Changed: UserName '{oldUserName}'=>'{user.UserName}', Email '{oldEmail}'=>'{user.Email}', FullName '{oldFullName}'=>'{user.FullName}', IsActive {oldIsActive}=>{user.IsActive}");
             
             var result = await _userRepository.UpdateAsync(user);
             
@@ -155,7 +158,7 @@ public class UserHandler : IUserHandler
     /// <summary>
     /// Deletes a user by ID
     /// </summary>
-    public async Task<bool> DeleteUserAsync(int id)
+    public async Task<bool> DeleteUserAsync(Guid id)
     {
         try
         {

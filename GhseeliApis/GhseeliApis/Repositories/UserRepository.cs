@@ -28,7 +28,7 @@ public class UserRepository : IUserRepository
     /// <summary>
     /// Gets a user by ID from the database
     /// </summary>
-    public async Task<User?> GetByIdAsync(int id)
+    public async Task<User?> GetByIdAsync(Guid id)
     {
         return await _context.Users.FindAsync(id);
     }

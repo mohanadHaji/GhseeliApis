@@ -38,6 +38,24 @@ public class UserHandlerTests : IDisposable
         _context.Dispose();
     }
 
+    /// <summary>
+    /// Creates a valid test user with all required fields
+    /// </summary>
+    private static User CreateValidUser(string userName = "testuser", string email = null, string fullName = null)
+    {
+        email ??= $"{userName}@test.com";
+        fullName ??= $"Test {userName}";
+        
+        return new User
+        {
+            UserName = userName,
+            Email = email,
+            FullName = fullName,
+            Phone = "1234567890",
+            IsActive = true
+        };
+    }
+
     #region GetAllUsersAsync Tests
 
     [Fact]
@@ -56,9 +74,9 @@ public class UserHandlerTests : IDisposable
         // Arrange
         var testUsers = new List<User>
         {
-            new User { UserName = "User 1", Email = "user1@test.com" },
-            new User { UserName = "User 2", Email = "user2@test.com" },
-            new User { UserName = "User 3", Email = "user3@test.com" }
+            CreateValidUser("user1", "user1@test.com", "User One"),
+            CreateValidUser("user2", "user2@test.com", "User Two"),
+            CreateValidUser("user3", "user3@test.com", "User Three")
         };
         _context.Users.AddRange(testUsers);
         await _context.SaveChangesAsync();
@@ -68,9 +86,9 @@ public class UserHandlerTests : IDisposable
 
         // Assert
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.UserName == "User 1");
-        users.Should().Contain(u => u.UserName == "User 2");
-        users.Should().Contain(u => u.UserName == "User 3");
+        users.Should().Contain(u => u.UserName == "user1");
+        users.Should().Contain(u => u.UserName == "user2");
+        users.Should().Contain(u => u.UserName == "user3");
     }
 
     #endregion
@@ -81,7 +99,7 @@ public class UserHandlerTests : IDisposable
     public async Task GetUserByIdAsync_ReturnsNull_WhenUserDoesNotExist()
     {
         // Act
-        var user = await _handler.GetUserByIdAsync(999);
+        var user = await _handler.GetUserByIdAsync(Guid.NewGuid());
 
         // Assert
         user.Should().BeNull();
@@ -91,11 +109,7 @@ public class UserHandlerTests : IDisposable
     public async Task GetUserByIdAsync_ReturnsUser_WhenUserExists()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com"
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
 
@@ -105,8 +119,9 @@ public class UserHandlerTests : IDisposable
         // Assert
         user.Should().NotBeNull();
         user!.Id.Should().Be(testUser.Id);
-        user.UserName.Should().Be("Test User");
+        user.UserName.Should().Be("testuser");
         user.Email.Should().Be("test@example.com");
+        user.FullName.Should().Be("Test User");
     }
 
     #endregion
@@ -117,41 +132,34 @@ public class UserHandlerTests : IDisposable
     public async Task CreateUserAsync_CreatesUserInDatabase()
     {
         // Arrange
-        var newUser = new User
-        {
-            UserName = "New User",
-            Email = "newuser@example.com"
-        };
+        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
 
         // Act
         var createdUser = await _handler.CreateUserAsync(newUser);
 
         // Assert
         createdUser.Should().NotBeNull();
-        createdUser.Id.Should().BeGreaterThan(0);
-        createdUser.UserName.Should().Be("New User");
+        createdUser.Id.Should().NotBe(Guid.Empty);
+        createdUser.UserName.Should().Be("newuser");
+        createdUser.FullName.Should().Be("New User");
 
         // Verify it's in the database
         var dbUser = await _context.Users.FindAsync(createdUser.Id);
         dbUser.Should().NotBeNull();
-        dbUser!.UserName.Should().Be("New User");
+        dbUser!.UserName.Should().Be("newuser");
     }
 
     [Fact]
     public async Task CreateUserAsync_ReturnsUserWithGeneratedId()
     {
         // Arrange
-        var newUser = new User
-        {
-            UserName = "New User",
-            Email = "newuser@example.com"
-        };
+        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
 
         // Act
         var createdUser = await _handler.CreateUserAsync(newUser);
 
         // Assert
-        createdUser.Id.Should().BeGreaterThan(0);
+        createdUser.Id.Should().NotBe(Guid.Empty);
     }
 
     #endregion
@@ -162,14 +170,10 @@ public class UserHandlerTests : IDisposable
     public async Task UpdateUserAsync_ReturnsNull_WhenUserDoesNotExist()
     {
         // Arrange
-        var updateData = new User
-        {
-            UserName = "Updated",
-            Email = "updated@example.com"
-        };
+        var updateData = CreateValidUser("updated", "updated@example.com", "Updated User");
 
         // Act
-        var result = await _handler.UpdateUserAsync(999, updateData);
+        var result = await _handler.UpdateUserAsync(Guid.NewGuid(), updateData);
 
         // Assert
         result.Should().BeNull();
@@ -179,29 +183,21 @@ public class UserHandlerTests : IDisposable
     public async Task UpdateUserAsync_UpdatesUser_WhenUserExists()
     {
         // Arrange
-        var existingUser = new User
-        {
-            UserName = "Original",
-            Email = "original@example.com",
-            IsActive = true
-        };
+        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updateData = new User
-        {
-            UserName = "Updated",
-            Email = "updated@example.com",
-            IsActive = false
-        };
+        var updateData = CreateValidUser("updated", "updated@example.com", "Updated Name");
+        updateData.IsActive = false;
 
         // Act
         var result = await _handler.UpdateUserAsync(existingUser.Id, updateData);
 
         // Assert
         result.Should().NotBeNull();
-        result!.UserName.Should().Be("Updated");
+        result!.UserName.Should().Be("updated");
         result.Email.Should().Be("updated@example.com");
+        result.FullName.Should().Be("Updated Name");
         result.IsActive.Should().BeFalse();
         result.UpdatedAt.Should().NotBeNull();
     }
@@ -210,19 +206,11 @@ public class UserHandlerTests : IDisposable
     public async Task UpdateUserAsync_PersistsChangesToDatabase()
     {
         // Arrange
-        var existingUser = new User
-        {
-            UserName = "Original",
-            Email = "original@example.com"
-        };
+        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updateData = new User
-        {
-            UserName = "Updated",
-            Email = "updated@example.com"
-        };
+        var updateData = CreateValidUser("updated", "updated@example.com", "Updated Name");
 
         // Act
         await _handler.UpdateUserAsync(existingUser.Id, updateData);
@@ -230,8 +218,9 @@ public class UserHandlerTests : IDisposable
         // Assert
         var dbUser = await _context.Users.FindAsync(existingUser.Id);
         dbUser.Should().NotBeNull();
-        dbUser!.UserName.Should().Be("Updated");
+        dbUser!.UserName.Should().Be("updated");
         dbUser.Email.Should().Be("updated@example.com");
+        dbUser.FullName.Should().Be("Updated Name");
     }
 
     #endregion
@@ -242,7 +231,7 @@ public class UserHandlerTests : IDisposable
     public async Task DeleteUserAsync_ReturnsFalse_WhenUserDoesNotExist()
     {
         // Act
-        var result = await _handler.DeleteUserAsync(999);
+        var result = await _handler.DeleteUserAsync(Guid.NewGuid());
 
         // Assert
         result.Should().BeFalse();
@@ -252,11 +241,7 @@ public class UserHandlerTests : IDisposable
     public async Task DeleteUserAsync_ReturnsTrue_WhenUserExists()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com"
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
 
@@ -271,11 +256,7 @@ public class UserHandlerTests : IDisposable
     public async Task DeleteUserAsync_RemovesUserFromDatabase()
     {
         // Arrange
-        var testUser = new User
-        {
-            UserName = "Test User",
-            Email = "test@example.com"
-        };
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
         var userId = testUser.Id;
@@ -292,8 +273,8 @@ public class UserHandlerTests : IDisposable
     public async Task DeleteUserAsync_OnlyDeletesSpecifiedUser()
     {
         // Arrange
-        var user1 = new User { UserName = "User 1", Email = "user1@test.com" };
-        var user2 = new User { UserName = "User 2", Email = "user2@test.com" };
+        var user1 = CreateValidUser("user1", "user1@test.com", "User One");
+        var user2 = CreateValidUser("user2", "user2@test.com", "User Two");
         _context.Users.AddRange(user1, user2);
         await _context.SaveChangesAsync();
 

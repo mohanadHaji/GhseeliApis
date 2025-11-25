@@ -2,12 +2,15 @@ using GhseeliApis.DTOs.Vehicle;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class VehiclesController : ControllerBase
 {
     private readonly IVehicleHandler _vehicleHandler;
@@ -27,8 +30,7 @@ public class VehiclesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication context
-            var userId = Guid.NewGuid(); // Placeholder
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/vehicles/my-vehicles - Getting vehicles for user {userId}");
             
@@ -98,8 +100,7 @@ public class VehiclesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication context
-            var userId = Guid.NewGuid(); // Placeholder
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"POST /api/vehicles - Creating vehicle for user {userId}");
 
@@ -154,8 +155,7 @@ public class VehiclesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication context
-            var userId = Guid.NewGuid(); // Placeholder
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"PUT /api/vehicles/{id}");
 
@@ -215,8 +215,7 @@ public class VehiclesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication context
-            var userId = Guid.NewGuid(); // Placeholder
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"DELETE /api/vehicles/{id}");
 

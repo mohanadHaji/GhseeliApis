@@ -2,12 +2,14 @@ using GhseeliApis.DTOs.Service;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ServicesController : ControllerBase
 {
     private readonly IServiceHandler _serviceHandler;
@@ -110,9 +112,10 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new service
+    /// Create a new service (Company or Admin)
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Company,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateServiceRequest request)
     {
         try
@@ -150,9 +153,10 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
-    /// Update a service
+    /// Update a service (Company or Admin)
     /// </summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Company,Admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceRequest request)
     {
         try
@@ -192,9 +196,10 @@ public class ServicesController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a service
+    /// Delete a service (Admin only)
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

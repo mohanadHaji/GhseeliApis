@@ -7,7 +7,10 @@ using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,9 +57,51 @@ builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure authentication
-builder.Services.AddAuthentication();
-builder.Services.AddAuthorization();
+// Configure JWT Authentication
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey is not configured");
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.SaveToken = true;
+    options.RequireHttpsMetadata = false; // Set to true in production
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ClockSkew = TimeSpan.Zero // Remove default 5 minute clock skew
+    };
+});
+
+// Configure Authorization Policies
+builder.Services.AddAuthorization(options =>
+{
+    // User policy - requires User role
+    options.AddPolicy("UserPolicy", policy => policy.RequireRole("User"));
+    
+    // Company policy - requires Company role
+    options.AddPolicy("CompanyPolicy", policy => policy.RequireRole("Company"));
+    
+    // Admin policy - requires Admin role
+    options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
+    
+    // UserOrCompany policy - requires either User or Company role
+    options.AddPolicy("UserOrCompanyPolicy", policy => policy.RequireRole("User", "Company"));
+    
+    // CompanyOrAdmin policy - requires either Company or Admin role
+    options.AddPolicy("CompanyOrAdminPolicy", policy => policy.RequireRole("Company", "Admin"));
+});
 
 // Register Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -84,6 +129,9 @@ builder.Services.AddScoped<IServiceHandler, ServiceHandler>();
 builder.Services.AddScoped<IServiceOptionHandler, ServiceOptionHandler>();
 builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 
+// Register Services
+builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, GhseeliApis.Services.AuthService>();
+
 // Register Logger
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 
@@ -108,5 +156,29 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed roles
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
+    var logger = scope.ServiceProvider.GetRequiredService<GhseeliApis.Logger.Interfaces.IAppLogger>();
+    
+    string[] roles = { "User", "Company", "Admin" };
+    foreach (var role in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            var result = await roleManager.CreateAsync(new IdentityRole<Guid>(role));
+            if (result.Succeeded)
+            {
+                logger.LogInfo($"Role '{role}' created successfully");
+            }
+            else
+            {
+                logger.LogError($"Failed to create role '{role}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+        }
+    }
+}
 
 app.Run();

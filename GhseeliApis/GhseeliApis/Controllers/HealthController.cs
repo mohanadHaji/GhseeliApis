@@ -1,5 +1,6 @@
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
@@ -10,6 +11,7 @@ namespace GhseeliApis.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Tags("Health")]
+[AllowAnonymous]
 public class HealthController : ControllerBase
 {
     private readonly IHealthHandler _healthHandler;

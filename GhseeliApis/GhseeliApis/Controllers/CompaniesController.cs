@@ -2,12 +2,14 @@ using GhseeliApis.DTOs.Company;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyHandler _companyHandler;
@@ -108,9 +110,10 @@ public class CompaniesController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new company
+    /// Create a new company (Admin only)
     /// </summary>
     [HttpPost("create")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateCompanyRequest request)
     {
         try
@@ -151,9 +154,10 @@ public class CompaniesController : ControllerBase
     }
 
     /// <summary>
-    /// Update a company
+    /// Update a company (Company or Admin)
     /// </summary>
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Company,Admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCompanyRequest request)
     {
         try
@@ -196,9 +200,10 @@ public class CompaniesController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a company
+    /// Delete a company (Admin only)
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

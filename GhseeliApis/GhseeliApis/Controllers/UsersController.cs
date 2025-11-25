@@ -2,16 +2,18 @@ using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Validators;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 /// <summary>
-/// User management controller
+/// User management controller (Admin only)
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Tags("Users")]
+[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserHandler _userHandler;

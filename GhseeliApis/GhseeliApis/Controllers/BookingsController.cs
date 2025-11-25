@@ -3,12 +3,15 @@ using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class BookingsController : ControllerBase
 {
     private readonly IBookingHandler _bookingHandler;
@@ -28,8 +31,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/bookings/my-bookings - Getting bookings for user {userId}");
             
@@ -53,8 +55,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/bookings/my-bookings/upcoming - Getting upcoming bookings for user {userId}");
             
@@ -78,8 +79,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/bookings/my-bookings/history - Getting past bookings for user {userId}");
             
@@ -149,8 +149,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"POST /api/bookings - Creating booking for user {userId}");
 
@@ -188,8 +187,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"PUT /api/bookings/{id}");
 
@@ -226,8 +224,7 @@ public class BookingsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"PUT /api/bookings/{id}/cancel");
 
@@ -253,12 +250,18 @@ public class BookingsController : ControllerBase
     /// Confirm a booking (company action)
     /// </summary>
     [HttpPut("{id:guid}/confirm")]
+    [Authorize(Roles = "Company")]
     public async Task<IActionResult> Confirm(Guid id)
     {
         try
         {
-            // TODO: Get companyId from authentication
-            var companyId = Guid.NewGuid();
+            // Get companyId from claims (should be set during company registration)
+            var companyIdClaim = User.FindFirstValue("CompanyId");
+            if (string.IsNullOrEmpty(companyIdClaim) || !Guid.TryParse(companyIdClaim, out var companyId))
+            {
+                _logger.LogWarning($"PUT /api/bookings/{id}/confirm - No valid CompanyId claim found");
+                return BadRequest(new { Message = "Company ID not found in user claims" });
+            }
             
             _logger.LogInfo($"PUT /api/bookings/{id}/confirm by company {companyId}");
 
@@ -284,12 +287,18 @@ public class BookingsController : ControllerBase
     /// Start service (company action)
     /// </summary>
     [HttpPut("{id:guid}/start")]
+    [Authorize(Roles = "Company")]
     public async Task<IActionResult> StartService(Guid id)
     {
         try
         {
-            // TODO: Get companyId from authentication
-            var companyId = Guid.NewGuid();
+            // Get companyId from claims
+            var companyIdClaim = User.FindFirstValue("CompanyId");
+            if (string.IsNullOrEmpty(companyIdClaim) || !Guid.TryParse(companyIdClaim, out var companyId))
+            {
+                _logger.LogWarning($"PUT /api/bookings/{id}/start - No valid CompanyId claim found");
+                return BadRequest(new { Message = "Company ID not found in user claims" });
+            }
             
             _logger.LogInfo($"PUT /api/bookings/{id}/start by company {companyId}");
 
@@ -315,12 +324,18 @@ public class BookingsController : ControllerBase
     /// Complete service (company action)
     /// </summary>
     [HttpPut("{id:guid}/complete")]
+    [Authorize(Roles = "Company")]
     public async Task<IActionResult> CompleteService(Guid id)
     {
         try
         {
-            // TODO: Get companyId from authentication
-            var companyId = Guid.NewGuid();
+            // Get companyId from claims
+            var companyIdClaim = User.FindFirstValue("CompanyId");
+            if (string.IsNullOrEmpty(companyIdClaim) || !Guid.TryParse(companyIdClaim, out var companyId))
+            {
+                _logger.LogWarning($"PUT /api/bookings/{id}/complete - No valid CompanyId claim found");
+                return BadRequest(new { Message = "Company ID not found in user claims" });
+            }
             
             _logger.LogInfo($"PUT /api/bookings/{id}/complete by company {companyId}");
 

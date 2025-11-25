@@ -2,12 +2,15 @@ using GhseeliApis.DTOs.Payment;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentHandler _paymentHandler;
@@ -20,9 +23,10 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Get all payments (admin only - would need authorization)
+    /// Get all payments (admin only)
     /// </summary>
     [HttpGet]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> GetAll()
     {
         try
@@ -73,8 +77,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/payments/my-payments for user {userId}");
             
@@ -122,8 +125,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"POST /api/payments - Creating payment for booking {request.BookingId}");
 
@@ -159,9 +161,10 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
-    /// Update payment status (admin/system action)
+    /// Update payment status (admin only)
     /// </summary>
     [HttpPut("{id:guid}/status")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdatePaymentStatusRequest request)
     {
         try
@@ -201,8 +204,7 @@ public class PaymentsController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"POST /api/payments/{id}/refund by user {userId}");
 

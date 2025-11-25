@@ -2,12 +2,14 @@ using GhseeliApis.DTOs.ServiceOption;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ServiceOptionsController : ControllerBase
 {
     private readonly IServiceOptionHandler _serviceOptionHandler;
@@ -98,6 +100,7 @@ public class ServiceOptionsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Company,Admin")]
     public async Task<IActionResult> Create([FromBody] CreateServiceOptionRequest request)
     {
         try
@@ -132,6 +135,7 @@ public class ServiceOptionsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [Authorize(Roles = "Company,Admin")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateServiceOptionRequest request)
     {
         try
@@ -166,6 +170,7 @@ public class ServiceOptionsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(Guid id)
     {
         try

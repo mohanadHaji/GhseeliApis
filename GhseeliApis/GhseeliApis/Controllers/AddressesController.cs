@@ -2,12 +2,15 @@ using GhseeliApis.DTOs.Address;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class AddressesController : ControllerBase
 {
     private readonly IUserAddressHandler _addressHandler;
@@ -24,8 +27,7 @@ public class AddressesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"GET /api/addresses/my-addresses - Getting addresses for user {userId}");
             
@@ -88,8 +90,7 @@ public class AddressesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"POST /api/addresses - Creating address for user {userId}");
 
@@ -143,8 +144,7 @@ public class AddressesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"PUT /api/addresses/{id}");
 
@@ -200,8 +200,7 @@ public class AddressesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"DELETE /api/addresses/{id}");
 
@@ -228,8 +227,7 @@ public class AddressesController : ControllerBase
     {
         try
         {
-            // TODO: Get userId from authentication
-            var userId = Guid.NewGuid();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
             _logger.LogInfo($"PUT /api/addresses/{id}/set-primary");
 

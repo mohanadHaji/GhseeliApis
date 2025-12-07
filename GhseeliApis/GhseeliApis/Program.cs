@@ -82,6 +82,25 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero // Remove default 5 minute clock skew
     };
+})
+.AddGoogle(options =>
+{
+    var googleAuth = builder.Configuration.GetSection("Authentication:Google");
+    options.ClientId = googleAuth["ClientId"] ?? throw new InvalidOperationException("Google ClientId is not configured");
+    options.ClientSecret = googleAuth["ClientSecret"] ?? throw new InvalidOperationException("Google ClientSecret is not configured");
+    options.SaveTokens = true;
+    options.CallbackPath = "/api/auth/google-callback";
+})
+.AddFacebook(options =>
+{
+    var facebookAuth = builder.Configuration.GetSection("Authentication:Facebook");
+    options.AppId = facebookAuth["AppId"] ?? throw new InvalidOperationException("Facebook AppId is not configured");
+    options.AppSecret = facebookAuth["AppSecret"] ?? throw new InvalidOperationException("Facebook AppSecret is not configured");
+    options.SaveTokens = true;
+    options.CallbackPath = "/api/auth/facebook-callback";
+    options.Fields.Add("name");
+    options.Fields.Add("email");
+    options.Fields.Add("picture");
 });
 
 // Configure Authorization Policies

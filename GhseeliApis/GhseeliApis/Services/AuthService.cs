@@ -229,4 +229,219 @@ public class AuthService : IAuthService
             return false;
         }
     }
+
+    #region OAuth 2.0 External Login Methods
+
+    public async Task<ExternalLoginCallbackResponse?> ExternalLoginCallbackAsync(ExternalLoginInfo info)
+    {
+        try
+        {
+            // Extract email from claims
+            var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+            if (string.IsNullOrEmpty(email))
+            {
+                _logger.LogWarning($"External login failed: No email claim found for provider {info.LoginProvider}");
+                return null;
+            }
+
+            // Extract name from claims
+            var name = info.Principal.FindFirstValue(ClaimTypes.Name) 
+                       ?? info.Principal.FindFirstValue("name")
+                       ?? email.Split('@')[0];
+
+            // Check if user exists
+            var user = await _userManager.FindByEmailAsync(email);
+            bool isNewUser = false;
+
+            if (user == null)
+            {
+                // Create new user
+                user = new User
+                {
+                    UserName = email,
+                    Email = email,
+                    FullName = name,
+                    EmailConfirmed = true, // Email is confirmed by OAuth provider
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    _logger.LogWarning($"Failed to create user from external login {email}: {errors}");
+                    return null;
+                }
+
+                // Assign default "User" role
+                var roleResult = await _userManager.AddToRoleAsync(user, AppRoles.User);
+                if (!roleResult.Succeeded)
+                {
+                    var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                    _logger.LogWarning($"Failed to assign role to external user {email}: {errors}");
+                }
+
+                isNewUser = true;
+                _logger.LogInfo($"New user created from external login: {email} via {info.LoginProvider}");
+            }
+
+            // Check if external login is already linked
+            var existingLogin = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            if (existingLogin == null)
+            {
+                // Link external login to user
+                var addLoginResult = await _userManager.AddLoginAsync(user, info);
+                if (!addLoginResult.Succeeded)
+                {
+                    var errors = string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
+                    _logger.LogWarning($"Failed to link external login for {email}: {errors}");
+                    return null;
+                }
+                _logger.LogInfo($"External login linked: {email} with {info.LoginProvider}");
+            }
+
+            // Generate JWT token
+            var token = await GenerateJwtTokenAsync(user.Id, user.Email!, user.FullName);
+            var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
+
+            return new ExternalLoginCallbackResponse
+            {
+                IsNewUser = isNewUser,
+                UserId = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName,
+                Provider = info.LoginProvider,
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error during external login callback for provider {info.LoginProvider}", ex);
+            throw;
+        }
+    }
+
+    public async Task<bool> LinkExternalLoginAsync(Guid userId, ExternalLoginInfo info)
+    {
+        try
+        {
+            // Find user
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                _logger.LogWarning($"Link external login failed: User {userId} not found");
+                return false;
+            }
+
+            // Check if external login is already linked to another user
+            var existingUser = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            if (existingUser != null && existingUser.Id != userId)
+            {
+                _logger.LogWarning($"Link external login failed: {info.LoginProvider} already linked to another user");
+                return false;
+            }
+
+            // Check if already linked to this user
+            if (existingUser != null && existingUser.Id == userId)
+            {
+                _logger.LogInfo($"External login {info.LoginProvider} already linked to user {userId}");
+                return true; // Already linked, treat as success
+            }
+
+            // Link external login
+            var result = await _userManager.AddLoginAsync(user, info);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning($"Failed to link external login {info.LoginProvider} to user {userId}: {errors}");
+                return false;
+            }
+
+            _logger.LogInfo($"Successfully linked {info.LoginProvider} to user {userId}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error linking external login for user {userId}", ex);
+            throw;
+        }
+    }
+
+    public async Task<bool> RemoveExternalLoginAsync(Guid userId, string loginProvider)
+    {
+        try
+        {
+            // Find user
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                _logger.LogWarning($"Remove external login failed: User {userId} not found");
+                return false;
+            }
+
+            // Get user's external logins
+            var userLogins = await _userManager.GetLoginsAsync(user);
+            var loginToRemove = userLogins.FirstOrDefault(l => l.LoginProvider == loginProvider);
+
+            if (loginToRemove == null)
+            {
+                _logger.LogWarning($"Remove external login failed: {loginProvider} not found for user {userId}");
+                return false;
+            }
+
+            // Remove external login
+            var result = await _userManager.RemoveLoginAsync(user, loginProvider, loginToRemove.ProviderKey);
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning($"Failed to remove external login {loginProvider} from user {userId}: {errors}");
+                return false;
+            }
+
+            _logger.LogInfo($"Successfully removed {loginProvider} from user {userId}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error removing external login for user {userId}", ex);
+            throw;
+        }
+    }
+
+    public async Task<IList<ExternalLoginInfoDto>> GetExternalLoginsAsync(Guid userId)
+    {
+        try
+        {
+            // Find user
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null)
+            {
+                _logger.LogWarning($"Get external logins failed: User {userId} not found");
+                return new List<ExternalLoginInfoDto>();
+            }
+
+            // Get user's external logins
+            var userLogins = await _userManager.GetLoginsAsync(user);
+
+            // Map to DTOs
+            var loginDtos = userLogins.Select(login => new ExternalLoginInfoDto
+            {
+                LoginProvider = login.LoginProvider,
+                ProviderKey = login.ProviderKey,
+                ProviderDisplayName = login.ProviderDisplayName
+            }).ToList();
+
+            _logger.LogInfo($"Retrieved {loginDtos.Count} external logins for user {userId}");
+            return loginDtos;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error getting external logins for user {userId}", ex);
+            throw;
+        }
+    }
+
+    #endregion
 }

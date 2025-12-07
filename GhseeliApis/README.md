@@ -1,11 +1,12 @@
 # ?? Ghseeli - Car Washing Service Platform
 
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/Tests-253%20Passing-success)](.)
+[![Tests](https://img.shields.io/badge/Tests-461%20Passing-success)](.)
 [![Google Cloud SQL](https://img.shields.io/badge/Database-Google%20Cloud%20SQL-4285F4)](https://cloud.google.com/sql)
 [![Entity Framework](https://img.shields.io/badge/EF%20Core-8.0-512BD4)](https://docs.microsoft.com/ef/)
+[![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google%20%7C%20Facebook-4285F4)](.)
 
-A comprehensive ASP.NET Core Web API for managing car washing services, including booking management, payment processing, and user wallet system.
+A comprehensive ASP.NET Core Web API for managing car washing services, including booking management, payment processing, user wallet system, and OAuth 2.0 authentication.
 
 ---
 
@@ -428,14 +429,16 @@ dotnet test --collect:"XPlat Code Coverage"
 ```
 
 ### **Test Statistics**
-- **Total Tests:** 253
-- **Passing:** 253 (100%)
-- **Duration:** ~2.3 seconds
-- **Coverage:** Handlers (100%), Models (73%), Infrastructure (100%)
+- **Total Tests:** 461
+- **Passing:** 461 (100%)
+- **Duration:** ~2.7 seconds
+- **Coverage:** Handlers (100%), Controllers (100%), Services (100%), Models (73%), Infrastructure (100%)
 
 ### **Test Categories**
 - **Handler Tests:** 119 tests - Business logic with Moq
 - **Controller Tests:** 55 tests - API endpoint validation
+- **Service Tests:** 36 tests - OAuth authentication service (18 OAuth service + 18 OAuth controller)
+- **Auth Tests:** 43 tests - JWT + OAuth authentication
 - **Model Validation:** 49 tests - Data integrity
 - **Infrastructure:** 30 tests - Logger, validators
 
@@ -531,6 +534,23 @@ POST   /api/payments/{id}/refund      - Process refund
 ```
 GET    /api/health        - Database health check
 ```
+
+### **Authentication & OAuth 2.0** ??
+```
+POST   /api/auth/register                       - Register with email/password
+POST   /api/auth/login                          - Login with email/password
+POST   /api/auth/validate                       - Validate JWT token
+GET    /api/auth/me                             - Get current user [Authorize]
+
+GET    /api/auth/external-login                 - Initiate OAuth (Google/Facebook)
+GET    /api/auth/external-login-callback        - OAuth callback handler
+POST   /api/auth/link-external-login            - Link OAuth provider [Authorize]
+GET    /api/auth/link-external-login-callback   - OAuth link callback [Authorize]
+DELETE /api/auth/external-login/{provider}      - Remove OAuth provider [Authorize]
+GET    /api/auth/external-logins                - List linked providers [Authorize]
+```
+
+**?? Detailed OAuth Documentation:** See [OAUTH_DOCUMENTATION.md](./OAUTH_DOCUMENTATION.md)
 
 ---
 

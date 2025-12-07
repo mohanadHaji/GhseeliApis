@@ -3,6 +3,7 @@ using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using GhseeliApis.Repositories.Interfaces;
+using GhseeliApis.Services.Interfaces;
 
 namespace GhseeliApis.Handlers;
 
@@ -13,15 +14,18 @@ public class PaymentHandler : IPaymentHandler
 {
     private readonly IPaymentRepository _paymentRepository;
     private readonly IBookingRepository _bookingRepository;
+    private readonly IPaymentGatewayService _paymentGateway;
     private readonly IAppLogger _logger;
 
     public PaymentHandler(
         IPaymentRepository paymentRepository,
         IBookingRepository bookingRepository,
+        IPaymentGatewayService paymentGateway,
         IAppLogger logger)
     {
         _paymentRepository = paymentRepository;
         _bookingRepository = bookingRepository;
+        _paymentGateway = paymentGateway;
         _logger = logger;
     }
 
@@ -89,8 +93,73 @@ public class PaymentHandler : IPaymentHandler
             throw new InvalidOperationException("Payment already exists for this booking.");
         }
 
+        // Process credit card payment through Stripe if PaymentMethodId is provided
+        if (payment.Method == PaymentMethod.Card && !string.IsNullOrWhiteSpace(payment.PaymentMethodId))
+        {
+            _logger.LogInfo($"PaymentHandler: Processing credit card payment through Stripe for booking {payment.BookingId}");
+
+            try
+            {
+                // Convert amount to cents (Stripe uses smallest currency unit)
+                var amountInCents = (long)(payment.Amount * 100);
+
+                // Process payment through Stripe
+                var stripeResult = await _paymentGateway.ProcessPaymentAsync(
+                    amount: amountInCents,
+                    currency: "usd",
+                    paymentMethodId: payment.PaymentMethodId,
+                    description: $"Payment for booking {payment.BookingId}",
+                    metadata: new Dictionary<string, string>
+                    {
+                        { "booking_id", payment.BookingId.ToString() },
+                        { "user_id", userId.ToString() }
+                    }
+                );
+
+                // Store Stripe transaction details
+                payment.TransactionId = stripeResult.TransactionId;
+                payment.PaymentIntentId = stripeResult.PaymentIntentId;
+
+                if (stripeResult.Success)
+                {
+                    payment.Status = PaymentStatus.Completed;
+                    _logger.LogInfo($"PaymentHandler: Stripe payment successful - Transaction ID: {stripeResult.TransactionId}");
+
+                    // Mark booking as paid
+                    booking.IsPaid = true;
+                    await _bookingRepository.UpdateAsync(booking);
+                    _logger.LogInfo($"PaymentHandler: Booking {booking.Id} marked as paid");
+                }
+                else
+                {
+                    payment.Status = PaymentStatus.Failed;
+                    _logger.LogWarning($"PaymentHandler: Stripe payment failed - {stripeResult.ErrorMessage}");
+                    
+                    // Store error information in a way that can be communicated to the user
+                    var errorMessage = stripeResult.ErrorMessage ?? "Payment processing failed";
+                    throw new InvalidOperationException($"Payment failed: {errorMessage}");
+                }
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                _logger.LogError($"PaymentHandler: Stripe payment processing error - {ex.Message}");
+                payment.Status = PaymentStatus.Failed;
+                throw new InvalidOperationException($"Payment processing error: {ex.Message}", ex);
+            }
+        }
+        else if (payment.Method == PaymentMethod.Card && string.IsNullOrWhiteSpace(payment.PaymentMethodId))
+        {
+            _logger.LogWarning($"PaymentHandler: Credit card payment requires PaymentMethodId");
+            throw new InvalidOperationException("Credit card payments require a valid payment method ID from Stripe.");
+        }
+        else
+        {
+            // For non-card payments (Cash, Wallet), just create the record
+            _logger.LogInfo($"PaymentHandler: Creating non-card payment record (Method: {payment.Method})");
+        }
+
         var created = await _paymentRepository.AddAsync(payment);
-        _logger.LogInfo($"PaymentHandler: Payment created successfully - ID {created.Id}");
+        _logger.LogInfo($"PaymentHandler: Payment created successfully - ID {created.Id}, Status: {created.Status}");
 
         return created;
     }
@@ -164,7 +233,39 @@ public class PaymentHandler : IPaymentHandler
             throw new InvalidOperationException("Only completed payments can be refunded.");
         }
 
-        // Process refund
+        // Process refund through Stripe if this was a credit card payment
+        if (payment.Method == PaymentMethod.Card && !string.IsNullOrWhiteSpace(payment.TransactionId))
+        {
+            _logger.LogInfo($"PaymentHandler: Processing Stripe refund for transaction {payment.TransactionId}");
+
+            try
+            {
+                var refundResult = await _paymentGateway.RefundPaymentAsync(
+                    transactionId: payment.TransactionId,
+                    amount: null, // Full refund
+                    reason: "requested_by_customer"
+                );
+
+                if (!refundResult.Success)
+                {
+                    _logger.LogWarning($"PaymentHandler: Stripe refund failed - {refundResult.ErrorMessage}");
+                    throw new InvalidOperationException($"Refund failed: {refundResult.ErrorMessage ?? "Unknown error"}");
+                }
+
+                _logger.LogInfo($"PaymentHandler: Stripe refund successful - Refund ID: {refundResult.TransactionId}");
+            }
+            catch (Exception ex) when (ex is not InvalidOperationException)
+            {
+                _logger.LogError($"PaymentHandler: Stripe refund processing error - {ex.Message}");
+                throw new InvalidOperationException($"Refund processing error: {ex.Message}", ex);
+            }
+        }
+        else
+        {
+            _logger.LogInfo($"PaymentHandler: Processing non-Stripe refund (Method: {payment.Method})");
+        }
+
+        // Update payment status
         payment.Status = PaymentStatus.Refunded;
 
         // Update booking paid status

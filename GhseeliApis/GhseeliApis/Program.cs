@@ -150,6 +150,7 @@ builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 
 // Register Services
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, GhseeliApis.Services.AuthService>();
+builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayService, GhseeliApis.Services.StripePaymentService>();
 
 // Register Logger
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();

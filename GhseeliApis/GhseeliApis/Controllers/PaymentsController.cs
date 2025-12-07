@@ -127,7 +127,7 @@ public class PaymentsController : ControllerBase
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             
-            _logger.LogInfo($"POST /api/payments - Creating payment for booking {request.BookingId}");
+            _logger.LogInfo($"POST /api/payments - Creating payment for booking {request.BookingId}, Method: {request.Method}");
 
             if (!ModelState.IsValid)
             {
@@ -135,11 +135,19 @@ public class PaymentsController : ControllerBase
                 return BadRequest(ModelState);
             }
 
+            // Validate that credit card payments have PaymentMethodId
+            if (request.Method == Models.Enums.PaymentMethod.Card && string.IsNullOrWhiteSpace(request.PaymentMethodId))
+            {
+                _logger.LogWarning("POST /api/payments - Credit card payment missing PaymentMethodId");
+                return BadRequest(new { Message = "Credit card payments require a PaymentMethodId from Stripe." });
+            }
+
             var payment = new Payment
             {
                 BookingId = request.BookingId,
                 Amount = request.Amount,
                 Method = request.Method,
+                PaymentMethodId = request.PaymentMethodId,
                 TransactionId = request.TransactionId
             };
 
@@ -238,6 +246,8 @@ public class PaymentsController : ControllerBase
             Method = payment.Method,
             Status = payment.Status,
             TransactionId = payment.TransactionId,
+            PaymentMethodId = payment.PaymentMethodId,
+            PaymentIntentId = payment.PaymentIntentId,
             CreatedAt = payment.CreatedAt,
             UserName = payment.User?.FullName ?? string.Empty,
             BookingInfo = payment.Booking != null 

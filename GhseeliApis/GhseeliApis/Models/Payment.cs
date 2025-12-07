@@ -28,6 +28,18 @@ public class Payment : IValidatable
     [MaxLength(200)]
     public string? TransactionId { get; set; }
 
+    /// <summary>
+    /// Stripe payment method ID (token from frontend)
+    /// </summary>
+    [MaxLength(200)]
+    public string? PaymentMethodId { get; set; }
+
+    /// <summary>
+    /// Stripe payment intent ID for tracking payment lifecycle
+    /// </summary>
+    [MaxLength(200)]
+    public string? PaymentIntentId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
@@ -70,6 +82,16 @@ public class Payment : IValidatable
         if (!string.IsNullOrWhiteSpace(TransactionId) && TransactionId.Length > 200)
         {
             result.AddError("Transaction ID cannot exceed 200 characters.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(PaymentMethodId) && PaymentMethodId.Length > 200)
+        {
+            result.AddError("Payment Method ID cannot exceed 200 characters.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(PaymentIntentId) && PaymentIntentId.Length > 200)
+        {
+            result.AddError("Payment Intent ID cannot exceed 200 characters.");
         }
 
         return result;

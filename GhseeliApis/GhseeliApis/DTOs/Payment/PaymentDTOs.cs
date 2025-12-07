@@ -18,6 +18,16 @@ public class CreatePaymentRequest
     [Required]
     public PaymentMethod Method { get; set; }
 
+    /// <summary>
+    /// Payment method ID from Stripe.js (required for credit card payments)
+    /// </summary>
+    [MaxLength(200)]
+    public string? PaymentMethodId { get; set; }
+
+    /// <summary>
+    /// Optional transaction ID (for non-Stripe payments)
+    /// </summary>
+    [MaxLength(200)]
     public string? TransactionId { get; set; }
 }
 
@@ -44,6 +54,8 @@ public class PaymentResponse
     public PaymentMethod Method { get; set; }
     public PaymentStatus Status { get; set; }
     public string? TransactionId { get; set; }
+    public string? PaymentMethodId { get; set; }
+    public string? PaymentIntentId { get; set; }
     public DateTime CreatedAt { get; set; }
 
     // Related data

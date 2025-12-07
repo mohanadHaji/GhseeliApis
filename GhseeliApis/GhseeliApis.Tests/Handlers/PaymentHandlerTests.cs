@@ -4,6 +4,7 @@ using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using GhseeliApis.Repositories.Interfaces;
+using GhseeliApis.Services.Interfaces;
 using Moq;
 
 namespace GhseeliApis.Tests.Handlers;
@@ -15,6 +16,7 @@ public class PaymentHandlerTests
 {
     private readonly Mock<IPaymentRepository> _mockPaymentRepository;
     private readonly Mock<IBookingRepository> _mockBookingRepository;
+    private readonly Mock<IPaymentGatewayService> _mockPaymentGateway;
     private readonly Mock<IAppLogger> _mockLogger;
     private readonly PaymentHandler _handler;
     private readonly Guid _testUserId;
@@ -24,11 +26,13 @@ public class PaymentHandlerTests
     {
         _mockPaymentRepository = new Mock<IPaymentRepository>();
         _mockBookingRepository = new Mock<IBookingRepository>();
+        _mockPaymentGateway = new Mock<IPaymentGatewayService>();
         _mockLogger = new Mock<IAppLogger>();
         
         _handler = new PaymentHandler(
             _mockPaymentRepository.Object,
             _mockBookingRepository.Object,
+            _mockPaymentGateway.Object,
             _mockLogger.Object);
         
         _testUserId = Guid.NewGuid();

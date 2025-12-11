@@ -1,3 +1,4 @@
+using GhseeliApis.DTOs.User;
 using GhseeliApis.Interfaces;
 using GhseeliApis.Models;
 
@@ -11,30 +12,30 @@ public interface IUserHandler
     /// <summary>
     /// Gets all users
     /// </summary>
-    /// <returns>List of all users</returns>
-    Task<List<User>> GetAllUsersAsync();
+    /// <returns>List of all users with their roles</returns>
+    Task<List<UserListResponse>> GetAllUsersAsync();
 
     /// <summary>
-    /// Gets a user by ID
+    /// Gets a user by ID with detailed information
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <returns>User if found, null otherwise</returns>
-    Task<User?> GetUserByIdAsync(Guid id);
+    /// <returns>User details if found, null otherwise</returns>
+    Task<UserResponse?> GetUserByIdAsync(Guid id);
 
     /// <summary>
-    /// Creates a new user
+    /// Creates a new user with password and role
     /// </summary>
-    /// <param name="user">User to create</param>
-    /// <returns>Created user with generated ID</returns>
-    Task<User> CreateUserAsync(User user);
+    /// <param name="request">User creation request</param>
+    /// <returns>Created user details</returns>
+    Task<UserResponse> CreateUserAsync(CreateUserRequest request);
 
     /// <summary>
     /// Updates an existing user
     /// </summary>
     /// <param name="id">User ID to update</param>
-    /// <param name="updatedUser">Updated user data</param>
-    /// <returns>Updated user if found, null otherwise</returns>
-    Task<User?> UpdateUserAsync(Guid id, User updatedUser);
+    /// <param name="request">Updated user data</param>
+    /// <returns>Updated user details if found, null otherwise</returns>
+    Task<UserResponse?> UpdateUserAsync(Guid id, UpdateUserRequest request);
 
     /// <summary>
     /// Deletes a user by ID

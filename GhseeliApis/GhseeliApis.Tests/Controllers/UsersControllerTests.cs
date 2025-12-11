@@ -1,65 +1,28 @@
 using FluentAssertions;
 using GhseeliApis.Controllers;
-using GhseeliApis.Persistence;
-using GhseeliApis.Handlers;
+using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
-using GhseeliApis.Models;
-using GhseeliApis.Repositories;
-using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace GhseeliApis.Tests.Controllers;
 
 /// <summary>
-/// Unit tests for UsersController
+/// Unit tests for UsersController with DTOs
 /// </summary>
-public class UsersControllerTests : IDisposable
+public class UsersControllerTests
 {
-    private readonly ApplicationDbContext _context;
+    private readonly Mock<IUserHandler> _mockUserHandler;
     private readonly IAppLogger _logger;
-    private readonly IUserRepository _repository;
-    private readonly IUserHandler _userHandler;
     private readonly UsersController _controller;
 
     public UsersControllerTests()
     {
-        // Create an in-memory database for testing
-        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-
-        _context = new ApplicationDbContext(options);
+        _mockUserHandler = new Mock<IUserHandler>();
         _logger = new ConsoleLogger();
-        _repository = new UserRepository(_context);
-        _userHandler = new UserHandler(_repository, _logger);
-        _controller = new UsersController(_userHandler, _logger);
-    }
-
-    public void Dispose()
-    {
-        _context.Database.EnsureDeleted();
-        _context.Dispose();
-    }
-
-    /// <summary>
-    /// Creates a valid test user with all required fields
-    /// </summary>
-    private static User CreateValidUser(string userName = "testuser", string email = null, string fullName = null)
-    {
-        email ??= $"{userName}@test.com";
-        fullName ??= $"Test {userName}";
-        
-        return new User
-        {
-            UserName = userName,
-            Email = email,
-            FullName = fullName,
-            Phone = "1234567890",
-            IsActive = true
-        };
+        _controller = new UsersController(_mockUserHandler.Object, _logger);
     }
 
     #region GetAllUsers Tests
@@ -67,12 +30,16 @@ public class UsersControllerTests : IDisposable
     [Fact]
     public async Task GetAllUsers_ReturnsEmptyList_WhenNoUsersExist()
     {
+        // Arrange
+        _mockUserHandler.Setup(h => h.GetAllUsersAsync())
+            .ReturnsAsync(new List<UserListResponse>());
+
         // Act
         var result = await _controller.GetAllUsers();
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var users = okResult.Value.Should().BeAssignableTo<List<User>>().Subject;
+        var users = okResult.Value.Should().BeAssignableTo<List<UserListResponse>>().Subject;
         users.Should().BeEmpty();
     }
 
@@ -80,25 +47,26 @@ public class UsersControllerTests : IDisposable
     public async Task GetAllUsers_ReturnsAllUsers_WhenUsersExist()
     {
         // Arrange
-        var testUsers = new List<User>
+        var testUsers = new List<UserListResponse>
         {
-            CreateValidUser("user1", "user1@test.com", "User One"),
-            CreateValidUser("user2", "user2@test.com", "User Two"),
-            CreateValidUser("user3", "user3@test.com", "User Three")
+            new() { Id = Guid.NewGuid(), Email = "user1@test.com", FullName = "User One", IsActive = true, CreatedAt = DateTime.UtcNow, Roles = new List<string> { "User" } },
+            new() { Id = Guid.NewGuid(), Email = "user2@test.com", FullName = "User Two", IsActive = true, CreatedAt = DateTime.UtcNow, Roles = new List<string> { "User" } },
+            new() { Id = Guid.NewGuid(), Email = "user3@test.com", FullName = "User Three", IsActive = true, CreatedAt = DateTime.UtcNow, Roles = new List<string> { "User" } }
         };
-        _context.Users.AddRange(testUsers);
-        await _context.SaveChangesAsync();
+
+        _mockUserHandler.Setup(h => h.GetAllUsersAsync())
+            .ReturnsAsync(testUsers);
 
         // Act
         var result = await _controller.GetAllUsers();
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var users = okResult.Value.Should().BeAssignableTo<List<User>>().Subject;
+        var users = okResult.Value.Should().BeAssignableTo<List<UserListResponse>>().Subject;
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.UserName == "user1");
-        users.Should().Contain(u => u.UserName == "user2");
-        users.Should().Contain(u => u.UserName == "user3");
+        users.Should().Contain(u => u.Email == "user1@test.com");
+        users.Should().Contain(u => u.Email == "user2@test.com");
+        users.Should().Contain(u => u.Email == "user3@test.com");
     }
 
     #endregion
@@ -108,29 +76,47 @@ public class UsersControllerTests : IDisposable
     [Fact]
     public async Task GetUserById_ReturnsNotFound_WhenUserDoesNotExist()
     {
+        // Arrange
+        var userId = Guid.NewGuid();
+        _mockUserHandler.Setup(h => h.GetUserByIdAsync(userId))
+            .ReturnsAsync((UserResponse)null!);
+
         // Act
-        var result = await _controller.GetUserById(Guid.NewGuid());
+        var result = await _controller.GetUserById(userId);
 
         // Assert
-        result.Should().BeOfType<NotFoundResult>();
+        result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
     public async Task GetUserById_ReturnsUser_WhenUserExists()
     {
         // Arrange
-        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
-        _context.Users.Add(testUser);
-        await _context.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        var testUser = new UserResponse
+        {
+            Id = userId,
+            Email = "test@example.com",
+            FullName = "Test User",
+            Phone = "1234567890",
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            Roles = new List<string> { "User" },
+            VehicleCount = 2,
+            AddressCount = 1,
+            BookingCount = 5
+        };
+
+        _mockUserHandler.Setup(h => h.GetUserByIdAsync(userId))
+            .ReturnsAsync(testUser);
 
         // Act
-        var result = await _controller.GetUserById(testUser.Id);
+        var result = await _controller.GetUserById(userId);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var user = okResult.Value.Should().BeOfType<User>().Subject;
-        user.Id.Should().Be(testUser.Id);
-        user.UserName.Should().Be("testuser");
+        var user = okResult.Value.Should().BeOfType<UserResponse>().Subject;
+        user.Id.Should().Be(userId);
         user.Email.Should().Be("test@example.com");
         user.FullName.Should().Be("Test User");
         user.IsActive.Should().BeTrue();
@@ -144,40 +130,73 @@ public class UsersControllerTests : IDisposable
     public async Task CreateUser_CreatesNewUser_AndReturnsCreatedResult()
     {
         // Arrange
-        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
+        var request = new CreateUserRequest
+        {
+            Email = "newuser@example.com",
+            FullName = "New User",
+            Phone = "1234567890",
+            Password = "Password123!",
+            Role = "User"
+        };
+
+        var createdUser = new UserResponse
+        {
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            FullName = request.FullName,
+            Phone = request.Phone,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            Roles = new List<string> { "User" }
+        };
+
+        _mockUserHandler.Setup(h => h.CreateUserAsync(It.IsAny<CreateUserRequest>()))
+            .ReturnsAsync(createdUser);
 
         // Act
-        var result = await _controller.CreateUser(newUser);
+        var result = await _controller.CreateUser(request);
 
         // Assert
         var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
         createdResult.ActionName.Should().Be(nameof(UsersController.GetUserById));
         
-        var returnedUser = createdResult.Value.Should().BeOfType<User>().Subject;
-        returnedUser.UserName.Should().Be("newuser");
+        var returnedUser = createdResult.Value.Should().BeOfType<UserResponse>().Subject;
         returnedUser.Email.Should().Be("newuser@example.com");
         returnedUser.FullName.Should().Be("New User");
         returnedUser.IsActive.Should().BeTrue();
         returnedUser.Id.Should().NotBe(Guid.Empty);
-
-        // Verify user was actually saved to database
-        var savedUser = await _context.Users.FindAsync(returnedUser.Id);
-        savedUser.Should().NotBeNull();
-        savedUser!.UserName.Should().Be("newuser");
     }
 
     [Fact]
     public async Task CreateUser_SetsCreatedAtTimestamp()
     {
         // Arrange
-        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
+        var request = new CreateUserRequest
+        {
+            Email = "newuser@example.com",
+            FullName = "New User",
+            Password = "Password123!"
+        };
+
+        var createdUser = new UserResponse
+        {
+            Id = Guid.NewGuid(),
+            Email = request.Email,
+            FullName = request.FullName,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            Roles = new List<string> { "User" }
+        };
+
+        _mockUserHandler.Setup(h => h.CreateUserAsync(It.IsAny<CreateUserRequest>()))
+            .ReturnsAsync(createdUser);
 
         // Act
-        var result = await _controller.CreateUser(newUser);
+        var result = await _controller.CreateUser(request);
 
         // Assert
         var createdResult = result.Should().BeOfType<CreatedAtActionResult>().Subject;
-        var returnedUser = createdResult.Value.Should().BeOfType<User>().Subject;
+        var returnedUser = createdResult.Value.Should().BeOfType<UserResponse>().Subject;
         returnedUser.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
@@ -185,16 +204,18 @@ public class UsersControllerTests : IDisposable
     public async Task CreateUser_ReturnsBadRequest_WhenFullNameIsEmpty()
     {
         // Arrange
-        var newUser = new User
+        var request = new CreateUserRequest
         {
-            UserName = "testuser",
             Email = "test@example.com",
             FullName = "", // Invalid - required field
-            IsActive = true
+            Password = "Password123!"
         };
 
+        // Manually add validation error to ModelState
+        _controller.ModelState.AddModelError("FullName", "The FullName field is required.");
+
         // Act
-        var result = await _controller.CreateUser(newUser);
+        var result = await _controller.CreateUser(request);
 
         // Assert
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
@@ -205,16 +226,17 @@ public class UsersControllerTests : IDisposable
     public async Task CreateUser_ReturnsBadRequest_WhenEmailIsInvalid()
     {
         // Arrange
-        var newUser = new User
+        var request = new CreateUserRequest
         {
-            UserName = "testuser",
             Email = "notanemail", // Invalid format
             FullName = "Test User",
-            IsActive = true
+            Password = "Password123!"
         };
 
+        _controller.ModelState.AddModelError("Email", "The Email field is not a valid e-mail address.");
+
         // Act
-        var result = await _controller.CreateUser(newUser);
+        var result = await _controller.CreateUser(request);
 
         // Assert
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
@@ -222,35 +244,14 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task CreateUser_ReturnsValidationErrors_WhenModelIsInvalid()
+    public async Task CreateUser_ReturnsBadRequest_WhenNullRequestBody()
     {
-        // Arrange
-        var newUser = new User
-        {
-            UserName = "", // Invalid
-            Email = "invalid", // Invalid
-            FullName = "", // Invalid
-            IsActive = true
-        };
-
         // Act
-        var result = await _controller.CreateUser(newUser);
+        var result = await _controller.CreateUser(null!);
 
         // Assert
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        var response = badRequestResult.Value;
-        
-        var messageProperty = response?.GetType().GetProperty("Message");
-        messageProperty.Should().NotBeNull();
-        messageProperty!.GetValue(response).Should().Be("Validation failed");
-        
-        var errorsProperty = response?.GetType().GetProperty("Errors");
-        errorsProperty.Should().NotBeNull();
-        var errors = errorsProperty!.GetValue(response) as List<string>;
-        errors.Should().NotBeNull();
-        errors.Should().Contain(e => e.Contains("Full name"));
-        errors.Should().Contain(e => e.Contains("Email"));
-        errors.Should().Contain(e => e.Contains("Username"));
+        badRequestResult.StatusCode.Should().Be(400);
     }
 
     #endregion
@@ -261,35 +262,57 @@ public class UsersControllerTests : IDisposable
     public async Task UpdateUser_ReturnsNotFound_WhenUserDoesNotExist()
     {
         // Arrange
-        var updatedUser = CreateValidUser("updated", "updated@example.com", "Updated Name");
+        var userId = Guid.NewGuid();
+        var request = new UpdateUserRequest
+        {
+            Email = "updated@example.com",
+            FullName = "Updated Name"
+        };
+
+        _mockUserHandler.Setup(h => h.UpdateUserAsync(userId, It.IsAny<UpdateUserRequest>()))
+            .ReturnsAsync((UserResponse)null!);
 
         // Act
-        var result = await _controller.UpdateUser(Guid.NewGuid(), updatedUser);
+        var result = await _controller.UpdateUser(userId, request);
 
         // Assert
-        result.Should().BeOfType<NotFoundResult>();
+        result.Should().BeOfType<NotFoundObjectResult>();
     }
 
     [Fact]
     public async Task UpdateUser_UpdatesUser_WhenUserExists()
     {
         // Arrange
-        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
-        _context.Users.Add(existingUser);
-        await _context.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        var request = new UpdateUserRequest
+        {
+            Email = "updated@example.com",
+            FullName = "Updated Name",
+            IsActive = false
+        };
 
-        var updatedData = CreateValidUser("updated", "updated@example.com", "Updated Name");
-        updatedData.IsActive = false;
+        var updatedUser = new UserResponse
+        {
+            Id = userId,
+            Email = "updated@example.com",
+            FullName = "Updated Name",
+            IsActive = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            UpdatedAt = DateTime.UtcNow,
+            Roles = new List<string> { "User" }
+        };
+
+        _mockUserHandler.Setup(h => h.UpdateUserAsync(userId, It.IsAny<UpdateUserRequest>()))
+            .ReturnsAsync(updatedUser);
 
         // Act
-        var result = await _controller.UpdateUser(existingUser.Id, updatedData);
+        var result = await _controller.UpdateUser(userId, request);
 
         // Assert
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        var returnedUser = okResult.Value.Should().BeOfType<User>().Subject;
+        var returnedUser = okResult.Value.Should().BeOfType<UserResponse>().Subject;
         
-        returnedUser.Id.Should().Be(existingUser.Id);
-        returnedUser.UserName.Should().Be("updated");
+        returnedUser.Id.Should().Be(userId);
         returnedUser.Email.Should().Be("updated@example.com");
         returnedUser.FullName.Should().Be("Updated Name");
         returnedUser.IsActive.Should().BeFalse();
@@ -297,44 +320,50 @@ public class UsersControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateUser_PersistsChangesToDatabase()
+    public async Task UpdateUser_CallsHandler_WhenRequestIsValid()
     {
         // Arrange
-        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
-        _context.Users.Add(existingUser);
-        await _context.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        var request = new UpdateUserRequest
+        {
+            Email = "updated@example.com",
+            FullName = "Updated Name"
+        };
 
-        var updatedData = CreateValidUser("updated", "updated@example.com", "Updated Name");
+        var updatedUser = new UserResponse
+        {
+            Id = userId,
+            Email = request.Email,
+            FullName = request.FullName,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            Roles = new List<string> { "User" }
+        };
+
+        _mockUserHandler.Setup(h => h.UpdateUserAsync(userId, It.IsAny<UpdateUserRequest>()))
+            .ReturnsAsync(updatedUser);
 
         // Act
-        await _controller.UpdateUser(existingUser.Id, updatedData);
+        await _controller.UpdateUser(userId, request);
 
         // Assert
-        var savedUser = await _context.Users.FindAsync(existingUser.Id);
-        savedUser.Should().NotBeNull();
-        savedUser!.UserName.Should().Be("updated");
-        savedUser.Email.Should().Be("updated@example.com");
-        savedUser.FullName.Should().Be("Updated Name");
+        _mockUserHandler.Verify(h => h.UpdateUserAsync(userId, It.IsAny<UpdateUserRequest>()), Times.Once);
     }
 
     [Fact]
     public async Task UpdateUser_ReturnsBadRequest_WhenValidationFails()
     {
         // Arrange
-        var existingUser = CreateValidUser("original", "original@example.com", "Original Name");
-        _context.Users.Add(existingUser);
-        await _context.SaveChangesAsync();
-
-        var invalidUpdate = new User
+        var userId = Guid.NewGuid();
+        var invalidRequest = new UpdateUserRequest
         {
-            UserName = "", // Invalid
-            Email = "notanemail", // Invalid
-            FullName = "", // Invalid
-            IsActive = true
+            Email = "notanemail" // Invalid format
         };
 
+        _controller.ModelState.AddModelError("Email", "The Email field is not a valid e-mail address.");
+
         // Act
-        var result = await _controller.UpdateUser(existingUser.Id, invalidUpdate);
+        var result = await _controller.UpdateUser(userId, invalidRequest);
 
         // Assert
         var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
@@ -348,8 +377,13 @@ public class UsersControllerTests : IDisposable
     [Fact]
     public async Task DeleteUser_ReturnsNotFound_WhenUserDoesNotExist()
     {
+        // Arrange
+        var userId = Guid.NewGuid();
+        _mockUserHandler.Setup(h => h.DeleteUserAsync(userId))
+            .ReturnsAsync(false);
+
         // Act
-        var result = await _controller.DeleteUser(Guid.NewGuid());
+        var result = await _controller.DeleteUser(userId);
 
         // Assert
         result.Should().BeOfType<NotFoundResult>();
@@ -359,53 +393,46 @@ public class UsersControllerTests : IDisposable
     public async Task DeleteUser_ReturnsNoContent_WhenUserExists()
     {
         // Arrange
-        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
-        _context.Users.Add(testUser);
-        await _context.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        _mockUserHandler.Setup(h => h.DeleteUserAsync(userId))
+            .ReturnsAsync(true);
 
         // Act
-        var result = await _controller.DeleteUser(testUser.Id);
+        var result = await _controller.DeleteUser(userId);
 
         // Assert
         result.Should().BeOfType<NoContentResult>();
     }
 
     [Fact]
-    public async Task DeleteUser_RemovesUserFromDatabase()
+    public async Task DeleteUser_CallsHandler_WhenUserExists()
     {
         // Arrange
-        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
-        _context.Users.Add(testUser);
-        await _context.SaveChangesAsync();
-        var userId = testUser.Id;
+        var userId = Guid.NewGuid();
+        _mockUserHandler.Setup(h => h.DeleteUserAsync(userId))
+            .ReturnsAsync(true);
 
         // Act
         await _controller.DeleteUser(userId);
 
         // Assert
-        var deletedUser = await _context.Users.FindAsync(userId);
-        deletedUser.Should().BeNull();
+        _mockUserHandler.Verify(h => h.DeleteUserAsync(userId), Times.Once);
     }
 
     [Fact]
-    public async Task DeleteUser_OnlyDeletesSpecificUser()
+    public async Task DeleteUser_OnlyDeletesSpecifiedUser()
     {
         // Arrange
-        var user1 = CreateValidUser("user1", "user1@test.com", "User One");
-        var user2 = CreateValidUser("user2", "user2@test.com", "User Two");
-        _context.Users.AddRange(user1, user2);
-        await _context.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        _mockUserHandler.Setup(h => h.DeleteUserAsync(userId))
+            .ReturnsAsync(true);
 
         // Act
-        await _controller.DeleteUser(user1.Id);
+        await _controller.DeleteUser(userId);
 
         // Assert
-        var deletedUser = await _context.Users.FindAsync(user1.Id);
-        var remainingUser = await _context.Users.FindAsync(user2.Id);
-        
-        deletedUser.Should().BeNull();
-        remainingUser.Should().NotBeNull();
-        remainingUser!.UserName.Should().Be("user2");
+        _mockUserHandler.Verify(h => h.DeleteUserAsync(userId), Times.Once);
+        _mockUserHandler.Verify(h => h.DeleteUserAsync(It.Is<Guid>(id => id != userId)), Times.Never);
     }
 
     #endregion

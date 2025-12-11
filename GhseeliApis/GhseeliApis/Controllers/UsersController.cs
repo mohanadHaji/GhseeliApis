@@ -1,19 +1,20 @@
+using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
-using GhseeliApis.Models;
-using GhseeliApis.Validators;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
 /// <summary>
-/// User management controller (Admin only)
+/// User management controller
+/// Note: User creation (POST) is public for self-registration
+/// All other endpoints require Admin role
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
 [Tags("Users")]
-[Authorize(Roles = "Admin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserHandler _userHandler;
@@ -26,11 +27,12 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Get all users
+    /// Get all users with their roles (Admin only)
     /// </summary>
     /// <returns>List of all users</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(List<User>), StatusCodes.Status200OK)]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(List<UserListResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllUsers()
     {
         _logger.LogInfo("GET /api/users - Request received to retrieve all users");
@@ -50,26 +52,40 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Get user by ID
+    /// Get user by ID with detailed information (Admin only, or own profile)
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <returns>User details</returns>
+    /// <returns>User details including counts and wallet balance</returns>
+    /// <remarks>
+    /// Users can view their own profile. Admins can view any user profile.
+    /// </remarks>
     [HttpGet("{id:guid}")]
-    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize] // Any authenticated user
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUserById(Guid id)
     {
         _logger.LogInfo($"GET /api/users/{id} - Request received to retrieve user");
 
         try
         {
+            var currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var isAdmin = User.IsInRole("Admin");
+
+            // Check if user is accessing their own profile or is admin
+            if (id != currentUserId && !isAdmin)
+            {
+                _logger.LogWarning($"GET /api/users/{id} - User {currentUserId} attempted to access another user's profile without admin rights");
+                return StatusCode(403, new { Message = "You can only view your own profile unless you are an admin" });
+            }
+
             var user = await _userHandler.GetUserByIdAsync(id);
             
             if (user is null)
             {
                 _logger.LogWarning($"GET /api/users/{id} - User not found, returning 404 Not Found");
-                return NotFound();
+                return NotFound(new { Message = "User not found" });
             }
 
             _logger.LogInfo($"GET /api/users/{id} - User found, returning 200 OK");
@@ -83,93 +99,103 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Create a new user
+    /// Create a new user (Public endpoint for self-registration)
     /// </summary>
-    /// <param name="user">User details</param>
-    /// <returns>Created user</returns>
+    /// <param name="request">User creation request with email, password, name, and optional role</param>
+    /// <returns>Created user details</returns>
+    /// <remarks>
+    /// This endpoint is public to allow self-registration.
+    /// If no role is specified, user will be assigned the "User" role by default.
+    /// To create users with elevated roles (Company, Admin), admin privileges are required via AuthController.
+    /// </remarks>
     [HttpPost]
-    [ProducesResponseType(typeof(User), StatusCodes.Status201Created)]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateUser([FromBody] User user)
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest? request)
     {
-        _logger.LogInfo($"POST /api/users - Request received to create user: UserName='{user?.UserName}', Email='{user?.Email}'");
-        
-        if (user == null)
+        if (request == null)
         {
-            _logger.LogWarning("POST /api/users - Request body is null or invalid");
-            return BadRequest(new { Message = "User data is required" });
+            _logger.LogWarning("POST /api/users - Request body is null");
+            return BadRequest(new { Message = "Request body is required" });
         }
 
-        // Validate the user model
-        var validationResult = user.Validate();
-        if (!validationResult.IsValid)
+        _logger.LogInfo($"POST /api/users - Request received to create user: Email='{request.Email}', FullName='{request.FullName}', Role='{request.Role ?? "User"}'");
+        
+        if (!ModelState.IsValid)
         {
-            _logger.LogWarning($"POST /api/users - Model validation failed: {string.Join(", ", validationResult.Errors)}");
-            return BadRequest(new
-            {
-                Message = "Validation failed",
-                Errors = validationResult.Errors
-            });
+            _logger.LogWarning($"POST /api/users - Model validation failed");
+            return BadRequest(ModelState);
         }
+
+        // SECURITY: Prevent role escalation during self-registration
+        // Only allow "User" role for public registration
+        if (!string.IsNullOrEmpty(request.Role) && !request.Role.Equals("User", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning($"POST /api/users - Attempt to self-register with elevated role '{request.Role}' by email '{request.Email}'");
+            return BadRequest(new { Message = "Cannot self-register with elevated roles. Contact an administrator to request elevated privileges." });
+        }
+
+        // Force "User" role for all public registrations
+        request.Role = "User";
 
         try
         {
-            var createdUser = await _userHandler.CreateUserAsync(user);
+            var createdUser = await _userHandler.CreateUserAsync(request);
             
             _logger.LogInfo($"POST /api/users - User created successfully with ID={createdUser.Id}, returning 201 Created");
             return CreatedAtAction(nameof(GetUserById), new { id = createdUser.Id }, createdUser);
         }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"POST /api/users - Failed to create user: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
         catch (Exception ex)
         {
-            _logger.LogError($"POST /api/users - Failed to create user: UserName='{user.UserName}', Email='{user.Email}'", ex);
+            _logger.LogError($"POST /api/users - Failed to create user: Email='{request.Email}'", ex);
             return StatusCode(500, new { Message = "An error occurred while creating the user" });
         }
     }
 
     /// <summary>
-    /// Update an existing user
+    /// Update an existing user (Admin only)
     /// </summary>
     /// <param name="id">User ID</param>
-    /// <param name="updatedUser">Updated user details</param>
+    /// <param name="request">Updated user details (only provided fields will be updated)</param>
     /// <returns>Updated user</returns>
     [HttpPut("{id:guid}")]
-    [ProducesResponseType(typeof(User), StatusCodes.Status200OK)]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] User updatedUser)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request)
     {
-        _logger.LogInfo($"PUT /api/users/{id} - Request received to update user with new data: UserName='{updatedUser?.UserName}', Email='{updatedUser?.Email}'");
+        _logger.LogInfo($"PUT /api/users/{id} - Request received to update user");
         
-        if (updatedUser == null)
+        if (!ModelState.IsValid)
         {
-            _logger.LogWarning($"PUT /api/users/{id} - Request body is null or invalid");
-            return BadRequest(new { Message = "User data is required" });
-        }
-
-        // Validate the updated user model
-        var validationResult = updatedUser.Validate();
-        if (!validationResult.IsValid)
-        {
-            _logger.LogWarning($"PUT /api/users/{id} - Model validation failed: {string.Join(", ", validationResult.Errors)}");
-            return BadRequest(new
-            {
-                Message = "Validation failed",
-                Errors = validationResult.Errors
-            });
+            _logger.LogWarning($"PUT /api/users/{id} - Model validation failed");
+            return BadRequest(ModelState);
         }
 
         try
         {
-            var user = await _userHandler.UpdateUserAsync(id, updatedUser);
+            var user = await _userHandler.UpdateUserAsync(id, request);
             
             if (user is null)
             {
                 _logger.LogWarning($"PUT /api/users/{id} - User not found, returning 404 Not Found");
-                return NotFound();
+                return NotFound(new { Message = "User not found" });
             }
 
             _logger.LogInfo($"PUT /api/users/{id} - User updated successfully, returning 200 OK");
             return Ok(user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"PUT /api/users/{id} - Failed to update user: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -179,11 +205,12 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Delete a user
+    /// Delete a user (Admin only)
     /// </summary>
     /// <param name="id">User ID</param>
     /// <returns>No content</returns>
     [HttpDelete("{id:guid}")]
+    [Authorize(Roles = "Admin")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -208,6 +235,136 @@ public class UsersController : ControllerBase
         {
             _logger.LogError($"DELETE /api/users/{id} - Failed to delete user", ex);
             return StatusCode(500, new { Message = "An error occurred while deleting the user" });
+        }
+    }
+
+    // ========================================
+    // SELF-SERVICE ENDPOINTS (Authenticated Users)
+    // ========================================
+
+    /// <summary>
+    /// Get current authenticated user's profile
+    /// </summary>
+    /// <returns>Current user's profile details</returns>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyProfile()
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"GET /api/users/me - User {userId} requesting their profile");
+
+            var user = await _userHandler.GetUserByIdAsync(userId);
+            
+            if (user is null)
+            {
+                _logger.LogWarning($"GET /api/users/me - User {userId} not found");
+                return NotFound(new { Message = "User profile not found" });
+            }
+
+            _logger.LogInfo($"GET /api/users/me - Returning profile for user {userId}");
+            return Ok(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("GET /api/users/me - Internal server error occurred", ex);
+            return StatusCode(500, new { Message = "An error occurred while retrieving your profile" });
+        }
+    }
+
+    /// <summary>
+    /// Update current authenticated user's profile
+    /// </summary>
+    /// <param name="request">Updated profile details</param>
+    /// <returns>Updated user profile</returns>
+    /// <remarks>
+    /// Users can update their own email, full name, and phone number.
+    /// Role changes and IsActive status require admin privileges.
+    /// </remarks>
+    [HttpPut("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateUserRequest request)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"PUT /api/users/me - User {userId} updating their profile");
+            
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning($"PUT /api/users/me - Model validation failed for user {userId}");
+                return BadRequest(ModelState);
+            }
+
+            // SECURITY: Prevent users from changing their role or active status
+            if (request.Role != null || request.IsActive.HasValue)
+            {
+                _logger.LogWarning($"PUT /api/users/me - User {userId} attempted to change role or active status");
+                return BadRequest(new { Message = "Cannot change role or active status. Contact an administrator." });
+            }
+
+            var user = await _userHandler.UpdateUserAsync(userId, request);
+            
+            if (user is null)
+            {
+                _logger.LogWarning($"PUT /api/users/me - User {userId} not found");
+                return NotFound(new { Message = "User profile not found" });
+            }
+
+            _logger.LogInfo($"PUT /api/users/me - User {userId} profile updated successfully");
+            return Ok(user);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"PUT /api/users/me - Failed to update profile: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("PUT /api/users/me - Failed to update profile", ex);
+            return StatusCode(500, new { Message = "An error occurred while updating your profile" });
+        }
+    }
+
+    /// <summary>
+    /// Delete current authenticated user's account
+    /// </summary>
+    /// <returns>No content</returns>
+    /// <remarks>
+    /// Users can delete their own account. This action is permanent.
+    /// </remarks>
+    [HttpDelete("me")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DeleteMyAccount()
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"DELETE /api/users/me - User {userId} requesting account deletion");
+
+            var deleted = await _userHandler.DeleteUserAsync(userId);
+            
+            if (!deleted)
+            {
+                _logger.LogWarning($"DELETE /api/users/me - User {userId} not found");
+                return BadRequest(new { Message = "Unable to delete account" });
+            }
+
+            _logger.LogInfo($"DELETE /api/users/me - User {userId} account deleted successfully");
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("DELETE /api/users/me - Failed to delete account", ex);
+            return StatusCode(500, new { Message = "An error occurred while deleting your account" });
         }
     }
 }

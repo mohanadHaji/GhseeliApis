@@ -1,23 +1,27 @@
 using FluentAssertions;
-using GhseeliApis.Persistence;
+using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
+using GhseeliApis.Persistence;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace GhseeliApis.Tests.Handlers;
 
 /// <summary>
-/// Unit tests for UserHandler
+/// Unit tests for UserHandler with DTO-based approach
 /// </summary>
 public class UserHandlerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly IAppLogger _logger;
     private readonly IUserRepository _repository;
+    private readonly Mock<UserManager<User>> _mockUserManager;
     private readonly UserHandler _handler;
 
     public UserHandlerTests()
@@ -29,7 +33,13 @@ public class UserHandlerTests : IDisposable
         _context = new ApplicationDbContext(options);
         _logger = new ConsoleLogger();
         _repository = new UserRepository(_context);
-        _handler = new UserHandler(_repository, _logger);
+        
+        // Create mock UserManager
+        var store = new Mock<IUserStore<User>>();
+        _mockUserManager = new Mock<UserManager<User>>(
+            store.Object, null, null, null, null, null, null, null, null);
+        
+        _handler = new UserHandler(_repository, _mockUserManager.Object, _logger);
     }
 
     public void Dispose()
@@ -81,14 +91,18 @@ public class UserHandlerTests : IDisposable
         _context.Users.AddRange(testUsers);
         await _context.SaveChangesAsync();
 
+        // Mock GetRolesAsync for each user
+        _mockUserManager.Setup(um => um.GetRolesAsync(It.IsAny<User>()))
+            .ReturnsAsync(new List<string> { "User" });
+
         // Act
         var users = await _handler.GetAllUsersAsync();
 
         // Assert
         users.Should().HaveCount(3);
-        users.Should().Contain(u => u.UserName == "user1");
-        users.Should().Contain(u => u.UserName == "user2");
-        users.Should().Contain(u => u.UserName == "user3");
+        users.Should().Contain(u => u.Email == "user1@test.com");
+        users.Should().Contain(u => u.Email == "user2@test.com");
+        users.Should().Contain(u => u.Email == "user3@test.com");
     }
 
     #endregion
@@ -113,15 +127,19 @@ public class UserHandlerTests : IDisposable
         _context.Users.Add(testUser);
         await _context.SaveChangesAsync();
 
+        // Mock GetRolesAsync
+        _mockUserManager.Setup(um => um.GetRolesAsync(It.IsAny<User>()))
+            .ReturnsAsync(new List<string> { "User" });
+
         // Act
         var user = await _handler.GetUserByIdAsync(testUser.Id);
 
         // Assert
         user.Should().NotBeNull();
         user!.Id.Should().Be(testUser.Id);
-        user.UserName.Should().Be("testuser");
         user.Email.Should().Be("test@example.com");
         user.FullName.Should().Be("Test User");
+        user.Roles.Should().Contain("User");
     }
 
     #endregion
@@ -132,34 +150,73 @@ public class UserHandlerTests : IDisposable
     public async Task CreateUserAsync_CreatesUserInDatabase()
     {
         // Arrange
-        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
+        var request = new CreateUserRequest
+        {
+            Email = "newuser@example.com",
+            FullName = "New User",
+            Phone = "1234567890",
+            Password = "Password123!",
+            Role = "User"
+        };
+
+        var createdUser = new User
+        {
+            Id = Guid.NewGuid(),
+            UserName = request.Email,
+            Email = request.Email,
+            FullName = request.FullName,
+            Phone = request.Phone,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _mockUserManager.Setup(um => um.CreateAsync(It.IsAny<User>(), request.Password))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<User, string>((u, p) => u.Id = createdUser.Id);
+
+        _mockUserManager.Setup(um => um.AddToRoleAsync(It.IsAny<User>(), request.Role))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(um => um.GetRolesAsync(It.IsAny<User>()))
+            .ReturnsAsync(new List<string> { "User" });
 
         // Act
-        var createdUser = await _handler.CreateUserAsync(newUser);
+        var result = await _handler.CreateUserAsync(request);
 
         // Assert
-        createdUser.Should().NotBeNull();
-        createdUser.Id.Should().NotBe(Guid.Empty);
-        createdUser.UserName.Should().Be("newuser");
-        createdUser.FullName.Should().Be("New User");
-
-        // Verify it's in the database
-        var dbUser = await _context.Users.FindAsync(createdUser.Id);
-        dbUser.Should().NotBeNull();
-        dbUser!.UserName.Should().Be("newuser");
+        result.Should().NotBeNull();
+        result.Email.Should().Be("newuser@example.com");
+        result.FullName.Should().Be("New User");
+        result.Roles.Should().Contain("User");
     }
 
     [Fact]
     public async Task CreateUserAsync_ReturnsUserWithGeneratedId()
     {
         // Arrange
-        var newUser = CreateValidUser("newuser", "newuser@example.com", "New User");
+        var request = new CreateUserRequest
+        {
+            Email = "newuser@example.com",
+            FullName = "New User",
+            Password = "Password123!"
+        };
+
+        var userId = Guid.NewGuid();
+        _mockUserManager.Setup(um => um.CreateAsync(It.IsAny<User>(), request.Password))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<User, string>((u, p) => u.Id = userId);
+
+        _mockUserManager.Setup(um => um.AddToRoleAsync(It.IsAny<User>(), It.IsAny<string>()))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(um => um.GetRolesAsync(It.IsAny<User>()))
+            .ReturnsAsync(new List<string> { "User" });
 
         // Act
-        var createdUser = await _handler.CreateUserAsync(newUser);
+        var result = await _handler.CreateUserAsync(request);
 
         // Assert
-        createdUser.Id.Should().NotBe(Guid.Empty);
+        result.Id.Should().NotBe(Guid.Empty);
     }
 
     #endregion
@@ -170,10 +227,17 @@ public class UserHandlerTests : IDisposable
     public async Task UpdateUserAsync_ReturnsNull_WhenUserDoesNotExist()
     {
         // Arrange
-        var updateData = CreateValidUser("updated", "updated@example.com", "Updated User");
+        var request = new UpdateUserRequest
+        {
+            Email = "updated@example.com",
+            FullName = "Updated User"
+        };
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
 
         // Act
-        var result = await _handler.UpdateUserAsync(Guid.NewGuid(), updateData);
+        var result = await _handler.UpdateUserAsync(Guid.NewGuid(), request);
 
         // Assert
         result.Should().BeNull();
@@ -187,19 +251,39 @@ public class UserHandlerTests : IDisposable
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updateData = CreateValidUser("updated", "updated@example.com", "Updated Name");
-        updateData.IsActive = false;
+        var request = new UpdateUserRequest
+        {
+            Email = "updated@example.com",
+            FullName = "Updated Name",
+            IsActive = false
+        };
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(existingUser.Id.ToString()))
+            .ReturnsAsync(existingUser);
+
+        _mockUserManager.Setup(um => um.SetEmailAsync(existingUser, request.Email))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<User, string>((u, e) => u.Email = e);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(existingUser))
+            .ReturnsAsync(IdentityResult.Success)
+            .Callback<User>((u) => 
+            {
+                u.FullName = request.FullName ?? u.FullName;
+                u.IsActive = request.IsActive ?? u.IsActive;
+            });
+
+        _mockUserManager.Setup(um => um.GetRolesAsync(existingUser))
+            .ReturnsAsync(new List<string> { "User" });
 
         // Act
-        var result = await _handler.UpdateUserAsync(existingUser.Id, updateData);
+        var result = await _handler.UpdateUserAsync(existingUser.Id, request);
 
         // Assert
         result.Should().NotBeNull();
-        result!.UserName.Should().Be("updated");
-        result.Email.Should().Be("updated@example.com");
+        result!.Email.Should().Be("updated@example.com");
         result.FullName.Should().Be("Updated Name");
         result.IsActive.Should().BeFalse();
-        result.UpdatedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -210,17 +294,25 @@ public class UserHandlerTests : IDisposable
         _context.Users.Add(existingUser);
         await _context.SaveChangesAsync();
 
-        var updateData = CreateValidUser("updated", "updated@example.com", "Updated Name");
+        var request = new UpdateUserRequest
+        {
+            FullName = "Updated Name"
+        };
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(existingUser.Id.ToString()))
+            .ReturnsAsync(existingUser);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(existingUser))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(um => um.GetRolesAsync(existingUser))
+            .ReturnsAsync(new List<string> { "User" });
 
         // Act
-        await _handler.UpdateUserAsync(existingUser.Id, updateData);
+        await _handler.UpdateUserAsync(existingUser.Id, request);
 
         // Assert
-        var dbUser = await _context.Users.FindAsync(existingUser.Id);
-        dbUser.Should().NotBeNull();
-        dbUser!.UserName.Should().Be("updated");
-        dbUser.Email.Should().Be("updated@example.com");
-        dbUser.FullName.Should().Be("Updated Name");
+        _mockUserManager.Verify(um => um.UpdateAsync(existingUser), Times.Once);
     }
 
     #endregion
@@ -230,6 +322,10 @@ public class UserHandlerTests : IDisposable
     [Fact]
     public async Task DeleteUserAsync_ReturnsFalse_WhenUserDoesNotExist()
     {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
         // Act
         var result = await _handler.DeleteUserAsync(Guid.NewGuid());
 
@@ -242,8 +338,12 @@ public class UserHandlerTests : IDisposable
     {
         // Arrange
         var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
-        _context.Users.Add(testUser);
-        await _context.SaveChangesAsync();
+        
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.DeleteAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
 
         // Act
         var result = await _handler.DeleteUserAsync(testUser.Id);
@@ -257,16 +357,19 @@ public class UserHandlerTests : IDisposable
     {
         // Arrange
         var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
-        _context.Users.Add(testUser);
-        await _context.SaveChangesAsync();
         var userId = testUser.Id;
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(userId.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.DeleteAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
 
         // Act
         await _handler.DeleteUserAsync(userId);
 
         // Assert
-        var dbUser = await _context.Users.FindAsync(userId);
-        dbUser.Should().BeNull();
+        _mockUserManager.Verify(um => um.DeleteAsync(testUser), Times.Once);
     }
 
     [Fact]
@@ -274,19 +377,19 @@ public class UserHandlerTests : IDisposable
     {
         // Arrange
         var user1 = CreateValidUser("user1", "user1@test.com", "User One");
-        var user2 = CreateValidUser("user2", "user2@test.com", "User Two");
-        _context.Users.AddRange(user1, user2);
-        await _context.SaveChangesAsync();
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(user1.Id.ToString()))
+            .ReturnsAsync(user1);
+
+        _mockUserManager.Setup(um => um.DeleteAsync(user1))
+            .ReturnsAsync(IdentityResult.Success);
 
         // Act
         await _handler.DeleteUserAsync(user1.Id);
 
         // Assert
-        var deletedUser = await _context.Users.FindAsync(user1.Id);
-        var remainingUser = await _context.Users.FindAsync(user2.Id);
-        
-        deletedUser.Should().BeNull();
-        remainingUser.Should().NotBeNull();
+        _mockUserManager.Verify(um => um.DeleteAsync(user1), Times.Once);
+        _mockUserManager.Verify(um => um.DeleteAsync(It.Is<User>(u => u.Id != user1.Id)), Times.Never);
     }
 
     #endregion

@@ -1,7 +1,9 @@
+using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace GhseeliApis.Handlers;
@@ -12,18 +14,23 @@ namespace GhseeliApis.Handlers;
 public class UserHandler : IUserHandler
 {
     private readonly IUserRepository _userRepository;
+    private readonly UserManager<User> _userManager;
     private readonly IAppLogger _logger;
 
-    public UserHandler(IUserRepository userRepository, IAppLogger logger)
+    public UserHandler(
+        IUserRepository userRepository,
+        UserManager<User> userManager,
+        IAppLogger logger)
     {
         _userRepository = userRepository;
+        _userManager = userManager;
         _logger = logger;
     }
 
     /// <summary>
-    /// Gets all users
+    /// Gets all users with their roles
     /// </summary>
-    public async Task<List<User>> GetAllUsersAsync()
+    public async Task<List<UserListResponse>> GetAllUsersAsync()
     {
         try
         {
@@ -31,14 +38,25 @@ public class UserHandler : IUserHandler
             
             var users = await _userRepository.GetAllAsync();
             
-            _logger.LogInfo($"GetAllUsersAsync: Successfully retrieved {users.Count} user(s)");
-            
-            if (users.Count == 0)
+            var response = new List<UserListResponse>();
+            foreach (var user in users)
             {
-                _logger.LogWarning("GetAllUsersAsync: No users found in database");
+                var roles = await _userManager.GetRolesAsync(user);
+                response.Add(new UserListResponse
+                {
+                    Id = user.Id,
+                    Email = user.Email!,
+                    FullName = user.FullName,
+                    Phone = user.Phone,
+                    IsActive = user.IsActive,
+                    CreatedAt = user.CreatedAt,
+                    Roles = roles.ToList()
+                });
             }
             
-            return users;
+            _logger.LogInfo($"GetAllUsersAsync: Successfully retrieved {response.Count} user(s)");
+            
+            return response;
         }
         catch (Exception ex)
         {
@@ -48,9 +66,9 @@ public class UserHandler : IUserHandler
     }
 
     /// <summary>
-    /// Gets a user by ID
+    /// Gets a user by ID with detailed information
     /// </summary>
-    public async Task<User?> GetUserByIdAsync(Guid id)
+    public async Task<UserResponse?> GetUserByIdAsync(Guid id)
     {
         try
         {
@@ -63,9 +81,27 @@ public class UserHandler : IUserHandler
                 _logger.LogWarning($"GetUserByIdAsync: User with ID={id} not found in database");
                 return null;
             }
+
+            var roles = await _userManager.GetRolesAsync(user);
             
-            _logger.LogInfo($"GetUserByIdAsync: Successfully retrieved user ID={id}, UserName='{user.UserName}', Email='{user.Email}', IsActive={user.IsActive}");
-            return user;
+            var response = new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                Roles = roles.ToList(),
+                VehicleCount = user.Vehicles?.Count ?? 0,
+                AddressCount = user.Addresses?.Count ?? 0,
+                BookingCount = user.Bookings?.Count ?? 0,
+                WalletBalance = user.Wallet?.Balance
+            };
+            
+            _logger.LogInfo($"GetUserByIdAsync: Successfully retrieved user ID={id}, Email='{user.Email}', Roles={string.Join(",", roles)}");
+            return response;
         }
         catch (Exception ex)
         {
@@ -75,28 +111,73 @@ public class UserHandler : IUserHandler
     }
 
     /// <summary>
-    /// Creates a new user
+    /// Creates a new user with password and role
     /// </summary>
-    public async Task<User> CreateUserAsync(User user)
+    public async Task<UserResponse> CreateUserAsync(CreateUserRequest request)
     {
         try
         {
-            _logger.LogInfo($"CreateUserAsync: Starting user creation - UserName='{user.UserName}', Email='{user.Email}', IsActive={user.IsActive}");
+            _logger.LogInfo($"CreateUserAsync: Starting user creation - Email='{request.Email}', FullName='{request.FullName}', Role='{request.Role ?? "User"}'");
             
-            var createdUser = await _userRepository.AddAsync(user);
+            // Create the user entity
+            var user = new User
+            {
+                UserName = request.Email,
+                Email = request.Email,
+                FullName = request.FullName,
+                Phone = request.Phone,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            // Create user with password using UserManager
+            var createResult = await _userManager.CreateAsync(user, request.Password);
             
-            _logger.LogInfo($"CreateUserAsync: User created successfully - ID={createdUser.Id}, UserName='{createdUser.UserName}', CreatedAt={createdUser.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                _logger.LogError($"CreateUserAsync: Failed to create user - {errors}");
+                throw new InvalidOperationException($"Failed to create user: {errors}");
+            }
+
+            _logger.LogInfo($"CreateUserAsync: User created with ID={user.Id}");
+
+            // Assign role (default to "User" if not specified)
+            var role = string.IsNullOrWhiteSpace(request.Role) ? "User" : request.Role;
+            var roleResult = await _userManager.AddToRoleAsync(user, role);
             
-            return createdUser;
-        }
-        catch (DbUpdateException ex)
-        {
-            _logger.LogError($"CreateUserAsync: Database update failed for user UserName='{user.UserName}', Email='{user.Email}' - Possible duplicate or constraint violation", ex);
-            throw;
+            if (!roleResult.Succeeded)
+            {
+                _logger.LogWarning($"CreateUserAsync: Failed to assign role '{role}' to user {user.Id}");
+            }
+            else
+            {
+                _logger.LogInfo($"CreateUserAsync: Assigned role '{role}' to user {user.Id}");
+            }
+
+            // Return response
+            var roles = await _userManager.GetRolesAsync(user);
+            var response = new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                Roles = roles.ToList(),
+                VehicleCount = 0,
+                AddressCount = 0,
+                BookingCount = 0,
+                WalletBalance = null
+            };
+            
+            return response;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"CreateUserAsync: Unexpected error while creating user UserName='{user.UserName}', Email='{user.Email}'", ex);
+            _logger.LogError($"CreateUserAsync: Unexpected error while creating user Email='{request.Email}'", ex);
             throw;
         }
     }
@@ -104,49 +185,88 @@ public class UserHandler : IUserHandler
     /// <summary>
     /// Updates an existing user
     /// </summary>
-    public async Task<User?> UpdateUserAsync(Guid id, User updatedUser)
+    public async Task<UserResponse?> UpdateUserAsync(Guid id, UpdateUserRequest request)
     {
         try
         {
-            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id} with new data - UserName='{updatedUser.UserName}', Email='{updatedUser.Email}', FullName='{updatedUser.FullName}', IsActive={updatedUser.IsActive}");
+            _logger.LogInfo($"UpdateUserAsync: Starting update for user ID={id}");
             
-            var user = await _userRepository.GetByIdAsync(id);
+            var user = await _userManager.FindByIdAsync(id.ToString());
             
             if (user is null)
             {
-                _logger.LogWarning($"UpdateUserAsync: Cannot update - User with ID={id} not found in database");
+                _logger.LogWarning($"UpdateUserAsync: Cannot update - User with ID={id} not found");
                 return null;
             }
 
-            var oldUserName = user.UserName;
-            var oldEmail = user.Email;
-            var oldFullName = user.FullName;
-            var oldIsActive = user.IsActive;
+            // Update email if provided
+            if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != user.Email)
+            {
+                var emailResult = await _userManager.SetEmailAsync(user, request.Email);
+                if (!emailResult.Succeeded)
+                {
+                    var errors = string.Join(", ", emailResult.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException($"Failed to update email: {errors}");
+                }
+                user.UserName = request.Email; // Keep username in sync with email
+                _logger.LogInfo($"UpdateUserAsync: Updated email for user {id}");
+            }
 
-            user.UserName = updatedUser.UserName;
-            user.Email = updatedUser.Email;
-            user.FullName = updatedUser.FullName;
-            user.Phone = updatedUser.Phone;
-            user.IsActive = updatedUser.IsActive;
+            // Update other fields if provided
+            if (!string.IsNullOrWhiteSpace(request.FullName))
+            {
+                user.FullName = request.FullName;
+            }
+
+            if (request.Phone != null)
+            {
+                user.Phone = request.Phone;
+            }
+
+            if (request.IsActive.HasValue)
+            {
+                user.IsActive = request.IsActive.Value;
+            }
+
             user.UpdatedAt = DateTime.UtcNow;
 
-            _logger.LogInfo($"UpdateUserAsync: Saving changes for user ID={id} - Changed: UserName '{oldUserName}'=>'{user.UserName}', Email '{oldEmail}'=>'{user.Email}', FullName '{oldFullName}'=>'{user.FullName}', IsActive {oldIsActive}=>{user.IsActive}");
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException($"Failed to update user: {errors}");
+            }
+
+            // Update role if provided
+            if (!string.IsNullOrWhiteSpace(request.Role))
+            {
+                var currentRoles = await _userManager.GetRolesAsync(user);
+                await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                await _userManager.AddToRoleAsync(user, request.Role);
+                _logger.LogInfo($"UpdateUserAsync: Updated role to '{request.Role}' for user {id}");
+            }
+
+            _logger.LogInfo($"UpdateUserAsync: User ID={id} updated successfully");
+
+            // Return updated user response
+            var roles = await _userManager.GetRolesAsync(user);
+            var response = new UserResponse
+            {
+                Id = user.Id,
+                Email = user.Email!,
+                FullName = user.FullName,
+                Phone = user.Phone,
+                IsActive = user.IsActive,
+                CreatedAt = user.CreatedAt,
+                UpdatedAt = user.UpdatedAt,
+                Roles = roles.ToList(),
+                VehicleCount = user.Vehicles?.Count ?? 0,
+                AddressCount = user.Addresses?.Count ?? 0,
+                BookingCount = user.Bookings?.Count ?? 0,
+                WalletBalance = user.Wallet?.Balance
+            };
             
-            var result = await _userRepository.UpdateAsync(user);
-            
-            _logger.LogInfo($"UpdateUserAsync: User ID={id} updated successfully at {result.UpdatedAt:yyyy-MM-dd HH:mm:ss}");
-            
-            return result;
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            _logger.LogError($"UpdateUserAsync: Concurrency conflict while updating user ID={id} - User may have been modified by another process", ex);
-            throw;
-        }
-        catch (DbUpdateException ex)
-        {
-            _logger.LogError($"UpdateUserAsync: Database update failed for user ID={id} - Possible constraint violation", ex);
-            throw;
+            return response;
         }
         catch (Exception ex)
         {
@@ -164,29 +284,30 @@ public class UserHandler : IUserHandler
         {
             _logger.LogInfo($"DeleteUserAsync: Attempting to delete user with ID={id}");
             
-            var user = await _userRepository.GetByIdAsync(id);
+            var user = await _userManager.FindByIdAsync(id.ToString());
             
             if (user is null)
             {
-                _logger.LogWarning($"DeleteUserAsync: Cannot delete - User with ID={id} not found in database");
+                _logger.LogWarning($"DeleteUserAsync: Cannot delete - User with ID={id} not found");
                 return false;
             }
 
-            var userName = user.UserName;
             var userEmail = user.Email;
 
-            _logger.LogInfo($"DeleteUserAsync: Removing user ID={id}, UserName='{userName}', Email='{userEmail}' from database...");
+            _logger.LogInfo($"DeleteUserAsync: Removing user ID={id}, Email='{userEmail}' from database...");
             
-            await _userRepository.DeleteAsync(user);
+            var result = await _userManager.DeleteAsync(user);
             
-            _logger.LogInfo($"DeleteUserAsync: User ID={id} ('{userName}') deleted successfully from database");
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError($"DeleteUserAsync: Failed to delete user - {errors}");
+                throw new InvalidOperationException($"Failed to delete user: {errors}");
+            }
+            
+            _logger.LogInfo($"DeleteUserAsync: User ID={id} ('{userEmail}') deleted successfully");
             
             return true;
-        }
-        catch (DbUpdateException ex)
-        {
-            _logger.LogError($"DeleteUserAsync: Database error while deleting user ID={id} - May have foreign key constraints", ex);
-            throw;
         }
         catch (Exception ex)
         {

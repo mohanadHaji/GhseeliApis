@@ -40,7 +40,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         {
             // Custom property configurations
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasDefaultValueSql("GETUTCDATE()")
                 .IsRequired();
             
             entity.Property(e => e.UpdatedAt)

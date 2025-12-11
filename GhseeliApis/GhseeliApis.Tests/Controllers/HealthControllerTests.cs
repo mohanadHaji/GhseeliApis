@@ -165,7 +165,7 @@ public class HealthControllerTests : IDisposable
         
         var databaseProperty = response?.GetType().GetProperty("Database");
         databaseProperty.Should().NotBeNull();
-        databaseProperty!.GetValue(response).Should().Be("Google Cloud SQL");
+        databaseProperty!.GetValue(response).Should().Be("SQL Server");
     }
 
     [Fact]

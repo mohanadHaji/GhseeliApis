@@ -23,12 +23,12 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Ghseeli APIs",
         Version = "v1",
-        Description = "A simple ASP.NET Core Web API with Google Cloud SQL and ASP.NET Core Identity"
+        Description = "A simple ASP.NET Core Web API with SQL Server and ASP.NET Core Identity"
     });
 });
 
-// Add Google Cloud SQL
-builder.Services.AddGoogleCloudSql(builder.Configuration);
+// Add SQL Server
+builder.Services.AddSqlServer(builder.Configuration);
 
 // Configure ASP.NET Core Identity
 builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
@@ -57,20 +57,26 @@ builder.Services.AddIdentity<User, IdentityRole<Guid>>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
-// Configure JWT Authentication
+// Configure JWT Authentication (REQUIRED)
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"] ?? throw new InvalidOperationException("JWT SecretKey is not configured");
+var secretKey = jwtSettings["SecretKey"];
 
-builder.Services.AddAuthentication(options =>
+if (string.IsNullOrEmpty(secretKey))
+{
+    throw new InvalidOperationException("JWT SecretKey is not configured. Set JwtSettings__SecretKey environment variable.");
+}
+
+var authenticationBuilder = builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
+});
+
+authenticationBuilder.AddJwtBearer(options =>
 {
     options.SaveToken = true;
-    options.RequireHttpsMetadata = false; // Set to true in production
+    options.RequireHttpsMetadata = builder.Environment.IsProduction(); // True in production, false in development
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -82,26 +88,50 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero // Remove default 5 minute clock skew
     };
-})
-.AddGoogle(options =>
-{
-    var googleAuth = builder.Configuration.GetSection("Authentication:Google");
-    options.ClientId = googleAuth["ClientId"] ?? throw new InvalidOperationException("Google ClientId is not configured");
-    options.ClientSecret = googleAuth["ClientSecret"] ?? throw new InvalidOperationException("Google ClientSecret is not configured");
-    options.SaveTokens = true;
-    options.CallbackPath = "/api/auth/google-callback";
-})
-.AddFacebook(options =>
-{
-    var facebookAuth = builder.Configuration.GetSection("Authentication:Facebook");
-    options.AppId = facebookAuth["AppId"] ?? throw new InvalidOperationException("Facebook AppId is not configured");
-    options.AppSecret = facebookAuth["AppSecret"] ?? throw new InvalidOperationException("Facebook AppSecret is not configured");
-    options.SaveTokens = true;
-    options.CallbackPath = "/api/auth/facebook-callback";
-    options.Fields.Add("name");
-    options.Fields.Add("email");
-    options.Fields.Add("picture");
 });
+
+// Configure Google OAuth (OPTIONAL - only if credentials are provided)
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+
+if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
+{
+    authenticationBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.SaveTokens = true;
+        options.CallbackPath = "/api/auth/google-callback";
+    });
+    Console.WriteLine("✅ Google OAuth configured successfully");
+}
+else
+{
+    Console.WriteLine("⚠️  Google OAuth not configured - Google login will not be available");
+}
+
+// Configure Facebook OAuth (OPTIONAL - only if credentials are provided)
+var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"];
+var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"];
+
+if (!string.IsNullOrEmpty(facebookAppId) && !string.IsNullOrEmpty(facebookAppSecret))
+{
+    authenticationBuilder.AddFacebook(options =>
+    {
+        options.AppId = facebookAppId;
+        options.AppSecret = facebookAppSecret;
+        options.SaveTokens = true;
+        options.CallbackPath = "/api/auth/facebook-callback";
+        options.Fields.Add("name");
+        options.Fields.Add("email");
+        options.Fields.Add("picture");
+    });
+    Console.WriteLine("✅ Facebook OAuth configured successfully");
+}
+else
+{
+    Console.WriteLine("⚠️  Facebook OAuth not configured - Facebook login will not be available");
+}
 
 // Configure Authorization Policies
 builder.Services.AddAuthorization(options =>

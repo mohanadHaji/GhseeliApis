@@ -67,7 +67,7 @@ public class HealthController : ControllerBase
             var response = new
             {
                 Status = status,
-                Database = "Google Cloud SQL",
+                Database = "SQL Server",
                 Timestamp = DateTime.UtcNow,
                 ResponseTime = $"{duration:F2}ms"
             };

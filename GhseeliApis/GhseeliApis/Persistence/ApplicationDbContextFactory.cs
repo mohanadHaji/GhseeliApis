@@ -12,30 +12,26 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
 {
     public ApplicationDbContext CreateDbContext(string[] args)
     {
-        // Build configuration from appsettings.json
+        // Build configuration from appsettings.json and user secrets
         var configuration = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile("appsettings.Development.json", optional: true)
+            .AddUserSecrets<ApplicationDbContextFactory>(optional: true)
             .AddEnvironmentVariables()
             .Build();
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         
-        // Read connection details from configuration
-        var server = configuration["CloudSql:Server"];
-        var port = configuration["CloudSql:Port"];
-        var database = configuration["CloudSql:Database"];
-        var userId = configuration["CloudSql:UserId"];
-        var password = configuration["CloudSql:Password"];
+        // Try to get connection string from various sources
+        // Priority: RemoteTest (user secrets) > Production (env vars) > DefaultConnection (local)
+        var connectionString = configuration.GetConnectionString("RemoteTest")
+            ?? configuration.GetConnectionString("Production")
+            ?? configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("No connection string found for migrations. Please configure a connection string.");
 
-        // Build connection string from configuration
-        var connectionString = $"Server={server};Port={port};Database={database};User={userId};Password={password};";
-        
-        var serverVersion = new MySqlServerVersion(new Version(8, 0, 30));
-        optionsBuilder.UseMySql(
-            connectionString, 
-            serverVersion,
+        optionsBuilder.UseSqlServer(
+            connectionString,
             options => options.EnableRetryOnFailure(
                 maxRetryCount: 0  // Disable retry for design-time
             )

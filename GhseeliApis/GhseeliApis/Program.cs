@@ -207,13 +207,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed roles
-using (var scope = app.Services.CreateScope())
+// Seed roles without preventing the API from starting when the database is temporarily unavailable.
+try
 {
+    using var scope = app.Services.CreateScope();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
-    var logger = scope.ServiceProvider.GetRequiredService<GhseeliApis.Logger.Interfaces.IAppLogger>();
-    
-    string[] roles = { "User", "Company", "Admin" };
+    var logger = scope.ServiceProvider.GetRequiredService<IAppLogger>();
+
+    string[] roles = ["User", "Company", "Admin"];
     foreach (var role in roles)
     {
         if (!await roleManager.RoleExistsAsync(role))
@@ -229,6 +230,11 @@ using (var scope = app.Services.CreateScope())
             }
         }
     }
+}
+catch (Exception ex)
+{
+    app.Services.GetRequiredService<IAppLogger>()
+        .LogError("Role seeding failed during startup. The API will continue running.", ex);
 }
 
 app.Run();

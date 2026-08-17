@@ -189,13 +189,16 @@ var app = builder.Build();
 
 // Configure the HTTP request pipeline
 // Enable Swagger in Development or when explicitly enabled for a deployed environment.
-if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swagger:Enabled"))
+var swaggerEnabled = app.Environment.IsDevelopment()
+    || builder.Configuration.GetValue<bool>("Swagger:Enabled");
+
+if (swaggerEnabled)
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Ghseeli APIs v1");
-        options.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+        options.RoutePrefix = "swagger";
     });
 }
 
@@ -206,6 +209,11 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+if (swaggerEnabled)
+{
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+}
 
 // Seed roles without preventing the API from starting when the database is temporarily unavailable.
 try

@@ -1,0 +1,133 @@
+name: Deploy to MonsterASP.NET
+
+on:
+  workflow_dispatch:
+    inputs:
+      site_url:
+        description: "Public site URL, for example https://montorapi.runasp.net"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monsterasp-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: windows-latest
+    environment: Main
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore API
+        run: dotnet restore GhseeliApis/GhseeliApis/GhseeliApis.csproj
+
+      - name: Build API
+        run: dotnet build GhseeliApis/GhseeliApis/GhseeliApis.csproj --configuration Release --no-restore
+
+      - name: Publish API
+        run: >
+          dotnet publish GhseeliApis/GhseeliApis/GhseeliApis.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained false
+          --no-restore
+          --output "${{ github.workspace }}\publish"
+          /p:PublishTrimmed=false
+          /p:PublishSingleFile=false
+          /p:DebugType=None
+          /p:DebugSymbols=false
+
+      - name: Retain deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: monsterasp-${{ github.sha }}
+          path: publish
+          retention-days: 14
+          if-no-files-found: error
+
+      - name: Validate deployment secrets
+        shell: pwsh
+        env:
+          DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
+          DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
+          DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
+        run: |
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_URL)) { $missing += "MONSTER_WEBDEPLOY_URL" }
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_USERNAME)) { $missing += "MONSTER_WEBDEPLOY_USERNAME" }
+          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_PASSWORD)) { $missing += "MONSTER_WEBDEPLOY_PASSWORD" }
+
+          if ($missing.Count -gt 0) {
+              throw "Missing secrets in GitHub environment 'Main': $($missing -join ', ')"
+          }
+
+      - name: Install Web Deploy
+        shell: pwsh
+        run: |
+          $path = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          if (-not (Test-Path $path)) {
+              choco install webdeploy --yes --no-progress
+          }
+          if (-not (Test-Path $path)) {
+              throw "msdeploy.exe was not found after installation."
+          }
+
+      - name: Deploy with Web Deploy
+        shell: pwsh
+        env:
+          DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
+          DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
+          DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
+        run: |
+          $msdeploy = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          $source = "${{ github.workspace }}\publish"
+          $destination = "contentPath='$env:DEPLOY_USERNAME',computerName='$env:DEPLOY_URL',userName='$env:DEPLOY_USERNAME',password='$env:DEPLOY_PASSWORD',authType='Basic',includeAcls='False'"
+
+          & $msdeploy `
+              -verb:sync `
+              "-source:contentPath='$source'" `
+              "-dest:$destination" `
+              -enableRule:AppOffline `
+              -allowUntrusted `
+              -disableLink:AppPoolExtension `
+              -disableLink:ContentExtension `
+              -disableLink:CertificateExtension
+
+          if ($LASTEXITCODE -ne 0) {
+              throw "Web Deploy failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Verify API health
+        shell: pwsh
+        run: |
+          $healthUrl = "${{ inputs.site_url }}".TrimEnd('/') + "/api/health"
+          $attempts = 12
+
+          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+              try {
+                  $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 20
+                  if ($response.StatusCode -eq 200) {
+                      Write-Host "Health check passed: $healthUrl"
+                      exit 0
+                  }
+              }
+              catch {
+                  Write-Host "Health check attempt $attempt/$attempts failed: $($_.Exception.Message)"
+              }
+
+              Start-Sleep -Seconds 10
+          }
+
+          throw "Deployment completed, but health check did not pass: $healthUrl"

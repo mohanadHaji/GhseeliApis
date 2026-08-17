@@ -26,7 +26,7 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore API
-        run: dotnet restore GhseeliApis/GhseeliApis/GhseeliApis.csproj --runtime win-x64
+        run: dotnet restore GhseeliApis/GhseeliApis/GhseeliApis.csproj --runtime win-x86
 
       - name: Build API
         run: dotnet build GhseeliApis/GhseeliApis/GhseeliApis.csproj --configuration Release --no-restore
@@ -35,7 +35,7 @@ jobs:
         run: >
           dotnet publish GhseeliApis/GhseeliApis/GhseeliApis.csproj
           --configuration Release
-          --runtime win-x64
+          --runtime win-x86
           --self-contained true
           --no-restore
           --output "${{ github.workspace }}\publish"

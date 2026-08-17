@@ -86,9 +86,6 @@ jobs:
               throw "The published web.config does not contain an aspNetCore element."
           }
 
-          $aspNetCore.SetAttribute("stdoutLogEnabled", "true")
-          $aspNetCore.SetAttribute("stdoutLogFile", ".\logs\stdout")
-
           $environmentVariables = $aspNetCore.SelectSingleNode("environmentVariables")
           if ($null -eq $environmentVariables) {
               $environmentVariables = $webConfig.CreateElement("environmentVariables")
@@ -124,10 +121,6 @@ jobs:
           finally {
               $writer.Dispose()
           }
-
-          $logsPath = "${{ github.workspace }}\publish\logs"
-          New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
-          Set-Content -LiteralPath (Join-Path $logsPath ".keep") -Value "Startup diagnostics directory"
 
       - name: Install Web Deploy
         shell: pwsh
@@ -185,44 +178,9 @@ jobs:
               }
               catch {
                   Write-Host "Health check attempt $attempt/$attempts failed: $($_.Exception.Message)"
-                  if (-not [string]::IsNullOrWhiteSpace($_.ErrorDetails.Message)) {
-                      Write-Host "Response: $($_.ErrorDetails.Message)"
-                  }
               }
 
               Start-Sleep -Seconds 10
           }
 
           throw "Deployment completed, but health check did not pass: $healthUrl"
-
-      - name: Download startup diagnostics
-        if: failure()
-        shell: pwsh
-        env:
-          DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
-          DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
-          DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
-        run: |
-          $msdeploy = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
-          $destination = "${{ github.workspace }}\monster-logs"
-          New-Item -ItemType Directory -Path $destination -Force | Out-Null
-          $source = "contentPath='$env:DEPLOY_USERNAME/logs',computerName='$env:DEPLOY_URL',userName='$env:DEPLOY_USERNAME',password='$env:DEPLOY_PASSWORD',authType='Basic'"
-
-          & $msdeploy `
-              -verb:sync `
-              "-source:$source" `
-              "-dest:contentPath='$destination'" `
-              -allowUntrusted
-
-          if ($LASTEXITCODE -ne 0) {
-              Write-Warning "Unable to download MonsterASP.NET startup logs."
-          }
-
-      - name: Upload startup diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: monsterasp-startup-logs-${{ github.run_id }}
-          path: monster-logs
-          retention-days: 3
-          if-no-files-found: warn

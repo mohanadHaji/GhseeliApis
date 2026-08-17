@@ -43,4 +43,29 @@ public interface IUserHandler
     /// <param name="id">User ID to delete</param>
     /// <returns>True if deleted, false if not found</returns>
     Task<bool> DeleteUserAsync(Guid id);
+
+    /// <summary>
+    /// Soft deletes a user by deactivating and scheduling permanent deletion
+    /// </summary>
+    Task<bool> SoftDeleteUserAsync(Guid id);
+
+    /// <summary>
+    /// Reactivates a soft-deleted user account
+    /// </summary>
+    Task<bool> ReactivateAccountAsync(Guid id);
+
+    /// <summary>
+    /// Changes the user's password after verifying the current password
+    /// </summary>
+    Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request);
+
+    /// <summary>
+    /// Generates an email change token and stores the new email as pending
+    /// </summary>
+    Task<string> GenerateEmailChangeTokenAsync(Guid userId);
+
+    /// <summary>
+    /// Confirms an email change using the verification token
+    /// </summary>
+    Task<bool> ConfirmEmailChangeAsync(Guid userId, string token);
 }

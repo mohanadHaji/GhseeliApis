@@ -90,9 +90,11 @@ public class UserHandler : IUserHandler
                 Email = user.Email!,
                 FullName = user.FullName,
                 Phone = user.Phone,
+                PendingEmail = user.PendingEmail,
                 IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
+                DeleteScheduledFor = user.DeleteScheduledFor,
                 Roles = roles.ToList(),
                 VehicleCount = user.Vehicles?.Count ?? 0,
                 AddressCount = user.Addresses?.Count ?? 0,
@@ -199,17 +201,11 @@ public class UserHandler : IUserHandler
                 return null;
             }
 
-            // Update email if provided
+            // Store email change as pending (requires verification)
             if (!string.IsNullOrWhiteSpace(request.Email) && request.Email != user.Email)
             {
-                var emailResult = await _userManager.SetEmailAsync(user, request.Email);
-                if (!emailResult.Succeeded)
-                {
-                    var errors = string.Join(", ", emailResult.Errors.Select(e => e.Description));
-                    throw new InvalidOperationException($"Failed to update email: {errors}");
-                }
-                user.UserName = request.Email; // Keep username in sync with email
-                _logger.LogInfo($"UpdateUserAsync: Updated email for user {id}");
+                user.PendingEmail = request.Email;
+                _logger.LogInfo($"UpdateUserAsync: Stored pending email change for user {id}");
             }
 
             // Update other fields if provided
@@ -256,9 +252,11 @@ public class UserHandler : IUserHandler
                 Email = user.Email!,
                 FullName = user.FullName,
                 Phone = user.Phone,
+                PendingEmail = user.PendingEmail,
                 IsActive = user.IsActive,
                 CreatedAt = user.CreatedAt,
                 UpdatedAt = user.UpdatedAt,
+                DeleteScheduledFor = user.DeleteScheduledFor,
                 Roles = roles.ToList(),
                 VehicleCount = user.Vehicles?.Count ?? 0,
                 AddressCount = user.Addresses?.Count ?? 0,
@@ -270,7 +268,7 @@ public class UserHandler : IUserHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError($"UpdateUserAsync: Unexpected error while updating user ID={id}", ex);
+            _logger.LogError($"UpdateUserAsync:Unexpected error while updating user ID={id}", ex);
             throw;
         }
     }
@@ -312,6 +310,234 @@ public class UserHandler : IUserHandler
         catch (Exception ex)
         {
             _logger.LogError($"DeleteUserAsync: Unexpected error while deleting user ID={id}", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Soft deletes a user by deactivating account and scheduling permanent deletion in 30 days
+    /// </summary>
+    public async Task<bool> SoftDeleteUserAsync(Guid id)
+    {
+        try
+        {
+            _logger.LogInfo($"SoftDeleteUserAsync: Scheduling deletion for user ID={id}");
+
+            var user = await _userManager.FindByIdAsync(id.ToString());
+
+            if (user is null)
+            {
+                _logger.LogWarning($"SoftDeleteUserAsync: User with ID={id} not found");
+                return false;
+            }
+
+            user.IsActive = false;
+            user.DeleteScheduledFor = DateTime.UtcNow.AddDays(30);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError($"SoftDeleteUserAsync: Failed - {errors}");
+                throw new InvalidOperationException($"Failed to schedule account deletion: {errors}");
+            }
+
+            _logger.LogInfo($"SoftDeleteUserAsync: User ID={id} scheduled for deletion on {user.DeleteScheduledFor:yyyy-MM-dd}");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"SoftDeleteUserAsync: Unexpected error for user ID={id}", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Reactivates a soft-deleted user account, cancelling scheduled deletion
+    /// </summary>
+    public async Task<bool> ReactivateAccountAsync(Guid id)
+    {
+        try
+        {
+            _logger.LogInfo($"ReactivateAccountAsync: Attempting to reactivate user ID={id}");
+
+            var user = await _userManager.FindByIdAsync(id.ToString());
+
+            if (user is null)
+            {
+                _logger.LogWarning($"ReactivateAccountAsync: User with ID={id} not found");
+                return false;
+            }
+
+            if (user.IsActive && user.DeleteScheduledFor is null)
+            {
+                _logger.LogWarning($"ReactivateAccountAsync: User ID={id} is already active");
+                throw new InvalidOperationException("Account is already active.");
+            }
+
+            user.IsActive = true;
+            user.DeleteScheduledFor = null;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var result = await _userManager.UpdateAsync(user);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogError($"ReactivateAccountAsync: Failed - {errors}");
+                throw new InvalidOperationException($"Failed to reactivate account: {errors}");
+            }
+
+            _logger.LogInfo($"ReactivateAccountAsync: User ID={id} reactivated successfully");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"ReactivateAccountAsync: Unexpected error for user ID={id}", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Changes the user's password after verifying the current password
+    /// </summary>
+    public async Task<bool> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
+    {
+        try
+        {
+            _logger.LogInfo($"ChangePasswordAsync: Attempting password change for user ID={userId}");
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (user is null)
+            {
+                _logger.LogWarning($"ChangePasswordAsync: User with ID={userId} not found");
+                return false;
+            }
+
+            var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning($"ChangePasswordAsync: Failed for user ID={userId} - {errors}");
+                throw new InvalidOperationException($"Password change failed: {errors}");
+            }
+
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInfo($"ChangePasswordAsync: Password changed successfully for user ID={userId}");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"ChangePasswordAsync: Unexpected error for user ID={userId}", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Generates an email change token for the user's pending email
+    /// </summary>
+    public async Task<string> GenerateEmailChangeTokenAsync(Guid userId)
+    {
+        try
+        {
+            _logger.LogInfo($"GenerateEmailChangeTokenAsync: Generating token for user ID={userId}");
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (user is null)
+            {
+                _logger.LogWarning($"GenerateEmailChangeTokenAsync: User with ID={userId} not found");
+                throw new InvalidOperationException("User not found.");
+            }
+
+            if (string.IsNullOrWhiteSpace(user.PendingEmail))
+            {
+                _logger.LogWarning($"GenerateEmailChangeTokenAsync: No pending email for user ID={userId}");
+                throw new InvalidOperationException("No pending email change found. Update your profile with a new email first.");
+            }
+
+            var token = await _userManager.GenerateChangeEmailTokenAsync(user, user.PendingEmail);
+
+            _logger.LogInfo($"GenerateEmailChangeTokenAsync: Token generated for user ID={userId}, pending email='{user.PendingEmail}'");
+            return token;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"GenerateEmailChangeTokenAsync: Unexpected error for user ID={userId}", ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Confirms the email change using the verification token
+    /// </summary>
+    public async Task<bool> ConfirmEmailChangeAsync(Guid userId, string token)
+    {
+        try
+        {
+            _logger.LogInfo($"ConfirmEmailChangeAsync: Confirming email change for user ID={userId}");
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (user is null)
+            {
+                _logger.LogWarning($"ConfirmEmailChangeAsync: User with ID={userId} not found");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(user.PendingEmail))
+            {
+                _logger.LogWarning($"ConfirmEmailChangeAsync: No pending email for user ID={userId}");
+                throw new InvalidOperationException("No pending email change found.");
+            }
+
+            var result = await _userManager.ChangeEmailAsync(user, user.PendingEmail, token);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                _logger.LogWarning($"ConfirmEmailChangeAsync: Failed for user ID={userId} - {errors}");
+                throw new InvalidOperationException($"Email confirmation failed: {errors}");
+            }
+
+            // Sync username with new email and clear pending
+            user.UserName = user.PendingEmail;
+            user.PendingEmail = null;
+            user.UpdatedAt = DateTime.UtcNow;
+            await _userManager.UpdateAsync(user);
+
+            _logger.LogInfo($"ConfirmEmailChangeAsync: Email changed successfully for user ID={userId}");
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"ConfirmEmailChangeAsync: Unexpected error for user ID={userId}", ex);
             throw;
         }
     }

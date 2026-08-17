@@ -71,9 +71,21 @@ public class UserResponse
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? Phone { get; set; }
+
+    /// <summary>
+    /// New email pending verification, if any
+    /// </summary>
+    public string? PendingEmail { get; set; }
+
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// If set, account is scheduled for permanent deletion on this date
+    /// </summary>
+    public DateTime? DeleteScheduledFor { get; set; }
+
     public List<string> Roles { get; set; } = new();
     
     /// <summary>

@@ -16,6 +16,12 @@ public class User : IdentityUser<Guid>, IValidatable
     [MaxLength(30)]
     public string? Phone { get; set; }
 
+    /// <summary>
+    /// Stores new email pending verification. Null means no pending email change.
+    /// </summary>
+    [MaxLength(200)]
+    public string? PendingEmail { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // Navigation properties
@@ -29,6 +35,12 @@ public class User : IdentityUser<Guid>, IValidatable
     // Audit fields
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
+
+    /// <summary>
+    /// If set, the account is scheduled for permanent deletion on this date.
+    /// Users can reactivate before this date.
+    /// </summary>
+    public DateTime? DeleteScheduledFor { get; set; }
 
     /// <summary>
     /// Validates the User model

@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "stripe": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@stripe/mcp", "--tools=all", "--api-key", "${STRIPE_SECRET_KEY}"],
+      "env": {}
+    },
+    "mssql": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mcp-collection/mssql-mcp@latest"],
+      "env": {
+        "HOST": "localhost",
+        "PORT": "1433",
+        "DATABASE": "GhseeliDb_Dev",
+        "USER": "",
+        "PASSWORD": ""
+      }
+    }
+  }
+}

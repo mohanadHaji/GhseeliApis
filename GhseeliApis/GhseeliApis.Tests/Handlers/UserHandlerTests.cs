@@ -261,10 +261,6 @@ public class UserHandlerTests : IDisposable
         _mockUserManager.Setup(um => um.FindByIdAsync(existingUser.Id.ToString()))
             .ReturnsAsync(existingUser);
 
-        _mockUserManager.Setup(um => um.SetEmailAsync(existingUser, request.Email))
-            .ReturnsAsync(IdentityResult.Success)
-            .Callback<User, string>((u, e) => u.Email = e);
-
         _mockUserManager.Setup(um => um.UpdateAsync(existingUser))
             .ReturnsAsync(IdentityResult.Success)
             .Callback<User>((u) => 
@@ -281,7 +277,8 @@ public class UserHandlerTests : IDisposable
 
         // Assert
         result.Should().NotBeNull();
-        result!.Email.Should().Be("updated@example.com");
+        result!.Email.Should().Be("original@example.com"); // Email unchanged - goes to PendingEmail
+        result.PendingEmail.Should().Be("updated@example.com");
         result.FullName.Should().Be("Updated Name");
         result.IsActive.Should().BeFalse();
     }
@@ -390,6 +387,374 @@ public class UserHandlerTests : IDisposable
         // Assert
         _mockUserManager.Verify(um => um.DeleteAsync(user1), Times.Once);
         _mockUserManager.Verify(um => um.DeleteAsync(It.Is<User>(u => u.Id != user1.Id)), Times.Never);
+    }
+
+    #endregion
+
+    #region ChangePasswordAsync Tests
+
+    [Fact]
+    public async Task ChangePasswordAsync_ReturnsFalse_WhenUserDoesNotExist()
+    {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "OldPass123!",
+            NewPassword = "NewPass123!",
+            ConfirmNewPassword = "NewPass123!"
+        };
+
+        // Act
+        var result = await _handler.ChangePasswordAsync(Guid.NewGuid(), request);
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_ThrowsInvalidOperationException_WhenChangePasswordFails()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.ChangePasswordAsync(testUser, "WrongPass!", "NewPass123!"))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Incorrect password." }));
+
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "WrongPass!",
+            NewPassword = "NewPass123!",
+            ConfirmNewPassword = "NewPass123!"
+        };
+
+        // Act
+        var act = () => _handler.ChangePasswordAsync(testUser.Id, request);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Incorrect password*");
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_ReturnsTrue_WhenPasswordChangedSuccessfully()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.ChangePasswordAsync(testUser, "OldPass123!", "NewPass123!"))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
+
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "OldPass123!",
+            NewPassword = "NewPass123!",
+            ConfirmNewPassword = "NewPass123!"
+        };
+
+        // Act
+        var result = await _handler.ChangePasswordAsync(testUser.Id, request);
+
+        // Assert
+        result.Should().BeTrue();
+        testUser.UpdatedAt.Should().NotBeNull();
+        _mockUserManager.Verify(um => um.UpdateAsync(testUser), Times.Once);
+    }
+
+    #endregion
+
+    #region SoftDeleteUserAsync Tests
+
+    [Fact]
+    public async Task SoftDeleteUserAsync_ReturnsFalse_WhenUserDoesNotExist()
+    {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
+        // Act
+        var result = await _handler.SoftDeleteUserAsync(Guid.NewGuid());
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SoftDeleteUserAsync_ReturnsTrue_AndSetsFieldsCorrectly()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
+
+        // Act
+        var result = await _handler.SoftDeleteUserAsync(testUser.Id);
+
+        // Assert
+        result.Should().BeTrue();
+        testUser.IsActive.Should().BeFalse();
+        testUser.DeleteScheduledFor.Should().NotBeNull();
+        testUser.DeleteScheduledFor.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), TimeSpan.FromSeconds(5));
+        testUser.UpdatedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task SoftDeleteUserAsync_ThrowsInvalidOperationException_WhenUpdateFails()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Update failed" }));
+
+        // Act
+        var act = () => _handler.SoftDeleteUserAsync(testUser.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Update failed*");
+    }
+
+    #endregion
+
+    #region ReactivateAccountAsync Tests
+
+    [Fact]
+    public async Task ReactivateAccountAsync_ReturnsFalse_WhenUserDoesNotExist()
+    {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
+        // Act
+        var result = await _handler.ReactivateAccountAsync(Guid.NewGuid());
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ReactivateAccountAsync_ThrowsInvalidOperationException_WhenAlreadyActive()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.IsActive = true;
+        testUser.DeleteScheduledFor = null;
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        // Act
+        var act = () => _handler.ReactivateAccountAsync(testUser.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*already active*");
+    }
+
+    [Fact]
+    public async Task ReactivateAccountAsync_ReturnsTrue_WhenSoftDeletedUserIsReactivated()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.IsActive = false;
+        testUser.DeleteScheduledFor = DateTime.UtcNow.AddDays(25);
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
+
+        // Act
+        var result = await _handler.ReactivateAccountAsync(testUser.Id);
+
+        // Assert
+        result.Should().BeTrue();
+        testUser.IsActive.Should().BeTrue();
+        testUser.DeleteScheduledFor.Should().BeNull();
+        testUser.UpdatedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ReactivateAccountAsync_ThrowsInvalidOperationException_WhenUpdateFails()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.IsActive = false;
+        testUser.DeleteScheduledFor = DateTime.UtcNow.AddDays(20);
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Update failed" }));
+
+        // Act
+        var act = () => _handler.ReactivateAccountAsync(testUser.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Update failed*");
+    }
+
+    #endregion
+
+    #region GenerateEmailChangeTokenAsync Tests
+
+    [Fact]
+    public async Task GenerateEmailChangeTokenAsync_ThrowsInvalidOperationException_WhenUserNotFound()
+    {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
+        // Act
+        var act = () => _handler.GenerateEmailChangeTokenAsync(Guid.NewGuid());
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task GenerateEmailChangeTokenAsync_ThrowsInvalidOperationException_WhenNoPendingEmail()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.PendingEmail = null;
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        // Act
+        var act = () => _handler.GenerateEmailChangeTokenAsync(testUser.Id);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*pending email*");
+    }
+
+    [Fact]
+    public async Task GenerateEmailChangeTokenAsync_ReturnsToken_WhenPendingEmailExists()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.PendingEmail = "newemail@example.com";
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.GenerateChangeEmailTokenAsync(testUser, "newemail@example.com"))
+            .ReturnsAsync("test-token-123");
+
+        // Act
+        var token = await _handler.GenerateEmailChangeTokenAsync(testUser.Id);
+
+        // Assert
+        token.Should().Be("test-token-123");
+    }
+
+    #endregion
+
+    #region ConfirmEmailChangeAsync Tests
+
+    [Fact]
+    public async Task ConfirmEmailChangeAsync_ReturnsFalse_WhenUserDoesNotExist()
+    {
+        // Arrange
+        _mockUserManager.Setup(um => um.FindByIdAsync(It.IsAny<string>()))
+            .ReturnsAsync((User)null!);
+
+        // Act
+        var result = await _handler.ConfirmEmailChangeAsync(Guid.NewGuid(), "some-token");
+
+        // Assert
+        result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChangeAsync_ThrowsInvalidOperationException_WhenNoPendingEmail()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.PendingEmail = null;
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        // Act
+        var act = () => _handler.ConfirmEmailChangeAsync(testUser.Id, "some-token");
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*pending email*");
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChangeAsync_ThrowsInvalidOperationException_WhenChangeEmailFails()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.PendingEmail = "newemail@example.com";
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.ChangeEmailAsync(testUser, "newemail@example.com", "bad-token"))
+            .ReturnsAsync(IdentityResult.Failed(new IdentityError { Description = "Invalid token" }));
+
+        // Act
+        var act = () => _handler.ConfirmEmailChangeAsync(testUser.Id, "bad-token");
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Invalid token*");
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChangeAsync_ReturnsTrue_AndUpdatesUserFields()
+    {
+        // Arrange
+        var testUser = CreateValidUser("testuser", "test@example.com", "Test User");
+        testUser.PendingEmail = "newemail@example.com";
+
+        _mockUserManager.Setup(um => um.FindByIdAsync(testUser.Id.ToString()))
+            .ReturnsAsync(testUser);
+
+        _mockUserManager.Setup(um => um.ChangeEmailAsync(testUser, "newemail@example.com", "valid-token"))
+            .ReturnsAsync(IdentityResult.Success);
+
+        _mockUserManager.Setup(um => um.UpdateAsync(testUser))
+            .ReturnsAsync(IdentityResult.Success);
+
+        // Act
+        var result = await _handler.ConfirmEmailChangeAsync(testUser.Id, "valid-token");
+
+        // Assert
+        result.Should().BeTrue();
+        testUser.UserName.Should().Be("newemail@example.com");
+        testUser.PendingEmail.Should().BeNull();
+        testUser.UpdatedAt.Should().NotBeNull();
+        _mockUserManager.Verify(um => um.UpdateAsync(testUser), Times.Once);
     }
 
     #endregion

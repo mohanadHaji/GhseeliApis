@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using FluentAssertions;
 using GhseeliApis.Controllers;
 using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Logger;
 using GhseeliApis.Logger.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 
@@ -433,6 +435,333 @@ public class UsersControllerTests
         // Assert
         _mockUserHandler.Verify(h => h.DeleteUserAsync(userId), Times.Once);
         _mockUserHandler.Verify(h => h.DeleteUserAsync(It.Is<Guid>(id => id != userId)), Times.Never);
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private void SetupAuthenticatedUser(Guid userId)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Email, "test@example.com"),
+            new Claim(ClaimTypes.Name, "Test User")
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+    }
+
+    #endregion
+
+    #region ChangePassword Tests
+
+    [Fact]
+    public async Task ChangePassword_ReturnsOk_WhenPasswordChangedSuccessfully()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "OldPass123!",
+            NewPassword = "NewPass456!",
+            ConfirmNewPassword = "NewPass456!"
+        };
+
+        _mockUserHandler.Setup(h => h.ChangePasswordAsync(userId, It.IsAny<ChangePasswordRequest>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.ChangePassword(request);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new { Message = "Password changed successfully" });
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsNotFound_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "OldPass123!",
+            NewPassword = "NewPass456!",
+            ConfirmNewPassword = "NewPass456!"
+        };
+
+        _mockUserHandler.Setup(h => h.ChangePasswordAsync(userId, It.IsAny<ChangePasswordRequest>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.ChangePassword(request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task ChangePassword_ReturnsBadRequest_WhenInvalidOperationExceptionThrown()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var request = new ChangePasswordRequest
+        {
+            CurrentPassword = "WrongPass!",
+            NewPassword = "NewPass456!",
+            ConfirmNewPassword = "NewPass456!"
+        };
+
+        _mockUserHandler.Setup(h => h.ChangePasswordAsync(userId, It.IsAny<ChangePasswordRequest>()))
+            .ThrowsAsync(new InvalidOperationException("Current password is incorrect"));
+
+        // Act
+        var result = await _controller.ChangePassword(request);
+
+        // Assert
+        var badResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badResult.Value.Should().BeEquivalentTo(new { Message = "Current password is incorrect" });
+    }
+
+    #endregion
+
+    #region DeleteMyAccount (SoftDelete) Tests
+
+    [Fact]
+    public async Task DeleteMyAccount_ReturnsNoContent_WhenSoftDeleteSucceeds()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.SoftDeleteUserAsync(userId))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.DeleteMyAccount();
+
+        // Assert
+        result.Should().BeOfType<NoContentResult>();
+    }
+
+    [Fact]
+    public async Task DeleteMyAccount_ReturnsBadRequest_WhenSoftDeleteFails()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.SoftDeleteUserAsync(userId))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.DeleteMyAccount();
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task DeleteMyAccount_CallsSoftDeleteUserAsync_WithCorrectUserId()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.SoftDeleteUserAsync(userId))
+            .ReturnsAsync(true);
+
+        // Act
+        await _controller.DeleteMyAccount();
+
+        // Assert
+        _mockUserHandler.Verify(h => h.SoftDeleteUserAsync(userId), Times.Once);
+    }
+
+    #endregion
+
+    #region ReactivateAccount Tests
+
+    [Fact]
+    public async Task ReactivateAccount_ReturnsOk_WhenReactivationSucceeds()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.ReactivateAccountAsync(userId))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.ReactivateAccount();
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new { Message = "Account reactivated successfully. Scheduled deletion has been cancelled." });
+    }
+
+    [Fact]
+    public async Task ReactivateAccount_ReturnsNotFound_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.ReactivateAccountAsync(userId))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.ReactivateAccount();
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task ReactivateAccount_ReturnsBadRequest_WhenInvalidOperationExceptionThrown()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.ReactivateAccountAsync(userId))
+            .ThrowsAsync(new InvalidOperationException("Account is not deactivated"));
+
+        // Act
+        var result = await _controller.ReactivateAccount();
+
+        // Assert
+        var badResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badResult.Value.Should().BeEquivalentTo(new { Message = "Account is not deactivated" });
+    }
+
+    #endregion
+
+    #region RequestEmailConfirmation Tests
+
+    [Fact]
+    public async Task RequestEmailConfirmation_ReturnsOk_WithToken()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var expectedToken = "test-verification-token-123";
+
+        _mockUserHandler.Setup(h => h.GenerateEmailChangeTokenAsync(userId))
+            .ReturnsAsync(expectedToken);
+
+        // Act
+        var result = await _controller.RequestEmailConfirmation();
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new
+        {
+            Token = expectedToken,
+            Message = "Verification token generated. In production, this would be sent via email."
+        });
+    }
+
+    [Fact]
+    public async Task RequestEmailConfirmation_ReturnsBadRequest_WhenInvalidOperationExceptionThrown()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        _mockUserHandler.Setup(h => h.GenerateEmailChangeTokenAsync(userId))
+            .ThrowsAsync(new InvalidOperationException("No pending email change"));
+
+        // Act
+        var result = await _controller.RequestEmailConfirmation();
+
+        // Assert
+        var badResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badResult.Value.Should().BeEquivalentTo(new { Message = "No pending email change" });
+    }
+
+    #endregion
+
+    #region ConfirmEmailChange Tests
+
+    [Fact]
+    public async Task ConfirmEmailChange_ReturnsOk_WhenConfirmationSucceeds()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var token = "valid-token-123";
+
+        _mockUserHandler.Setup(h => h.ConfirmEmailChangeAsync(userId, token))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _controller.ConfirmEmailChange(token);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        okResult.Value.Should().BeEquivalentTo(new { Message = "Email changed successfully" });
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_ReturnsNotFound_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var token = "valid-token-123";
+
+        _mockUserHandler.Setup(h => h.ConfirmEmailChangeAsync(userId, token))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _controller.ConfirmEmailChange(token);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_ReturnsBadRequest_WhenTokenIsEmpty()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+
+        // Act
+        var result = await _controller.ConfirmEmailChange("");
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task ConfirmEmailChange_ReturnsBadRequest_WhenInvalidOperationExceptionThrown()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        SetupAuthenticatedUser(userId);
+        var token = "expired-token";
+
+        _mockUserHandler.Setup(h => h.ConfirmEmailChangeAsync(userId, token))
+            .ThrowsAsync(new InvalidOperationException("Token has expired"));
+
+        // Act
+        var result = await _controller.ConfirmEmailChange(token);
+
+        // Assert
+        var badResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
+        badResult.Value.Should().BeEquivalentTo(new { Message = "Token has expired" });
     }
 
     #endregion

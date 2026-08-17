@@ -333,11 +333,12 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
-    /// Delete current authenticated user's account
+    /// Soft delete current authenticated user's account
     /// </summary>
     /// <returns>No content</returns>
     /// <remarks>
-    /// Users can delete their own account. This action is permanent.
+    /// Account will be deactivated immediately and permanently deleted after 30 days.
+    /// Use PUT /api/users/me/reactivate to cancel deletion within the grace period.
     /// </remarks>
     [HttpDelete("me")]
     [Authorize]
@@ -350,7 +351,7 @@ public class UsersController : ControllerBase
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             _logger.LogInfo($"DELETE /api/users/me - User {userId} requesting account deletion");
 
-            var deleted = await _userHandler.DeleteUserAsync(userId);
+            var deleted = await _userHandler.SoftDeleteUserAsync(userId);
             
             if (!deleted)
             {
@@ -358,13 +359,179 @@ public class UsersController : ControllerBase
                 return BadRequest(new { Message = "Unable to delete account" });
             }
 
-            _logger.LogInfo($"DELETE /api/users/me - User {userId} account deleted successfully");
+            _logger.LogInfo($"DELETE /api/users/me - User {userId} account scheduled for deletion");
             return NoContent();
         }
         catch (Exception ex)
         {
             _logger.LogError("DELETE /api/users/me - Failed to delete account", ex);
             return StatusCode(500, new { Message = "An error occurred while deleting your account" });
+        }
+    }
+
+    /// <summary>
+    /// Reactivate current authenticated user's account (cancel scheduled deletion)
+    /// </summary>
+    /// <returns>Success message</returns>
+    /// <remarks>
+    /// Can only be used within the 30-day grace period after soft deletion.
+    /// </remarks>
+    [HttpPut("me/reactivate")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReactivateAccount()
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"PUT /api/users/me/reactivate - User {userId} requesting account reactivation");
+
+            var reactivated = await _userHandler.ReactivateAccountAsync(userId);
+
+            if (!reactivated)
+            {
+                _logger.LogWarning($"PUT /api/users/me/reactivate - User {userId} not found");
+                return NotFound(new { Message = "User not found" });
+            }
+
+            _logger.LogInfo($"PUT /api/users/me/reactivate - User {userId} account reactivated successfully");
+            return Ok(new { Message = "Account reactivated successfully. Scheduled deletion has been cancelled." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"PUT /api/users/me/reactivate - Failed: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("PUT /api/users/me/reactivate - Failed to reactivate account", ex);
+            return StatusCode(500, new { Message = "An error occurred while reactivating your account" });
+        }
+    }
+
+    /// <summary>
+    /// Change current authenticated user's password
+    /// </summary>
+    /// <param name="request">Current and new password</param>
+    /// <returns>Success message</returns>
+    [HttpPut("me/password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"PUT /api/users/me/password - User {userId} requesting password change");
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogWarning($"PUT /api/users/me/password - Model validation failed for user {userId}");
+                return BadRequest(ModelState);
+            }
+
+            var changed = await _userHandler.ChangePasswordAsync(userId, request);
+
+            if (!changed)
+            {
+                _logger.LogWarning($"PUT /api/users/me/password - User {userId} not found");
+                return NotFound(new { Message = "User not found" });
+            }
+
+            _logger.LogInfo($"PUT /api/users/me/password - Password changed for user {userId}");
+            return Ok(new { Message = "Password changed successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"PUT /api/users/me/password - Failed: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("PUT /api/users/me/password - Failed to change password", ex);
+            return StatusCode(500, new { Message = "An error occurred while changing your password" });
+        }
+    }
+
+    /// <summary>
+    /// Request email change verification token
+    /// </summary>
+    /// <returns>Verification token (in production, this would be emailed)</returns>
+    /// <remarks>
+    /// First update your profile with the new email via PUT /api/users/me,
+    /// then call this endpoint to get a verification token.
+    /// </remarks>
+    [HttpPost("me/email/request-confirmation")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> RequestEmailConfirmation()
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"POST /api/users/me/email/request-confirmation - User {userId} requesting email verification token");
+
+            var token = await _userHandler.GenerateEmailChangeTokenAsync(userId);
+
+            _logger.LogInfo($"POST /api/users/me/email/request-confirmation - Token generated for user {userId}");
+            return Ok(new { Token = token, Message = "Verification token generated. In production, this would be sent via email." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"POST /api/users/me/email/request-confirmation - Failed: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("POST /api/users/me/email/request-confirmation - Failed", ex);
+            return StatusCode(500, new { Message = "An error occurred while generating the verification token" });
+        }
+    }
+
+    /// <summary>
+    /// Confirm email change with verification token
+    /// </summary>
+    /// <param name="token">The verification token received from request-confirmation</param>
+    /// <returns>Success message</returns>
+    [HttpPost("me/email/confirm")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ConfirmEmailChange([FromBody] string token)
+    {
+        try
+        {
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            _logger.LogInfo($"POST /api/users/me/email/confirm - User {userId} confirming email change");
+
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return BadRequest(new { Message = "Verification token is required" });
+            }
+
+            var confirmed = await _userHandler.ConfirmEmailChangeAsync(userId, token);
+
+            if (!confirmed)
+            {
+                _logger.LogWarning($"POST /api/users/me/email/confirm - User {userId} not found");
+                return NotFound(new { Message = "User not found" });
+            }
+
+            _logger.LogInfo($"POST /api/users/me/email/confirm - Email changed for user {userId}");
+            return Ok(new { Message = "Email changed successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning($"POST /api/users/me/email/confirm - Failed: {ex.Message}");
+            return BadRequest(new { Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("POST /api/users/me/email/confirm - Failed to confirm email change", ex);
+            return StatusCode(500, new { Message = "An error occurred while confirming your email change" });
         }
     }
 }

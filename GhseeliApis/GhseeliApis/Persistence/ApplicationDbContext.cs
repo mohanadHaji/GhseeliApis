@@ -57,6 +57,13 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
             entity.Property(e => e.Phone)
                 .HasMaxLength(30);
 
+            entity.Property(e => e.DeleteScheduledFor)
+                .IsRequired(false);
+
+            entity.Property(e => e.PendingEmail)
+                .HasMaxLength(200)
+                .IsRequired(false);
+
             // Unique index on email
             entity.HasIndex(e => e.Email)
                 .IsUnique();

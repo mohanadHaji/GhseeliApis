@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
+try
+{
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
@@ -238,3 +240,22 @@ catch (Exception ex)
 }
 
 app.Run();
+}
+catch (Exception startupException)
+{
+    var diagnosticBuilder = WebApplication.CreateBuilder(args);
+    var diagnosticApp = diagnosticBuilder.Build();
+
+    diagnosticApp.MapGet(
+        "/api/health",
+        () => Results.Json(
+            new
+            {
+                Status = "StartupFailed",
+                Error = startupException.GetType().Name,
+                startupException.Message
+            },
+            statusCode: StatusCodes.Status503ServiceUnavailable));
+
+    diagnosticApp.Run();
+}

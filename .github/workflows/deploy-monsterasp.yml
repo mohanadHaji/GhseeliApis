@@ -185,6 +185,9 @@ jobs:
               }
               catch {
                   Write-Host "Health check attempt $attempt/$attempts failed: $($_.Exception.Message)"
+                  if (-not [string]::IsNullOrWhiteSpace($_.ErrorDetails.Message)) {
+                      Write-Host "Response: $($_.ErrorDetails.Message)"
+                  }
               }
 
               Start-Sleep -Seconds 10

@@ -2,11 +2,6 @@ name: Deploy to MonsterASP.NET
 
 on:
   workflow_dispatch:
-    inputs:
-      site_url:
-        description: "Public site URL, for example https://montorapi.runasp.net"
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -112,7 +107,11 @@ jobs:
       - name: Verify API health
         shell: pwsh
         run: |
-          $healthUrl = "${{ inputs.site_url }}".TrimEnd('/') + "/api/health"
+          $healthUrl = "${{ vars.MONSTER_SITE_URL }}".TrimEnd('/') + "/api/health"
+          if ([string]::IsNullOrWhiteSpace("${{ vars.MONSTER_SITE_URL }}")) {
+              throw "Missing MONSTER_SITE_URL variable in GitHub environment 'Main'."
+          }
+
           $attempts = 12
 
           for ($attempt = 1; $attempt -le $attempts; $attempt++) {

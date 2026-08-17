@@ -188,8 +188,8 @@ builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-// Enable Swagger only in Development mode
-if (app.Environment.IsDevelopment())
+// Enable Swagger in Development or when explicitly enabled for a deployed environment.
+if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("Swagger:Enabled"))
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>

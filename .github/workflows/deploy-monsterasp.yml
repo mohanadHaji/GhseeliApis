@@ -99,6 +99,7 @@ jobs:
               "JwtSettings__Issuer" = "GhseeliApis"
               "JwtSettings__Audience" = "GhseeliApis"
               "JwtSettings__ExpirationMinutes" = "60"
+              "Swagger__Enabled" = "true"
           }
 
           foreach ($entry in $values.GetEnumerator()) {

@@ -58,14 +58,68 @@ jobs:
           DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
           DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
           DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
+          APP_CONNECTION_STRING: ${{ secrets.APP_CONNECTION_STRING }}
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
         run: |
           $missing = @()
           if ([string]::IsNullOrWhiteSpace($env:DEPLOY_URL)) { $missing += "MONSTER_WEBDEPLOY_URL" }
           if ([string]::IsNullOrWhiteSpace($env:DEPLOY_USERNAME)) { $missing += "MONSTER_WEBDEPLOY_USERNAME" }
           if ([string]::IsNullOrWhiteSpace($env:DEPLOY_PASSWORD)) { $missing += "MONSTER_WEBDEPLOY_PASSWORD" }
+          if ([string]::IsNullOrWhiteSpace($env:APP_CONNECTION_STRING)) { $missing += "APP_CONNECTION_STRING" }
+          if ([string]::IsNullOrWhiteSpace($env:APP_JWT_SECRET)) { $missing += "APP_JWT_SECRET" }
 
           if ($missing.Count -gt 0) {
               throw "Missing secrets in GitHub environment 'Main': $($missing -join ', ')"
+          }
+
+      - name: Inject runtime configuration
+        shell: pwsh
+        env:
+          APP_CONNECTION_STRING: ${{ secrets.APP_CONNECTION_STRING }}
+          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+        run: |
+          $webConfigPath = "${{ github.workspace }}\publish\web.config"
+          [xml]$webConfig = Get-Content -LiteralPath $webConfigPath -Raw
+          $aspNetCore = $webConfig.SelectSingleNode("//aspNetCore")
+
+          if ($null -eq $aspNetCore) {
+              throw "The published web.config does not contain an aspNetCore element."
+          }
+
+          $environmentVariables = $aspNetCore.SelectSingleNode("environmentVariables")
+          if ($null -eq $environmentVariables) {
+              $environmentVariables = $webConfig.CreateElement("environmentVariables")
+              [void]$aspNetCore.AppendChild($environmentVariables)
+          }
+
+          $values = [ordered]@{
+              "ASPNETCORE_ENVIRONMENT" = "Production"
+              "ConnectionStrings__DefaultConnection" = $env:APP_CONNECTION_STRING
+              "JwtSettings__SecretKey" = $env:APP_JWT_SECRET
+              "JwtSettings__Issuer" = "GhseeliApis"
+              "JwtSettings__Audience" = "GhseeliApis"
+              "JwtSettings__ExpirationMinutes" = "60"
+          }
+
+          foreach ($entry in $values.GetEnumerator()) {
+              $node = $environmentVariables.SelectSingleNode("environmentVariable[@name='$($entry.Key)']")
+              if ($null -eq $node) {
+                  $node = $webConfig.CreateElement("environmentVariable")
+                  $node.SetAttribute("name", $entry.Key)
+                  [void]$environmentVariables.AppendChild($node)
+              }
+              $node.SetAttribute("value", $entry.Value)
+          }
+
+          $settings = [System.Xml.XmlWriterSettings]::new()
+          $settings.Indent = $true
+          $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
+          $writer = [System.Xml.XmlWriter]::Create($webConfigPath, $settings)
+          try {
+              $webConfig.Save($writer)
+          }
+          finally {
+              $writer.Dispose()
           }
 
       - name: Install Web Deploy

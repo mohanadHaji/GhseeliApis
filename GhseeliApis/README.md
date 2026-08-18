@@ -6,7 +6,29 @@
 [![Entity Framework](https://img.shields.io/badge/EF%20Core-8.0-512BD4)](https://docs.microsoft.com/ef/)
 [![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google%20%7C%20Facebook-4285F4)](.)
 
-A comprehensive ASP.NET Core Web API for managing car washing services, including booking management, payment processing, user wallet system, and OAuth 2.0 authentication.
+A .NET solution for the Ghseeli vehicle-services platform.
+
+## Backend applications
+
+- `GhseeliApis` is the Customer API.
+- `Ghseeli.BusinessApi` is the independently hosted Business API for owners and staff.
+- `Ghseeli.IntegrationContracts` contains neutral versioned HTTP contracts shared between the APIs.
+
+The APIs use separate identities, databases, configuration, migrations, domains, and deployments. They must not reference each other's implementation projects or query each other's databases. See [`API_BOUNDARIES.md`](API_BOUNDARIES.md).
+
+```shell
+# Build the complete solution
+dotnet build GhseeliApis.sln
+
+# Run all tests
+dotnet test GhseeliApis.sln
+
+# Run Customer API
+dotnet run --project GhseeliApis\GhseeliApis.csproj
+
+# Run Business API
+dotnet run --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
+```
 
 ---
 

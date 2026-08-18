@@ -1,5 +1,15 @@
 # Copilot Instructions — GhseeliApis
 
+## Application Boundaries
+
+The solution is being split into independently deployed backends:
+
+- `GhseeliApis` — Customer API and customer database.
+- `Ghseeli.BusinessApi` — Business-owner API and business database.
+- `Ghseeli.IntegrationContracts` — Neutral versioned HTTP DTOs/enums only; no domain logic, EF entities, authentication, or application dependencies.
+
+Never reference one API implementation project from the other or access the other API's database. See `GhseeliApis/API_BOUNDARIES.md` for the route, ownership, security, and integration contract.
+
 ## Build, Test, Run, and Publish
 
 All commands run from the `GhseeliApis/` solution directory (the one containing `GhseeliApis.sln`).
@@ -21,20 +31,42 @@ dotnet test --filter "FullyQualifiedName~VehicleValidationTests"
 cd GhseeliApis
 dotnet run
 
+# Run the Business API locally
+dotnet run --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
+
+# Run only Business API tests
+dotnet test Ghseeli.BusinessApi.Tests\Ghseeli.BusinessApi.Tests.csproj
+
 # EF Core migrations (run from GhseeliApis/GhseeliApis project dir)
 dotnet ef migrations add MigrationName
 dotnet ef database update
+
+# Business API migrations (run from the solution directory)
+dotnet ef migrations add MigrationName --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --startup-project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --output-dir Persistence\Migrations
 ```
 
 There is no separate lint command; use `dotnet build` for compiler and static validation.
 
 Secrets (JWT key, connection strings, OAuth, Stripe) are loaded from **user secrets** in development. Use `dotnet user-secrets` to configure — never put real secrets in `appsettings.json`. Production deployment uses `publish-production.ps1` from the solution root, which does a clean Release build targeting `win-x64`.
 
-The API project targets .NET 8; the test project targets .NET 9. EF design-time commands require a configured connection string.
+Both API projects and the integration-contract project target .NET 8. Test projects target .NET 9. EF design-time commands require the owning API's configured connection string.
+
+## Test-First Development
+
+For every meaningful behavior change:
+
+1. Define observable behavior and important failure/edge cases.
+2. Write the appropriate unit, contract, integration, or feature tests first.
+3. Run them and verify they fail for the expected missing behavior.
+4. Implement the minimum correct behavior.
+5. Run targeted and affected regression tests until green.
+6. Add tests for requirements discovered during implementation before adding that behavior.
+
+Do not weaken valid tests to fit an implementation or mark work complete with relevant failing tests. Do not create meaningless tests for passive DTOs or configuration-only files with no behavior.
 
 ## Architecture
 
-This is an ASP.NET Core 8 Web API for a vehicle services booking platform (Ghseeli). It uses a four-layer architecture:
+Each ASP.NET Core 8 API follows the four-layer architecture where applicable:
 
 ```
 Controllers → Handlers → Repositories → EF Core (SQL Server)

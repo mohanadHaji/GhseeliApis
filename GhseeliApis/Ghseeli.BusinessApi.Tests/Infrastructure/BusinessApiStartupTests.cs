@@ -2,6 +2,7 @@ using FluentAssertions;
 using Ghseeli.BusinessApi.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Ghseeli.BusinessApi.Tests.Infrastructure;
@@ -15,7 +16,18 @@ public class BusinessApiStartupTests : IClassFixture<WebApplicationFactory<Progr
 
     public BusinessApiStartupTests(WebApplicationFactory<Program> factory)
     {
-        _factory = factory.WithWebHostBuilder(builder => builder.UseEnvironment("Development"));
+        _factory = factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("Development");
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:BusinessConnection"] =
+                        "Server=(localdb)\\MSSQLLocalDB;Database=GhseeliBusiness_Tests;Trusted_Connection=True;TrustServerCertificate=True"
+                });
+            });
+        });
     }
 
     [Fact]

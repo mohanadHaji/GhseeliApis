@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Ghseeli.BusinessApi.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialBusinessIdentity : Migration
+    public partial class InitialBusinessDatabase : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -51,6 +51,27 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Companies",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    NameHe = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    DescriptionAr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    DescriptionHe = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ServiceAreaDescriptionAr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ServiceAreaDescriptionHe = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Phone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Companies", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -159,6 +180,67 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "Branches",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CompanyId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    NameAr = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    NameHe = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    AddressAr = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    AddressHe = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: false),
+                    Latitude = table.Column<double>(type: "float", nullable: true),
+                    Longitude = table.Column<double>(type: "float", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Branches", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Branches_Companies_CompanyId",
+                        column: x => x.CompanyId,
+                        principalTable: "Companies",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BusinessUserAssignments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CompanyId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BranchId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Role = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BusinessUserAssignments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BusinessUserAssignments_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BusinessUserAssignments_Branches_BranchId",
+                        column: x => x.BranchId,
+                        principalTable: "Branches",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_BusinessUserAssignments_Companies_CompanyId",
+                        column: x => x.CompanyId,
+                        principalTable: "Companies",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AspNetRoleClaims_RoleId",
                 table: "AspNetRoleClaims",
@@ -197,6 +279,28 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                 column: "NormalizedUserName",
                 unique: true,
                 filter: "[NormalizedUserName] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Branches_CompanyId_IsActive",
+                table: "Branches",
+                columns: new[] { "CompanyId", "IsActive" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BusinessUserAssignments_BranchId",
+                table: "BusinessUserAssignments",
+                column: "BranchId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BusinessUserAssignments_CompanyId",
+                table: "BusinessUserAssignments",
+                column: "CompanyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BusinessUserAssignments_UserId_CompanyId_BranchId",
+                table: "BusinessUserAssignments",
+                columns: new[] { "UserId", "CompanyId", "BranchId" },
+                unique: true,
+                filter: "[BranchId] IS NOT NULL");
         }
 
         /// <inheritdoc />
@@ -218,10 +322,19 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "BusinessUserAssignments");
+
+            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "AspNetUsers");
+
+            migrationBuilder.DropTable(
+                name: "Branches");
+
+            migrationBuilder.DropTable(
+                name: "Companies");
         }
     }
 }

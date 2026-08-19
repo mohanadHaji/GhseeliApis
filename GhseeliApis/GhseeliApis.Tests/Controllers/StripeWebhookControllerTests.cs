@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Moq;
+using Stripe;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace GhseeliApis.Tests.Controllers;
@@ -147,9 +149,8 @@ public class StripeWebhookControllerTests
     public async Task HandleWebhook_LogsInfo_WhenWebhookReceived()
     {
         // Arrange
-        var json = "{\"id\": \"evt_test\", \"type\": \"customer.created\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "t=123,v1=signature";
+        const string json = "{\"id\":\"evt_test\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.succeeded\"}";
+        SetSignedRequest(json);
 
         // Act
         var result = await _controller.HandleWebhook();
@@ -164,9 +165,8 @@ public class StripeWebhookControllerTests
     public async Task HandleWebhook_ReturnsOk_OnSuccessfulProcessing()
     {
         // Arrange
-        var json = "{\"type\": \"unhandled_event_type\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "t=123,v1=signature";
+        const string json = "{\"id\":\"evt_test\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.processing\"}";
+        SetSignedRequest(json);
 
         // Act
         var result = await _controller.HandleWebhook();
@@ -180,9 +180,8 @@ public class StripeWebhookControllerTests
     public async Task HandleWebhook_HandlesException_AndReturnsOk()
     {
         // Arrange
-        var json = "invalid json";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "t=123,v1=signature";
+        const string json = "invalid json";
+        SetSignedRequest(json);
 
         // Act
         var result = await _controller.HandleWebhook();
@@ -438,9 +437,8 @@ public class StripeWebhookControllerTests
         _mockPaymentHandler.Setup(h => h.GetAllAsync())
             .ThrowsAsync(new Exception("Database error"));
 
-        var json = "{\"type\": \"charge.refunded\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "t=123,v1=signature";
+        const string json = "{\"id\":\"evt_refund\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"ch_test\",\"object\":\"charge\",\"amount_refunded\":5000}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"charge.refunded\"}";
+        SetSignedRequest(json);
 
         // Act
         var result = await _controller.HandleWebhook();
@@ -457,15 +455,30 @@ public class StripeWebhookControllerTests
     public async Task HandleWebhook_LogsUnhandledEventType()
     {
         // Arrange
-        var json = "{\"type\": \"customer.created\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "t=123,v1=signature";
+        const string json = "{\"id\":\"evt_customer\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.processing\"}";
+        SetSignedRequest(json);
 
         // Act
         await _controller.HandleWebhook();
 
-        // Assert - Would log "Unhandled webhook event type" if signature was valid
+        _mockLogger.Verify(
+            logger => logger.LogInfo(It.Is<string>(message =>
+                message.Contains("Unhandled webhook event type"))),
+            Times.Once);
     }
 
     #endregion
+
+    private void SetSignedRequest(string json)
+    {
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var signedPayload = $"{timestamp}.{json}";
+        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_testWebhookSecret));
+        var signature = Convert.ToHexString(
+            hmac.ComputeHash(Encoding.UTF8.GetBytes(signedPayload))).ToLowerInvariant();
+
+        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        _controller.HttpContext.Request.Headers["Stripe-Signature"] =
+            $"t={timestamp},v1={signature}";
+    }
 }

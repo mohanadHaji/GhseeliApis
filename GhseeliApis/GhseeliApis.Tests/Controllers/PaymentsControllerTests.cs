@@ -299,6 +299,7 @@ public class PaymentsControllerTests
             BookingId = bookingId,
             Amount = 150.00m,
             Method = PaymentMethod.Card,
+            PaymentMethodId = "pm_test_success",
             TransactionId = "TXN789"
         };
 
@@ -339,7 +340,8 @@ public class PaymentsControllerTests
         {
             BookingId = Guid.NewGuid(),
             Amount = 100.00m,
-            Method = PaymentMethod.Card
+            Method = PaymentMethod.Card,
+            PaymentMethodId = "pm_test_invalid_operation"
         };
 
         _mockPaymentHandler.Setup(h => h.CreateAsync(It.IsAny<Payment>(), _testUserId))
@@ -363,7 +365,8 @@ public class PaymentsControllerTests
         {
             BookingId = Guid.NewGuid(),
             Amount = 100.00m,
-            Method = PaymentMethod.Card
+            Method = PaymentMethod.Card,
+            PaymentMethodId = "pm_test_exception"
         };
 
         _mockPaymentHandler.Setup(h => h.CreateAsync(It.IsAny<Payment>(), _testUserId))

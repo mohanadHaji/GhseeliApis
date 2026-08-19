@@ -148,7 +148,7 @@ public class PaymentHandlerTests
         {
             BookingId = _testBookingId,
             Amount = 25.50m,
-            Method = PaymentMethod.Card
+            Method = PaymentMethod.CashOnArrival
         };
 
         var booking = new Booking { Id = _testBookingId, UserId = _testUserId };

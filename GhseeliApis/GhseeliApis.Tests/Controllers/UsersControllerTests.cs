@@ -82,6 +82,7 @@ public class UsersControllerTests
         var userId = Guid.NewGuid();
         _mockUserHandler.Setup(h => h.GetUserByIdAsync(userId))
             .ReturnsAsync((UserResponse)null!);
+        SetupAuthenticatedUser(userId);
 
         // Act
         var result = await _controller.GetUserById(userId);
@@ -111,6 +112,7 @@ public class UsersControllerTests
 
         _mockUserHandler.Setup(h => h.GetUserByIdAsync(userId))
             .ReturnsAsync(testUser);
+        SetupAuthenticatedUser(userId);
 
         // Act
         var result = await _controller.GetUserById(userId);

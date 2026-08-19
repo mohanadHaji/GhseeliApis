@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Ghseeli.Common\Ghseeli.Common.csproj" />
     <ProjectReference Include="..\Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj" />
     <ProjectReference Include="..\Ghseeli.IntegrationContracts\Ghseeli.IntegrationContracts.csproj" />
   </ItemGroup>

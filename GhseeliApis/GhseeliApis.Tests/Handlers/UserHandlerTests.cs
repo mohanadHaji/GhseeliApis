@@ -1,8 +1,7 @@
 using FluentAssertions;
 using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers;
-using GhseeliApis.Logger;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using GhseeliApis.Repositories;
@@ -19,7 +18,7 @@ namespace GhseeliApis.Tests.Handlers;
 public class UserHandlerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly IAppLogger _logger;
+    private readonly Mock<IAppLogger> _logger = new();
     private readonly IUserRepository _repository;
     private readonly Mock<UserManager<User>> _mockUserManager;
     private readonly UserHandler _handler;
@@ -29,9 +28,8 @@ public class UserHandlerTests : IDisposable
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-
         _context = new ApplicationDbContext(options);
-        _logger = new ConsoleLogger();
+        _context = new ApplicationDbContext(options);
         _repository = new UserRepository(_context);
         
         // Create mock UserManager
@@ -39,7 +37,7 @@ public class UserHandlerTests : IDisposable
         _mockUserManager = new Mock<UserManager<User>>(
             store.Object, null, null, null, null, null, null, null, null);
         
-        _handler = new UserHandler(_repository, _mockUserManager.Object, _logger);
+        _handler = new UserHandler(_repository, _mockUserManager.Object, _logger.Object);
     }
 
     public void Dispose()

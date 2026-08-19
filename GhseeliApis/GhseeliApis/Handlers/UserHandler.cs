@@ -1,6 +1,6 @@
 using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Identity;

@@ -1,6 +1,6 @@
 using GhseeliApis.DTOs.Booking;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using Microsoft.AspNetCore.Authorization;

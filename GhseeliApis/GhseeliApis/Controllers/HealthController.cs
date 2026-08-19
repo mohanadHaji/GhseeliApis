@@ -1,5 +1,5 @@
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

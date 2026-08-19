@@ -1,6 +1,6 @@
 using FluentAssertions;
 using GhseeliApis.Handlers;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
 using Moq;

@@ -25,6 +25,13 @@ public class CompanyRepository : ICompanyRepository
         await transaction.CommitAsync();
     }
 
+    public Task<Company?> GetByIdAsync(Guid companyId)
+    {
+        return _context.Companies
+            .Include(company => company.Branches)
+            .SingleOrDefaultAsync(company => company.Id == companyId);
+    }
+
     public async Task<Company?> GetForUserAsync(Guid userId)
     {
         return await _context.Companies
@@ -54,6 +61,13 @@ public class CompanyRepository : ICompanyRepository
         _context.Branches.Add(branch);
         await _context.SaveChangesAsync();
         return branch;
+    }
+
+    public Task<Branch?> GetBranchByIdAsync(Guid branchId)
+    {
+        return _context.Branches
+            .Include(branch => branch.Company)
+            .SingleOrDefaultAsync(branch => branch.Id == branchId);
     }
 
     public Task<Branch?> GetBranchForUserAsync(Guid userId, Guid branchId)

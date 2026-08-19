@@ -1,11 +1,11 @@
 using FluentAssertions;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
-using GhseeliApis.Logger;
-using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace GhseeliApis.Tests.Handlers;
 
@@ -15,7 +15,7 @@ namespace GhseeliApis.Tests.Handlers;
 public class HealthHandlerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly IAppLogger _logger;
+    private readonly Mock<IAppLogger> _logger = new();
     private readonly IHealthRepository _repository;
     private readonly HealthHandler _handler;
 
@@ -24,11 +24,10 @@ public class HealthHandlerTests : IDisposable
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-
         _context = new ApplicationDbContext(options);
-        _logger = new ConsoleLogger();
+        _context = new ApplicationDbContext(options);
         _repository = new HealthRepository(_context);
-        _handler = new HealthHandler(_repository, _logger);
+        _handler = new HealthHandler(_repository, _logger.Object);
     }
 
     public void Dispose()
@@ -78,9 +77,9 @@ public class HealthHandlerErrorTests
         var context = new ApplicationDbContext(options);
         await context.DisposeAsync();
         
-        var logger = new ConsoleLogger();
+        var logger = new Mock<IAppLogger>();
         var repository = new HealthRepository(context);
-        var handler = new HealthHandler(repository, logger);
+        var handler = new HealthHandler(repository, logger.Object);
 
         // Act
         var result = await handler.CheckDatabaseHealthAsync();

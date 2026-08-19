@@ -1,9 +1,8 @@
-﻿using GhseeliApis.Extensions;
+using GhseeliApis.Extensions;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;

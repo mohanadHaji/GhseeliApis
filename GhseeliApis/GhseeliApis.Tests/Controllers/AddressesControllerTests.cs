@@ -2,7 +2,7 @@ using FluentAssertions;
 using GhseeliApis.Controllers;
 using GhseeliApis.DTOs.Address;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;

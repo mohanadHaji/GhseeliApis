@@ -1,6 +1,6 @@
 using GhseeliApis.DTOs.Vehicle;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

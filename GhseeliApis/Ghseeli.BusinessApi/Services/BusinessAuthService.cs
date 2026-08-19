@@ -3,6 +3,8 @@ using Ghseeli.BusinessApi.DTOs.Auth;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Repositories.Interfaces;
 using Ghseeli.BusinessApi.Services.Interfaces;
+using Ghseeli.BusinessApi.Services.Validation.Auth;
+using Ghseeli.Common.Logging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -17,27 +19,38 @@ public class BusinessAuthService : IBusinessAuthService
     private readonly SignInManager<BusinessUser> _signInManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
     private readonly ICompanyRepository _companyRepository;
+    private readonly IBusinessAuthRequestValidator _requestValidator;
     private readonly IConfiguration _configuration;
+    private readonly IAppLogger _logger;
 
     public BusinessAuthService(
         UserManager<BusinessUser> userManager,
         SignInManager<BusinessUser> signInManager,
         RoleManager<IdentityRole<Guid>> roleManager,
         ICompanyRepository companyRepository,
-        IConfiguration configuration)
+        IBusinessAuthRequestValidator requestValidator,
+        IConfiguration configuration,
+        IAppLogger logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _roleManager = roleManager;
         _companyRepository = companyRepository;
+        _requestValidator = requestValidator;
         _configuration = configuration;
+        _logger = logger;
     }
 
     public async Task<BusinessAuthResponse> RegisterOwnerAsync(
         RegisterOwnerRequest request)
     {
-        if (await _userManager.FindByEmailAsync(request.Email) != null)
+        _requestValidator.Validate(request);
+
+        var email = BusinessTextNormalizer.NormalizeRequired(request.Email);
+        if (await _userManager.FindByEmailAsync(email) != null)
         {
+            _logger.LogWarning(
+                "Business owner registration rejected because an account already exists.");
             throw new InvalidOperationException("A business account with this email already exists.");
         }
 
@@ -46,34 +59,43 @@ public class BusinessAuthService : IBusinessAuthService
             await EnsureRoleExistsAsync(role);
         }
 
+        var utcNow = DateTime.UtcNow;
         var user = new BusinessUser
         {
             Id = Guid.NewGuid(),
-            Email = request.Email,
-            UserName = request.Email,
-            FullName = request.FullName,
-            PhoneNumber = request.PhoneNumber,
+            Email = email,
+            UserName = email,
+            FullName = BusinessTextNormalizer.NormalizeRequired(request.FullName),
+            PhoneNumber = BusinessTextNormalizer.NormalizeOptional(request.PhoneNumber),
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = utcNow
         };
 
         var createResult = await _userManager.CreateAsync(user, request.Password);
-        EnsureIdentitySucceeded(createResult, "Business owner registration failed");
+        EnsureIdentitySucceeded(
+            createResult,
+            "Business owner registration failed",
+            $"Business owner registration failed identity checks for user {user.Id}.");
 
         var roleResult = await _userManager.AddToRoleAsync(user, BusinessRoles.Owner);
         if (!roleResult.Succeeded)
         {
-            await _userManager.DeleteAsync(user);
-            EnsureIdentitySucceeded(roleResult, "Business owner role assignment failed");
+            _logger.LogWarning(
+                $"Business owner role assignment failed for user {user.Id}. Identity codes: {FormatIdentityCodes(roleResult)}.");
+            await CleanupUserAsync(user, "business owner role assignment failure");
+            EnsureIdentitySucceeded(
+                roleResult,
+                "Business owner role assignment failed",
+                $"Business owner role assignment failed for user {user.Id}.");
         }
 
         var company = new Company
         {
             Id = Guid.NewGuid(),
-            NameAr = request.CompanyNameAr.Trim(),
-            NameHe = request.CompanyNameHe.Trim(),
-            Phone = request.PhoneNumber,
-            CreatedAt = DateTime.UtcNow
+            NameAr = BusinessTextNormalizer.NormalizeRequired(request.CompanyNameAr),
+            NameHe = BusinessTextNormalizer.NormalizeOptional(request.CompanyNameHe),
+            Phone = BusinessTextNormalizer.NormalizeOptional(request.PhoneNumber),
+            CreatedAt = utcNow
         };
         var assignment = new BusinessUserAssignment
         {
@@ -82,29 +104,43 @@ public class BusinessAuthService : IBusinessAuthService
             CompanyId = company.Id,
             Role = BusinessMembershipRole.Owner,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = utcNow
         };
 
         try
         {
             await _companyRepository.CreateForOwnerAsync(company, assignment);
         }
-        catch
+        catch (Exception exception)
         {
-            await _userManager.DeleteAsync(user);
+            _logger.LogError(
+                $"Business owner registration failed while creating company {company.Id} for user {user.Id}. Rolling back identity user.",
+                exception);
+            await CleanupUserAsync(user, "business owner company persistence failure");
             throw;
         }
 
+        _logger.LogInfo(
+            $"Business owner registration succeeded for user {user.Id} and company {company.Id}.");
         return CreateResponse(user, company.Id, [BusinessRoles.Owner]);
     }
 
     public async Task<BusinessAuthResponse> LoginAsync(BusinessLoginRequest request)
     {
-        var user = await _userManager.FindByEmailAsync(request.Email)
-            ?? throw new InvalidOperationException("Invalid email or password.");
+        _requestValidator.Validate(request);
+
+        var email = BusinessTextNormalizer.NormalizeRequired(request.Email);
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            _logger.LogWarning("Business login rejected due to invalid credentials.");
+            throw new InvalidOperationException("Invalid email or password.");
+        }
 
         if (!user.IsActive)
         {
+            _logger.LogWarning(
+                $"Business login rejected because user {user.Id} is inactive.");
             throw new InvalidOperationException("This business account is inactive.");
         }
 
@@ -112,11 +148,14 @@ public class BusinessAuthService : IBusinessAuthService
             user, request.Password, lockoutOnFailure: true);
         if (!signInResult.Succeeded)
         {
+            _logger.LogWarning(
+                $"Business login rejected due to invalid credentials for user {user.Id}.");
             throw new InvalidOperationException("Invalid email or password.");
         }
 
         var roles = await _userManager.GetRolesAsync(user);
         var assignment = await _companyRepository.GetAssignmentForUserAsync(user.Id);
+        _logger.LogInfo($"Business login succeeded for user {user.Id}.");
         return CreateResponse(user, assignment?.CompanyId, roles);
     }
 
@@ -128,7 +167,16 @@ public class BusinessAuthService : IBusinessAuthService
         }
 
         var result = await _roleManager.CreateAsync(new IdentityRole<Guid>(role));
-        EnsureIdentitySucceeded(result, $"Creating business role '{role}' failed");
+        if (!result.Succeeded)
+        {
+            _logger.LogError(
+                $"Creating business role '{role}' failed. Identity codes: {FormatIdentityCodes(result)}.");
+        }
+
+        EnsureIdentitySucceeded(
+            result,
+            $"Creating business role '{role}' failed",
+            $"Creating business role '{role}' failed.");
     }
 
     private BusinessAuthResponse CreateResponse(
@@ -180,14 +228,37 @@ public class BusinessAuthService : IBusinessAuthService
         };
     }
 
-    private static void EnsureIdentitySucceeded(
+    private void EnsureIdentitySucceeded(
         IdentityResult result,
-        string message)
+        string message,
+        string logMessage)
     {
         if (!result.Succeeded)
         {
+            _logger.LogWarning($"{logMessage} Identity codes: {FormatIdentityCodes(result)}.");
             throw new InvalidOperationException(
                 $"{message}: {string.Join(", ", result.Errors.Select(error => error.Description))}");
         }
+    }
+
+    private async Task CleanupUserAsync(BusinessUser user, string reason)
+    {
+        var deleteResult = await _userManager.DeleteAsync(user);
+        if (!deleteResult.Succeeded)
+        {
+            _logger.LogError(
+                $"Business identity cleanup failed after {reason} for user {user.Id}. Identity codes: {FormatIdentityCodes(deleteResult)}.");
+        }
+    }
+
+    private static string FormatIdentityCodes(IdentityResult result)
+    {
+        var codes = result.Errors
+            .Select(error => error.Code)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return codes.Length == 0 ? "Unknown" : string.Join(", ", codes);
     }
 }

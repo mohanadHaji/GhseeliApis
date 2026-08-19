@@ -1,5 +1,5 @@
 using GhseeliApis.DTOs.Payment;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Stripe;

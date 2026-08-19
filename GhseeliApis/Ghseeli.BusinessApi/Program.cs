@@ -1,19 +1,69 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.BusinessApi.Repositories;
 using Ghseeli.BusinessApi.Repositories.Interfaces;
 using Ghseeli.BusinessApi.Services;
+using Ghseeli.BusinessApi.Services.Catalog;
 using Ghseeli.BusinessApi.Services.Interfaces;
+using Ghseeli.BusinessApi.Services.Validation.Auth;
+using Ghseeli.BusinessApi.Services.Validation.Catalog;
+using Ghseeli.BusinessApi.Services.Validation.Companies;
+using Ghseeli.BusinessApi.Swagger;
+using Ghseeli.Common.Logging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json.Serialization;
+using System.Text.Json;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var validationJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+validationJsonOptions.Converters.Add(new JsonStringEnumConverter());
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+    {
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+    })
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        var errors = context.ModelState
+            .Where(entry => entry.Value?.Errors.Count > 0)
+            .ToDictionary(
+                entry => entry.Key,
+                entry => entry.Value!.Errors
+                    .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage)
+                        ? "The input was not valid."
+                        : error.ErrorMessage)
+                    .ToArray(),
+                StringComparer.Ordinal);
+
+        return new ContentResult
+        {
+            StatusCode = StatusCodes.Status400BadRequest,
+            ContentType = "application/json",
+            Content = JsonSerializer.Serialize(new
+            {
+                title = "One or more validation errors occurred.",
+                status = StatusCodes.Status400BadRequest,
+                errors
+            }, validationJsonOptions)
+        };
+    };
+});
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -46,6 +96,7 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
+    options.SchemaFilter<StringEnumSchemaFilter>();
 });
 
 var businessConnection = builder.Configuration.GetConnectionString("BusinessConnection");
@@ -108,8 +159,15 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
+builder.Services.AddScoped<IBusinessAuthRequestValidator, BusinessAuthRequestValidator>();
+builder.Services.AddScoped<ICompanyRequestValidator, CompanyRequestValidator>();
+builder.Services.AddScoped<ICatalogRequestValidator, CatalogRequestValidator>();
+builder.Services.AddScoped<ICatalogRuleValidator, CatalogRuleValidator>();
 builder.Services.AddScoped<IBusinessAuthService, BusinessAuthService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
+builder.Services.AddScoped<ICatalogService, CatalogService>();
+builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 
 var app = builder.Build();
 

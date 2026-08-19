@@ -1,14 +1,14 @@
 using FluentAssertions;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Controllers;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger;
-using GhseeliApis.Logger.Interfaces;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace GhseeliApis.Tests.Controllers;
 
@@ -18,7 +18,7 @@ namespace GhseeliApis.Tests.Controllers;
 public class HealthControllerTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
-    private readonly IAppLogger _logger;
+    private readonly Mock<IAppLogger> _logger = new();
     private readonly IHealthRepository _repository;
     private readonly IHealthHandler _healthHandler;
     private readonly HealthController _controller;
@@ -29,12 +29,11 @@ public class HealthControllerTests : IDisposable
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
             .Options;
-
         _context = new ApplicationDbContext(options);
-        _logger = new ConsoleLogger();
+        _context = new ApplicationDbContext(options);
         _repository = new HealthRepository(_context);
-        _healthHandler = new HealthHandler(_repository, _logger);
-        _controller = new HealthController(_healthHandler, _logger);
+        _healthHandler = new HealthHandler(_repository, _logger.Object);
+        _controller = new HealthController(_healthHandler, _logger.Object);
     }
 
     public void Dispose()
@@ -209,10 +208,10 @@ public class HealthControllerDatabaseFailureTests
         // Dispose the context to simulate connection failure
         await context.DisposeAsync();
         
-        var logger = new ConsoleLogger();
+        var logger = new Mock<IAppLogger>();
         var repository = new HealthRepository(context);
-        var healthHandler = new HealthHandler(repository, logger);
-        var controller = new HealthController(healthHandler, logger);
+        var healthHandler = new HealthHandler(repository, logger.Object);
+        var controller = new HealthController(healthHandler, logger.Object);
 
         // Act
         var result = await controller.CheckDatabaseHealth();

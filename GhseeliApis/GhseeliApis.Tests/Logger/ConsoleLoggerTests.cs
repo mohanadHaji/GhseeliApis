@@ -1,298 +1,258 @@
 using FluentAssertions;
-using GhseeliApis.Logger;
-using System.Text;
+using Ghseeli.Common.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace GhseeliApis.Tests.Logger;
 
 /// <summary>
-/// Unit tests for ConsoleLogger
+/// Unit tests for the shared ConsoleLogger wrapper.
 /// </summary>
-public class ConsoleLoggerTests : IDisposable
+public class ConsoleLoggerTests
 {
-    private readonly StringWriter _stringWriter;
-    private readonly TextWriter _originalOutput;
-    private readonly ConsoleLogger _logger;
-
-    public ConsoleLoggerTests()
-    {
-        // Redirect console output to capture it for testing
-        _stringWriter = new StringWriter();
-        _originalOutput = Console.Out;
-        Console.SetOut(_stringWriter);
-        
-        _logger = new ConsoleLogger();
-    }
-
-    public void Dispose()
-    {
-        // Restore original console output
-        Console.SetOut(_originalOutput);
-        _stringWriter.Dispose();
-    }
-
-    private string GetConsoleOutput()
-    {
-        return _stringWriter.ToString();
-    }
-
-    #region LogInfo Tests
-
     [Fact]
-    public void LogInfo_WritesToConsole()
+    public void LogInfo_ForwardsInformationMessageToFrameworkLogger()
     {
-        // Arrange
-        var message = "Test info message";
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
 
-        // Act
-        _logger.LogInfo(message);
+        logger.LogInfo("Test info message");
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[INFO]");
-        output.Should().Contain(message);
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Information &&
+            entry.Message == "Test info message" &&
+            entry.Exception == null);
     }
 
     [Fact]
-    public void LogInfo_IncludesTimestamp()
+    public void LogWarning_ForwardsWarningMessageToFrameworkLogger()
     {
-        // Arrange
-        var message = "Test message";
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
 
-        // Act
-        _logger.LogInfo(message);
+        logger.LogWarning("Test warning message");
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().MatchRegex(@"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}");
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Warning &&
+            entry.Message == "Test warning message");
     }
 
     [Fact]
-    public void LogInfo_HandlesEmptyMessage()
+    public void LogError_ForwardsErrorMessageAndExceptionToFrameworkLogger()
     {
-        // Act
-        _logger.LogInfo("");
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[INFO]");
-    }
-
-    [Fact]
-    public void LogInfo_HandlesNullMessage()
-    {
-        // Act
-        _logger.LogInfo(null!);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[INFO]");
-    }
-
-    #endregion
-
-    #region LogWarning Tests
-
-    [Fact]
-    public void LogWarning_WritesToConsole()
-    {
-        // Arrange
-        var message = "Test warning message";
-
-        // Act
-        _logger.LogWarning(message);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[WARNING]");
-        output.Should().Contain(message);
-    }
-
-    [Fact]
-    public void LogWarning_IncludesTimestamp()
-    {
-        // Arrange
-        var message = "Test warning";
-
-        // Act
-        _logger.LogWarning(message);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().MatchRegex(@"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}");
-    }
-
-    [Fact]
-    public void LogWarning_HandlesSpecialCharacters()
-    {
-        // Arrange
-        var message = "Warning: Special chars !@#$%^&*()";
-
-        // Act
-        _logger.LogWarning(message);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain(message);
-    }
-
-    #endregion
-
-    #region LogError Tests
-
-    [Fact]
-    public void LogError_WithMessageOnly_WritesToConsole()
-    {
-        // Arrange
-        var message = "Test error message";
-
-        // Act
-        _logger.LogError(message);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[ERROR]");
-        output.Should().Contain(message);
-    }
-
-    [Fact]
-    public void LogError_WithMessageOnly_IncludesTimestamp()
-    {
-        // Arrange
-        var message = "Test error";
-
-        // Act
-        _logger.LogError(message);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().MatchRegex(@"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}");
-    }
-
-    [Fact]
-    public void LogError_WithException_WritesExceptionDetails()
-    {
-        // Arrange
-        var message = "An error occurred";
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
         var exception = new InvalidOperationException("Test exception");
 
-        // Act
-        _logger.LogError(message, exception);
+        logger.LogError("An error occurred", exception);
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[ERROR]");
-        output.Should().Contain(message);
-        output.Should().Contain("Exception:");
-        output.Should().Contain("InvalidOperationException");
-        output.Should().Contain("Message:");
-        output.Should().Contain("Test exception");
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Error &&
+            entry.Message == "An error occurred" &&
+            entry.Exception == exception);
     }
 
     [Fact]
-    public void LogError_WithException_IncludesStackTrace()
+    public void LogError_WithNullMessage_UsesEmptyMessage()
     {
-        // Arrange
-        var message = "An error occurred";
-        var exception = new Exception("Test exception");
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
 
-        // Act
-        _logger.LogError(message, exception);
+        logger.LogError(null!);
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("StackTrace:");
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Error &&
+            entry.Message == string.Empty);
     }
 
     [Fact]
-    public void LogError_WithNestedException_LogsInnerException()
+    public void LogInfo_WithNullMessage_UsesEmptyMessage()
     {
-        // Arrange
-        var message = "Nested error";
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogInfo(null!);
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Information &&
+            entry.Message == string.Empty);
+    }
+
+    [Fact]
+    public void LogInfo_WithEmptyMessage_ForwardsEmptyMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogInfo(string.Empty);
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Information &&
+            entry.Message == string.Empty);
+    }
+
+    [Fact]
+    public void LogInfo_WithSpecialCharacters_PreservesMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+        const string message = "Special chars !@#$%^&*()";
+
+        logger.LogInfo(message);
+
+        sink.Entries.Should().ContainSingle(entry => entry.Message == message);
+    }
+
+    [Fact]
+    public void LogInfo_WithLongMessage_PreservesMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+        var message = new string('A', 1000);
+
+        logger.LogInfo(message);
+
+        sink.Entries.Should().ContainSingle(entry => entry.Message == message);
+    }
+
+    [Fact]
+    public void LogInfo_WithMultilineMessage_PreservesMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+        const string message = "Line 1\nLine 2\nLine 3";
+
+        logger.LogInfo(message);
+
+        sink.Entries.Should().ContainSingle(entry => entry.Message == message);
+    }
+
+    [Fact]
+    public void LogWarning_WithNullMessage_UsesEmptyMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogWarning(null!);
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Warning &&
+            entry.Message == string.Empty);
+    }
+
+    [Fact]
+    public void LogWarning_WithEmptyMessage_ForwardsEmptyMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogWarning(string.Empty);
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Warning &&
+            entry.Message == string.Empty);
+    }
+
+    [Fact]
+    public void LogWarning_WithSpecialCharacters_PreservesMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+        const string message = "Warning: !@#$%^&*()";
+
+        logger.LogWarning(message);
+
+        sink.Entries.Should().ContainSingle(entry => entry.Message == message);
+    }
+
+    [Fact]
+    public void LogError_WithMessageOnly_ForwardsErrorWithoutException()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogError("Test error");
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Error &&
+            entry.Message == "Test error" &&
+            entry.Exception == null);
+    }
+
+    [Fact]
+    public void LogError_WithEmptyMessage_ForwardsEmptyMessage()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogError(string.Empty);
+
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Level == LogLevel.Error &&
+            entry.Message == string.Empty);
+    }
+
+    [Fact]
+    public void MultipleLogCalls_PreserveCallOrder()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
+
+        logger.LogInfo("First");
+        logger.LogWarning("Second");
+        logger.LogError("Third");
+
+        sink.Entries.Select(entry => entry.Message)
+            .Should().ContainInOrder("First", "Second", "Third");
+    }
+
+    [Fact]
+    public void LogError_WithNestedException_PreservesExceptionGraph()
+    {
+        var sink = new TestLogger<ConsoleLogger>();
+        var logger = new ConsoleLogger(sink);
         var innerException = new ArgumentException("Inner exception");
-        var outerException = new InvalidOperationException("Outer exception", innerException);
+        var outerException = new InvalidOperationException(
+            "Outer exception",
+            innerException);
 
-        // Act
-        _logger.LogError(message, outerException);
+        logger.LogError("Nested error", outerException);
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("InvalidOperationException");
-        output.Should().Contain("Outer exception");
+        sink.Entries.Should().ContainSingle(entry =>
+            entry.Exception == outerException &&
+            entry.Exception.InnerException == innerException);
     }
 
-    #endregion
-
-    #region Multiple Log Calls Tests
-
-    [Fact]
-    public void MultipleLogCalls_AllAppearInOutput()
+    private sealed class TestLogger<T> : ILogger<T>
     {
-        // Act
-        _logger.LogInfo("Info message");
-        _logger.LogWarning("Warning message");
-        _logger.LogError("Error message");
+        public List<LogEntry> Entries { get; } = [];
 
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("[INFO]");
-        output.Should().Contain("Info message");
-        output.Should().Contain("[WARNING]");
-        output.Should().Contain("Warning message");
-        output.Should().Contain("[ERROR]");
-        output.Should().Contain("Error message");
+        public IDisposable BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return NullScope.Instance;
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
+        }
+
+        public sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
+
+        private sealed class NullScope : IDisposable
+        {
+            public static NullScope Instance { get; } = new();
+
+            public void Dispose()
+            {
+            }
+        }
     }
-
-    [Fact]
-    public void MultipleLogCalls_MaintainOrder()
-    {
-        // Act
-        _logger.LogInfo("First");
-        _logger.LogWarning("Second");
-        _logger.LogError("Third");
-
-        // Assert
-        var output = GetConsoleOutput();
-        var firstIndex = output.IndexOf("First");
-        var secondIndex = output.IndexOf("Second");
-        var thirdIndex = output.IndexOf("Third");
-
-        firstIndex.Should().BeLessThan(secondIndex);
-        secondIndex.Should().BeLessThan(thirdIndex);
-    }
-
-    #endregion
-
-    #region Long Message Tests
-
-    [Fact]
-    public void LogInfo_HandlesLongMessage()
-    {
-        // Arrange
-        var longMessage = new string('A', 1000);
-
-        // Act
-        _logger.LogInfo(longMessage);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain(longMessage);
-    }
-
-    [Fact]
-    public void LogInfo_HandlesMultilineMessage()
-    {
-        // Arrange
-        var multilineMessage = "Line 1\nLine 2\nLine 3";
-
-        // Act
-        _logger.LogInfo(multilineMessage);
-
-        // Assert
-        var output = GetConsoleOutput();
-        output.Should().Contain("Line 1");
-        output.Should().Contain("Line 2");
-        output.Should().Contain("Line 3");
-    }
-
-    #endregion
 }

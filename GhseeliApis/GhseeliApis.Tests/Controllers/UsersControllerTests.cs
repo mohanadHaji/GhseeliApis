@@ -1,10 +1,9 @@
 using System.Security.Claims;
 using FluentAssertions;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Controllers;
 using GhseeliApis.DTOs.User;
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger;
-using GhseeliApis.Logger.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -17,14 +16,13 @@ namespace GhseeliApis.Tests.Controllers;
 public class UsersControllerTests
 {
     private readonly Mock<IUserHandler> _mockUserHandler;
-    private readonly IAppLogger _logger;
+    private readonly Mock<IAppLogger> _logger = new();
     private readonly UsersController _controller;
 
     public UsersControllerTests()
     {
         _mockUserHandler = new Mock<IUserHandler>();
-        _logger = new ConsoleLogger();
-        _controller = new UsersController(_mockUserHandler.Object, _logger);
+        _controller = new UsersController(_mockUserHandler.Object, _logger.Object);
     }
 
     #region GetAllUsers Tests

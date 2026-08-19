@@ -22,6 +22,128 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonChoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AddonGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<int>("DefaultQuantity")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DescriptionHe")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DurationAdjustmentMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NameHe")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("PriceAdjustment")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddonGroupId", "DisplayOrder");
+
+                    b.HasIndex("AddonGroupId", "IsActive");
+
+                    b.ToTable("AddonChoices");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DescriptionHe")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("MaximumSelections")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinimumSelections")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NameHe")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("SelectionType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("ServiceOfferingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ServiceOfferingId", "DisplayOrder");
+
+                    b.HasIndex("ServiceOfferingId", "IsActive");
+
+                    b.ToTable("AddonGroups");
+                });
+
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
                 {
                     b.Property<Guid>("Id")
@@ -34,7 +156,6 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("AddressHe")
-                        .IsRequired()
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
@@ -59,7 +180,6 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("NameHe")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -215,7 +335,6 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("NameHe")
-                        .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -235,6 +354,124 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DescriptionHe")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NameHe")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "DisplayOrder");
+
+                    b.HasIndex("CompanyId", "IsActive");
+
+                    b.ToTable("ServiceCategories");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceOffering", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("BasePrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid?>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("DescriptionHe")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("NameHe")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ReferenceCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "IsActive");
+
+                    b.HasIndex("CategoryId", "DisplayOrder");
+
+                    b.HasIndex("CategoryId", "IsActive");
+
+                    b.ToTable("ServiceOfferings");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -368,6 +605,28 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonChoice", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.AddonGroup", "AddonGroup")
+                        .WithMany("Choices")
+                        .HasForeignKey("AddonGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddonGroup");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonGroup", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.ServiceOffering", "ServiceOffering")
+                        .WithMany("AddonGroups")
+                        .HasForeignKey("ServiceOfferingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ServiceOffering");
+                });
+
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
                 {
                     b.HasOne("Ghseeli.BusinessApi.Models.Company", "Company")
@@ -403,6 +662,35 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Navigation("Company");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceCategory", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Company", "Company")
+                        .WithMany("Categories")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceOffering", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
+                        .WithMany("ServiceOfferings")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Ghseeli.BusinessApi.Models.ServiceCategory", "Category")
+                        .WithMany("Offerings")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -456,9 +744,16 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonGroup", b =>
+                {
+                    b.Navigation("Choices");
+                });
+
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
                 {
                     b.Navigation("Assignments");
+
+                    b.Navigation("ServiceOfferings");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BusinessUser", b =>
@@ -471,6 +766,18 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("Branches");
+
+                    b.Navigation("Categories");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceCategory", b =>
+                {
+                    b.Navigation("Offerings");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceOffering", b =>
+                {
+                    b.Navigation("AddonGroups");
                 });
 #pragma warning restore 612, 618
         }

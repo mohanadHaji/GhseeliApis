@@ -96,7 +96,11 @@ Core entities: **User**, **Company**, **Vehicle**, **UserAddress**, **Service**,
 
 ### Validation
 
-Domain models implement the project-specific `IValidatable` interface with a `Validate()` method returning `Interfaces.ValidationResult` (`IsValid` plus `Errors`). Follow the nearest feature's placement: some controllers validate constructed models, while handlers validate business-layer models. Request DTOs may also use data annotations for ASP.NET model binding.
+Business API request DTOs use **FluentValidation** with automatic ASP.NET Core model validation. Keep Business API DTOs free of `System.ComponentModel.DataAnnotations` validation attributes, register validators from the Business API assembly, require Arabic business/catalog names and Arabic branch addresses, and keep Hebrew counterparts optional (normalize blank optional Hebrew values to `null`).
+
+Keep simple request-shape rules (required fields, max lengths, ranges, IDs) in FluentValidation validators, and keep cross-field/domain invariants in focused business-rule validators or services (for example catalog selection/default rules).
+
+Customer API features that have not been migrated should continue following the nearest existing validation pattern. Domain models implement the project-specific `IValidatable` interface with a `Validate()` method returning `Interfaces.ValidationResult` (`IsValid` plus `Errors`). Follow the nearest feature's placement: some controllers validate constructed models, while handlers validate business-layer models.
 
 ### DTOs
 
@@ -118,7 +122,12 @@ Self-registration is forced to the "User" role to prevent privilege escalation. 
 
 ### Logging
 
-Use the custom `IAppLogger` interface (not `ILogger<T>`). It provides `LogInfo`, `LogWarning`, and `LogError` methods. Inject it via constructor in all handlers and controllers.
+Use `Ghseeli.Common.Logging.IAppLogger` for application logging (not direct `Console.WriteLine` and not app-local logger copies). Register `Ghseeli.Common.Logging.ConsoleLogger` as a singleton and inject `IAppLogger` through constructors where logging is needed.
+
+- Log meaningful mutations, workflow outcomes, and caught error paths.
+- Do **not** log secrets, JWTs, passwords, raw tokens, full request bodies, emails, phone numbers, localized descriptions, or other PII.
+- Prefer IDs, operation names, and safe state transitions in messages.
+- Avoid noisy logging on routine read-only success paths; reserve warnings for validation, access, not-found, or other actionable rejection outcomes.
 
 ### Testing
 

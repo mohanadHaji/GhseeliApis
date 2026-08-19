@@ -1,6 +1,6 @@
 using FluentAssertions;
 using GhseeliApis.DTOs.Auth;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services;
 using Microsoft.AspNetCore.Identity;

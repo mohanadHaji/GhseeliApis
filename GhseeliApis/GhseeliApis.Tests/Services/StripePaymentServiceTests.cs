@@ -1,6 +1,6 @@
 using FluentAssertions;
 using GhseeliApis.DTOs.Payment;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Services;
 using Microsoft.Extensions.Configuration;
 using Moq;

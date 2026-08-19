@@ -1,5 +1,5 @@
 using GhseeliApis.Handlers.Interfaces;
-using GhseeliApis.Logger.Interfaces;
+using Ghseeli.Common.Logging;
 using GhseeliApis.Repositories.Interfaces;
 
 namespace GhseeliApis.Handlers;

@@ -140,7 +140,7 @@ EF Core with SQL Server. Connection string resolution priority:
 
 Retry policy: 5 retries, 30s max delay, 60s command timeout. The `SqlServerSetupExtension` class configures all of this.
 
-Runtime persistence uses SQL Server. Historical migrations still reference MySQL provider types, so the Pomelo package is required unless those migrations are converted.
+Runtime persistence uses SQL Server. Both APIs have independent, clean SQL Server initial migrations. Do not restore the deleted MySQL/Pomelo migration history. Add future migrations only to the DbContext that owns the changed model.
 
 ### Stripe Integration
 

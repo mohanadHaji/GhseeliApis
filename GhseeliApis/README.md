@@ -30,6 +30,21 @@ dotnet run --project GhseeliApis\GhseeliApis.csproj
 dotnet run --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
 ```
 
+## Fresh database baseline
+
+Both APIs now use one clean SQL Server initial migration. The deleted migration history must not be applied to an existing database. Because this project has no production data, delete/recreate the old Customer and Business databases before applying the new baseline.
+
+```powershell
+# Run from the solution directory after configuring each connection string
+dotnet ef database drop --force --project GhseeliApis\GhseeliApis.csproj --startup-project GhseeliApis\GhseeliApis.csproj
+dotnet ef database update --project GhseeliApis\GhseeliApis.csproj --startup-project GhseeliApis\GhseeliApis.csproj
+
+dotnet ef database drop --force --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --startup-project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
+dotnet ef database update --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --startup-project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
+```
+
+Always verify the configured database name before running either destructive `database drop` command.
+
 ---
 
 ## ?? **Table of Contents**

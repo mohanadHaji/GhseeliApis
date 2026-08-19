@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GhseeliApis.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260405212117_AddSoftDeleteAndPendingEmail")]
-    partial class AddSoftDeleteAndPendingEmail
+    [Migration("20260818204904_InitialCustomerDatabase")]
+    partial class InitialCustomerDatabase
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

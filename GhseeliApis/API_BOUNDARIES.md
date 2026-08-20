@@ -189,12 +189,14 @@ Rules:
 ### Correlation and idempotency
 
 - Every response carries `X-Correlation-Id`.
-- A supplied valid correlation ID is propagated; otherwise the receiving API creates one.
+- A supplied valid correlation ID is propagated and echoed; otherwise the receiving API creates one and echoes it.
+- Correlation IDs are bounded safe tokens only; overlong or CRLF-bearing values are rejected and replaced before logging or forwarding.
 - Cross-system mutating requests require `Idempotency-Key`.
 - Customer booking confirmation uses `orderGuid` as the logical idempotency source.
-- Each receiving API stores the key, operation, request hash, status, and response reference.
+- Each receiving API stores the key, operation, request hash, status, and serialized response body.
 - Reusing a key with different request content returns `409 idempotency_conflict`.
-- Reusing a completed identical request returns the original logical result.
+- Reusing a completed identical request returns the original logical result without re-executing the operation.
+- Internal retries use a fresh nonce on every attempt and the same `Idempotency-Key` and `X-Correlation-Id`.
 
 ## 6. Internal HTTPS security
 
@@ -202,31 +204,44 @@ Initial integration uses HMAC-authenticated HTTPS and does not depend on an exte
 
 Required headers:
 
-- `X-Ghseeli-Client-Id`
+- `X-Ghseeli-Service-Id`
 - `X-Ghseeli-Timestamp`
 - `X-Ghseeli-Nonce`
 - `X-Ghseeli-Signature`
 - `X-Correlation-Id`
 - `Idempotency-Key` for mutating operations
 
-The signature covers:
+Canonical request signing uses shared wire version `ghseeli-hmac-sha256-v1` and the exact UTF-8 canonical form:
 
-- HTTP method;
-- normalized path and query;
-- timestamp;
-- nonce;
-- SHA-256 body hash.
+```
+ghseeli-hmac-sha256-v1
+{serviceId}
+{UPPERCASE_METHOD}
+{normalizedPathAndQuery}
+{timestampUtcIso8601}
+{nonce}
+{sha256BodyHex}
+```
+
+Rules for canonical fields:
+
+- `normalizedPathAndQuery` keeps the absolute request path and appends query parameters sorted by key and then value using ordinal comparison.
+- Query keys and values are percent-encoded before joining with `&`.
+- Empty bodies use the SHA-256 of the empty byte sequence.
+- Signatures are lowercase hexadecimal HMAC-SHA256 values and comparisons are constant-time.
 
 Rules:
 
-- Each direction uses a separate rotatable secret.
-- Secrets are loaded from environment variables or user secrets.
+- Each direction uses a separate rotatable secret with active and next slots.
+- Secrets are loaded from environment variables or user secrets only.
 - Plain API secrets are never logged or committed.
+- Business JWTs never authorize `/api/v1/internal/*` routes.
 - Requests outside the configured clock-skew window are rejected.
-- Previously accepted nonces inside the replay window are rejected.
-- Signature comparison is constant-time.
-- Typed clients use explicit timeouts and no broad automatic retry of non-idempotent calls.
-- Safe retries require the same idempotency key.
+- Previously accepted nonces inside the replay window are rejected from a persistent Business database table keyed by `{serviceId, nonce}`.
+- Internal `POST` requests persist idempotency records keyed by `{serviceId, operation, idempotencyKey}` with request hash, status, content type, body, timestamps, and expiry.
+- Customer typed clients use explicit timeouts and bounded retries only for retry-safe GET snapshot requests and idempotent POST validate requests on network errors, `408`, `429`, and `5xx`.
+- Safe retries reuse the same idempotency key and correlation ID and generate a fresh nonce per attempt.
+- HTTPS is required by default; development HTTP is allowed only by an explicit override and only after trusted ASP.NET forwarded-header processing.
 
 ## 7. Initial route map
 
@@ -277,13 +292,13 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/api/v1/internal/catalog/snapshot` | Return a versioned catalog snapshot or delta |
+| GET | `/api/v1/internal/catalog/snapshot?companyId={companyId}` | Return a versioned catalog snapshot or delta for one company |
 | POST | `/api/v1/internal/appointments/validate` | Validate catalog selections, duration, price, service area, and slot |
 | POST | `/api/v1/internal/reservations` | Idempotently reserve an appointment and create a work order |
 | GET | `/api/v1/internal/reservations/{reference}` | Reconcile reservation/work-order state |
 | POST | `/api/v1/internal/reservations/{reference}/cancel` | Apply an allowed customer cancellation |
 
-Until Step 6 service credentials and request signing are implemented, Step 5 internal Business API routes use a temporary explicit authorization policy named `Step5TemporaryInternalOwnerOrAdmin` so they are never anonymous and can be replaced cleanly by the later HMAC/service-credential mechanism.
+Business internal routes accept only HMAC-authenticated internal service calls and never accept Business or Customer JWTs.
 
 ### Customer API internal callback endpoints
 
@@ -392,6 +407,17 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Cached catalog data may support browsing but cannot authorize final booking.
 - Customer API does not create a payable booking until Business API accepts the idempotent reservation.
 - If Customer API persistence fails after reservation acceptance, the reservation remains reconcilable and expires or can be recovered by reference.
+
+### Internal authentication and failure mapping
+
+- Missing or invalid internal authentication headers, unknown services, bad signatures, stale timestamps, and replayed nonces return `401` with a safe JSON problem payload and echoed correlation ID.
+- Authenticated internal services that lack the required operation permission return `403`.
+- Insecure internal HTTP requests return `403 https_required` unless development HTTP is explicitly enabled.
+- Missing or invalid `Idempotency-Key` values return `400`.
+- Reusing an idempotency key with a different request body returns `409 idempotency_conflict`.
+- Oversized internal request bodies return `413`.
+- When an idempotent in-progress result cannot be replayed in time, return `503 idempotency_unavailable`.
+- Customer typed clients map `401`/`403` to authentication exceptions, `409` to conflict exceptions, malformed or empty successful payloads to contract exceptions, persistent timeouts to timeout exceptions, and retry-exhausted network/`408`/`429`/`5xx` failures to unavailable exceptions.
 
 ### Authoritative business mutations
 

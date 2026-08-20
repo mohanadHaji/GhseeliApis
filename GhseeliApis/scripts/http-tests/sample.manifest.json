@@ -1,0 +1,147 @@
+{
+  "name": "Ghseeli API sample HTTP checks",
+  "sensitiveFields": [
+    "password",
+    "confirmPassword",
+    "token"
+  ],
+  "setupVariables": {
+    "sampleRunId": "{{gen:guid}}",
+    "sampleTimestamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "sampleEmail": "http-harness+{{var:sampleRunId}}@example.test",
+    "sampleFullName": "HTTP Harness {{var:sampleTimestamp}}"
+  },
+  "scenarios": [
+    {
+      "id": "health",
+      "feature": "platform",
+      "tags": [
+        "smoke",
+        "public"
+      ],
+      "method": "GET",
+      "url": "/api/health",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "swagger-json",
+      "feature": "platform",
+      "tags": [
+        "smoke",
+        "public",
+        "docs"
+      ],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.info.title",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.paths['/api/health'].get",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "register-generated-user",
+      "feature": "auth",
+      "tags": [
+        "auth",
+        "write",
+        "requires-db"
+      ],
+      "method": "POST",
+      "url": "/api/auth/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "email": "{{var:sampleEmail}}",
+        "password": "{{env:GhseeliHarnessPassword}}",
+        "confirmPassword": "{{env:GhseeliHarnessPassword}}",
+        "fullName": "{{var:sampleFullName}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.email",
+            "equals": "{{var:sampleEmail}}"
+          },
+          {
+            "path": "$.token",
+            "exists": true
+          },
+          {
+            "path": "$.userId",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "authToken": "$.token",
+        "registeredUserId": "$.userId"
+      }
+    },
+    {
+      "id": "get-current-user",
+      "feature": "auth",
+      "tags": [
+        "auth",
+        "read",
+        "requires-db"
+      ],
+      "method": "GET",
+      "url": "/api/auth/me",
+      "headers": {
+        "Accept": "application/json",
+        "Authorization": "Bearer {{var:authToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.userId",
+            "equals": "{{var:registeredUserId}}"
+          },
+          {
+            "path": "$.email",
+            "equals": "{{var:sampleEmail}}"
+          }
+        ]
+      }
+    }
+  ]
+}

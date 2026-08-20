@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.BusinessApi.Repositories;
@@ -15,14 +16,18 @@ using Ghseeli.BusinessApi.Services.Validation.Catalog;
 using Ghseeli.BusinessApi.Services.Validation.Companies;
 using Ghseeli.BusinessApi.Swagger;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.InternalHttp;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Text;
+using System.Net;
 
 var builder = WebApplication.CreateBuilder(args);
 var validationJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -106,6 +111,41 @@ builder.Services.AddSwaggerGen(options =>
     options.SchemaFilter<StringEnumSchemaFilter>();
     options.SchemaFilter<BusinessRequestSchemaFilter>();
 });
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<InternalServiceAuthenticationOptions>,
+    InternalServiceAuthenticationOptionsValidator>();
+builder.Services
+    .AddOptions<InternalServiceAuthenticationOptions>()
+    .Bind(builder.Configuration.GetSection(InternalServiceAuthenticationOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+
+    foreach (var knownProxy in builder.Configuration
+                 .GetSection("ForwardedHeaders:KnownProxies")
+                 .Get<string[]>() ?? Array.Empty<string>())
+    {
+        if (IPAddress.TryParse(knownProxy, out var address))
+        {
+            options.KnownProxies.Add(address);
+        }
+    }
+
+    foreach (var knownNetwork in builder.Configuration
+                 .GetSection("ForwardedHeaders:KnownNetworks")
+                 .Get<string[]>() ?? Array.Empty<string>())
+    {
+        var parts = knownNetwork.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 2 &&
+            IPAddress.TryParse(parts[0], out var prefix) &&
+            int.TryParse(parts[1], out var prefixLength))
+        {
+            options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, prefixLength));
+        }
+    }
+});
 
 var businessConnection = builder.Configuration.GetConnectionString("BusinessConnection");
 if (string.IsNullOrWhiteSpace(businessConnection))
@@ -140,9 +180,28 @@ if (string.IsNullOrWhiteSpace(businessJwtSecret))
         "Business JWT secret is not configured. Set BusinessJwtSettings__SecretKey.");
 }
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+var authenticationBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = BusinessAuthenticationSchemes.Combined;
+    options.DefaultAuthenticateScheme = BusinessAuthenticationSchemes.Combined;
+    options.DefaultChallengeScheme = BusinessAuthenticationSchemes.Combined;
+    options.DefaultForbidScheme = BusinessAuthenticationSchemes.Combined;
+});
+
+authenticationBuilder.AddPolicyScheme(
+    BusinessAuthenticationSchemes.Combined,
+    "Combined Business authentication",
+    options =>
+    {
+        options.ForwardDefaultSelector = context =>
+            context.Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase)
+                ? BusinessAuthenticationSchemes.InternalService
+                : JwtBearerDefaults.AuthenticationScheme;
+    });
+
+authenticationBuilder.AddJwtBearer(
+    JwtBearerDefaults.AuthenticationScheme,
+    options =>
     {
         options.TokenValidationParameters = new TokenValidationParameters
         {
@@ -158,19 +217,40 @@ builder.Services
         };
     });
 
+authenticationBuilder.AddScheme<AuthenticationSchemeOptions, InternalServiceAuthenticationHandler>(
+    BusinessAuthenticationSchemes.InternalService,
+    _ => { });
+
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(BusinessPolicies.BusinessMember, policy =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Employee, BusinessRoles.Admin));
     options.AddPolicy(BusinessPolicies.OwnerOrAdmin, policy =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Admin));
-    options.AddPolicy(BusinessPolicies.Step5TemporaryInternalOwnerOrAdmin, policy =>
-        policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Admin));
+    options.AddPolicy(BusinessPolicies.InternalCatalogRead, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.CatalogSnapshot);
+    });
+    options.AddPolicy(BusinessPolicies.InternalAppointmentValidate, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.AppointmentValidate);
+    });
 });
 
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IAvailabilityRepository, AvailabilityRepository>();
+builder.Services.AddScoped<IInternalServiceNonceStore, InternalServiceNonceStore>();
+builder.Services.AddScoped<IInternalIdempotencyStore, InternalIdempotencyStore>();
+builder.Services.AddScoped<InternalServiceRequestValidator>();
 builder.Services.AddScoped<IBusinessAuthRequestValidator, BusinessAuthRequestValidator>();
 builder.Services.AddScoped<ICompanyRequestValidator, CompanyRequestValidator>();
 builder.Services.AddScoped<ICatalogRequestValidator, CatalogRequestValidator>();
@@ -187,7 +267,7 @@ builder.Services.AddScoped<ICatalogService, CatalogService>();
 builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagementService>();
 builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
 builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
-builder.Services.AddSingleton<ISystemClock, SystemClock>();
+builder.Services.AddSingleton<Ghseeli.BusinessApi.Services.Availability.ISystemClock, Ghseeli.BusinessApi.Services.Availability.SystemClock>();
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 
 var app = builder.Build();
@@ -205,9 +285,14 @@ if (swaggerEnabled)
     });
 }
 
-app.UseHttpsRedirection();
-
+app.UseForwardedHeaders();
+app.UseRouting();
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseHttpsRedirection());
 app.UseAuthentication();
+app.UseMiddleware<InternalRequestIdempotencyMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

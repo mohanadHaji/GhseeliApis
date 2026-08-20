@@ -13,11 +13,19 @@ public static class BusinessPolicies
 {
     public const string BusinessMember = "BusinessMember";
     public const string OwnerOrAdmin = "OwnerOrAdmin";
-    public const string Step5TemporaryInternalOwnerOrAdmin =
-        "Step5TemporaryInternalOwnerOrAdmin";
+    public const string InternalCatalogRead = "InternalCatalogRead";
+    public const string InternalAppointmentValidate = "InternalAppointmentValidate";
 }
 
 public static class BusinessClaimTypes
 {
     public const string CompanyId = "business_company_id";
+    public const string InternalServiceId = "internal_service_id";
+    public const string InternalAllowedOperation = "internal_allowed_operation";
+}
+
+public static class BusinessAuthenticationSchemes
+{
+    public const string Combined = "BusinessCombined";
+    public const string InternalService = "InternalService";
 }

@@ -1,0 +1,1255 @@
+{
+  "name": "Step 6 secure integration",
+  "sensitiveFields": [
+    "password",
+    "token",
+    "authorization",
+    "signature"
+  ],
+  "setupVariables": {
+    "runToken": "{{gen:nonce}}",
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "ownerEmail": "step6-http-{{var:runToken}}@example.test",
+    "ownerFullName": "HTTP Step 6 {{var:runStamp}}",
+    "companyNameAr": "شركة خطوة 6 {{var:runStamp}}",
+    "branchNameAr": "فرع خطوة 6 {{var:runStamp}}",
+    "categoryNameAr": "فئة خطوة 6 {{var:runStamp}}",
+    "offeringNameAr": "خدمة خطوة 6 {{var:runStamp}}",
+    "addonGroupNameAr": "إضافة خطوة 6 {{var:runStamp}}",
+    "addonChoiceNameAr": "خيار خطوة 6 {{var:runStamp}}",
+    "overrideDate": "{{gen:timestamp:yyyy-MM-dd:+1d}}",
+    "requestedSlotStartUtc": "{{var:overrideDate}}T09:00:00Z",
+    "internalServiceId": "{{env:GHSEELI_HTTP_TEST_INTERNAL_SERVICE_ID}}",
+    "badSignatureHex": "0000000000000000000000000000000000000000000000000000000000000001",
+    "invalidCorrelationId": "corr-step6-overlong-correlation-id-that-must-be-replaced-before-roundtrip-{{var:runStamp}}",
+    "missingAuthCorrelationId": "corr-step6-missing-{{var:runStamp}}",
+    "validateCorrelationId": "corr-step6-validate-{{var:runStamp}}",
+    "echoCorrelationId": "corr-step6-echo-{{var:runStamp}}",
+    "badSignatureCorrelationId": "corr-step6-badsig-{{var:runStamp}}",
+    "staleCorrelationId": "corr-step6-stale-{{var:runStamp}}",
+    "replayCorrelationId": "corr-step6-replay-{{var:runStamp}}",
+    "sameBodyCorrelationId": "corr-step6-idem-same-{{var:runStamp}}",
+    "conflictCorrelationId": "corr-step6-idem-conflict-{{var:runStamp}}",
+    "businessJwtCorrelationId": "corr-step6-business-jwt-{{var:runStamp}}",
+    "missingIdemCorrelationId": "corr-step6-idem-missing-{{var:runStamp}}",
+    "invalidIdemCorrelationId": "corr-step6-idem-invalid-{{var:runStamp}}",
+    "overlongIdemCorrelationId": "corr-step6-idem-overlong-{{var:runStamp}}",
+    "invalidIdempotencyKey": "invalid key with space",
+    "overlongIdempotencyKey": "idem-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "replayNonce": "{{gen:nonce}}",
+    "replayTimestamp": "{{gen:iso8601}}",
+    "staleTimestamp": "{{gen:iso8601:-10m}}",
+    "validateSuccessIdempotencyKey": "idem-step6-validate-{{var:runToken}}",
+    "sameBodyIdempotencyKey": "idem-step6-same-{{var:runToken}}",
+    "conflictIdempotencyKey": "idem-step6-conflict-{{var:runToken}}"
+  },
+  "scenarios": [
+    {
+      "id": "STEP6-PREREQ-HEALTH-001",
+      "feature": "step6",
+      "tags": ["step6", "contract"],
+      "method": "GET",
+      "url": "/api/health",
+      "headers": {
+        "Accept": "text/plain"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "text/plain",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP6-PREREQ-SWAGGER-002",
+      "feature": "step6",
+      "tags": ["step6", "contract"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.info.title",
+            "equals": "Ghseeli Business API"
+          },
+          {
+            "path": "$.paths['/api/v1/internal/catalog/snapshot'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/validate'].post",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-SETUP-REGISTER-OWNER-003",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/auth/register-owner",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "email": "{{var:ownerEmail}}",
+        "password": "{{env:GHSEELI_HTTP_TEST_OWNER_PASSWORD}}",
+        "fullName": "{{var:ownerFullName}}",
+        "companyNameAr": "{{var:companyNameAr}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.email",
+            "equals": "{{var:ownerEmail}}"
+          },
+          {
+            "path": "$.companyId",
+            "exists": true
+          },
+          {
+            "path": "$.token",
+            "exists": true
+          },
+          {
+            "path": "$.roles[0]",
+            "equals": "Owner"
+          }
+        ]
+      },
+      "extract": {
+        "businessOwnerToken": "$.token",
+        "companyId": "$.companyId",
+        "ownerUserId": "$.userId"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-CREATE-BRANCH-004",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/company/branches",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "nameAr": "{{var:branchNameAr}}",
+        "addressAr": "الرياض",
+        "latitude": 24.7136,
+        "longitude": 46.6753
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.nameAr",
+            "equals": "{{var:branchNameAr}}"
+          },
+          {
+            "path": "$.latitude",
+            "equals": 24.7136
+          },
+          {
+            "path": "$.longitude",
+            "equals": 46.6753
+          }
+        ]
+      },
+      "extract": {
+        "branchId": "$.id"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-CREATE-CATEGORY-005",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/catalog/categories",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "nameAr": "{{var:categoryNameAr}}",
+        "displayOrder": 0,
+        "isActive": true
+      },
+      "expect": {
+        "status": 201,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.companyId",
+            "equals": "{{var:companyId}}"
+          },
+          {
+            "path": "$.nameAr",
+            "equals": "{{var:categoryNameAr}}"
+          }
+        ]
+      },
+      "extract": {
+        "categoryId": "$.id"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-CREATE-OFFERING-006",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/catalog/offerings",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "categoryId": "{{var:categoryId}}",
+        "branchId": "{{var:branchId}}",
+        "nameAr": "{{var:offeringNameAr}}",
+        "basePrice": 50,
+        "durationMinutes": 60,
+        "displayOrder": 0,
+        "isActive": true
+      },
+      "expect": {
+        "status": 201,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.categoryId",
+            "equals": "{{var:categoryId}}"
+          },
+          {
+            "path": "$.branchId",
+            "equals": "{{var:branchId}}"
+          },
+          {
+            "path": "$.nameAr",
+            "equals": "{{var:offeringNameAr}}"
+          },
+          {
+            "path": "$.basePrice",
+            "equals": 50
+          },
+          {
+            "path": "$.durationMinutes",
+            "equals": 60
+          }
+        ]
+      },
+      "extract": {
+        "offeringId": "$.id"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-CREATE-ADDON-GROUP-007",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/catalog/offerings/{{var:offeringId}}/addon-groups",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "nameAr": "{{var:addonGroupNameAr}}",
+        "selectionType": "QuantityCounter",
+        "isRequired": false,
+        "minimumSelections": 0,
+        "maximumSelections": 3,
+        "displayOrder": 0,
+        "isActive": true,
+        "choices": [
+          {
+            "nameAr": "{{var:addonChoiceNameAr}}",
+            "priceAdjustment": 10,
+            "durationAdjustmentMinutes": 15,
+            "defaultQuantity": 0,
+            "displayOrder": 0,
+            "isActive": true
+          }
+        ]
+      },
+      "expect": {
+        "status": 201,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.nameAr",
+            "equals": "{{var:addonGroupNameAr}}"
+          },
+          {
+            "path": "$.selectionType",
+            "equals": "QuantityCounter"
+          },
+          {
+            "path": "$.choices[0].id",
+            "exists": true
+          },
+          {
+            "path": "$.choices[0].nameAr",
+            "equals": "{{var:addonChoiceNameAr}}"
+          }
+        ]
+      },
+      "extract": {
+        "addonGroupId": "$.id",
+        "addonChoiceId": "$.choices[0].id"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-UPSERT-SETTINGS-008",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "PUT",
+      "url": "/api/v1/business/availability/branches/{{var:branchId}}/settings",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "timeZoneId": "UTC",
+        "minimumLeadMinutes": 30,
+        "bookingHorizonDays": 30,
+        "isActive": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.branchId",
+            "equals": "{{var:branchId}}"
+          },
+          {
+            "path": "$.timeZoneId",
+            "equals": "UTC"
+          },
+          {
+            "path": "$.minimumLeadMinutes",
+            "equals": 30
+          },
+          {
+            "path": "$.bookingHorizonDays",
+            "equals": 30
+          },
+          {
+            "path": "$.isActive",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-SETUP-CREATE-OVERRIDE-009",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "POST",
+      "url": "/api/v1/business/availability/branches/{{var:branchId}}/date-overrides",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "overrideDate": "{{var:overrideDate}}",
+        "isClosed": false,
+        "startLocalTime": "09:00:00",
+        "endLocalTime": "18:00:00",
+        "slotDurationMinutes": 15,
+        "capacity": 4,
+        "isActive": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.branchId",
+            "equals": "{{var:branchId}}"
+          },
+          {
+            "path": "$.overrideDate",
+            "equals": "{{var:overrideDate}}"
+          },
+          {
+            "path": "$.isClosed",
+            "equals": false
+          },
+          {
+            "path": "$.capacity",
+            "equals": 4
+          }
+        ]
+      },
+      "extract": {
+        "overrideId": "$.id"
+      }
+    },
+    {
+      "id": "STEP6-SETUP-UPSERT-SERVICE-AREA-010",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract", "setup"],
+      "method": "PUT",
+      "url": "/api/v1/business/availability/branches/{{var:branchId}}/service-area",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "jsonBody": {
+        "radiusKm": 15.5,
+        "centerLatitude": 24.7136,
+        "centerLongitude": 46.6753,
+        "isActive": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.branchId",
+            "equals": "{{var:branchId}}"
+          },
+          {
+            "path": "$.radiusKm",
+            "equals": 15.5
+          },
+          {
+            "path": "$.usesBranchCoordinates",
+            "equals": false
+          },
+          {
+            "path": "$.isActive",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-SNAPSHOT-SUCCESS-011",
+      "feature": "step6",
+      "tags": ["step6", "auth", "correlation", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:echoCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:echoCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.company.id",
+            "equals": "{{var:companyId}}"
+          },
+          {
+            "path": "$.company.nameAr",
+            "equals": "{{var:companyNameAr}}"
+          },
+          {
+            "path": "$.categories[0].id",
+            "equals": "{{var:categoryId}}"
+          },
+          {
+            "path": "$.categories[0].offerings[0].id",
+            "equals": "{{var:offeringId}}"
+          },
+          {
+            "path": "$.categories[0].offerings[0].addonGroups[0].choices[0].id",
+            "equals": "{{var:addonChoiceId}}"
+          }
+        ]
+      },
+      "extract": {
+        "catalogVersion": "$.catalogVersion"
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-VALIDATE-SUCCESS-012",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:validateCorrelationId}}",
+        "Idempotency-Key": "{{var:validateSuccessIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 2
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:validateCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.valid",
+            "equals": true
+          },
+          {
+            "path": "$.catalogVersion",
+            "equals": "{{var:catalogVersion}}"
+          },
+          {
+            "path": "$.currency",
+            "equals": "ILS"
+          },
+          {
+            "path": "$.branchId",
+            "equals": "{{var:branchId}}"
+          },
+          {
+            "path": "$.offeringId",
+            "equals": "{{var:offeringId}}"
+          },
+          {
+            "path": "$.normalizedSelections[0].quantity",
+            "equals": 2
+          },
+          {
+            "path": "$.totalPrice",
+            "equals": 70
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 90
+          },
+          {
+            "path": "$.availability.isAvailable",
+            "equals": true
+          },
+          {
+            "path": "$.serviceArea.isWithinServiceArea",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-MISSING-AUTH-013",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:missingAuthCorrelationId}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:missingAuthCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "exists": true
+          },
+          {
+            "path": "$.detail",
+            "exists": true
+          },
+          {
+            "path": "$.missingHeaders[0]",
+            "equals": "X-Ghseeli-Service-Id"
+          },
+          {
+            "path": "$.missingHeaders[3]",
+            "equals": "X-Ghseeli-Signature"
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "internal_auth_missing_header"
+        }
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-BAD-SIGNATURE-014",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:badSignatureCorrelationId}}",
+        "X-Ghseeli-Signature": "{{var:badSignatureHex}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:badSignatureCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "exists": true
+          },
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "internal_auth_invalid_signature"
+        }
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-STALE-TIMESTAMP-015",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:staleCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{var:staleTimestamp}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:staleCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "exists": true
+          },
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "internal_auth_timestamp_out_of_range"
+        }
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-NONCE-FIRST-016",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:replayCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{var:replayTimestamp}}",
+        "nonce": "{{var:replayNonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:replayCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.company.id",
+            "equals": "{{var:companyId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-INTERNAL-NONCE-REPLAY-017",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:replayCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{var:replayTimestamp}}",
+        "nonce": "{{var:replayNonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:replayCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "exists": true
+          },
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "internal_auth_replay_nonce"
+        }
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-MISSING-018",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:missingIdemCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:missingIdemCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "idempotency_key_required"
+        }
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-INVALID-019",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:invalidIdemCorrelationId}}",
+        "Idempotency-Key": "{{var:invalidIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:invalidIdemCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "idempotency_key_invalid"
+        }
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-OVERLONG-020",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:overlongIdemCorrelationId}}",
+        "Idempotency-Key": "{{var:overlongIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:overlongIdemCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "idempotency_key_invalid"
+        }
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-SAME-BODY-FIRST-021",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "correlation", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:sameBodyCorrelationId}}",
+        "Idempotency-Key": "{{var:sameBodyIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:sameBodyCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.valid",
+            "equals": true
+          },
+          {
+            "path": "$.normalizedSelections[0].quantity",
+            "equals": 1
+          },
+          {
+            "path": "$.totalPrice",
+            "equals": 60
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 75
+          }
+        ]
+      },
+      "extract": {
+        "sameBodyExpectedValid": "$.valid",
+        "sameBodyExpectedTotalPrice": "$.totalPrice",
+        "sameBodyExpectedDuration": "$.totalDurationMinutes",
+        "sameBodyExpectedCatalogVersion": "$.catalogVersion"
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-SAME-BODY-REPLAY-022",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "correlation", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:sameBodyCorrelationId}}",
+        "Idempotency-Key": "{{var:sameBodyIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:sameBodyCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.valid",
+            "equals": "{{var:sameBodyExpectedValid}}"
+          },
+          {
+            "path": "$.totalPrice",
+            "equals": "{{var:sameBodyExpectedTotalPrice}}"
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": "{{var:sameBodyExpectedDuration}}"
+          },
+          {
+            "path": "$.catalogVersion",
+            "equals": "{{var:sameBodyExpectedCatalogVersion}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-CONFLICT-FIRST-023",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "correlation", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:conflictCorrelationId}}",
+        "Idempotency-Key": "{{var:conflictIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 1
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:conflictCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.valid",
+            "equals": true
+          },
+          {
+            "path": "$.totalPrice",
+            "equals": 60
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-IDEMPOTENCY-CONFLICT-024",
+      "feature": "step6",
+      "tags": ["step6", "auth", "idempotency", "correlation", "contract"],
+      "method": "POST",
+      "url": "/api/v1/internal/appointments/validate",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:conflictCorrelationId}}",
+        "Idempotency-Key": "{{var:conflictIdempotencyKey}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "jsonBody": {
+        "branchId": "{{var:branchId}}",
+        "offeringId": "{{var:offeringId}}",
+        "selectedAddons": [
+          {
+            "addonChoiceId": "{{var:addonChoiceId}}",
+            "quantity": 2
+          }
+        ],
+        "requestedSlotStartUtc": "{{var:requestedSlotStartUtc}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:conflictCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "idempotency_conflict"
+        }
+      }
+    },
+    {
+      "id": "STEP6-CORRELATION-SANITIZE-025",
+      "feature": "step6",
+      "tags": ["step6", "auth", "correlation", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:invalidCorrelationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:internalServiceId}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "notEquals": "{{var:invalidCorrelationId}}",
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "json": [
+          {
+            "path": "$.company.id",
+            "equals": "{{var:companyId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP6-AUTH-BUSINESS-JWT-REJECTED-026",
+      "feature": "step6",
+      "tags": ["step6", "auth", "contract"],
+      "method": "GET",
+      "url": "/api/v1/internal/catalog/snapshot?companyId={{var:companyId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:businessJwtCorrelationId}}",
+        "Authorization": "Bearer {{var:businessOwnerToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:businessJwtCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.missingHeaders[0]",
+            "equals": "X-Ghseeli-Service-Id"
+          },
+          {
+            "path": "$.detail",
+            "exists": true
+          }
+        ],
+        "errorCode": {
+          "path": "$.code",
+          "equals": "internal_auth_missing_header"
+        }
+      }
+    }
+  ]
+}

@@ -1,7 +1,9 @@
 using GhseeliApis.Extensions;
+using GhseeliApis.Middleware;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
+using GhseeliApis.Services.Business;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories;
@@ -15,6 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -180,6 +183,25 @@ builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 // Register Services
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, GhseeliApis.Services.AuthService>();
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayService, GhseeliApis.Services.StripePaymentService>();
+builder.Services.Configure<BusinessApiClientOptions>(
+    builder.Configuration.GetSection(BusinessApiClientOptions.SectionName));
+builder.Services.AddTransient<CorrelationIdPropagationHandler>();
+builder.Services.AddTransient<HmacSigningDelegatingHandler>();
+builder.Services.AddHttpClient<IBusinessApiClient, BusinessApiClient>((serviceProvider, client) =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<BusinessApiClientOptions>>()
+            .Value;
+
+        if (Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri))
+        {
+            client.BaseAddress = baseUri;
+        }
+
+        client.Timeout = Timeout.InfiniteTimeSpan;
+    })
+    .AddHttpMessageHandler<CorrelationIdPropagationHandler>()
+    .AddHttpMessageHandler<HmacSigningDelegatingHandler>();
 
 // Register Logger
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
@@ -202,6 +224,7 @@ if (swaggerEnabled)
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<CorrelationIdMiddleware>();
 
 // Add Authentication & Authorization middleware
 app.UseAuthentication();

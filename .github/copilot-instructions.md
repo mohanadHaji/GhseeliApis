@@ -55,14 +55,18 @@ Both API projects and the integration-contract project target .NET 8. Test proje
 
 For every meaningful behavior change:
 
-1. Define observable behavior and important failure/edge cases.
-2. Write the appropriate unit, contract, integration, or feature tests first.
-3. Run them and verify they fail for the expected missing behavior.
-4. Implement the minimum correct behavior.
-5. Run targeted and affected regression tests until green.
-6. Add tests for requirements discovered during implementation before adding that behavior.
+1. Define observable behavior, important failure/edge cases, and whether HTTP coverage applies.
+2. If HTTP applies, create or update the feature-specific HTTP plan **before implementing the changed behavior**. Use `HTTP_TEST_PLAN_STANDARD.md` and keep stable scenario IDs aligned between docs and tests. If the selected execution level includes live local/dev/test HTTP, also add or update `scripts\http-tests\<feature>.manifest.json`. If HTTP does not apply, record `HTTP required: No - <reason>`.
+3. Write the appropriate unit, contract, integration, or feature tests first.
+4. Run them and verify they fail for the expected missing behavior.
+5. Implement the minimum correct behavior.
+6. Run targeted and affected regression tests until green.
+7. Add tests for requirements discovered during implementation before adding that behavior.
+8. Cover every changed endpoint plus affected existing endpoints, including success, validation, auth/ownership, boundary, failure, version/state, and regression scenarios.
+9. After automated tests and required migrations pass, execute the planned HTTP scenarios at the declared execution level: rerun TestServer coverage for HTTP-visible behavior, and run the local manifest with `scripts\http-tests\Invoke-HttpTests.ps1` when live local/dev/test HTTP is part of the risk or contract. Fix failures test-first, rerun, and record exact automated test totals plus HTTP scenario pass/fail/deferred counts with rationale in the completion note or `*_HTTP_TEST_RESULTS.md`.
 
 Do not weaken valid tests to fit an implementation or mark work complete with relevant failing tests. Do not create meaningless tests for passive DTOs or configuration-only files with no behavior.
+Documentation-only or non-HTTP internal refactors may mark HTTP not applicable with rationale. A meaningful change is not done while any required HTTP scenario is still only planned/automated, failed, or deferred without explicit non-shipping rationale and compensating coverage. Keep raw harness artifacts under `scripts\http-tests\artifacts\` and secrets/local overrides in `*.local.json` or `local.*.json`; do not commit them. Missing relevant HTTP coverage, a stale plan, or any unexplained failure blocks completion. Never run against production or expose or commit secrets, tokens, or test credentials.
 
 ## Architecture
 

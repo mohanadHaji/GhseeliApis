@@ -18,7 +18,6 @@ namespace Ghseeli.BusinessApi.Tests.Services;
 /// </summary>
 public class AppointmentValidationServiceTests
 {
-    private readonly Mock<ICompanyRepository> _companyRepository = new();
     private readonly Mock<ICatalogRepository> _catalogRepository = new();
     private readonly Mock<IAvailabilityRepository> _availabilityRepository = new();
     private readonly Mock<IAppLogger> _logger = new();
@@ -34,7 +33,6 @@ public class AppointmentValidationServiceTests
             .Build();
 
         _service = new AppointmentValidationService(
-            _companyRepository.Object,
             _catalogRepository.Object,
             _availabilityRepository.Object,
             new InternalAppointmentRequestValidator(new ValidateAppointmentRequestValidator()),
@@ -48,17 +46,14 @@ public class AppointmentValidationServiceTests
     [Fact]
     public async Task ValidateAsync_WhenCatalogVersionIsStale_ReturnsStableErrorWithCurrentVersion()
     {
-        var userId = Guid.NewGuid();
         var (company, branch, offering, choiceId) = CreateValidationGraph();
 
-        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
-            .ReturnsAsync(company);
         _availabilityRepository.Setup(repository => repository.GetBranchWithAvailabilityAsync(branch.Id))
             .ReturnsAsync(branch);
         _catalogRepository.Setup(repository => repository.GetOfferingByIdAsync(offering.Id))
             .ReturnsAsync(offering);
 
-        var result = await _service.ValidateAsync(userId, false, new ValidateAppointmentRequest
+        var result = await _service.ValidateAsync(new ValidateAppointmentRequest
         {
             BranchId = branch.Id,
             OfferingId = offering.Id,
@@ -91,17 +86,14 @@ public class AppointmentValidationServiceTests
     [Fact]
     public async Task ValidateAsync_WhenServiceAreaIsMissing_ReturnsFailClosed()
     {
-        var userId = Guid.NewGuid();
         var (company, branch, offering, _) = CreateValidationGraph(includeServiceArea: false);
 
-        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
-            .ReturnsAsync(company);
         _availabilityRepository.Setup(repository => repository.GetBranchWithAvailabilityAsync(branch.Id))
             .ReturnsAsync(branch);
         _catalogRepository.Setup(repository => repository.GetOfferingByIdAsync(offering.Id))
             .ReturnsAsync(offering);
 
-        var result = await _service.ValidateAsync(userId, false, new ValidateAppointmentRequest
+        var result = await _service.ValidateAsync(new ValidateAppointmentRequest
         {
             BranchId = branch.Id,
             OfferingId = offering.Id,
@@ -117,17 +109,14 @@ public class AppointmentValidationServiceTests
     [Fact]
     public async Task ValidateAsync_WhenRequestedSlotHasPositiveOffset_NormalizesToUtcFacts()
     {
-        var userId = Guid.NewGuid();
         var (company, branch, offering, choiceId) = CreateValidationGraph();
 
-        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
-            .ReturnsAsync(company);
         _availabilityRepository.Setup(repository => repository.GetBranchWithAvailabilityAsync(branch.Id))
             .ReturnsAsync(branch);
         _catalogRepository.Setup(repository => repository.GetOfferingByIdAsync(offering.Id))
             .ReturnsAsync(offering);
 
-        var result = await _service.ValidateAsync(userId, false, new ValidateAppointmentRequest
+        var result = await _service.ValidateAsync(new ValidateAppointmentRequest
         {
             BranchId = branch.Id,
             OfferingId = offering.Id,
@@ -157,18 +146,15 @@ public class AppointmentValidationServiceTests
     [Fact]
     public async Task ValidateAsync_WhenCompanyIsInactive_ReturnsStableInactiveIssue()
     {
-        var userId = Guid.NewGuid();
         var (company, branch, offering, _) = CreateValidationGraph();
         company.IsActive = false;
 
-        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
-            .ReturnsAsync(company);
         _availabilityRepository.Setup(repository => repository.GetBranchWithAvailabilityAsync(branch.Id))
             .ReturnsAsync(branch);
         _catalogRepository.Setup(repository => repository.GetOfferingByIdAsync(offering.Id))
             .ReturnsAsync(offering);
 
-        var result = await _service.ValidateAsync(userId, false, new ValidateAppointmentRequest
+        var result = await _service.ValidateAsync(new ValidateAppointmentRequest
         {
             BranchId = branch.Id,
             OfferingId = offering.Id,

@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DTOs.Catalog;
+using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -291,6 +293,11 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
     private const string JwtSecret = "CatalogIntegrationTestsSecretKey_Minimum32Characters";
     private const string JwtIssuer = "Ghseeli.BusinessApi.CatalogTests";
     private const string JwtAudience = "Ghseeli.BusinessApi.CatalogClients";
+    public const string InternalServiceId = "customer-api-tests";
+    public const string InternalServiceActiveSecret = "Step6TestSecret_Active_Minimum32Characters";
+    public const string InternalServiceNextSecret = "Step6TestSecret_Next_Minimum32Characters__";
+    public const string SnapshotOnlyServiceId = "snapshot-reader-tests";
+    public const string SnapshotOnlySecret = "Step6SnapshotOnlySecret_Minimum32Chars";
     private readonly string _databaseName = $"CatalogApiTests-{Guid.NewGuid()}";
 
     public Guid OwnerUserId { get; } = Guid.NewGuid();
@@ -309,6 +316,19 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("BusinessJwtSettings:SecretKey", JwtSecret);
         builder.UseSetting("BusinessJwtSettings:Issuer", JwtIssuer);
         builder.UseSetting("BusinessJwtSettings:Audience", JwtAudience);
+        builder.UseSetting("InternalServiceAuthentication:RequireHttps", "true");
+        builder.UseSetting("InternalServiceAuthentication:AllowInsecureHttpInDevelopment", "false");
+        builder.UseSetting("InternalServiceAuthentication:AllowedClockSkewSeconds", "120");
+        builder.UseSetting("InternalServiceAuthentication:NonceLifetimeSeconds", "300");
+        builder.UseSetting("InternalServiceAuthentication:IdempotencyLifetimeSeconds", "300");
+        builder.UseSetting("InternalServiceAuthentication:Services:0:ServiceId", InternalServiceId);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:ActiveSecret", InternalServiceActiveSecret);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:NextSecret", InternalServiceNextSecret);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:1", InternalServiceOperationNames.AppointmentValidate);
+        builder.UseSetting("InternalServiceAuthentication:Services:1:ServiceId", SnapshotOnlyServiceId);
+        builder.UseSetting("InternalServiceAuthentication:Services:1:ActiveSecret", SnapshotOnlySecret);
+        builder.UseSetting("InternalServiceAuthentication:Services:1:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
         builder.ConfigureServices(services =>
         {
             services.RemoveAll(typeof(DbContextOptions<BusinessDbContext>));
@@ -326,10 +346,18 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
 
     public HttpClient CreateAuthenticatedClient(Guid userId, params string[] roles)
     {
-        var client = CreateClient();
+        var client = CreateSecureClient();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", CreateToken(userId, roles));
         return client;
+    }
+
+    public HttpClient CreateSecureClient()
+    {
+        return CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
     }
 
     public void ResetState()

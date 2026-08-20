@@ -1,25 +1,22 @@
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Services;
 using Ghseeli.BusinessApi.Services.Interfaces;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Ghseeli.BusinessApi.Controllers;
 
 [ApiController]
 [Route("api/v1/internal/appointments")]
-[Authorize(Policy = BusinessPolicies.Step5TemporaryInternalOwnerOrAdmin)]
+[Authorize(Policy = BusinessPolicies.InternalAppointmentValidate)]
 public class InternalAppointmentsController : ControllerBase
 {
     private static readonly JsonSerializerOptions ResponseJsonOptions =
-        new(JsonSerializerDefaults.Web)
-        {
-            Converters = { new JsonStringEnumConverter() }
-        };
+        BusinessCatalogContract.CreateJsonSerializerOptions();
 
     private readonly IAppointmentValidationService _service;
 
@@ -29,13 +26,14 @@ public class InternalAppointmentsController : ControllerBase
     }
 
     [HttpPost("validate")]
+    [InternalServiceOperation(InternalServiceOperationNames.AppointmentValidate)]
     public async Task<IActionResult> Validate(ValidateAppointmentRequest request)
     {
         try
         {
             return JsonResponse(
                 StatusCodes.Status200OK,
-                await _service.ValidateAsync(GetUserId(), IsAdmin(), request));
+                await _service.ValidateAsync(request));
         }
         catch (AvailabilityValidationException exception)
         {
@@ -61,13 +59,4 @@ public class InternalAppointmentsController : ControllerBase
         };
     }
 
-    private Guid GetUserId()
-    {
-        return Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    }
-
-    private bool IsAdmin()
-    {
-        return User.IsInRole(BusinessRoles.Admin);
-    }
 }

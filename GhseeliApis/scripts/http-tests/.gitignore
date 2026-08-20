@@ -1,0 +1,3 @@
+artifacts/
+*.local.json
+local.*.json

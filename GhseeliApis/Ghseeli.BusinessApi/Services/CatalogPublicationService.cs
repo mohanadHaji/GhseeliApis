@@ -1,6 +1,7 @@
 using Ghseeli.BusinessApi.Repositories.Interfaces;
 using Ghseeli.BusinessApi.Services.Interfaces;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.InternalHttp;
 
 namespace Ghseeli.BusinessApi.Services;
 
@@ -13,12 +14,10 @@ public class CatalogPublicationService : ICatalogPublicationService
         _companyRepository = companyRepository;
     }
 
-    public async Task<CatalogSnapshotResponse> GetSnapshotAsync(
-        Guid userId,
-        bool isAdmin,
-        Guid? companyId)
+    public async Task<CatalogSnapshotResponse> GetSnapshotAsync(Guid companyId)
     {
-        var company = await ResolveRequestedCompanyAsync(userId, isAdmin, companyId);
+        var company = EnsureCompanyIsActive(
+            await _companyRepository.GetPublicationByIdAsync(companyId));
         var activeBranches = company.Branches
             .Where(branch => branch.IsActive)
             .OrderBy(branch => branch.NameAr)
@@ -37,6 +36,7 @@ public class CatalogPublicationService : ICatalogPublicationService
 
         return new CatalogSnapshotResponse
         {
+            ContractVersion = BusinessCatalogContract.Version,
             CatalogVersion = company.CatalogVersion,
             GeneratedAtUtc = DateTime.UtcNow,
             Company = new CatalogSnapshotCompany
@@ -129,38 +129,6 @@ public class CatalogPublicationService : ICatalogPublicationService
                 })
                 .ToArray()
         };
-    }
-
-    private async Task<Models.Company> ResolveRequestedCompanyAsync(
-        Guid userId,
-        bool isAdmin,
-        Guid? companyId)
-    {
-        if (isAdmin)
-        {
-            if (!companyId.HasValue)
-            {
-                throw AvailabilityValidationException.ForField(
-                    "companyId",
-                    "Admin internal snapshot requests must specify a companyId.");
-            }
-
-            return EnsureCompanyIsActive(
-                await _companyRepository.GetPublicationByIdAsync(companyId.Value));
-        }
-
-        var assignedCompany = await _companyRepository.GetForUserAsync(userId)
-            ?? throw new UnauthorizedAccessException(
-                "No active company assignment was found for this business account.");
-
-        if (companyId.HasValue && companyId.Value != assignedCompany.Id)
-        {
-            throw new UnauthorizedAccessException(
-                "The requested company is not assigned to this business account.");
-        }
-
-        return EnsureCompanyIsActive(
-            await _companyRepository.GetPublicationByIdAsync(assignedCompany.Id));
     }
 
     private static CatalogSnapshotServiceArea? CreateSnapshotServiceArea(Models.Branch branch)

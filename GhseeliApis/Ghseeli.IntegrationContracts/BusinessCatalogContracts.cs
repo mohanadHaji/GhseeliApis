@@ -1,3 +1,5 @@
+using Ghseeli.IntegrationContracts.InternalHttp;
+
 namespace Ghseeli.IntegrationContracts.BusinessCatalog;
 
 public static class AppointmentValidationErrorCodes
@@ -29,7 +31,7 @@ public static class AppointmentValidationErrorCodes
 
 public sealed class CatalogSnapshotResponse
 {
-    public string ContractVersion { get; set; } = "v1";
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
     public long CatalogVersion { get; set; }
     public DateTime GeneratedAtUtc { get; set; }
     public CatalogSnapshotCompany Company { get; set; } = new();
@@ -132,6 +134,7 @@ public sealed class CatalogSnapshotAddonChoice
 
 public sealed class ValidateAppointmentRequest
 {
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
     public Guid BranchId { get; set; }
     public Guid OfferingId { get; set; }
     public IReadOnlyCollection<ValidateAppointmentAddonSelectionRequest> SelectedAddons { get; set; } =
@@ -156,6 +159,7 @@ public sealed class AppointmentCustomerLocationFacts
 
 public sealed class ValidateAppointmentResponse
 {
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
     public bool Valid { get; set; }
     public long CatalogVersion { get; set; }
     public string Currency { get; set; } = string.Empty;

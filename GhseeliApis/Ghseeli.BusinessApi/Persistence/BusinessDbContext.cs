@@ -27,6 +27,9 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     public DbSet<BranchServiceArea> BranchServiceAreas => Set<BranchServiceArea>();
     public DbSet<BusinessUserAssignment> BusinessUserAssignments =>
         Set<BusinessUserAssignment>();
+    public DbSet<InternalServiceNonce> InternalServiceNonces => Set<InternalServiceNonce>();
+    public DbSet<InternalServiceIdempotencyRecord> InternalServiceIdempotencyRecords =>
+        Set<InternalServiceIdempotencyRecord>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -283,6 +286,50 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 assignment.CompanyId,
                 assignment.BranchId
             }).IsUnique();
+        });
+
+        builder.Entity<InternalServiceNonce>(entity =>
+        {
+            entity.Property(record => record.ServiceId)
+                .HasMaxLength(64)
+                .IsRequired();
+            entity.Property(record => record.Nonce)
+                .HasMaxLength(128)
+                .IsRequired();
+            entity.HasIndex(record => new { record.ServiceId, record.Nonce })
+                .IsUnique();
+            entity.HasIndex(record => record.ExpiresAtUtc);
+        });
+
+        builder.Entity<InternalServiceIdempotencyRecord>(entity =>
+        {
+            entity.Property(record => record.ServiceId)
+                .HasMaxLength(64)
+                .IsRequired();
+            entity.Property(record => record.Operation)
+                .HasMaxLength(64)
+                .IsRequired();
+            entity.Property(record => record.IdempotencyKey)
+                .HasMaxLength(128)
+                .IsRequired();
+            entity.Property(record => record.RequestHash)
+                .HasMaxLength(64)
+                .IsRequired();
+            entity.Property(record => record.State)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .IsRequired();
+            entity.Property(record => record.ContentType)
+                .HasMaxLength(200);
+            entity.Property(record => record.ResponseBody)
+                .HasMaxLength(65536);
+            entity.HasIndex(record => new
+            {
+                record.ServiceId,
+                record.Operation,
+                record.IdempotencyKey
+            }).IsUnique();
+            entity.HasIndex(record => record.ExpiresAtUtc);
         });
     }
 }

@@ -9,7 +9,6 @@ namespace Ghseeli.BusinessApi.Services;
 
 public class AppointmentValidationService : IAppointmentValidationService
 {
-    private readonly ICompanyRepository _companyRepository;
     private readonly ICatalogRepository _catalogRepository;
     private readonly IAvailabilityRepository _availabilityRepository;
     private readonly IInternalAppointmentRequestValidator _requestValidator;
@@ -20,7 +19,6 @@ public class AppointmentValidationService : IAppointmentValidationService
     private readonly IAppLogger _logger;
 
     public AppointmentValidationService(
-        ICompanyRepository companyRepository,
         ICatalogRepository catalogRepository,
         IAvailabilityRepository availabilityRepository,
         IInternalAppointmentRequestValidator requestValidator,
@@ -30,7 +28,6 @@ public class AppointmentValidationService : IAppointmentValidationService
         IConfiguration configuration,
         IAppLogger logger)
     {
-        _companyRepository = companyRepository;
         _catalogRepository = catalogRepository;
         _availabilityRepository = availabilityRepository;
         _requestValidator = requestValidator;
@@ -42,8 +39,6 @@ public class AppointmentValidationService : IAppointmentValidationService
     }
 
     public async Task<ValidateAppointmentResponse> ValidateAsync(
-        Guid userId,
-        bool isAdmin,
         ValidateAppointmentRequest request)
     {
         _requestValidator.Validate(request);
@@ -51,15 +46,6 @@ public class AppointmentValidationService : IAppointmentValidationService
         var issues = new List<AppointmentValidationIssue>();
         var branch = await _availabilityRepository.GetBranchWithAvailabilityAsync(request.BranchId);
         var offering = await _catalogRepository.GetOfferingByIdAsync(request.OfferingId);
-
-        if (branch is not null)
-        {
-            await EnsureCompanyAccessAsync(userId, isAdmin, branch.CompanyId);
-        }
-        else if (offering is not null)
-        {
-            await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
-        }
 
         if (branch is null)
         {
@@ -83,6 +69,7 @@ public class AppointmentValidationService : IAppointmentValidationService
 
         var response = new ValidateAppointmentResponse
         {
+            ContractVersion = Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
             Valid = false,
             CatalogVersion = catalogVersion,
             Currency = GetAuthoritativeCurrency(),
@@ -210,23 +197,6 @@ public class AppointmentValidationService : IAppointmentValidationService
 
         LogValidationOutcome(response, request);
         return response;
-    }
-
-    private async Task EnsureCompanyAccessAsync(Guid userId, bool isAdmin, Guid companyId)
-    {
-        if (isAdmin)
-        {
-            return;
-        }
-
-        var company = await _companyRepository.GetForUserAsync(userId);
-        if (company?.Id == companyId)
-        {
-            return;
-        }
-
-        throw new UnauthorizedAccessException(
-            "The requested appointment validation resource is not assigned to this business account.");
     }
 
     private string GetAuthoritativeCurrency()

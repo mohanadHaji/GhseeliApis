@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ghseeli.Common\Ghseeli.Common.csproj" />
+    <ProjectReference Include="..\Ghseeli.IntegrationContracts\Ghseeli.IntegrationContracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

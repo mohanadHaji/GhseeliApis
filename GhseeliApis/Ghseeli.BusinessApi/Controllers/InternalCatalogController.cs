@@ -1,24 +1,21 @@
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Services;
 using Ghseeli.BusinessApi.Services.Interfaces;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Ghseeli.BusinessApi.Controllers;
 
 [ApiController]
 [Route("api/v1/internal/catalog")]
-[Authorize(Policy = BusinessPolicies.Step5TemporaryInternalOwnerOrAdmin)]
+[Authorize(Policy = BusinessPolicies.InternalCatalogRead)]
 public class InternalCatalogController : ControllerBase
 {
     private static readonly JsonSerializerOptions ResponseJsonOptions =
-        new(JsonSerializerDefaults.Web)
-        {
-            Converters = { new JsonStringEnumConverter() }
-        };
+        BusinessCatalogContract.CreateJsonSerializerOptions();
 
     private readonly ICatalogPublicationService _service;
 
@@ -28,13 +25,23 @@ public class InternalCatalogController : ControllerBase
     }
 
     [HttpGet("snapshot")]
+    [InternalServiceOperation(InternalServiceOperationNames.CatalogSnapshot)]
     public async Task<IActionResult> GetSnapshot([FromQuery] Guid? companyId)
     {
+        if (!companyId.HasValue || companyId.Value == Guid.Empty)
+        {
+            return JsonResponse(StatusCodes.Status400BadRequest, new
+            {
+                code = "company_id_required",
+                message = "Internal catalog snapshot requests must supply a companyId query value."
+            });
+        }
+
         try
         {
             return JsonResponse(
                 StatusCodes.Status200OK,
-                await _service.GetSnapshotAsync(GetUserId(), IsAdmin(), companyId));
+                await _service.GetSnapshotAsync(companyId.Value));
         }
         catch (AvailabilityValidationException exception)
         {
@@ -64,13 +71,4 @@ public class InternalCatalogController : ControllerBase
         };
     }
 
-    private Guid GetUserId()
-    {
-        return Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    }
-
-    private bool IsAdmin()
-    {
-        return User.IsInRole(BusinessRoles.Admin);
-    }
 }

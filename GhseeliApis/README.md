@@ -800,18 +800,30 @@ git checkout -b feature/your-feature-name
 ```
 
 ### **2. Implement Feature**
+- Define observable behavior and important failure/edge cases
+- Decide whether HTTP coverage applies. If it does, create/update the feature HTTP plan **before implementing the changed behavior**; keep stable scenario IDs aligned with tests and, when live local/dev/test HTTP is part of the execution level, add/update `.\scripts\http-tests\plans\<feature>.manifest.json`. If it does not, record `HTTP required: No - <reason>`.
+- **Write the appropriate handler/unit/integration tests first!** (TDD)
 - Add model (if needed)
 - Create repository interface & implementation
 - Create handler interface & implementation
-- **Write handler tests first!** (TDD)
 - Create controller
 - Add DTOs
-- Run tests
+- Run targeted automated tests
 
 ### **3. Test**
-```bash
+```powershell
 dotnet test
+
+# If you changed the harness itself
+powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1
+
+# If the feature plan includes live local/dev/test HTTP execution
+powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-HttpTests.ps1 `
+  -ManifestPath .\scripts\http-tests\plans\<feature>.manifest.json `
+  -ConfigPath .\scripts\http-tests\plans\<feature>.local.json
 ```
+
+> **Completion gate for meaningful changes:** cover every changed endpoint plus affected existing endpoints in the HTTP plan, including success, validation, auth/ownership, boundary, failure, version/state, and regression scenarios. After automated tests and required migrations, execute the planned HTTP scenarios at the declared execution level: rerun TestServer coverage for HTTP-visible behavior, and run the local manifest only when live local/dev/test HTTP is part of the risk or contract. Fix failures test-first, rerun, and record exact automated test totals plus HTTP scenario pass/fail/deferred counts with rationale. Documentation-only or non-HTTP internal refactors may mark HTTP not applicable with rationale. Do not mark the change done while a required HTTP scenario is only planned/automated, failed, or deferred without explicit non-shipping rationale and compensating coverage. Keep `scripts\http-tests\artifacts\` results plus `*.local.json` / `local.*.json` files out of source control. Never use production or expose/commit secrets, tokens, or test credentials. Missing relevant HTTP coverage, a stale plan, or any unexplained failure blocks completion.
 
 ### **4. Commit & Push**
 ```bash
@@ -836,10 +848,11 @@ git push origin feature/your-feature-name
 
 1. Fork the repository
 2. Create a feature branch
-3. Write tests for your changes
-4. Implement your feature
-5. Ensure all tests pass
-6. Submit a pull request
+3. Define behavior and write tests for your changes first
+4. Create/update the feature HTTP test plan and implement your feature
+5. Ensure automated tests pass and execute the local HTTP plan
+6. Record exact automated test totals plus HTTP scenario pass/fail/deferred counts
+7. Submit a pull request
 
 ---
 

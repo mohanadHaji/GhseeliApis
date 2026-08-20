@@ -24,7 +24,7 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
     public async Task ValidateAppointment_WhenAnonymous_ReturnsUnauthorized()
     {
         _factory.ResetState();
-        var client = _factory.CreateClient();
+        var client = _factory.CreateSecureClient();
 
         var response = await client.PostAsJsonAsync("/api/v1/internal/appointments/validate", new
         {
@@ -41,9 +41,9 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
     public async Task CatalogSnapshot_WhenAnonymous_ReturnsUnauthorized()
     {
         _factory.ResetState();
-        var client = _factory.CreateClient();
-
-        var response = await client.GetAsync("/api/v1/internal/catalog/snapshot");
+        var client = _factory.CreateSecureClient();
+        var response = await client.GetAsync(
+            $"/api/v1/internal/catalog/snapshot?companyId={_factory.CompanyId:D}");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -116,27 +116,16 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
 
         var nextMondayAtNineUtc = GetNextUtcDay(DayOfWeek.Monday).AddHours(9);
 
-        var validateResponse = await client.PostAsJsonAsync("/api/v1/internal/appointments/validate", new
-        {
-            branchId = configured.BranchId,
-            offeringId = configured.Offering.Id,
-            selectedAddons = new[]
-            {
-                new
-                {
-                    addonChoiceId = configured.AddonChoiceId,
-                    quantity = 2
-                }
-            },
-            requestedSlotStartUtc = nextMondayAtNineUtc,
-            customerLocation = new
-            {
-                latitude = 24.7136,
-                longitude = 46.6753
-            },
-            expectedCatalogVersion = configured.CatalogVersion,
-            currency = "ILS"
-        });
+        var validateResponse = await ValidateAsync(
+            client,
+            configured.BranchId,
+            configured.Offering.Id,
+            configured.AddonChoiceId,
+            configured.CatalogVersion,
+            24.7136,
+            46.6753,
+            nextMondayAtNineUtc,
+            quantity: 2);
         var validateContent = await validateResponse.Content.ReadAsStringAsync();
 
         validateResponse.StatusCode.Should().Be(HttpStatusCode.OK, validateContent);
@@ -162,27 +151,16 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
         var configured = await ConfigureCatalogAndAvailabilityAsync(client);
 
-        var validateResponse = await client.PostAsJsonAsync("/api/v1/internal/appointments/validate", new
-        {
-            branchId = configured.BranchId,
-            offeringId = configured.Offering.Id,
-            selectedAddons = new[]
-            {
-                new
-                {
-                    addonChoiceId = configured.AddonChoiceId,
-                    quantity = 1
-                }
-            },
-            requestedSlotStartUtc = new DateTimeOffset(2026, 8, 24, 12, 0, 0, TimeSpan.FromHours(3)),
-            customerLocation = new
-            {
-                latitude = 24.7136,
-                longitude = 46.6753
-            },
-            expectedCatalogVersion = configured.CatalogVersion,
-            currency = "ILS"
-        });
+        var validateResponse = await ValidateAsync(
+            client,
+            configured.BranchId,
+            configured.Offering.Id,
+            configured.AddonChoiceId,
+            configured.CatalogVersion,
+            24.7136,
+            46.6753,
+            new DateTimeOffset(2026, 8, 24, 12, 0, 0, TimeSpan.FromHours(3)),
+            quantity: 1);
         var validateContent = await validateResponse.Content.ReadAsStringAsync();
 
         validateResponse.StatusCode.Should().Be(HttpStatusCode.OK, validateContent);
@@ -253,7 +231,7 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         await CreateAddonGroupAsync(client, activeOffering.Id, "نشط", AddonSelectionType.QuantityCounter, true, choiceActive: true);
         await CreateAddonGroupAsync(client, activeOffering.Id, "مخفي", AddonSelectionType.QuantityCounter, false, choiceActive: true);
 
-        var snapshotResponse = await client.GetAsync("/api/v1/internal/catalog/snapshot");
+        var snapshotResponse = await GetSnapshotAsync(client);
         var snapshotContent = await snapshotResponse.Content.ReadAsStringAsync();
 
         snapshotResponse.StatusCode.Should().Be(HttpStatusCode.OK, snapshotContent);
@@ -410,7 +388,7 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         });
 
         var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
-        var response = await client.GetAsync("/api/v1/internal/catalog/snapshot");
+        var response = await GetSnapshotAsync(client);
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
@@ -433,7 +411,7 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         });
 
         var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
-        var response = await client.GetAsync("/api/v1/internal/catalog/snapshot");
+        var response = await GetSnapshotAsync(client);
         var content = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, content);
@@ -570,27 +548,15 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
                 isActive = true
             })).EnsureSuccessStatusCode();
 
-        var response = await client.PostAsJsonAsync("/api/v1/internal/appointments/validate", new
-        {
-            branchId = _factory.BranchId,
-            offeringId = offering.Id,
-            selectedAddons = new[]
-            {
-                new
-                {
-                    addonChoiceId,
-                    quantity = 1
-                }
-            },
-            requestedSlotStartUtc = GetNextUtcDay(DayOfWeek.Monday).AddHours(9),
-            customerLocation = new
-            {
-                latitude = 24.7136,
-                longitude = 46.6753
-            },
-            expectedCatalogVersion = await GetSnapshotVersionAsync(client),
-            currency = "ILS"
-        });
+        var response = await ValidateAsync(
+            client,
+            _factory.BranchId,
+            offering.Id,
+            addonChoiceId,
+            await GetSnapshotVersionAsync(client),
+            24.7136,
+            46.6753,
+            GetNextUtcDay(DayOfWeek.Monday).AddHours(9));
         var content = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.OK, content);
@@ -735,9 +701,18 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         return addonGroup.Choices.Single().Id;
     }
 
-    private static async Task<long> GetSnapshotVersionAsync(HttpClient client)
+    private async Task<HttpResponseMessage> GetSnapshotAsync(HttpClient client)
     {
-        var response = await client.GetAsync("/api/v1/internal/catalog/snapshot");
+        var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/v1/internal/catalog/snapshot?companyId={_factory.CompanyId:D}");
+        return await client.SendAsync(request);
+    }
+
+    private async Task<long> GetSnapshotVersionAsync(HttpClient client)
+    {
+        var response = await GetSnapshotAsync(client);
         var content = await response.Content.ReadAsStringAsync();
         response.StatusCode.Should().Be(HttpStatusCode.OK, content);
         using var document = JsonDocument.Parse(content);
@@ -752,28 +727,36 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         long expectedCatalogVersion,
         double latitude,
         double longitude,
-        DateTime requestedSlotStartUtc)
+        DateTimeOffset requestedSlotStartUtc,
+        int quantity = 1,
+        string? idempotencyKey = null)
     {
-        return await client.PostAsJsonAsync("/api/v1/internal/appointments/validate", new
-        {
-            branchId,
-            offeringId,
-            selectedAddons = new[]
+        var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/validate",
+            new
             {
-                new
+                branchId,
+                offeringId,
+                selectedAddons = new[]
                 {
-                    addonChoiceId,
-                    quantity = 1
-                }
+                    new
+                    {
+                        addonChoiceId,
+                        quantity
+                    }
+                },
+                requestedSlotStartUtc,
+                customerLocation = new
+                {
+                    latitude,
+                    longitude
+                },
+                expectedCatalogVersion,
+                currency = "ILS"
             },
-            requestedSlotStartUtc,
-            customerLocation = new
-            {
-                latitude,
-                longitude
-            },
-            expectedCatalogVersion,
-            currency = "ILS"
-        });
+            idempotencyKey ?? $"idem-{Guid.NewGuid():N}");
+        return await client.SendAsync(request);
     }
 }

@@ -6,21 +6,23 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Ghseeli.BusinessApi.Repositories;
 
-public class CatalogRepository : ICatalogRepository
+public class CatalogRepository : BusinessMutationRepositoryBase, ICatalogRepository
 {
-    private readonly BusinessDbContext _context;
+    private const string ConflictMessage =
+        "The requested business catalog change conflicted with a newer authoritative update. Reload the latest data and retry.";
+
     private readonly IAppLogger _logger;
 
     public CatalogRepository(BusinessDbContext context, IAppLogger logger)
+        : base(context)
     {
-        _context = context;
         _logger = logger;
     }
 
     public async Task<IReadOnlyCollection<ServiceCategory>> GetCategoriesForCompanyAsync(
         Guid companyId)
     {
-        return await _context.ServiceCategories
+        return await Context.ServiceCategories
             .AsNoTracking()
             .Where(category => category.CompanyId == companyId)
             .OrderBy(category => category.DisplayOrder)
@@ -30,7 +32,7 @@ public class CatalogRepository : ICatalogRepository
 
     public Task<ServiceCategory?> GetCategoryByIdAsync(Guid categoryId)
     {
-        return _context.ServiceCategories
+        return Context.ServiceCategories
             .Include(category => category.Offerings)
                 .ThenInclude(offering => offering.Branch)
             .Include(category => category.Offerings)
@@ -41,8 +43,12 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<ServiceCategory> AddCategoryAsync(ServiceCategory category)
     {
-        _context.ServiceCategories.Add(category);
-        await _context.SaveChangesAsync();
+        Context.ServiceCategories.Add(category);
+        await PrepareCompanyVersionIncrementAsync(category.CompanyId);
+        await PersistMutationAsync(
+            category.CompanyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: true);
         _logger.LogInfo(
             $"Catalog category created. CategoryId={category.Id}, CompanyId={category.CompanyId}.");
         return category;
@@ -50,8 +56,12 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<ServiceCategory> UpdateCategoryAsync(ServiceCategory category)
     {
-        _context.ServiceCategories.Update(category);
-        await _context.SaveChangesAsync();
+        Context.ServiceCategories.Update(category);
+        await PrepareCompanyVersionIncrementAsync(category.CompanyId);
+        await PersistMutationAsync(
+            category.CompanyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: true);
         _logger.LogInfo(
             $"Catalog category updated. CategoryId={category.Id}, CompanyId={category.CompanyId}.");
         return category;
@@ -59,8 +69,12 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task DeleteCategoryAsync(ServiceCategory category)
     {
-        _context.ServiceCategories.Remove(category);
-        await _context.SaveChangesAsync();
+        Context.ServiceCategories.Remove(category);
+        await PrepareCompanyVersionIncrementAsync(category.CompanyId);
+        await PersistMutationAsync(
+            category.CompanyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog category deleted. CategoryId={category.Id}, CompanyId={category.CompanyId}.");
     }
@@ -70,7 +84,7 @@ public class CatalogRepository : ICatalogRepository
         Guid? categoryId = null,
         Guid? branchId = null)
     {
-        var query = _context.ServiceOfferings
+        var query = Context.ServiceOfferings
             .AsNoTracking()
             .Include(offering => offering.Category)
             .Include(offering => offering.Branch)
@@ -94,7 +108,7 @@ public class CatalogRepository : ICatalogRepository
 
     public Task<ServiceOffering?> GetOfferingByIdAsync(Guid offeringId)
     {
-        return _context.ServiceOfferings
+        return Context.ServiceOfferings
             .Include(offering => offering.AddonGroups)
                 .ThenInclude(group => group.Choices)
             .Include(offering => offering.Category)
@@ -105,8 +119,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<ServiceOffering> AddOfferingAsync(ServiceOffering offering)
     {
-        _context.ServiceOfferings.Add(offering);
-        await _context.SaveChangesAsync();
+        Context.ServiceOfferings.Add(offering);
+        var companyId = await ResolveCompanyIdAsync(offering);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: true);
         _logger.LogInfo(
             $"Catalog offering created. OfferingId={offering.Id}, CategoryId={offering.CategoryId}, CompanyId={FormatGuid(offering.Category?.CompanyId)}.");
         return offering;
@@ -114,8 +133,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<ServiceOffering> UpdateOfferingAsync(ServiceOffering offering)
     {
-        _context.ServiceOfferings.Update(offering);
-        await _context.SaveChangesAsync();
+        Context.ServiceOfferings.Update(offering);
+        var companyId = await ResolveCompanyIdAsync(offering);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: true);
         _logger.LogInfo(
             $"Catalog offering updated. OfferingId={offering.Id}, CategoryId={offering.CategoryId}, CompanyId={FormatGuid(offering.Category?.CompanyId)}.");
         return offering;
@@ -123,15 +147,20 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task DeleteOfferingAsync(ServiceOffering offering)
     {
-        _context.ServiceOfferings.Remove(offering);
-        await _context.SaveChangesAsync();
+        Context.ServiceOfferings.Remove(offering);
+        var companyId = await ResolveCompanyIdAsync(offering);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog offering deleted. OfferingId={offering.Id}, CategoryId={offering.CategoryId}, CompanyId={FormatGuid(offering.Category?.CompanyId)}.");
     }
 
     public Task<AddonGroup?> GetAddonGroupByIdAsync(Guid addonGroupId)
     {
-        return _context.AddonGroups
+        return Context.AddonGroups
             .Include(group => group.Choices)
             .Include(group => group.ServiceOffering)
                 .ThenInclude(offering => offering.Category)
@@ -141,8 +170,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<AddonGroup> AddAddonGroupAsync(AddonGroup addonGroup)
     {
-        _context.AddonGroups.Add(addonGroup);
-        await _context.SaveChangesAsync();
+        Context.AddonGroups.Add(addonGroup);
+        var companyId = await ResolveCompanyIdAsync(addonGroup);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on group created. AddonGroupId={addonGroup.Id}, OfferingId={addonGroup.ServiceOfferingId}, CompanyId={FormatGuid(addonGroup.ServiceOffering?.Category?.CompanyId)}.");
         return addonGroup;
@@ -150,8 +184,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<AddonGroup> UpdateAddonGroupAsync(AddonGroup addonGroup)
     {
-        _context.AddonGroups.Update(addonGroup);
-        await _context.SaveChangesAsync();
+        Context.AddonGroups.Update(addonGroup);
+        var companyId = await ResolveCompanyIdAsync(addonGroup);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on group updated. AddonGroupId={addonGroup.Id}, OfferingId={addonGroup.ServiceOfferingId}, CompanyId={FormatGuid(addonGroup.ServiceOffering?.Category?.CompanyId)}.");
         return addonGroup;
@@ -159,8 +198,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task DeleteAddonGroupAsync(AddonGroup addonGroup)
     {
-        _context.AddonGroups.Remove(addonGroup);
-        await _context.SaveChangesAsync();
+        Context.AddonGroups.Remove(addonGroup);
+        var companyId = await ResolveCompanyIdAsync(addonGroup);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on group deleted. AddonGroupId={addonGroup.Id}, OfferingId={addonGroup.ServiceOfferingId}, CompanyId={FormatGuid(addonGroup.ServiceOffering?.Category?.CompanyId)}.");
     }
@@ -168,7 +212,7 @@ public class CatalogRepository : ICatalogRepository
     public async Task<IReadOnlyCollection<AddonChoice>> GetAddonChoicesForGroupAsync(
         Guid addonGroupId)
     {
-        return await _context.AddonChoices
+        return await Context.AddonChoices
             .AsNoTracking()
             .Where(choice => choice.AddonGroupId == addonGroupId)
             .OrderBy(choice => choice.DisplayOrder)
@@ -178,7 +222,7 @@ public class CatalogRepository : ICatalogRepository
 
     public Task<AddonChoice?> GetAddonChoiceByIdAsync(Guid addonChoiceId)
     {
-        return _context.AddonChoices
+        return Context.AddonChoices
             .Include(choice => choice.AddonGroup)
                 .ThenInclude(group => group.Choices)
             .Include(choice => choice.AddonGroup)
@@ -190,8 +234,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<AddonChoice> AddAddonChoiceAsync(AddonChoice addonChoice)
     {
-        _context.AddonChoices.Add(addonChoice);
-        await _context.SaveChangesAsync();
+        Context.AddonChoices.Add(addonChoice);
+        var companyId = await ResolveCompanyIdAsync(addonChoice);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on choice created. AddonChoiceId={addonChoice.Id}, AddonGroupId={addonChoice.AddonGroupId}, CompanyId={FormatGuid(addonChoice.AddonGroup?.ServiceOffering?.Category?.CompanyId)}.");
         return addonChoice;
@@ -199,8 +248,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task<AddonChoice> UpdateAddonChoiceAsync(AddonChoice addonChoice)
     {
-        _context.AddonChoices.Update(addonChoice);
-        await _context.SaveChangesAsync();
+        Context.AddonChoices.Update(addonChoice);
+        var companyId = await ResolveCompanyIdAsync(addonChoice);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on choice updated. AddonChoiceId={addonChoice.Id}, AddonGroupId={addonChoice.AddonGroupId}, CompanyId={FormatGuid(addonChoice.AddonGroup?.ServiceOffering?.Category?.CompanyId)}.");
         return addonChoice;
@@ -208,8 +262,13 @@ public class CatalogRepository : ICatalogRepository
 
     public async Task DeleteAddonChoiceAsync(AddonChoice addonChoice)
     {
-        _context.AddonChoices.Remove(addonChoice);
-        await _context.SaveChangesAsync();
+        Context.AddonChoices.Remove(addonChoice);
+        var companyId = await ResolveCompanyIdAsync(addonChoice);
+        await PrepareCompanyVersionIncrementAsync(companyId);
+        await PersistMutationAsync(
+            companyId,
+            ConflictMessage,
+            allowCompanyOnlyRetry: false);
         _logger.LogInfo(
             $"Catalog add-on choice deleted. AddonChoiceId={addonChoice.Id}, AddonGroupId={addonChoice.AddonGroupId}, CompanyId={FormatGuid(addonChoice.AddonGroup?.ServiceOffering?.Category?.CompanyId)}.");
     }
@@ -217,5 +276,44 @@ public class CatalogRepository : ICatalogRepository
     private static string FormatGuid(Guid? value)
     {
         return value?.ToString() ?? "unknown";
+    }
+
+    private async Task<Guid> ResolveCompanyIdAsync(ServiceOffering offering)
+    {
+        if (offering.Category is not null)
+        {
+            return offering.Category.CompanyId;
+        }
+
+        return await Context.ServiceCategories
+            .Where(category => category.Id == offering.CategoryId)
+            .Select(category => category.CompanyId)
+            .SingleAsync();
+    }
+
+    private async Task<Guid> ResolveCompanyIdAsync(AddonGroup addonGroup)
+    {
+        if (addonGroup.ServiceOffering?.Category is not null)
+        {
+            return addonGroup.ServiceOffering.Category.CompanyId;
+        }
+
+        return await Context.ServiceOfferings
+            .Where(offering => offering.Id == addonGroup.ServiceOfferingId)
+            .Select(offering => offering.Category.CompanyId)
+            .SingleAsync();
+    }
+
+    private async Task<Guid> ResolveCompanyIdAsync(AddonChoice addonChoice)
+    {
+        if (addonChoice.AddonGroup?.ServiceOffering?.Category is not null)
+        {
+            return addonChoice.AddonGroup.ServiceOffering.Category.CompanyId;
+        }
+
+        return await Context.AddonGroups
+            .Where(group => group.Id == addonChoice.AddonGroupId)
+            .Select(group => group.ServiceOffering.Category.CompanyId)
+            .SingleAsync();
     }
 }

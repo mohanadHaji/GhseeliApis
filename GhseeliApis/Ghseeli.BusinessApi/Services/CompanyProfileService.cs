@@ -1,3 +1,5 @@
+using FluentValidation;
+using FluentValidation.Results;
 using Ghseeli.BusinessApi.DTOs.Companies;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Repositories.Interfaces;
@@ -95,6 +97,7 @@ public class CompanyProfileService : ICompanyProfileService
         branch.Longitude = request.Longitude;
         branch.IsActive = request.IsActive;
         branch.UpdatedAt = DateTime.UtcNow;
+        ValidateImplicitServiceAreaCoordinates(branch);
 
         var updatedBranch = await _repository.UpdateBranchAsync(branch);
         _logger.LogInfo(
@@ -122,6 +125,28 @@ public class CompanyProfileService : ICompanyProfileService
             $"Business branch update rejected because branch {branchId} is not assigned to user {userId}.");
         return new UnauthorizedAccessException(
             "The branch is not assigned to this business account.");
+    }
+
+    private static void ValidateImplicitServiceAreaCoordinates(Branch branch)
+    {
+        if (branch.ServiceArea is null ||
+            !branch.ServiceArea.IsActive ||
+            branch.ServiceArea.CenterLatitude.HasValue)
+        {
+            return;
+        }
+
+        if (branch.Latitude.HasValue && branch.Longitude.HasValue)
+        {
+            return;
+        }
+
+        throw new ValidationException(
+        [
+            new ValidationFailure(
+                nameof(UpdateBranchRequest.Latitude),
+                "Active service areas that use branch coordinates require the branch latitude and longitude to remain set.")
+        ]);
     }
 
     private static CompanyProfileResponse MapCompany(Company company)

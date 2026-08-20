@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.Validators;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 
@@ -25,12 +26,13 @@ public class UpdateServiceOfferingRequestValidator : AbstractValidator<UpdateSer
             .OptionalTrimmedText("Hebrew offering description", 1000);
 
         RuleFor(request => request.BasePrice)
-            .GreaterThanOrEqualTo(0m)
-            .WithMessage("Base price cannot be negative.");
+            .SupportedMoneyAmount("Base price");
 
         RuleFor(request => request.DurationMinutes)
             .GreaterThan(0)
-            .WithMessage("Duration must be greater than zero minutes.");
+            .WithMessage("Duration must be greater than zero minutes.")
+            .LessThanOrEqualTo(BusinessValueLimits.MaximumDurationMinutes)
+            .WithMessage($"Duration must be {BusinessValueLimits.MaximumDurationMinutes} minutes or fewer.");
 
         RuleFor(request => request.ImageUrl)
             .OptionalTrimmedText("Image URL", 500);

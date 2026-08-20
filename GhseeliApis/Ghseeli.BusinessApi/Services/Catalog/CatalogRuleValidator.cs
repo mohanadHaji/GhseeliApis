@@ -1,3 +1,4 @@
+using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.Models;
 
 namespace Ghseeli.BusinessApi.Services.Catalog;
@@ -15,11 +16,26 @@ public class CatalogRuleValidator : ICatalogRuleValidator
                 "Minimum selections cannot be negative.");
         }
 
+        if (addonGroup.MinimumSelections > BusinessValueLimits.MaximumSelectionQuantity)
+        {
+            throw CatalogValidationException.ForField(
+                "minimumSelections",
+                $"Minimum selections must be {BusinessValueLimits.MaximumSelectionQuantity} or fewer.");
+        }
+
         if (addonGroup.MaximumSelections.HasValue && addonGroup.MaximumSelections.Value < 1)
         {
             throw CatalogValidationException.ForField(
                 "maximumSelections",
                 "Maximum selections must be at least one when provided.");
+        }
+
+        if (addonGroup.MaximumSelections.HasValue &&
+            addonGroup.MaximumSelections.Value > BusinessValueLimits.MaximumSelectionQuantity)
+        {
+            throw CatalogValidationException.ForField(
+                "maximumSelections",
+                $"Maximum selections must be {BusinessValueLimits.MaximumSelectionQuantity} or fewer.");
         }
 
         if (addonGroup.MaximumSelections.HasValue &&
@@ -91,7 +107,7 @@ public class CatalogRuleValidator : ICatalogRuleValidator
                 ValidateDefaultCountRange(
                     addonGroup.MinimumSelections,
                     addonGroup.MaximumSelections,
-                    activeDefaultChoices.Sum(choice => choice.DefaultQuantity));
+                    checked(activeDefaultChoices.Sum(choice => choice.DefaultQuantity)));
                 break;
 
             case AddonSelectionType.FixedIncludedChoice:
@@ -222,6 +238,13 @@ public class CatalogRuleValidator : ICatalogRuleValidator
                 "Price adjustment cannot be negative.");
         }
 
+        if (!BusinessMoney.IsWithinSupportedRange(addonChoice.PriceAdjustment))
+        {
+            throw CatalogValidationException.ForField(
+                "priceAdjustment",
+                $"Price adjustment must be between 0.00 and {BusinessValueLimits.MaximumMoneyAmount:0.00} after rounding to two decimal places.");
+        }
+
         if (addonChoice.DurationAdjustmentMinutes < 0)
         {
             throw CatalogValidationException.ForField(
@@ -229,11 +252,25 @@ public class CatalogRuleValidator : ICatalogRuleValidator
                 "Duration adjustment cannot be negative.");
         }
 
+        if (addonChoice.DurationAdjustmentMinutes > BusinessValueLimits.MaximumDurationMinutes)
+        {
+            throw CatalogValidationException.ForField(
+                "durationAdjustmentMinutes",
+                $"Duration adjustment must be {BusinessValueLimits.MaximumDurationMinutes} minutes or fewer.");
+        }
+
         if (addonChoice.DefaultQuantity < 0)
         {
             throw CatalogValidationException.ForField(
                 "defaultQuantity",
                 "Default quantity cannot be negative.");
+        }
+
+        if (addonChoice.DefaultQuantity > BusinessValueLimits.MaximumSelectionQuantity)
+        {
+            throw CatalogValidationException.ForField(
+                "defaultQuantity",
+                $"Default quantity must be {BusinessValueLimits.MaximumSelectionQuantity} or fewer.");
         }
 
         if (addonChoice.DisplayOrder < 0)

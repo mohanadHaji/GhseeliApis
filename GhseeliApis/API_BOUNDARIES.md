@@ -283,6 +283,8 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 | GET | `/api/v1/internal/reservations/{reference}` | Reconcile reservation/work-order state |
 | POST | `/api/v1/internal/reservations/{reference}/cancel` | Apply an allowed customer cancellation |
 
+Until Step 6 service credentials and request signing are implemented, Step 5 internal Business API routes use a temporary explicit authorization policy named `Step5TemporaryInternalOwnerOrAdmin` so they are never anonymous and can be replaced cleanly by the later HMAC/service-credential mechanism.
+
 ### Customer API internal callback endpoints
 
 | Method | Route | Purpose |
@@ -316,7 +318,7 @@ Request contains:
 - business/branch public ID;
 - offering public IDs and quantities;
 - selected add-on public IDs and quantities;
-- requested UTC slot;
+- `requestedSlotStartUtc` as an ISO 8601 `DateTimeOffset` value; callers may send `Z` or an explicit offset and Business API normalizes it to UTC;
 - customer location facts needed for service-area validation;
 - expected catalog version;
 - currency.
@@ -332,6 +334,13 @@ Response contains:
 - slot/service-area result;
 - reservation eligibility;
 - price-expiry timestamp.
+
+Operational rules:
+
+- Appointment-validation request and response timestamps are always evaluated as UTC instants. Response facts emit UTC timestamps only.
+- Recurring schedules and date overrides are authored in branch-local clock time. When `endLocalTime` is less than `startLocalTime`, the window is treated as an overnight window that continues into the next local date.
+- If a requested slot lands in an ambiguous daylight-saving clock time or crosses a daylight-saving transition, validation fails closed as unavailable.
+- `configuredCapacity` reports the configured schedule or override capacity only. Reservation occupancy, work-order consumption, and live capacity depletion remain deferred to a later step.
 
 The Customer API may add its own disclosed customer-side tax, discount, or platform-fee components. It must not override Business API prices.
 
@@ -383,6 +392,12 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Cached catalog data may support browsing but cannot authorize final booking.
 - Customer API does not create a payable booking until Business API accepts the idempotent reservation.
 - If Customer API persistence fails after reservation acceptance, the reservation remains reconcilable and expires or can be recovered by reference.
+
+### Authoritative business mutations
+
+- Business company, catalog, branch, service-area, schedule, and override mutations increment the authoritative catalog version atomically with the underlying write.
+- Reads never bump catalog version.
+- When optimistic concurrency or relational uniqueness detects a stale or overlapping write, the Business API returns `409` instead of silently dropping a version increment or surfacing a `500`.
 
 ### Status callbacks
 

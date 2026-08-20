@@ -27,5 +27,9 @@ public class CreateBranchRequestValidator : AbstractValidator<CreateBranchReques
         RuleFor(request => request.Longitude)
             .Must(value => !value.HasValue || (value.Value >= -180d && value.Value <= 180d))
             .WithMessage("Longitude must be between -180 and 180.");
+
+        RuleFor(request => request)
+            .Must(request => request.Latitude.HasValue == request.Longitude.HasValue)
+            .WithMessage("Latitude and longitude must be supplied together.");
     }
 }

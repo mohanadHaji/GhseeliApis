@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.Validators;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 
@@ -26,11 +27,15 @@ public class CreateAddonGroupRequestValidator : AbstractValidator<CreateAddonGro
 
         RuleFor(request => request.MinimumSelections)
             .GreaterThanOrEqualTo(0)
-            .WithMessage("Minimum selections cannot be negative.");
+            .WithMessage("Minimum selections cannot be negative.")
+            .LessThanOrEqualTo(BusinessValueLimits.MaximumSelectionQuantity)
+            .WithMessage($"Minimum selections must be {BusinessValueLimits.MaximumSelectionQuantity} or fewer.");
 
         RuleFor(request => request.MaximumSelections)
-            .Must(value => !value.HasValue || value.Value >= 1)
-            .WithMessage("Maximum selections must be at least one when provided.");
+            .Must(value => !value.HasValue || (value.Value >= 1 &&
+                value.Value <= BusinessValueLimits.MaximumSelectionQuantity))
+            .WithMessage(
+                $"Maximum selections must be between 1 and {BusinessValueLimits.MaximumSelectionQuantity} when provided.");
 
         RuleFor(request => request.DisplayOrder)
             .GreaterThanOrEqualTo(0)

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.Validators;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 
@@ -21,16 +22,19 @@ public class UpdateAddonChoiceRequestValidator : AbstractValidator<UpdateAddonCh
             .OptionalTrimmedText("Hebrew add-on choice description", 1000);
 
         RuleFor(request => request.PriceAdjustment)
-            .GreaterThanOrEqualTo(0m)
-            .WithMessage("Price adjustment cannot be negative.");
+            .SupportedMoneyAmount("Price adjustment");
 
         RuleFor(request => request.DurationAdjustmentMinutes)
             .GreaterThanOrEqualTo(0)
-            .WithMessage("Duration adjustment cannot be negative.");
+            .WithMessage("Duration adjustment cannot be negative.")
+            .LessThanOrEqualTo(BusinessValueLimits.MaximumDurationMinutes)
+            .WithMessage($"Duration adjustment must be {BusinessValueLimits.MaximumDurationMinutes} minutes or fewer.");
 
         RuleFor(request => request.DefaultQuantity)
             .GreaterThanOrEqualTo(0)
-            .WithMessage("Default quantity cannot be negative.");
+            .WithMessage("Default quantity cannot be negative.")
+            .LessThanOrEqualTo(BusinessValueLimits.MaximumSelectionQuantity)
+            .WithMessage($"Default quantity must be {BusinessValueLimits.MaximumSelectionQuantity} or fewer.");
 
         RuleFor(request => request.DisplayOrder)
             .GreaterThanOrEqualTo(0)

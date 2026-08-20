@@ -84,6 +84,44 @@ public class CatalogRequestValidatorsTests
     }
 
     [Fact]
+    public void CreateServiceOfferingRequestValidator_AcceptsExactMaximumPriceAndDuration()
+    {
+        var validator = new CreateServiceOfferingRequestValidator();
+        var request = new CreateServiceOfferingRequest
+        {
+            CategoryId = Guid.NewGuid(),
+            NameAr = "غسيل خارجي",
+            BasePrice = 1_000_000m,
+            DurationMinutes = 1_440,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateServiceOfferingRequestValidator_RejectsPriceAboveMaximumAfterRounding()
+    {
+        var validator = new UpdateServiceOfferingRequestValidator();
+        var request = new UpdateServiceOfferingRequest
+        {
+            NameAr = "غسيل خارجي",
+            BasePrice = 1_000_000.01m,
+            DurationMinutes = 30,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == nameof(UpdateServiceOfferingRequest.BasePrice));
+    }
+
+    [Fact]
     public void CreateAddonGroupRequestValidator_ValidatesNestedChoiceArabicName()
     {
         var validator = new CreateAddonGroupRequestValidator(new CreateAddonChoiceRequestValidator());
@@ -136,6 +174,26 @@ public class CatalogRequestValidatorsTests
     }
 
     [Fact]
+    public void UpdateAddonGroupRequestValidator_RejectsMaximumSelectionsAboveOperationalLimit()
+    {
+        var validator = new UpdateAddonGroupRequestValidator();
+        var request = new UpdateAddonGroupRequest
+        {
+            NameAr = "إضافات",
+            SelectionType = AddonSelectionType.QuantityCounter,
+            MinimumSelections = 0,
+            MaximumSelections = 101,
+            DisplayOrder = 0,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == nameof(UpdateAddonGroupRequest.MaximumSelections));
+    }
+
+    [Fact]
     public void CreateAddonChoiceRequestValidator_AllowsMissingHebrewName()
     {
         var validator = new CreateAddonChoiceRequestValidator();
@@ -152,6 +210,45 @@ public class CatalogRequestValidatorsTests
         var result = validator.Validate(request);
 
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateAddonChoiceRequestValidator_AcceptsExactMaximumAdjustmentAndQuantity()
+    {
+        var validator = new CreateAddonChoiceRequestValidator();
+        var request = new CreateAddonChoiceRequest
+        {
+            NameAr = "تعقيم",
+            PriceAdjustment = 1_000_000m,
+            DurationAdjustmentMinutes = 1_440,
+            DefaultQuantity = 100,
+            DisplayOrder = 0,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateAddonChoiceRequestValidator_RejectsQuantityAboveOperationalLimit()
+    {
+        var validator = new UpdateAddonChoiceRequestValidator();
+        var request = new UpdateAddonChoiceRequest
+        {
+            NameAr = "تعقيم",
+            PriceAdjustment = 10m,
+            DurationAdjustmentMinutes = 5,
+            DefaultQuantity = 101,
+            DisplayOrder = 0,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == nameof(UpdateAddonChoiceRequest.DefaultQuantity));
     }
 
     [Fact]

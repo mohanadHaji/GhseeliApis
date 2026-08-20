@@ -352,6 +352,16 @@ public class CatalogController : ControllerBase
                 $"Catalog request resource not found for {Request.Method} {Request.Path}. UserId={GetUserIdOrUnknown()}. Message={exception.Message}");
             return JsonResponse(StatusCodes.Status404NotFound, new { message = exception.Message });
         }
+        catch (BusinessConflictException exception)
+        {
+            _logger.LogWarning(
+                $"Catalog request conflict for {Request.Method} {Request.Path}. UserId={GetUserIdOrUnknown()}. Message={exception.Message}");
+            return JsonResponse(StatusCodes.Status409Conflict, new
+            {
+                message = exception.Message,
+                errors = exception.Errors
+            });
+        }
     }
 
     private IActionResult JsonCreated(string location, object value)

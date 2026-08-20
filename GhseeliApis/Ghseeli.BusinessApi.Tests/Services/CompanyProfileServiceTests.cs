@@ -193,6 +193,46 @@ public class CompanyProfileServiceTests
     }
 
     [Fact]
+    public async Task UpdateBranchAsync_WhenRemovingCoordinatesWouldInvalidateImplicitServiceArea_RejectsValidation()
+    {
+        var userId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var branch = new Branch
+        {
+            Id = branchId,
+            CompanyId = Guid.NewGuid(),
+            NameAr = "قديم",
+            AddressAr = "العنوان القديم",
+            Latitude = 24.7136,
+            Longitude = 46.6753,
+            IsActive = true,
+            ServiceArea = new BranchServiceArea
+            {
+                BranchId = branchId,
+                RadiusKm = 10d,
+                IsActive = true
+            }
+        };
+
+        _repository.Setup(repository => repository.GetBranchForUserAsync(userId, branchId))
+            .ReturnsAsync(branch);
+
+        var action = () => _service.UpdateBranchAsync(userId, branchId, new UpdateBranchRequest
+        {
+            NameAr = "فرع محدّث",
+            AddressAr = "العنوان الجديد",
+            Latitude = null,
+            Longitude = null,
+            IsActive = true
+        });
+
+        await action.Should().ThrowAsync<ValidationException>()
+            .Where(exception => exception.Errors.Any(error =>
+                error.PropertyName == nameof(UpdateBranchRequest.Latitude)));
+        _repository.Verify(repository => repository.UpdateBranchAsync(It.IsAny<Branch>()), Times.Never);
+    }
+
+    [Fact]
     public async Task UpdateMyCompanyAsync_WhenArabicNameIsMissing_ThrowsValidationException()
     {
         var userId = Guid.NewGuid();

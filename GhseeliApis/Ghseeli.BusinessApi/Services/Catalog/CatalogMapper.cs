@@ -55,7 +55,7 @@ internal static class CatalogMapper
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe),
             DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr),
             DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe),
-            BasePrice = request.BasePrice,
+            BasePrice = BusinessMoney.RoundToCurrency(request.BasePrice),
             DurationMinutes = request.DurationMinutes,
             ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl),
             ReferenceCode = BusinessTextNormalizer.NormalizeOptional(request.ReferenceCode),
@@ -77,7 +77,7 @@ internal static class CatalogMapper
         offering.NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe);
         offering.DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr);
         offering.DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe);
-        offering.BasePrice = request.BasePrice;
+        offering.BasePrice = BusinessMoney.RoundToCurrency(request.BasePrice);
         offering.DurationMinutes = request.DurationMinutes;
         offering.ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl);
         offering.ReferenceCode = BusinessTextNormalizer.NormalizeOptional(request.ReferenceCode);
@@ -150,7 +150,7 @@ internal static class CatalogMapper
         addonChoice.NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe);
         addonChoice.DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr);
         addonChoice.DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe);
-        addonChoice.PriceAdjustment = request.PriceAdjustment;
+        addonChoice.PriceAdjustment = BusinessMoney.RoundToCurrency(request.PriceAdjustment);
         addonChoice.DurationAdjustmentMinutes = request.DurationAdjustmentMinutes;
         addonChoice.DefaultQuantity = request.DefaultQuantity;
         addonChoice.DisplayOrder = request.DisplayOrder;
@@ -292,7 +292,7 @@ internal static class CatalogMapper
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe),
             DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr),
             DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe),
-            PriceAdjustment = request.PriceAdjustment,
+            PriceAdjustment = BusinessMoney.RoundToCurrency(request.PriceAdjustment),
             DurationAdjustmentMinutes = request.DurationAdjustmentMinutes,
             DefaultQuantity = request.DefaultQuantity,
             DisplayOrder = request.DisplayOrder,

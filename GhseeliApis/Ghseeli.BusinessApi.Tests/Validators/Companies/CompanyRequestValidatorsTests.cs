@@ -57,6 +57,41 @@ public class CompanyRequestValidatorsTests
     }
 
     [Fact]
+    public void CreateBranchRequestValidator_RejectsSingleCoordinateWithoutItsPair()
+    {
+        var validator = new CreateBranchRequestValidator();
+        var request = new CreateBranchRequest
+        {
+            NameAr = "الفرع الرئيسي",
+            AddressAr = "الرياض",
+            Latitude = 24.7136
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error =>
+            error.ErrorMessage.Contains("together", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void CreateBranchRequestValidator_AcceptsExactCoordinateExtremes()
+    {
+        var validator = new CreateBranchRequestValidator();
+        var request = new CreateBranchRequest
+        {
+            NameAr = "الفرع الرئيسي",
+            AddressAr = "الرياض",
+            Latitude = -90d,
+            Longitude = 180d
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void CreateBranchRequestValidator_RejectsSuppliedHebrewAddressLongerThanMaxLength()
     {
         var validator = new CreateBranchRequestValidator();

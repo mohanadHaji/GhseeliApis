@@ -5,9 +5,11 @@ using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.BusinessApi.Repositories;
 using Ghseeli.BusinessApi.Repositories.Interfaces;
+using Ghseeli.BusinessApi.Services.Availability;
 using Ghseeli.BusinessApi.Services;
 using Ghseeli.BusinessApi.Services.Catalog;
 using Ghseeli.BusinessApi.Services.Interfaces;
+using Ghseeli.BusinessApi.Services.Validation.Availability;
 using Ghseeli.BusinessApi.Services.Validation.Auth;
 using Ghseeli.BusinessApi.Services.Validation.Catalog;
 using Ghseeli.BusinessApi.Services.Validation.Companies;
@@ -24,7 +26,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var validationJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-validationJsonOptions.Converters.Add(new JsonStringEnumConverter());
+validationJsonOptions.Converters.Add(new JsonStringEnumConverter(
+    namingPolicy: null,
+    allowIntegerValues: false));
 
 builder.Services.AddControllers(options =>
     {
@@ -32,7 +36,9 @@ builder.Services.AddControllers(options =>
     })
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(
+            namingPolicy: null,
+            allowIntegerValues: false));
     });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
@@ -67,6 +73,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SupportNonNullableReferenceTypes();
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
         Title = "Ghseeli Business API",
@@ -97,6 +104,7 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
     options.SchemaFilter<StringEnumSchemaFilter>();
+    options.SchemaFilter<BusinessRequestSchemaFilter>();
 });
 
 var businessConnection = builder.Configuration.GetConnectionString("BusinessConnection");
@@ -156,17 +164,30 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Employee, BusinessRoles.Admin));
     options.AddPolicy(BusinessPolicies.OwnerOrAdmin, policy =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Admin));
+    options.AddPolicy(BusinessPolicies.Step5TemporaryInternalOwnerOrAdmin, policy =>
+        policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Admin));
 });
 
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
+builder.Services.AddScoped<IAvailabilityRepository, AvailabilityRepository>();
 builder.Services.AddScoped<IBusinessAuthRequestValidator, BusinessAuthRequestValidator>();
 builder.Services.AddScoped<ICompanyRequestValidator, CompanyRequestValidator>();
 builder.Services.AddScoped<ICatalogRequestValidator, CatalogRequestValidator>();
+builder.Services.AddScoped<IAvailabilityRequestValidator, AvailabilityRequestValidator>();
+builder.Services.AddScoped<IInternalAppointmentRequestValidator, InternalAppointmentRequestValidator>();
 builder.Services.AddScoped<ICatalogRuleValidator, CatalogRuleValidator>();
+builder.Services.AddScoped<IAvailabilityRuleValidator, AvailabilityRuleValidator>();
+builder.Services.AddScoped<ICatalogSelectionValidator, CatalogSelectionValidator>();
+builder.Services.AddScoped<ITimeZoneAvailabilityResolver, TimeZoneAvailabilityResolver>();
+builder.Services.AddScoped<IServiceAreaCalculator, ServiceAreaCalculator>();
 builder.Services.AddScoped<IBusinessAuthService, BusinessAuthService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 builder.Services.AddScoped<ICatalogService, CatalogService>();
+builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagementService>();
+builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
+builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
+builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 
 var app = builder.Build();

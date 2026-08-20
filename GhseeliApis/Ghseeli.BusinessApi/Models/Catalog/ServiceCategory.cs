@@ -10,6 +10,7 @@ public class ServiceCategory
     public string? DescriptionHe { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; } = true;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

@@ -124,7 +124,7 @@ public class CatalogServiceTests
     }
 
     [Fact]
-    public async Task CreateOfferingAsync_WhenBranchBelongsToDifferentCompany_RejectsAccess()
+    public async Task CreateOfferingAsync_WhenBranchBelongsToDifferentCompany_HidesExistence()
     {
         var userId = Guid.NewGuid();
         var companyId = Guid.NewGuid();
@@ -176,7 +176,8 @@ public class CatalogServiceTests
             IsActive = true
         });
 
-        await action.Should().ThrowAsync<UnauthorizedAccessException>();
+        await action.Should().ThrowAsync<KeyNotFoundException>()
+            .WithMessage("The branch was not found.");
         _catalogRepository.Verify(repository => repository.AddOfferingAsync(
             It.IsAny<ServiceOffering>()), Times.Never);
     }

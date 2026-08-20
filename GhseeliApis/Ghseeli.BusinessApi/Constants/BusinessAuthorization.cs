@@ -13,6 +13,8 @@ public static class BusinessPolicies
 {
     public const string BusinessMember = "BusinessMember";
     public const string OwnerOrAdmin = "OwnerOrAdmin";
+    public const string Step5TemporaryInternalOwnerOrAdmin =
+        "Step5TemporaryInternalOwnerOrAdmin";
 }
 
 public static class BusinessClaimTypes

@@ -11,6 +11,8 @@ public class Company
     public string? ServiceAreaDescriptionHe { get; set; }
     public string? Phone { get; set; }
     public bool IsActive { get; set; } = true;
+    public long CatalogVersion { get; set; } = 1;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 

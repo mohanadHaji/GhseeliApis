@@ -15,6 +15,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 
 namespace Ghseeli.BusinessApi.Tests.Infrastructure;
 
@@ -91,6 +92,72 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
             });
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task GetCategory_AsOwnerFromDifferentCompany_ReturnsNotFound()
+    {
+        var ownerClient = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var otherOwnerClient = _factory.CreateAuthenticatedClient(_factory.OtherOwnerUserId, BusinessRoles.Owner);
+
+        var createResponse = await ownerClient.PostAsJsonAsync("/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "مخفي",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        var foreignResponse = await otherOwnerClient.GetAsync(
+            $"/api/v1/business/catalog/categories/{created!.Id}");
+        var missingResponse = await otherOwnerClient.GetAsync(
+            $"/api/v1/business/catalog/categories/{Guid.NewGuid()}");
+
+        foreignResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        missingResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await foreignResponse.Content.ReadAsStringAsync())
+            .Should()
+            .Be(await missingResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task UpdateCategory_AsOwnerFromDifferentCompany_ReturnsNotFound()
+    {
+        var ownerClient = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var otherOwnerClient = _factory.CreateAuthenticatedClient(_factory.OtherOwnerUserId, BusinessRoles.Owner);
+
+        var createResponse = await ownerClient.PostAsJsonAsync("/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "مخفي للتحديث",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        var foreignResponse = await otherOwnerClient.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{created!.Id}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = "لن تصل",
+                DisplayOrder = 1,
+                IsActive = true
+            });
+        var missingResponse = await otherOwnerClient.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{Guid.NewGuid()}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = "لن تصل",
+                DisplayOrder = 1,
+                IsActive = true
+            });
+
+        foreignResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        missingResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await foreignResponse.Content.ReadAsStringAsync())
+            .Should()
+            .Be(await missingResponse.Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -172,6 +239,51 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
         content.Should().Contain("minimumSelections");
         content.Should().Contain("defaultQuantity");
     }
+
+    [Fact]
+    public async Task SwaggerDocument_RepresentativeSchemasMatchRuntimeRequiredAndNullability()
+    {
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/swagger/v1/swagger.json");
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var document = JsonDocument.Parse(content);
+        var schemas = document.RootElement
+            .GetProperty("components")
+            .GetProperty("schemas");
+
+        var categoryRequest = schemas.GetProperty("CreateServiceCategoryRequest");
+        categoryRequest.GetProperty("required")
+            .EnumerateArray()
+            .Select(element => element.GetString())
+            .Should()
+            .Contain("nameAr");
+        IsNullable(categoryRequest.GetProperty("properties").GetProperty("nameAr"))
+            .Should()
+            .BeFalse();
+
+        var validateRequest = schemas.GetProperty("ValidateAppointmentRequest");
+        validateRequest.GetProperty("required")
+            .EnumerateArray()
+            .Select(element => element.GetString())
+            .Should()
+            .Contain(["branchId", "offeringId", "requestedSlotStartUtc", "currency"]);
+        IsNullable(validateRequest.GetProperty("properties").GetProperty("currency"))
+            .Should()
+            .BeFalse();
+        IsNullable(validateRequest.GetProperty("properties").GetProperty("selectedAddons"))
+            .Should()
+            .BeTrue();
+    }
+
+    private static bool IsNullable(JsonElement propertySchema)
+    {
+        return propertySchema.TryGetProperty("nullable", out var nullableElement) &&
+            nullableElement.GetBoolean();
+    }
 }
 
 public class CatalogApiFactory : WebApplicationFactory<Program>
@@ -183,9 +295,12 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
 
     public Guid OwnerUserId { get; } = Guid.NewGuid();
     public Guid EmployeeUserId { get; } = Guid.NewGuid();
+    public Guid OtherOwnerUserId { get; } = Guid.NewGuid();
     public Guid AdminUserId { get; } = Guid.NewGuid();
     public Guid CompanyId { get; } = Guid.NewGuid();
+    public Guid OtherCompanyId { get; } = Guid.NewGuid();
     public Guid BranchId { get; } = Guid.NewGuid();
+    public Guid OtherBranchId { get; } = Guid.NewGuid();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -215,6 +330,23 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", CreateToken(userId, roles));
         return client;
+    }
+
+    public void ResetState()
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<BusinessDbContext>();
+        context.Database.EnsureDeleted();
+        context.Database.EnsureCreated();
+        Seed(context);
+    }
+
+    public void MutateState(Action<BusinessDbContext> mutation)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<BusinessDbContext>();
+        mutation(context);
+        context.SaveChanges();
     }
 
     private string CreateToken(Guid userId, IEnumerable<string> roles)
@@ -248,6 +380,13 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
             NameHe = "חברת בדיקה",
             IsActive = true
         };
+        var otherCompany = new Company
+        {
+            Id = OtherCompanyId,
+            NameAr = "شركة أخرى",
+            NameHe = "חברה אחרת",
+            IsActive = true
+        };
         var branch = new Branch
         {
             Id = BranchId,
@@ -257,6 +396,21 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
             NameHe = "ראשי",
             AddressAr = "العنوان",
             AddressHe = "כתובת",
+            Latitude = 24.7136,
+            Longitude = 46.6753,
+            IsActive = true
+        };
+        var otherBranch = new Branch
+        {
+            Id = OtherBranchId,
+            CompanyId = OtherCompanyId,
+            Company = otherCompany,
+            NameAr = "الآخر",
+            NameHe = "אחר",
+            AddressAr = "عنوان آخر",
+            AddressHe = "כתובת אחרת",
+            Latitude = 24.7136,
+            Longitude = 46.6753,
             IsActive = true
         };
         var owner = new BusinessUser
@@ -265,6 +419,14 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
             UserName = "owner@catalog.test",
             Email = "owner@catalog.test",
             FullName = "Catalog Owner",
+            IsActive = true
+        };
+        var otherOwner = new BusinessUser
+        {
+            Id = OtherOwnerUserId,
+            UserName = "other-owner@catalog.test",
+            Email = "other-owner@catalog.test",
+            FullName = "Other Catalog Owner",
             IsActive = true
         };
         var employee = new BusinessUser
@@ -278,8 +440,11 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
 
         context.AddRange(
             company,
+            otherCompany,
             branch,
+            otherBranch,
             owner,
+            otherOwner,
             employee,
             new BusinessUserAssignment
             {
@@ -289,6 +454,15 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
                 IsActive = true,
                 Company = company,
                 User = owner
+            },
+            new BusinessUserAssignment
+            {
+                UserId = OtherOwnerUserId,
+                CompanyId = OtherCompanyId,
+                Role = BusinessMembershipRole.Owner,
+                IsActive = true,
+                Company = otherCompany,
+                User = otherOwner
             },
             new BusinessUserAssignment
             {

@@ -69,6 +69,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -123,6 +129,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Property<string>("NameHe")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("SelectionType")
                         .IsRequired()
@@ -183,6 +195,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -191,6 +209,196 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("CompanyId", "IsActive");
 
                     b.ToTable("Branches");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilityOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<TimeSpan?>("EndLocalTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly>("OverrideDate")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int?>("SlotDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan?>("StartLocalTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "OverrideDate")
+                        .IsUnique();
+
+                    b.ToTable("BranchAvailabilityOverrides");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilitySettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("BookingHorizonDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MinimumLeadMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId")
+                        .IsUnique();
+
+                    b.ToTable("BranchAvailabilitySettings");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchRecurringSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("DayOfWeek")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<TimeSpan>("EndLocalTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SlotDurationMinutes")
+                        .HasColumnType("int");
+
+                    b.Property<TimeSpan>("StartLocalTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "DayOfWeek", "IsActive");
+
+                    b.ToTable("BranchRecurringSchedules");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchServiceArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double?>("CenterLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("CenterLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("RadiusKm")
+                        .HasColumnType("float");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId")
+                        .IsUnique();
+
+                    b.ToTable("BranchServiceAreas");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BusinessUser", b =>
@@ -315,6 +523,11 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("CatalogVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L);
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -341,6 +554,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("ServiceAreaDescriptionAr")
                         .HasColumnType("nvarchar(max)");
@@ -392,6 +611,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Property<string>("NameHe")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -459,6 +684,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Property<string>("ReferenceCode")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -638,6 +869,50 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilityOverride", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
+                        .WithMany("AvailabilityOverrides")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilitySettings", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
+                        .WithOne("AvailabilitySettings")
+                        .HasForeignKey("Ghseeli.BusinessApi.Models.BranchAvailabilitySettings", "BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchRecurringSchedule", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
+                        .WithMany("RecurringSchedules")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchServiceArea", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
+                        .WithOne("ServiceArea")
+                        .HasForeignKey("Ghseeli.BusinessApi.Models.BranchServiceArea", "BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BusinessUserAssignment", b =>
                 {
                     b.HasOne("Ghseeli.BusinessApi.Models.Branch", "Branch")
@@ -752,6 +1027,14 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
                 {
                     b.Navigation("Assignments");
+
+                    b.Navigation("AvailabilityOverrides");
+
+                    b.Navigation("AvailabilitySettings");
+
+                    b.Navigation("RecurringSchedules");
+
+                    b.Navigation("ServiceArea");
 
                     b.Navigation("ServiceOfferings");
                 });

@@ -72,4 +72,45 @@ public class ValidationIntegrationTests : IClassFixture<CatalogApiFactory>
         content.Should().ContainEquivalentOf("NameAr");
         content.Should().NotContainEquivalentOf("\"message\"");
     }
+
+    [Fact]
+    public async Task CreateCategory_WhenArabicNameIsZeroWidthOnly_ReturnsBadRequest()
+    {
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+
+        var response = await client.PostAsJsonAsync("/api/v1/business/catalog/categories", new
+        {
+            nameAr = "\u200B\u200C",
+            displayOrder = 0,
+            isActive = true
+        });
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest, content);
+        content.Should().Contain("errors");
+        content.Should().ContainEquivalentOf("NameAr");
+    }
+
+    [Fact]
+    public async Task CreateRecurringSchedule_WhenDayOfWeekUsesNumericEnum_ReturnsBadRequest()
+    {
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/business/availability/branches/{_factory.BranchId}/recurring-schedules",
+            new
+            {
+                dayOfWeek = 1,
+                startLocalTime = "09:00:00",
+                endLocalTime = "10:00:00",
+                slotDurationMinutes = 15,
+                capacity = 2,
+                isActive = true
+            });
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest, content);
+        content.Should().Contain("errors");
+        content.Should().ContainEquivalentOf("dayOfWeek");
+    }
 }

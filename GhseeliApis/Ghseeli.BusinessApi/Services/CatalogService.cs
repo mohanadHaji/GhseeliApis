@@ -45,7 +45,11 @@ public class CatalogService : ICatalogService
         var category = await _catalogRepository.GetCategoryByIdAsync(categoryId)
             ?? throw new KeyNotFoundException("The category was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            category.CompanyId,
+            "The category was not found.");
         return CatalogMapper.ToResponse(category);
     }
 
@@ -73,7 +77,11 @@ public class CatalogService : ICatalogService
         var category = await _catalogRepository.GetCategoryByIdAsync(categoryId)
             ?? throw new KeyNotFoundException("The category was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            category.CompanyId,
+            "The category was not found.");
         CatalogMapper.ApplyCategoryUpdate(category, request, DateTime.UtcNow);
 
         return CatalogMapper.ToResponse(await _catalogRepository.UpdateCategoryAsync(category));
@@ -84,7 +92,11 @@ public class CatalogService : ICatalogService
         var category = await _catalogRepository.GetCategoryByIdAsync(categoryId)
             ?? throw new KeyNotFoundException("The category was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            category.CompanyId,
+            "The category was not found.");
         await _catalogRepository.DeleteCategoryAsync(category);
     }
 
@@ -112,7 +124,11 @@ public class CatalogService : ICatalogService
         var offering = await _catalogRepository.GetOfferingByIdAsync(offeringId)
             ?? throw new KeyNotFoundException("The offering was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            offering.Category.CompanyId,
+            "The offering was not found.");
         return CatalogMapper.ToResponse(offering);
     }
 
@@ -126,7 +142,11 @@ public class CatalogService : ICatalogService
         var category = await _catalogRepository.GetCategoryByIdAsync(request.CategoryId)
             ?? throw new KeyNotFoundException("The category was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            category.CompanyId,
+            "The category was not found.");
         var branch = await ResolveBranchAsync(
             userId,
             isAdmin,
@@ -148,7 +168,11 @@ public class CatalogService : ICatalogService
         var offering = await _catalogRepository.GetOfferingByIdAsync(offeringId)
             ?? throw new KeyNotFoundException("The offering was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            offering.Category.CompanyId,
+            "The offering was not found.");
         var branch = await ResolveBranchAsync(
             userId,
             isAdmin,
@@ -164,7 +188,11 @@ public class CatalogService : ICatalogService
         var offering = await _catalogRepository.GetOfferingByIdAsync(offeringId)
             ?? throw new KeyNotFoundException("The offering was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            offering.Category.CompanyId,
+            "The offering was not found.");
         await _catalogRepository.DeleteOfferingAsync(offering);
     }
 
@@ -176,7 +204,11 @@ public class CatalogService : ICatalogService
         var offering = await _catalogRepository.GetOfferingByIdAsync(offeringId)
             ?? throw new KeyNotFoundException("The offering was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            offering.Category.CompanyId,
+            "The offering was not found.");
         return offering.AddonGroups
             .OrderBy(group => group.DisplayOrder)
             .ThenBy(group => group.NameAr)
@@ -195,7 +227,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonGroup.ServiceOffering.Category.CompanyId);
+            addonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on group was not found.");
         return CatalogMapper.ToResponse(addonGroup);
     }
 
@@ -210,7 +243,11 @@ public class CatalogService : ICatalogService
         var offering = await _catalogRepository.GetOfferingByIdAsync(offeringId)
             ?? throw new KeyNotFoundException("The offering was not found.");
 
-        await EnsureCompanyAccessAsync(userId, isAdmin, offering.Category.CompanyId);
+        await EnsureCompanyAccessAsync(
+            userId,
+            isAdmin,
+            offering.Category.CompanyId,
+            "The offering was not found.");
 
         var addonGroup = CatalogMapper.CreateAddonGroup(offering, request, DateTime.UtcNow);
         _ruleValidator.ValidateAddonGroup(addonGroup);
@@ -232,7 +269,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonGroup.ServiceOffering.Category.CompanyId);
+            addonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on group was not found.");
 
         CatalogMapper.ApplyAddonGroupUpdate(addonGroup, request, DateTime.UtcNow);
         _ruleValidator.ValidateAddonGroup(addonGroup);
@@ -248,7 +286,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonGroup.ServiceOffering.Category.CompanyId);
+            addonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on group was not found.");
         await _catalogRepository.DeleteAddonGroupAsync(addonGroup);
     }
 
@@ -263,7 +302,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonGroup.ServiceOffering.Category.CompanyId);
+            addonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on group was not found.");
         return (await _catalogRepository.GetAddonChoicesForGroupAsync(addonGroupId))
             .Select(CatalogMapper.ToResponse)
             .ToArray();
@@ -280,7 +320,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId);
+            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on choice was not found.");
         return CatalogMapper.ToResponse(addonChoice);
     }
 
@@ -298,7 +339,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonGroup.ServiceOffering.Category.CompanyId);
+            addonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on group was not found.");
 
         var addonChoice = CatalogMapper.CreateAddonChoice(addonGroup, request, DateTime.UtcNow);
         addonGroup.Choices.Add(addonChoice);
@@ -321,7 +363,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId);
+            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on choice was not found.");
 
         CatalogMapper.ApplyAddonChoiceUpdate(addonChoice, request, DateTime.UtcNow);
         _ruleValidator.ValidateAddonGroup(addonChoice.AddonGroup);
@@ -337,7 +380,8 @@ public class CatalogService : ICatalogService
         await EnsureCompanyAccessAsync(
             userId,
             isAdmin,
-            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId);
+            addonChoice.AddonGroup.ServiceOffering.Category.CompanyId,
+            "The add-on choice was not found.");
 
         addonChoice.AddonGroup.Choices.Remove(addonChoice);
         _ruleValidator.ValidateAddonGroup(addonChoice.AddonGroup);
@@ -375,7 +419,11 @@ public class CatalogService : ICatalogService
         return assignedCompany;
     }
 
-    private async Task EnsureCompanyAccessAsync(Guid userId, bool isAdmin, Guid companyId)
+    private async Task EnsureCompanyAccessAsync(
+        Guid userId,
+        bool isAdmin,
+        Guid companyId,
+        string missingMessage)
     {
         if (isAdmin)
         {
@@ -385,11 +433,9 @@ public class CatalogService : ICatalogService
         var assignedCompany = await _companyRepository.GetForUserAsync(userId)
             ?? throw new UnauthorizedAccessException(
                 "No active company assignment was found for this business account.");
-
         if (assignedCompany.Id != companyId)
         {
-            throw new UnauthorizedAccessException(
-                "The requested catalog resource is not assigned to this business account.");
+            throw new KeyNotFoundException(missingMessage);
         }
     }
 
@@ -414,8 +460,7 @@ public class CatalogService : ICatalogService
 
         if (!isAdmin)
         {
-            throw new UnauthorizedAccessException(
-                "The requested branch is not assigned to this business account.");
+            throw new KeyNotFoundException("The branch was not found.");
         }
 
         throw CatalogValidationException.ForField(

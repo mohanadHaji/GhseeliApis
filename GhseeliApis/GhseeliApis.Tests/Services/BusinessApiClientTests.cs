@@ -256,6 +256,40 @@ public class BusinessApiClientTests
     }
 
     [Fact]
+    public async Task GetCatalogSnapshotAsync_WhenClientConfigurationIsInvalid_ThrowsTypedConfigurationWithoutRetry()
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(new CatalogSnapshotResponse
+                    {
+                        ContractVersion = BusinessCatalogContract.Version,
+                        Company = new CatalogSnapshotCompany
+                        {
+                            Id = Guid.NewGuid(),
+                            NameAr = "شركة"
+                        }
+                    }, BusinessCatalogContract.CreateJsonSerializerOptions()),
+                    Encoding.UTF8,
+                    "application/json")
+            }
+        ]);
+
+        var client = CreateClient(
+            handler,
+            "corr-step9-config",
+            configureOptions: options => options.BaseUrl = string.Empty);
+
+        var action = () => client.GetCatalogSnapshotAsync(Guid.NewGuid());
+
+        await action.Should().ThrowAsync<BusinessApiConfigurationException>()
+            .Where(exception => exception.CorrelationId == "corr-step9-config");
+        handler.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetCatalogSnapshotAsync_WhenAttemptTimesOut_ThrowsTypedTimeoutException()
     {
         var handler = new TimeoutHandler(TimeSpan.FromMilliseconds(250));
@@ -319,9 +353,10 @@ public class BusinessApiClientTests
         string? correlationId = null,
         string environmentName = "Production",
         double timeoutSeconds = 1,
-        int maxRetryAttempts = 1)
+        int maxRetryAttempts = 1,
+        Action<BusinessApiClientOptions>? configureOptions = null)
     {
-        var options = Options.Create(new BusinessApiClientOptions
+        var optionValues = new BusinessApiClientOptions
         {
             BaseUrl = "https://business.example.test",
             ServiceId = "customer-api-tests",
@@ -329,7 +364,9 @@ public class BusinessApiClientTests
             TimeoutSeconds = timeoutSeconds,
             MaxRetryAttempts = maxRetryAttempts,
             MaxRetryAfterSeconds = 1
-        });
+        };
+        configureOptions?.Invoke(optionValues);
+        var options = Options.Create(optionValues);
 
         var context = new DefaultHttpContext();
         if (!string.IsNullOrWhiteSpace(correlationId))
@@ -347,17 +384,21 @@ public class BusinessApiClientTests
             EnvironmentName = environmentName
         };
 
+        var correlationHandler = new CorrelationIdPropagationHandler(accessor);
         var signingHandler = new HmacSigningDelegatingHandler(options);
         signingHandler.InnerHandler = innerHandler;
-
-        var correlationHandler = new CorrelationIdPropagationHandler(accessor);
         correlationHandler.InnerHandler = signingHandler;
+        var resilienceHandler = new BusinessApiResilienceDelegatingHandler(options);
+        resilienceHandler.InnerHandler = correlationHandler;
 
-        var httpClient = new HttpClient(correlationHandler)
+        var httpClient = new HttpClient(resilienceHandler)
         {
-            BaseAddress = new Uri(options.Value.BaseUrl),
             Timeout = Timeout.InfiniteTimeSpan
         };
+        if (Uri.TryCreate(options.Value.BaseUrl, UriKind.Absolute, out var baseUri))
+        {
+            httpClient.BaseAddress = baseUri;
+        }
 
         return new BusinessApiClient(httpClient, options, environment, accessor);
     }

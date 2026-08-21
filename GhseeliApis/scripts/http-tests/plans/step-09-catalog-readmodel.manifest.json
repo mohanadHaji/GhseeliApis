@@ -1,0 +1,1149 @@
+{
+  "name": "Step 9 catalog read model",
+  "sensitiveFields": [
+    "token",
+    "authorization",
+    "signature",
+    "email",
+    "phone"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "installationId": "{{gen:guid}}",
+    "unknownDeviceToken": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "malformedDeviceToken": "short-token",
+    "invalidCorrelationId": "corr-step9-overlong-correlation-id-that-must-be-replaced-before-roundtrip-{{var:runStamp}}",
+    "businessDetailCorrelationId": "corr-step9-business-detail-{{var:runStamp}}",
+    "businessOneNameAr": "شركة ستيب 9 ألف {{var:dataStamp}}",
+    "businessOneDescriptionAr": "وصف عربي ألف {{var:dataStamp}}",
+    "businessOneBranchNameAr": "فرع ألف {{var:dataStamp}}",
+    "businessOneAddressAr": "الرياض {{var:dataStamp}}",
+    "businessOneCategoryNameAr": "غسيل خارجي {{var:dataStamp}}",
+    "businessOneCategoryDescriptionAr": "تصنيف ألف عربي {{var:dataStamp}}",
+    "businessOneOfferingNameAr": "غسيل أساسي {{var:dataStamp}}",
+    "businessOneOfferingDescriptionAr": "خدمة ألف عربية {{var:dataStamp}}",
+    "businessOneAddonGroupNameAr": "شمع إضافي {{var:dataStamp}}",
+    "businessOneAddonGroupDescriptionAr": "إضافة ألف {{var:dataStamp}}",
+    "businessOneAddonChoiceNameAr": "شمع سريع {{var:dataStamp}}",
+    "businessOneAddonChoiceDescriptionAr": "خيار ألف {{var:dataStamp}}",
+    "businessTwoNameAr": "شركة ستيب 9 باء {{var:dataStamp}}",
+    "businessTwoNameHe": "חברת סטפ 9 בית {{var:dataStamp}}",
+    "businessTwoBranchNameAr": "فرع باء {{var:dataStamp}}",
+    "businessTwoBranchNameHe": "סניף בית {{var:dataStamp}}",
+    "businessTwoCategoryNameAr": "غسيل داخلي {{var:dataStamp}}",
+    "businessTwoCategoryNameHe": "שטיפה פנימית {{var:dataStamp}}",
+    "businessTwoOfferingNameAr": "غسيل مميز {{var:dataStamp}}",
+    "businessTwoOfferingNameHe": "שטיפה מיוחדת {{var:dataStamp}}",
+    "businessTwoAddonGroupNameHe": "בישום {{var:dataStamp}}",
+    "businessTwoAddonChoiceNameHe": "בישום חזק {{var:dataStamp}}"
+  },
+  "scenarios": [
+    {
+      "id": "STEP9-HEALTH-001",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "smoke", "contract"],
+      "method": "GET",
+      "url": "/api/health",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-SWAGGER-002",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "contract", "docs"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.info.title",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/categories'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{id}'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{id}/offerings'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/offerings/{id}'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['503']",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-DEVICE-ISSUE-003",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "setup", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "iOS",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.installationId",
+            "equals": "{{var:installationId}}"
+          },
+          {
+            "path": "$.platform",
+            "equals": "iOS"
+          },
+          {
+            "path": "$.token",
+            "exists": true
+          },
+          {
+            "path": "$.expiresAt",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "issuedDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP9-MISSING-TOKEN-004",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "auth", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "device_token_missing",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "אימות המכשיר נכשל."
+          },
+          {
+            "path": "$.detail",
+            "equals": "נדרש אסימון מכשיר."
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          },
+          {
+            "path": "$.authorization",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-MALFORMED-TOKEN-005",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "auth", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "-, ;q=1",
+        "X-Device-Token": "{{var:malformedDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {
+            "path": "$.detail",
+            "equals": "رمز الجهاز غير صالح."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-UNKNOWN-TOKEN-006",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "auth", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:unknownDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "device_token_invalid",
+        "json": [
+          {
+            "path": "$.detail",
+            "equals": "رمز الجهاز غير صالح."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-DEFAULT-007",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.businesses[0].id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.businesses[0].sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.businesses[0].description",
+            "equals": "{{var:businessOneDescriptionAr}}"
+          },
+          {
+            "path": "$.businesses[0].phone",
+            "exists": true
+          },
+          {
+            "path": "$.businesses[0].catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.generatedAtUtc",
+            "exists": true
+          },
+          {
+            "path": "$.businesses[0].catalog.refreshedAtUtc",
+            "exists": true
+          },
+          {
+            "path": "$.businesses[0].catalog.isStale",
+            "exists": true
+          },
+          {
+            "path": "$.businesses[0].branches[0].id",
+            "equals": "{{var:businessOneBranchLocalId}}"
+          },
+          {
+            "path": "$.businesses[0].branches[0].name",
+            "equals": "{{var:businessOneBranchNameAr}}"
+          },
+          {
+            "path": "$.businesses[0].branches[0].address",
+            "equals": "{{var:businessOneAddressAr}}"
+          },
+          {
+            "path": "$.businesses[0].branches[0].serviceArea.radiusKm",
+            "equals": 15.5
+          },
+          {
+            "path": "$.businesses[1].id",
+            "equals": "{{var:businessTwoLocalId}}"
+          },
+          {
+            "path": "$.businesses[1].sourceId",
+            "equals": "{{var:businessTwoSourceId}}"
+          },
+          {
+            "path": "$.businesses[1].name",
+            "equals": "{{var:businessTwoNameAr}}"
+          },
+          {
+            "path": "$.businesses[1].catalog.version",
+            "equals": "{{var:businessTwoVersion}}"
+          },
+          {
+            "path": "$.businesses[2]",
+            "exists": false
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-HE-008",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he-IL,ar;q=0.8",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.businesses[1].name",
+            "equals": "{{var:businessTwoNameHe}}"
+          },
+          {
+            "path": "$.businesses[1].branches[0].name",
+            "equals": "{{var:businessTwoBranchNameHe}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-OVERRIDE-AR-009",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.businesses[1].name",
+            "equals": "{{var:businessTwoNameAr}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-CATEGORIES-FALLBACK-010",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/catalog/categories",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.categories[0].id",
+            "equals": "{{var:businessOneCategoryLocalId}}"
+          },
+          {
+            "path": "$.categories[0].sourceId",
+            "equals": "{{var:businessOneCategorySourceId}}"
+          },
+          {
+            "path": "$.categories[0].name",
+            "equals": "{{var:businessOneCategoryNameAr}}"
+          },
+          {
+            "path": "$.categories[0].business.id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.categories[0].business.sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.categories[0].business.name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.categories[1].id",
+            "equals": "{{var:businessTwoCategoryLocalId}}"
+          },
+          {
+            "path": "$.categories[1].name",
+            "equals": "{{var:businessTwoCategoryNameAr}}"
+          },
+          {
+            "path": "$.categories[1].business.name",
+            "equals": "{{var:businessTwoNameAr}}"
+          },
+          {
+            "path": "$.categories[2]",
+            "exists": false
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-CATEGORIES-BUSINESS-HE-011",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/catalog/categories?businessId={{var:businessOneLocalId}}&language=he",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.categories[0].id",
+            "equals": "{{var:businessOneCategoryLocalId}}"
+          },
+          {
+            "path": "$.categories[0].name",
+            "equals": "{{var:businessOneCategoryNameAr}}"
+          },
+          {
+            "path": "$.categories[0].description",
+            "equals": "{{var:businessOneCategoryDescriptionAr}}"
+          },
+          {
+            "path": "$.categories[0].business.name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.categories[1]",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESS-DETAIL-OVERRIDE-HE-012",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization", "correlation", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses/{{var:businessOneLocalId}}?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "X-Correlation-Id": "{{var:businessDetailCorrelationId}}",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:businessDetailCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.business.id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.business.sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.business.name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.business.description",
+            "equals": "{{var:businessOneDescriptionAr}}"
+          },
+          {
+            "path": "$.business.phone",
+            "exists": true
+          },
+          {
+            "path": "$.business.catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.business.branches[0].id",
+            "equals": "{{var:businessOneBranchLocalId}}"
+          },
+          {
+            "path": "$.business.branches[0].name",
+            "equals": "{{var:businessOneBranchNameAr}}"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESS-NOTFOUND-013",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "negative", "read"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses/00000000-0000-0000-0000-000000000001",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "catalog_business_not_found",
+        "json": [
+          {
+            "path": "$.detail",
+            "equals": "העסק המבוקש לא נמצא."
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESS-OFFERINGS-HE-014",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses/{{var:businessOneLocalId}}/offerings?categoryId={{var:businessOneCategoryLocalId}}",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.business.id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.business.catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.offerings[0].id",
+            "equals": "{{var:businessOneOfferingLocalId}}"
+          },
+          {
+            "path": "$.offerings[0].sourceId",
+            "equals": "{{var:businessOneOfferingSourceId}}"
+          },
+          {
+            "path": "$.offerings[0].name",
+            "equals": "{{var:businessOneOfferingNameAr}}"
+          },
+          {
+            "path": "$.offerings[0].description",
+            "equals": "{{var:businessOneOfferingDescriptionAr}}"
+          },
+          {
+            "path": "$.offerings[0].basePrice",
+            "equals": 50.0
+          },
+          {
+            "path": "$.offerings[0].durationMinutes",
+            "equals": 45
+          },
+          {
+            "path": "$.offerings[0].category.id",
+            "equals": "{{var:businessOneCategoryLocalId}}"
+          },
+          {
+            "path": "$.offerings[0].category.name",
+            "equals": "{{var:businessOneCategoryNameAr}}"
+          },
+          {
+            "path": "$.offerings[0].branch.id",
+            "equals": "{{var:businessOneBranchLocalId}}"
+          },
+          {
+            "path": "$.offerings[0].branch.name",
+            "equals": "{{var:businessOneBranchNameAr}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].id",
+            "equals": "{{var:businessOneAddonGroupLocalId}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].name",
+            "equals": "{{var:businessOneAddonGroupNameAr}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].description",
+            "equals": "{{var:businessOneAddonGroupDescriptionAr}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].selectionType",
+            "equals": "QuantityCounter"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].choices[0].id",
+            "equals": "{{var:businessOneAddonChoiceLocalId}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].choices[0].name",
+            "equals": "{{var:businessOneAddonChoiceNameAr}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].choices[0].description",
+            "equals": "{{var:businessOneAddonChoiceDescriptionAr}}"
+          },
+          {
+            "path": "$.offerings[0].addonGroups[0].choices[0].priceAdjustment",
+            "equals": 10.0
+          },
+          {
+            "path": "$.offerings[1]",
+            "exists": false
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESS-OFFERINGS-MISMATCH-015",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "negative", "validation"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses/{{var:businessOneLocalId}}/offerings?categoryId={{var:businessOneCategoryLocalId}}&branchId={{var:businessTwoBranchLocalId}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "catalog_filter_mismatch",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.detail",
+            "equals": "مرشحات الكتالوج المقدمة لا تنتمي إلى نفس النشاط التجاري."
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-OFFERING-DETAIL-OVERRIDE-AR-016",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/offerings/{{var:businessOneOfferingLocalId}}?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.offering.id",
+            "equals": "{{var:businessOneOfferingLocalId}}"
+          },
+          {
+            "path": "$.offering.sourceId",
+            "equals": "{{var:businessOneOfferingSourceId}}"
+          },
+          {
+            "path": "$.offering.name",
+            "equals": "{{var:businessOneOfferingNameAr}}"
+          },
+          {
+            "path": "$.offering.description",
+            "equals": "{{var:businessOneOfferingDescriptionAr}}"
+          },
+          {
+            "path": "$.offering.business.id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.offering.business.catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.offering.category.id",
+            "equals": "{{var:businessOneCategoryLocalId}}"
+          },
+          {
+            "path": "$.offering.branch.id",
+            "equals": "{{var:businessOneBranchLocalId}}"
+          },
+          {
+            "path": "$.offering.addonGroups[0].id",
+            "equals": "{{var:businessOneAddonGroupLocalId}}"
+          },
+          {
+            "path": "$.offering.addonGroups[0].name",
+            "equals": "{{var:businessOneAddonGroupNameAr}}"
+          },
+          {
+            "path": "$.offering.addonGroups[0].choices[0].id",
+            "equals": "{{var:businessOneAddonChoiceLocalId}}"
+          },
+          {
+            "path": "$.offering.addonGroups[0].choices[0].name",
+            "equals": "{{var:businessOneAddonChoiceNameAr}}"
+          },
+          {
+            "path": "$.offering.addonGroups[0].choices[0].defaultQuantity",
+            "equals": 0
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-OFFERING-NOTFOUND-017",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "negative", "read"],
+      "method": "GET",
+      "url": "/api/v1/catalog/offerings/00000000-0000-0000-0000-000000000002",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "catalog_offering_not_found",
+        "json": [
+          {
+            "path": "$.detail",
+            "equals": "השירות המבוקש לא נמצא."
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-INVALID-LANGUAGE-CORRELATION-018",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "validation", "correlation", "security"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Correlation-Id": "{{var:invalidCorrelationId}}",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "exists": true,
+            "notEquals": "{{var:invalidCorrelationId}}",
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "אימות הבקשה נכשל."
+          },
+          {
+            "path": "$.detail",
+            "equals": "שפת הבקשה אינה נתמכת. השתמש ב-ar או ב-he."
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.correlationId",
+            "notEquals": "{{var:invalidCorrelationId}}"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[0-9a-f]{32}$"
+          },
+          {
+            "path": "$.fieldErrors.language[0]",
+            "equals": "שפת הבקשה אינה נתמכת. השתמש ב-ar או ב-he."
+          },
+          {
+            "path": "$.token",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-INITIAL-REFRESH-020",
+      "feature": "step9",
+      "tags": ["step9", "blocked-initial-refresh", "actual-refresh", "refresh", "initial"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:phaseInitialRefreshDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.businesses[0].sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.businesses[1].sourceId",
+            "equals": "{{var:businessTwoSourceId}}"
+          },
+          {
+            "path": "$.businesses[1].catalog.version",
+            "equals": "{{var:businessTwoVersion}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-FORCE-REFRESH-UNCHANGED-021",
+      "feature": "step9",
+      "tags": ["step9", "actual-refresh", "refresh", "unchanged"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses?refresh=true",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:phaseUnchangedRefreshDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.businesses[0].id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.businesses[0].sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "{{var:businessOneNameAr}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.version",
+            "equals": "{{var:businessOneVersion}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.refreshedAtUtc",
+            "notEquals": "{{var:businessOneRefreshedAtBeforeUnchangedRefresh}}"
+          },
+          {
+            "path": "$.businesses[1].catalog.version",
+            "equals": "{{var:businessTwoVersion}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-BUSINESSES-FORCE-REFRESH-VERSION-019",
+      "feature": "step9",
+      "tags": ["step9", "blocked-force-refresh", "actual-refresh", "refresh", "version-change"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses?refresh=true",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:phaseForceRefreshDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.businesses[0].id",
+            "equals": "{{var:businessOneLocalId}}"
+          },
+          {
+            "path": "$.businesses[0].sourceId",
+            "equals": "{{var:businessOneSourceId}}"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "{{var:businessOneUpdatedNameAr}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.version",
+            "equals": "{{var:businessOneVersionAfterMutation}}"
+          },
+          {
+            "path": "$.businesses[0].catalog.refreshedAtUtc",
+            "notEquals": "{{var:businessOneRefreshedAtBeforeForceRefresh}}"
+          },
+          {
+            "path": "$.businesses[1].catalog.version",
+            "equals": "{{var:businessTwoVersion}}"
+          }
+        ]
+      }
+    }
+  ]
+}

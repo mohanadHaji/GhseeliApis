@@ -27,6 +27,14 @@ public sealed class BusinessApiUnavailableException : BusinessApiException
     }
 }
 
+public sealed class BusinessApiConfigurationException : BusinessApiException
+{
+    public BusinessApiConfigurationException(string message, string? correlationId, Exception? innerException = null)
+        : base(message, correlationId, innerException)
+    {
+    }
+}
+
 public sealed class BusinessApiAuthenticationException : BusinessApiException
 {
     public BusinessApiAuthenticationException(string message, string? correlationId, Exception? innerException = null)

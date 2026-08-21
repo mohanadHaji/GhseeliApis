@@ -29,6 +29,12 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<CustomerDevice> CustomerDevices => Set<CustomerDevice>();
     public DbSet<CustomerConfiguration> CustomerConfigurations => Set<CustomerConfiguration>();
+    public DbSet<CatalogProviderReadModel> CatalogProviders => Set<CatalogProviderReadModel>();
+    public DbSet<CatalogBranchReadModel> CatalogBranches => Set<CatalogBranchReadModel>();
+    public DbSet<CatalogCategoryReadModel> CatalogCategories => Set<CatalogCategoryReadModel>();
+    public DbSet<CatalogOfferingReadModel> CatalogOfferings => Set<CatalogOfferingReadModel>();
+    public DbSet<CatalogAddonGroupReadModel> CatalogAddonGroups => Set<CatalogAddonGroupReadModel>();
+    public DbSet<CatalogAddonChoiceReadModel> CatalogAddonChoices => Set<CatalogAddonChoiceReadModel>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -131,6 +137,8 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
                 .HasFilter("[IsActive] = 1")
                 .IsUnique();
         });
+
+        modelBuilder.ConfigureCatalogReadModel();
 
         // ============================================
         // User and Wallet 1:1 Relationship

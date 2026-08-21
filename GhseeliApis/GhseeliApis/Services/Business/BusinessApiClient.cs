@@ -42,19 +42,6 @@ public sealed class BusinessApiClient : IBusinessApiClient
         _options = options.Value;
         _environment = environment;
         _httpContextAccessor = httpContextAccessor;
-
-        if (!Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
-        {
-            throw new InvalidOperationException("BusinessApiClient:BaseUrl must be an absolute URI.");
-        }
-
-        if (_options.RequireHttps &&
-            (!environment.IsDevelopment() || !_options.AllowInsecureHttpInDevelopment) &&
-            !string.Equals(baseUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                "BusinessApiClient:BaseUrl must use HTTPS unless development HTTP is explicitly allowed.");
-        }
     }
 
     public async Task<CatalogSnapshotResponse> GetCatalogSnapshotAsync(
@@ -62,20 +49,23 @@ public sealed class BusinessApiClient : IBusinessApiClient
         CancellationToken cancellationToken = default)
     {
         var correlationId = ResolveCorrelationId();
-
-        using var response = await SendWithRetriesAsync(
-            () =>
-            {
-                var request = new HttpRequestMessage(
-                    HttpMethod.Get,
-                    $"/api/v1/internal/catalog/snapshot?companyId={companyId:D}");
-                request.Headers.TryAddWithoutValidation(
-                    InternalServiceWireConstants.CorrelationIdHeaderName,
-                    correlationId);
-                return request;
-            },
-            correlationId,
+        var requestUri = ResolveRequestUri(
+            $"/api/v1/internal/catalog/snapshot?companyId={companyId:D}",
+            correlationId);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Get,
+            requestUri);
+        request.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
 
         return await ReadResponseAsync<CatalogSnapshotResponse>(
             response,
@@ -96,106 +86,38 @@ public sealed class BusinessApiClient : IBusinessApiClient
 
         request.ContractVersion = BusinessCatalogContract.Version;
         var correlationId = ResolveCorrelationId();
-
-        using var response = await SendWithRetriesAsync(
-            () =>
-            {
-                var httpRequest = new HttpRequestMessage(
-                    HttpMethod.Post,
-                    "/api/v1/internal/appointments/validate")
-                {
-                    Content = new StringContent(
-                        JsonSerializer.Serialize(request, JsonOptions),
-                        Encoding.UTF8,
-                        "application/json")
-                };
-                httpRequest.Headers.TryAddWithoutValidation(
-                    InternalServiceWireConstants.IdempotencyKeyHeaderName,
-                    idempotencyKey);
-                httpRequest.Headers.TryAddWithoutValidation(
-                    InternalServiceWireConstants.CorrelationIdHeaderName,
-                    correlationId);
-                return httpRequest;
-            },
-            correlationId,
+        var requestUri = ResolveRequestUri(
+            "/api/v1/internal/appointments/validate",
+            correlationId);
+        using var httpRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            requestUri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(request, JsonOptions),
+                Encoding.UTF8,
+                "application/json")
+        };
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.IdempotencyKeyHeaderName,
+            idempotencyKey);
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
 
         return await ReadResponseAsync<ValidateAppointmentResponse>(
             response,
             "appointment validation",
             correlationId,
             cancellationToken);
-    }
-
-    private async Task<HttpResponseMessage> SendWithRetriesAsync(
-        Func<HttpRequestMessage> createRequest,
-        string correlationId,
-        CancellationToken cancellationToken)
-    {
-        var attempt = 0;
-
-        while (true)
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
-            using var request = createRequest();
-
-            HttpResponseMessage response;
-            try
-            {
-                response = await _httpClient.SendAsync(
-                    request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    timeoutCts.Token);
-            }
-            catch (OperationCanceledException exception)
-                when (!cancellationToken.IsCancellationRequested && timeoutCts.IsCancellationRequested)
-            {
-                if (attempt < _options.MaxRetryAttempts)
-                {
-                    attempt++;
-                    continue;
-                }
-
-                throw new BusinessApiTimeoutException(
-                    "The Business API request timed out.",
-                    correlationId,
-                    exception);
-            }
-            catch (HttpRequestException exception)
-            {
-                if (attempt < _options.MaxRetryAttempts)
-                {
-                    attempt++;
-                    continue;
-                }
-
-                throw new BusinessApiUnavailableException(
-                    "The Business API request could not be completed.",
-                    correlationId,
-                    exception);
-            }
-
-            if (response.IsSuccessStatusCode)
-            {
-                return response;
-            }
-
-            if (IsRetryable(response.StatusCode) && attempt < _options.MaxRetryAttempts)
-            {
-                var delay = GetRetryDelay(response);
-                response.Dispose();
-                attempt++;
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, cancellationToken);
-                }
-
-                continue;
-            }
-
-            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
-        }
     }
 
     private async Task<TResponse> ReadResponseAsync<TResponse>(
@@ -256,40 +178,6 @@ public sealed class BusinessApiClient : IBusinessApiClient
         };
     }
 
-    private TimeSpan GetRetryDelay(HttpResponseMessage response)
-    {
-        var retryAfter = response.Headers.RetryAfter;
-        if (retryAfter?.Delta is TimeSpan delta)
-        {
-            return CapRetryAfter(delta);
-        }
-
-        if (retryAfter?.Date is DateTimeOffset retryDate)
-        {
-            return CapRetryAfter(retryDate - DateTimeOffset.UtcNow);
-        }
-
-        return TimeSpan.Zero;
-    }
-
-    private TimeSpan CapRetryAfter(TimeSpan delay)
-    {
-        if (delay <= TimeSpan.Zero)
-        {
-            return TimeSpan.Zero;
-        }
-
-        var maximum = TimeSpan.FromSeconds(Math.Max(_options.MaxRetryAfterSeconds, 0));
-        return delay > maximum ? maximum : delay;
-    }
-
-    private static bool IsRetryable(HttpStatusCode statusCode)
-    {
-        return statusCode == HttpStatusCode.RequestTimeout ||
-               statusCode == HttpStatusCode.TooManyRequests ||
-               (int)statusCode >= 500;
-    }
-
     private string ResolveCorrelationId()
     {
         var currentCorrelationId = _httpContextAccessor.HttpContext?
@@ -297,6 +185,43 @@ public sealed class BusinessApiClient : IBusinessApiClient
             .Headers[InternalServiceWireConstants.CorrelationIdHeaderName]
             .ToString();
         return InternalServiceHeaderValueValidator.GetOrCreateCorrelationId(currentCorrelationId);
+    }
+
+    private Uri ResolveRequestUri(
+        string relativePath,
+        string correlationId)
+    {
+        if (!Uri.TryCreate(_options.BaseUrl, UriKind.Absolute, out var baseUri))
+        {
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:BaseUrl must be an absolute URI before Business API calls can run.",
+                correlationId);
+        }
+
+        if (_options.RequireHttps &&
+            (!_environment.IsDevelopment() || !_options.AllowInsecureHttpInDevelopment) &&
+            !string.Equals(baseUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:BaseUrl must use HTTPS unless development HTTP is explicitly allowed.",
+                correlationId);
+        }
+
+        if (!InternalServiceHeaderValueValidator.IsValidServiceId(_options.ServiceId))
+        {
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:ServiceId is invalid.",
+                correlationId);
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.ActiveSecret) || _options.ActiveSecret.Length < 32)
+        {
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:ActiveSecret is invalid.",
+                correlationId);
+        }
+
+        return new Uri(baseUri, relativePath);
     }
 
     private static string? TryReadProblemDetail(string content)

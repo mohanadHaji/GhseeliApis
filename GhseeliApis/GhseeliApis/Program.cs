@@ -6,6 +6,7 @@ using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Services.Business;
+using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Ghseeli.Common.Logging;
@@ -179,6 +180,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ICompanyAvailabilityRepository, CompanyAvailabilityRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ICustomerConfigurationRepository, CustomerConfigurationRepository>();
+builder.Services.AddScoped<ICatalogReadModelRepository, CatalogReadModelRepository>();
 
 // Register Handlers
 builder.Services.AddScoped<IUserHandler, UserHandler>();
@@ -198,14 +200,22 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IDeviceTokenGenerator, DeviceTokenGenerator>();
 builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
 builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationService>();
+builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
     DeviceTokenOptionsValidator>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CatalogReadModelOptions>,
+    CatalogReadModelOptionsValidator>();
 builder.Services.AddOptions<DeviceTokenOptions>()
     .Bind(builder.Configuration.GetSection(DeviceTokenOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<CatalogReadModelOptions>()
+    .Bind(builder.Configuration.GetSection(CatalogReadModelOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.Configure<BusinessApiClientOptions>(
     builder.Configuration.GetSection(BusinessApiClientOptions.SectionName));
+builder.Services.AddTransient<BusinessApiResilienceDelegatingHandler>();
 builder.Services.AddTransient<CorrelationIdPropagationHandler>();
 builder.Services.AddTransient<HmacSigningDelegatingHandler>();
 builder.Services.AddHttpClient<IBusinessApiClient, BusinessApiClient>((serviceProvider, client) =>
@@ -221,6 +231,7 @@ builder.Services.AddHttpClient<IBusinessApiClient, BusinessApiClient>((servicePr
 
         client.Timeout = Timeout.InfiniteTimeSpan;
     })
+    .AddHttpMessageHandler<BusinessApiResilienceDelegatingHandler>()
     .AddHttpMessageHandler<CorrelationIdPropagationHandler>()
     .AddHttpMessageHandler<HmacSigningDelegatingHandler>();
 

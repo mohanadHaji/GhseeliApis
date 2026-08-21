@@ -19,14 +19,24 @@ public sealed class HmacSigningDelegatingHandler : DelegatingHandler
         CancellationToken cancellationToken)
     {
         var options = _options.Value;
+        var correlationId = request.Headers.TryGetValues(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            out var correlationIdValues)
+            ? correlationIdValues.SingleOrDefault()
+            : null;
+
         if (!InternalServiceHeaderValueValidator.IsValidServiceId(options.ServiceId))
         {
-            throw new InvalidOperationException("BusinessApiClient:ServiceId is invalid.");
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:ServiceId is invalid.",
+                correlationId);
         }
 
         if (string.IsNullOrWhiteSpace(options.ActiveSecret) || options.ActiveSecret.Length < 32)
         {
-            throw new InvalidOperationException("BusinessApiClient:ActiveSecret is invalid.");
+            throw new BusinessApiConfigurationException(
+                "BusinessApiClient:ActiveSecret is invalid.",
+                correlationId);
         }
 
         var bodyBytes = request.Content is null

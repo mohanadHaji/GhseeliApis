@@ -835,6 +835,23 @@ New versioned Customer endpoints use `X-Device-Token` as installation identity. 
 
 A clean database is not seeded with placeholder customer configuration data. Operators must provision an active `CustomerConfiguration` record before this endpoint returns data; otherwise it returns the stable `503 configuration_unavailable` problem. Local/TestServer HTTP runs should use explicit fixtures or local-only seeded test data rather than relying on production defaults.
 
+### Customer catalog browse read model
+
+`GET /api/v1/catalog/categories`, `GET /api/v1/catalog/businesses`, `GET /api/v1/catalog/businesses/{id}`, `GET /api/v1/catalog/businesses/{id}/offerings`, and `GET /api/v1/catalog/offerings/{id}` are device-token protected anonymous browse endpoints. They localize customer-facing text with the same Arabic/Hebrew selection and fallback rules as configuration and return `Cache-Control: no-store` on every response.
+
+The Customer API stores local read-model IDs for providers, branches, categories, offerings, add-on groups, and add-on choices while also returning the upstream Business API `sourceId` for each resource. Operators configure provider registrations through `CatalogReadModel` settings instead of seeded production data:
+
+```json
+"CatalogReadModel": {
+  "FreshWindowSeconds": 300,
+  "MaxStaleWindowSeconds": 3600,
+  "LeaseDurationSeconds": 60,
+  "Providers": []
+}
+```
+
+Populate `Providers` from environment-specific config, environment variables, or user secrets using `sourceCompanyId`, `enabled`, and `order`. Leaving `Providers` empty is intentional and safe: list browse endpoints return localized empty collections without contacting Business. Normal reads refresh missing or hard-stale provider caches on demand, while `?refresh=true` forces verification. Business client configuration is validated only when a refresh call is actually attempted. If no usable cache exists after refresh, the API returns `503 catalog_unavailable`; unknown businesses and offerings return `404 catalog_business_not_found` or `404 catalog_offering_not_found`, and cross-provider filter mixes return `400 catalog_filter_mismatch`.
+
 ### **4. Commit & Push**
 ```bash
 git add .

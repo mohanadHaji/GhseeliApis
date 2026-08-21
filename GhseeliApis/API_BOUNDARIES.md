@@ -350,6 +350,20 @@ Rules:
 - Migrations do not seed placeholder production configuration. Each environment must provision an active configuration record before the endpoint can return data.
 - When no active configuration is available, the endpoint returns a stable unavailable problem instead of an empty success payload.
 
+### Customer catalog read model
+
+- Customer catalog browsing persists local read-model IDs and also returns the upstream Business API `sourceId` for providers, branches, categories, offerings, add-on groups, and add-on choices.
+- `CatalogReadModel` configuration contains validated `freshWindowSeconds`, `maxStaleWindowSeconds`, `leaseDurationSeconds`, and `providers[]` registrations (`sourceCompanyId`, `enabled`, `order`).
+- The committed `appsettings.json` provider list stays empty and safe for production. Real provider registrations must come from environment variables, user secrets, or environment-specific configuration.
+- Registration synchronization creates or updates configured providers and disables removed providers without deleting historical cached graph data.
+- Public catalog responses are device-token protected, anonymous to customer JWTs, localized with the same Arabic/Hebrew rules as customer configuration, and always return `Cache-Control: no-store`.
+- `GET /api/v1/catalog/categories` accepts an optional `businessId` filter. Unfiltered category responses include owning business context so results stay unambiguous.
+- `GET /api/v1/catalog/businesses` and `GET /api/v1/catalog/businesses/{id}/offerings` accept optional `branchId` and `categoryId` filters. Cross-provider or cross-business filter combinations return `400 catalog_filter_mismatch`.
+- Leaving `providers[]` empty is an intentional safe default: list browse routes return localized empty collections and do not contact Business until a provider is explicitly configured.
+- Normal reads refresh missing or hard-stale provider caches on demand. `refresh=true` forces verification even when cache data already exists, and Business client configuration is validated only when a refresh call is attempted.
+- Same version plus same deterministic content hash is a no-op verification that only refreshes metadata. Same version with a different hash is reapplied safely. Lower source versions are rejected and logged.
+- If no usable cache exists after refresh, the public API returns `503 catalog_unavailable` rather than an empty `200`. Missing business or offering resources return stable localized `404` problems.
+
 ### Appointment validation
 
 Request contains:
@@ -422,6 +436,7 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 
 - Customer API serves its last successfully synchronized read model when it is within the configured staleness limit.
 - Responses disclose freshness metadata when stale data is served.
+- When no providers are configured, list browse routes return localized empty collections instead of a failure.
 - With no usable snapshot, return `503 catalog_unavailable`.
 - Never replace an upstream failure with an empty `200` list.
 

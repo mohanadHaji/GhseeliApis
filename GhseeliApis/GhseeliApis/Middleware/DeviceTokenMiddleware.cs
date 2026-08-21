@@ -1,4 +1,5 @@
 using Ghseeli.Common.Logging;
+using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -103,23 +104,17 @@ public sealed class DeviceTokenMiddleware
 
     private static Task WriteProblemAsync(HttpContext context, string code)
     {
+        var language = ConfigurationLanguageResolver.Resolve(
+            context.Request.Query["language"].ToString(),
+            context.Request.Headers["Accept-Language"].ToString());
+        var payload = DeviceProblemDetailsFactory.Create(
+            StatusCodes.Status401Unauthorized,
+            code,
+            language,
+            context.TraceIdentifier);
+
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         context.Response.ContentType = "application/problem+json";
-        var detail = code == DeviceProblemCodes.TokenExpired
-            ? "The device token has expired."
-            : code == DeviceProblemCodes.TokenMissing
-                ? "A device token is required."
-                : "The device token is invalid.";
-        var payload = new
-        {
-            type = $"https://api.ghseeli.example/errors/{code}",
-            title = "Device authentication failed.",
-            status = StatusCodes.Status401Unauthorized,
-            detail,
-            code,
-            correlationId = context.TraceIdentifier
-        };
-
         return context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions));
     }
 }

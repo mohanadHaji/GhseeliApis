@@ -1,0 +1,679 @@
+{
+  "name": "Step 8 customer configuration",
+  "sensitiveFields": [
+    "token",
+    "email",
+    "phone"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "installationId": "{{gen:guid}}",
+    "unknownDeviceToken": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "malformedDeviceToken": "short-token",
+    "invalidCorrelationId": "corr-step8-overlong-correlation-id-that-must-be-replaced-before-roundtrip-{{var:runStamp}}"
+  },
+  "scenarios": [
+    {
+      "id": "STEP8-HEALTH-001",
+      "feature": "step8",
+      "tags": ["step8", "smoke", "contract"],
+      "method": "GET",
+      "url": "/api/health",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-SWAGGER-002",
+      "feature": "step8",
+      "tags": ["step8", "contract", "docs"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/configuration'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.parameters[0].name",
+            "equals": "language"
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.parameters[0].in",
+            "equals": "query"
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.parameters[1].name",
+            "equals": "Accept-Language"
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.parameters[1].in",
+            "equals": "header"
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/configuration'].get.responses['503']",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-DEVICE-ISSUE-003",
+      "feature": "step8",
+      "tags": ["step8", "setup", "security", "write"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "iOS",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.installationId",
+            "equals": "{{var:installationId}}"
+          },
+          {
+            "path": "$.platform",
+            "equals": "iOS"
+          },
+          {
+            "path": "$.token",
+            "exists": true
+          },
+          {
+            "path": "$.expiresAt",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "issuedDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP8-GET-DEFAULT-004",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization", "contract"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.support.email",
+            "exists": true
+          },
+          {
+            "path": "$.support.phone",
+            "exists": true
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0641\u0625\u0646\u0643 \u062a\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629."
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "exists": true
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "exists": true
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-GET-AR-005",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar-SA,ar;q=0.8",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0641\u0625\u0646\u0643 \u062a\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629."
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-GET-HE-006",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he-IL,ar;q=0.8",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u05d4\u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4 \u05db\u05e4\u05d5\u05e3 \u05dc\u05ea\u05e0\u05d0\u05d9\u05dd \u05d5\u05dc\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05d4\u05e4\u05e8\u05d8\u05d9\u05d5\u05ea \u05d4\u05e0\u05d5\u05db\u05d7\u05d9\u05d9\u05dd."
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-OVERRIDE-HE-007",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u05d4\u05e9\u05d9\u05de\u05d5\u05e9 \u05d1\u05d0\u05e4\u05dc\u05d9\u05e7\u05e6\u05d9\u05d4 \u05db\u05e4\u05d5\u05e3 \u05dc\u05ea\u05e0\u05d0\u05d9\u05dd \u05d5\u05dc\u05de\u05d3\u05d9\u05e0\u05d9\u05d5\u05ea \u05d4\u05e4\u05e8\u05d8\u05d9\u05d5\u05ea \u05d4\u05e0\u05d5\u05db\u05d7\u05d9\u05d9\u05dd."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-OVERRIDE-AR-008",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0641\u0625\u0646\u0643 \u062a\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-UNSUPPORTED-HEADER-009",
+      "feature": "step8",
+      "tags": ["step8", "read", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "\u0628\u0627\u0633\u062a\u062e\u062f\u0627\u0645 \u0627\u0644\u062a\u0637\u0628\u064a\u0642 \u0641\u0625\u0646\u0643 \u062a\u0648\u0627\u0641\u0642 \u0639\u0644\u0649 \u0627\u0644\u0634\u0631\u0648\u0637 \u0648\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0629 \u0627\u0644\u062d\u0627\u0644\u064a\u0629."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-INVALID-QUERY-AR-010",
+      "feature": "step8",
+      "tags": ["step8", "validation", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u0641\u0634\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0635\u062d\u0629 \u0627\u0644\u0637\u0644\u0628."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u0644\u063a\u0629 \u0627\u0644\u0637\u0644\u0628 \u063a\u064a\u0631 \u0645\u062f\u0639\u0648\u0645\u0629. \u0627\u0633\u062a\u062e\u062f\u0645 ar \u0623\u0648 he."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[0-9a-f]{32}$"
+          },
+          {
+            "path": "$.fieldErrors.language[0]",
+            "equals": "\u0644\u063a\u0629 \u0627\u0644\u0637\u0644\u0628 \u063a\u064a\u0631 \u0645\u062f\u0639\u0648\u0645\u0629. \u0627\u0633\u062a\u062e\u062f\u0645 ar \u0623\u0648 he."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-INVALID-QUERY-HE-011",
+      "feature": "step8",
+      "tags": ["step8", "validation", "localization"],
+      "method": "GET",
+      "url": "/api/v1/configuration?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u05d0\u05d9\u05de\u05d5\u05ea \u05d4\u05d1\u05e7\u05e9\u05d4 \u05e0\u05db\u05e9\u05dc."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u05e9\u05e4\u05ea \u05d4\u05d1\u05e7\u05e9\u05d4 \u05d0\u05d9\u05e0\u05d4 \u05e0\u05ea\u05de\u05db\u05ea. \u05d4\u05e9\u05ea\u05de\u05e9 \u05d1-ar \u05d0\u05d5 \u05d1-he."
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[0-9a-f]{32}$"
+          },
+          {
+            "path": "$.fieldErrors.language[0]",
+            "equals": "\u05e9\u05e4\u05ea \u05d4\u05d1\u05e7\u05e9\u05d4 \u05d0\u05d9\u05e0\u05d4 \u05e0\u05ea\u05de\u05db\u05ea. \u05d4\u05e9\u05ea\u05de\u05e9 \u05d1-ar \u05d0\u05d5 \u05d1-he."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-MISSING-TOKEN-012",
+      "feature": "step8",
+      "tags": ["step8", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "device_token_missing",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u0641\u0634\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062c\u0647\u0627\u0632."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u0631\u0645\u0632 \u0627\u0644\u062c\u0647\u0627\u0632 \u0645\u0637\u0644\u0648\u0628."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[0-9a-f]{32}$"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-MALFORMED-TOKEN-013",
+      "feature": "step8",
+      "tags": ["step8", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:malformedDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u0641\u0634\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062c\u0647\u0627\u0632."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u0631\u0645\u0632 \u0627\u0644\u062c\u0647\u0627\u0632 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-UNKNOWN-TOKEN-014",
+      "feature": "step8",
+      "tags": ["step8", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:unknownDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u0641\u0634\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062c\u0647\u0627\u0632."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u0631\u0645\u0632 \u0627\u0644\u062c\u0647\u0627\u0632 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-CORRELATION-SANITIZE-015",
+      "feature": "step8",
+      "tags": ["step8", "security", "correlation", "validation"],
+      "method": "GET",
+      "url": "/api/v1/configuration?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "ar",
+        "X-Correlation-Id": "{{var:invalidCorrelationId}}",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "notEquals": "{{var:invalidCorrelationId}}",
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "notEquals": "{{var:invalidCorrelationId}}"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[0-9a-f]{32}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-DEVICE-ROTATE-016",
+      "feature": "step8",
+      "tags": ["step8", "security", "write", "rotation"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android",
+        "appVersion": "1.1.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.installationId",
+            "equals": "{{var:installationId}}"
+          },
+          {
+            "path": "$.platform",
+            "equals": "Android"
+          },
+          {
+            "path": "$.token",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "rotatedDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP8-STALE-OLD-TOKEN-017",
+      "feature": "step8",
+      "tags": ["step8", "security", "auth", "rotation"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "\u0641\u0634\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0645\u0646 \u0627\u0644\u062c\u0647\u0627\u0632."
+          },
+          {
+            "path": "$.detail",
+            "equals": "\u0631\u0645\u0632 \u0627\u0644\u062c\u0647\u0627\u0632 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d."
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-ACCEPT-XML-018",
+      "feature": "step8",
+      "tags": ["step8", "contract", "read"],
+      "method": "GET",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/xml",
+        "Accept-Language": "ar",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.display.name",
+            "equals": "\u063a\u0633\u064a\u0644\u064a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP8-POST-405-019",
+      "feature": "step8",
+      "tags": ["step8", "contract", "auth"],
+      "method": "POST",
+      "url": "/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "expect": {
+        "status": 405,
+        "headers": {
+          "Allow": {
+            "exists": true,
+            "matches": "\\bGET\\b"
+          }
+        }
+      }
+    }
+  ]
+}

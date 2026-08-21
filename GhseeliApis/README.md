@@ -829,6 +829,12 @@ powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-HttpTests.p
 
 New versioned Customer endpoints use `X-Device-Token` as installation identity. Clients obtain or rotate an opaque token with `POST /api/v1/devices/register`. The plaintext token is returned only by that response; the database stores its SHA-256 hash. Device tokens do not replace customer JWT authentication.
 
+### Customer app configuration
+
+`GET /api/v1/configuration` is device-token protected and supports `Accept-Language: ar|he` plus an optional `?language=ar|he` override. Invalid explicit query values return a localized `400 configuration_language_invalid`, while malformed or unsupported `Accept-Language` values safely fall back to Arabic unless a supported weighted language is present. The response returns the selected `language`, active support contact values, localized display/legal content, and maintenance state using required Arabic data with Hebrew fallback to Arabic when Hebrew content is absent.
+
+A clean database is not seeded with placeholder customer configuration data. Operators must provision an active `CustomerConfiguration` record before this endpoint returns data; otherwise it returns the stable `503 configuration_unavailable` problem. Local/TestServer HTTP runs should use explicit fixtures or local-only seeded test data rather than relying on production defaults.
+
 ### **4. Commit & Push**
 ```bash
 git add .

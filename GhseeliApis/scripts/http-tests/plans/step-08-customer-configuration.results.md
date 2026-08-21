@@ -1,0 +1,33 @@
+# Step 8 customer configuration results
+
+- Execution date: 2026-08-21 (local)
+- Environment: local-only
+- Local database: `GhseeliCustomer_Step8Review` on `(localdb)\MSSQLLocalDB` via `ConnectionStrings__RemoteTest`
+- Full solution tests: 852/852 passed
+- Focused Step 8 tests: 83/83 passed
+- Harness self-tests: 16/16 passed
+- Approved matrix items: 21 total
+- Live HTTP scenarios executed: 19
+- Passed: 19
+- Failed: 0
+- Additional focused automated-only scenarios: 2 (`expired-token`, `no-active-config`)
+- Responsive check: `2026-08-21T16:20:26.2111164Z` `GET https://localhost:50398/api/health` returned `200`
+- Final manifest window: started `2026-08-21T16:20:41.0059830Z`, completed `2026-08-21T16:20:42.3234729Z`
+- Result artifact: local only at `.\scripts\http-tests\artifacts\step-08-customer-configuration.results.json`
+- Approved live coverage passed: device issue+rotation; valid GET default/ar/he; query override both ways; unsupported `Accept-Language` fallback; invalid query localized errors; localized Arabic device-auth problems for missing/malformed/unknown/stale old token; correlation sanitization; `POST` 405; `Accept: application/xml` still JSON; Swagger contract.
+- Additional focused coverage:
+  - `expired-token` — covered end-to-end by `GhseeliApis.Tests.Integration.ConfigurationApiIntegrationTests.GetConfiguration_WithExpiredDeviceToken_ReturnsLocalizedExpiredProblem` plus `GhseeliApis.Tests.Services.Devices.DeviceRegistrationServiceTests.AuthenticateAsync_ExpiredToken_ReturnsStableFailure`.
+  - `no-active-config` — covered end-to-end by `GhseeliApis.Tests.Integration.ConfigurationApiIntegrationTests.GetConfiguration_WhenNoActiveConfigurationExists_ReturnsServiceUnavailableProblem` plus `GhseeliApis.Tests.Services.Configuration.CustomerConfigurationServiceTests.GetActiveAsync_WhenConfigurationIsMissing_ThrowsStableUnavailableError`.
+- Commands:
+  - `dotnet test .\GhseeliApis.Tests\GhseeliApis.Tests.csproj --filter 'FullyQualifiedName~GhseeliApis.Tests.Controllers.ConfigurationControllerTests|FullyQualifiedName~GhseeliApis.Tests.Services.Configuration.CustomerConfigurationServiceTests|FullyQualifiedName~GhseeliApis.Tests.Validators.Configuration.GetConfigurationRequestValidatorTests|FullyQualifiedName~GhseeliApis.Tests.Persistence.CustomerConfigurationModelTests|FullyQualifiedName~GhseeliApis.Tests.Integration.ConfigurationApiIntegrationTests|FullyQualifiedName~GhseeliApis.Tests.Services.Configuration.ConfigurationLanguageResolverTests|FullyQualifiedName~GhseeliApis.Tests.Middleware.DeviceTokenMiddlewareTests|FullyQualifiedName~GhseeliApis.Tests.Services.Devices.DeviceRegistrationServiceTests' --verbosity minimal`
+  - `dotnet test .\GhseeliApis.sln --verbosity minimal`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1`
+  - `dotnet ef database update --project .\GhseeliApis\GhseeliApis.csproj --startup-project .\GhseeliApis\GhseeliApis.csproj`
+  - `dotnet run --project .\GhseeliApis\GhseeliApis.csproj --no-launch-profile --urls https://localhost:50398`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-HttpTests.ps1 -ManifestPath .\scripts\http-tests\plans\step-08-customer-configuration.manifest.json -BaseUrl https://localhost:50398 -ResultsPath .\scripts\http-tests\artifacts\step-08-customer-configuration.results.json`
+- Notes:
+  - Applied migration `20260821155232_AddCustomerConfiguration` only to the dedicated localdb database.
+  - Because the migration no longer seeds placeholder production data, a local-only active `CustomerConfigurations` fixture row with safe `example.test` contact/legal values was inserted into the dedicated localdb database before the live manifest run.
+  - The harness artifact redacted issued/rotated tokens, `X-Device-Token` headers, and support contact fields.
+  - No production or remote access was used.
+  - The exact shell started for the local API was stopped after execution.

@@ -6,6 +6,7 @@ using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Services.Business;
+using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
@@ -177,6 +178,7 @@ builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionReposi
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ICompanyAvailabilityRepository, CompanyAvailabilityRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
+builder.Services.AddScoped<ICustomerConfigurationRepository, CustomerConfigurationRepository>();
 
 // Register Handlers
 builder.Services.AddScoped<IUserHandler, UserHandler>();
@@ -195,6 +197,7 @@ builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayServic
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IDeviceTokenGenerator, DeviceTokenGenerator>();
 builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
+builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationService>();
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
     DeviceTokenOptionsValidator>();
@@ -288,3 +291,5 @@ catch (Exception ex)
 }
 
 app.Run();
+
+public partial class Program;

@@ -28,6 +28,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<CustomerDevice> CustomerDevices => Set<CustomerDevice>();
+    public DbSet<CustomerConfiguration> CustomerConfigurations => Set<CustomerConfiguration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,6 +89,47 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
                 .IsConcurrencyToken();
             entity.HasIndex(device => device.InstallationId).IsUnique();
             entity.HasIndex(device => device.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<CustomerConfiguration>(entity =>
+        {
+            entity.HasKey(configuration => configuration.Id);
+            entity.Property(configuration => configuration.IsActive).IsRequired();
+            entity.Property(configuration => configuration.SupportEmail)
+                .HasMaxLength(254)
+                .IsRequired();
+            entity.Property(configuration => configuration.SupportPhone)
+                .HasMaxLength(32)
+                .IsRequired();
+            entity.Property(configuration => configuration.DisplayNameAr)
+                .HasMaxLength(200)
+                .IsRequired();
+            entity.Property(configuration => configuration.DisplayNameHe)
+                .HasMaxLength(200);
+            entity.Property(configuration => configuration.LegalNoticeAr)
+                .HasMaxLength(1000)
+                .IsRequired();
+            entity.Property(configuration => configuration.LegalNoticeHe)
+                .HasMaxLength(1000);
+            entity.Property(configuration => configuration.PrivacyPolicyUrl)
+                .HasMaxLength(500)
+                .IsRequired();
+            entity.Property(configuration => configuration.TermsOfServiceUrl)
+                .HasMaxLength(500)
+                .IsRequired();
+            entity.Property(configuration => configuration.MaintenanceMessageAr)
+                .HasMaxLength(1000);
+            entity.Property(configuration => configuration.MaintenanceMessageHe)
+                .HasMaxLength(1000);
+            entity.Property(configuration => configuration.CreatedAt)
+                .HasDefaultValueSql("SYSDATETIMEOFFSET()")
+                .IsRequired();
+            entity.Property(configuration => configuration.UpdatedAt)
+                .HasDefaultValueSql("SYSDATETIMEOFFSET()")
+                .IsRequired();
+            entity.HasIndex(configuration => configuration.IsActive)
+                .HasFilter("[IsActive] = 1")
+                .IsUnique();
         });
 
         // ============================================

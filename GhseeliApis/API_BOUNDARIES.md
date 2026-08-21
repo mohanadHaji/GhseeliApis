@@ -330,6 +330,26 @@ Contains:
 - Arabic/Hebrew values;
 - activity and ordering data.
 
+### Customer configuration
+
+Contains:
+
+- selected response `language` (`ar` or `he`);
+- support contact values such as the active support email and phone number;
+- localized display content using required Arabic values and optional Hebrew values;
+- localized legal notice text plus stable privacy-policy and terms URLs;
+- maintenance mode state plus an optional localized maintenance message.
+
+Rules:
+
+- Arabic values are required for every localized configuration record.
+- Hebrew values are optional and fall back to Arabic when omitted.
+- The explicit `language` query override accepts only `ar` or `he`; malformed or unsupported `Accept-Language` headers fall back to Arabic unless they still contain a supported weighted language.
+- The public Customer API returns only the selected localized values; it does not expose arbitrary JSON blobs or inactive records.
+- Device-token middleware protects `GET /api/v1/configuration`; customer JWTs are not required.
+- Migrations do not seed placeholder production configuration. Each environment must provision an active configuration record before the endpoint can return data.
+- When no active configuration is available, the endpoint returns a stable unavailable problem instead of an empty success payload.
+
 ### Appointment validation
 
 Request contains:

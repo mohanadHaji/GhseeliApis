@@ -46,9 +46,7 @@ public static class SqlServerSetupExtension
                 sqlServerOptions.UseCompatibilityLevel(120);
             });
 
-            // Enable sensitive data logging in development
             #if DEBUG
-            options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
             #endif
         });

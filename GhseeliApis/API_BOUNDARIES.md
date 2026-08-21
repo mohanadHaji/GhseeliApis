@@ -133,6 +133,10 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Business authorization always checks the authenticated user's company/branch assignment.
 - Device tokens identify an application installation; they do not authenticate a customer user.
 - Customer endpoints may require a device token, a customer JWT, or both.
+- Customer device tokens are 256-bit opaque values returned only at issuance or rotation; only SHA-256 hashes are stored.
+- `X-Device-Token` is required by default for matched `/api/v1/*` Customer endpoints unless the endpoint has an explicit device-token exemption.
+- Registering an existing installation requires its current unexpired token and rotates it immediately; old tokens stop authorizing requests.
+- Device tokens expire without sliding renewal. Rotation issues a new configured lifetime.
 - Internal service credentials are separate from both user identity systems.
 
 ## 5. API conventions

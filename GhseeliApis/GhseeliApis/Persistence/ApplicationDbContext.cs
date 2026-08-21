@@ -27,6 +27,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<CustomerDevice> CustomerDevices => Set<CustomerDevice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +68,26 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
             // Unique index on email
             entity.HasIndex(e => e.Email)
                 .IsUnique();
+        });
+
+        modelBuilder.Entity<CustomerDevice>(entity =>
+        {
+            entity.HasKey(device => device.Id);
+            entity.Property(device => device.InstallationId).IsRequired();
+            entity.Property(device => device.Platform).HasMaxLength(16).IsRequired();
+            entity.Property(device => device.AppVersion).HasMaxLength(32);
+            entity.Property(device => device.TokenHash)
+                .HasColumnType("binary(32)")
+                .IsRequired();
+            entity.Property(device => device.CreatedAt).IsRequired();
+            entity.Property(device => device.UpdatedAt).IsRequired();
+            entity.Property(device => device.LastSeenAt);
+            entity.Property(device => device.ExpiresAt).IsRequired();
+            entity.Property(device => device.RowVersion)
+                .IsRowVersion()
+                .IsConcurrencyToken();
+            entity.HasIndex(device => device.InstallationId).IsUnique();
+            entity.HasIndex(device => device.TokenHash).IsUnique();
         });
 
         // ============================================

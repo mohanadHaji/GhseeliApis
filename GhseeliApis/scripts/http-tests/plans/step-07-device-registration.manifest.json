@@ -1,0 +1,197 @@
+{
+  "name": "Step 7 customer device registration",
+  "sensitiveFields": ["token", "x-device-token"],
+  "setupVariables": {
+    "installationId": "{{gen:guid}}",
+    "secondInstallationId": "{{gen:guid}}",
+    "wrongToken": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  },
+  "scenarios": [
+    {
+      "id": "STEP7-HEALTH-001",
+      "feature": "step7",
+      "tags": ["step7", "exemption", "smoke"],
+      "method": "GET",
+      "url": "/api/health",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.status", "equals": "Healthy" }]
+      }
+    },
+    {
+      "id": "STEP7-SWAGGER-002",
+      "feature": "step7",
+      "tags": ["step7", "exemption", "contract"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.paths['/api/v1/devices/register'].post", "exists": true }]
+      }
+    },
+    {
+      "id": "STEP7-VALIDATION-INSTALLATION-003",
+      "feature": "step7",
+      "tags": ["step7", "validation"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "00000000-0000-0000-0000-000000000000",
+        "platform": "iOS"
+      },
+      "expect": { "status": 400, "contentType": "application/problem+json" }
+    },
+    {
+      "id": "STEP7-VALIDATION-PLATFORM-004",
+      "feature": "step7",
+      "tags": ["step7", "validation"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "{{var:secondInstallationId}}",
+        "platform": "Windows"
+      },
+      "expect": { "status": 400, "contentType": "application/problem+json" }
+    },
+    {
+      "id": "STEP7-ISSUE-005",
+      "feature": "step7",
+      "tags": ["step7", "write", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "ios",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.installationId", "equals": "{{var:installationId}}" },
+          { "path": "$.platform", "equals": "iOS" },
+          { "path": "$.token", "exists": true },
+          { "path": "$.expiresAt", "exists": true }
+        ]
+      },
+      "extract": {
+        "firstDeviceToken": "$.token",
+        "deviceId": "$.deviceId"
+      }
+    },
+    {
+      "id": "STEP7-DUPLICATE-WITHOUT-TOKEN-006",
+      "feature": "step7",
+      "tags": ["step7", "conflict", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "iOS"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_registration_conflict" }]
+      }
+    },
+    {
+      "id": "STEP7-CROSS-TOKEN-007",
+      "feature": "step7",
+      "tags": ["step7", "authorization", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:wrongToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_rotation_unauthorized" }]
+      }
+    },
+    {
+      "id": "STEP7-ROTATE-008",
+      "feature": "step7",
+      "tags": ["step7", "rotation", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:firstDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android",
+        "appVersion": "1.1.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.platform", "equals": "Android" },
+          { "path": "$.token", "exists": true }
+        ]
+      },
+      "extract": { "rotatedDeviceToken": "$.token" }
+    },
+    {
+      "id": "STEP7-OLD-TOKEN-INVALID-009",
+      "feature": "step7",
+      "tags": ["step7", "rotation", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:firstDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_rotation_unauthorized" }]
+      }
+    },
+    {
+      "id": "STEP7-NEW-TOKEN-VALID-010",
+      "feature": "step7",
+      "tags": ["step7", "rotation", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android",
+        "appVersion": "1.2.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      }
+    }
+  ]
+}

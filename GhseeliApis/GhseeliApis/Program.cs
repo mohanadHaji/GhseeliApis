@@ -1,9 +1,12 @@
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using GhseeliApis.Extensions;
 using GhseeliApis.Middleware;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
 using GhseeliApis.Handlers.Interfaces;
 using GhseeliApis.Services.Business;
+using GhseeliApis.Services.Devices;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories;
@@ -16,7 +19,12 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -168,6 +176,7 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<ICompanyAvailabilityRepository, CompanyAvailabilityRepository>();
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 
 // Register Handlers
 builder.Services.AddScoped<IUserHandler, UserHandler>();
@@ -183,6 +192,15 @@ builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 // Register Services
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, GhseeliApis.Services.AuthService>();
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayService, GhseeliApis.Services.StripePaymentService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IDeviceTokenGenerator, DeviceTokenGenerator>();
+builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
+    DeviceTokenOptionsValidator>();
+builder.Services.AddOptions<DeviceTokenOptions>()
+    .Bind(builder.Configuration.GetSection(DeviceTokenOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.Configure<BusinessApiClientOptions>(
     builder.Configuration.GetSection(BusinessApiClientOptions.SectionName));
 builder.Services.AddTransient<CorrelationIdPropagationHandler>();
@@ -224,7 +242,9 @@ if (swaggerEnabled)
 }
 
 app.UseHttpsRedirection();
+app.UseRouting();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<DeviceTokenMiddleware>();
 
 // Add Authentication & Authorization middleware
 app.UseAuthentication();

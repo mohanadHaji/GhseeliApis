@@ -825,6 +825,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-HttpTests.p
 
 > **Completion gate for meaningful changes:** cover every changed endpoint plus affected existing endpoints in the HTTP plan, including success, validation, auth/ownership, boundary, failure, version/state, and regression scenarios. After automated tests and required migrations, execute the planned HTTP scenarios at the declared execution level: rerun TestServer coverage for HTTP-visible behavior, and run the local manifest only when live local/dev/test HTTP is part of the risk or contract. Fix failures test-first, rerun, and record exact automated test totals plus HTTP scenario pass/fail/deferred counts with rationale. Documentation-only or non-HTTP internal refactors may mark HTTP not applicable with rationale. Do not mark the change done while a required HTTP scenario is only planned/automated, failed, or deferred without explicit non-shipping rationale and compensating coverage. Keep `scripts\http-tests\artifacts\` results plus `*.local.json` / `local.*.json` files out of source control. Never use production or expose/commit secrets, tokens, or test credentials. Missing relevant HTTP coverage, a stale plan, or any unexplained failure blocks completion.
 
+### Customer device tokens
+
+New versioned Customer endpoints use `X-Device-Token` as installation identity. Clients obtain or rotate an opaque token with `POST /api/v1/devices/register`. The plaintext token is returned only by that response; the database stores its SHA-256 hash. Device tokens do not replace customer JWT authentication.
+
 ### **4. Commit & Push**
 ```bash
 git add .

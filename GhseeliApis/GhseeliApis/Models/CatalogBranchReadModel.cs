@@ -17,6 +17,7 @@ public sealed class CatalogBranchReadModel
     public double? ServiceAreaCenterLatitude { get; set; }
     public double? ServiceAreaCenterLongitude { get; set; }
     public double? ServiceAreaRadiusKm { get; set; }
+    public string? AvailabilitySnapshotJson { get; set; }
     public int DisplayOrder { get; set; }
 
     public ICollection<CatalogOfferingReadModel> Offerings { get; set; } =

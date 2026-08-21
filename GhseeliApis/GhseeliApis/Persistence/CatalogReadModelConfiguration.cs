@@ -53,6 +53,8 @@ internal static class CatalogReadModelConfiguration
                 .IsRequired();
             entity.Property(branch => branch.AddressHe)
                 .HasMaxLength(300);
+            entity.Property(branch => branch.AvailabilitySnapshotJson)
+                .HasColumnType("nvarchar(max)");
             entity.HasOne(branch => branch.Provider)
                 .WithMany(provider => provider.Branches)
                 .HasForeignKey(branch => branch.ProviderId)

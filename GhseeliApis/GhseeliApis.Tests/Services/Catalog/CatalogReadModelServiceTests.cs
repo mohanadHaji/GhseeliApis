@@ -527,10 +527,17 @@ public class CatalogReadModelServiceTests
         var timeProvider = new ManualTimeProvider(
             new DateTimeOffset(2026, 8, 21, 18, 0, 0, TimeSpan.Zero));
         var logger = new Mock<IAppLogger>();
+        var refreshCoordinator = new CatalogProviderRefreshCoordinator(
+            repository,
+            client,
+            optionsMonitor.Object,
+            timeProvider,
+            logger.Object);
 
         var service = new CatalogReadModelService(
             repository,
             client,
+            refreshCoordinator,
             optionsMonitor.Object,
             timeProvider,
             logger.Object);
@@ -558,11 +565,18 @@ public class CatalogReadModelServiceTests
                 Providers = providers.ToList()
             });
         var logger = new Mock<IAppLogger>();
+        var refreshCoordinator = new CatalogProviderRefreshCoordinator(
+            repository,
+            client,
+            optionsMonitor.Object,
+            timeProvider,
+            logger.Object);
 
         return new MockedCatalogServiceHarness(
             new CatalogReadModelService(
                 repository,
                 client,
+                refreshCoordinator,
                 optionsMonitor.Object,
                 timeProvider,
                 logger.Object),

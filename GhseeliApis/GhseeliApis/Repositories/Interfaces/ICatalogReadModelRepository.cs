@@ -16,6 +16,10 @@ public interface ICatalogReadModelRepository
         Guid providerId,
         CancellationToken cancellationToken);
 
+    Task<CatalogProviderReadModel?> GetEnabledProviderBySourceCompanyIdWithGraphAsync(
+        Guid sourceCompanyId,
+        CancellationToken cancellationToken);
+
     Task<CatalogBranchReadModel?> GetEnabledBranchSummaryAsync(
         Guid branchId,
         CancellationToken cancellationToken);

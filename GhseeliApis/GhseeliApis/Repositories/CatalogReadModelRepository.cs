@@ -6,6 +6,7 @@ using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Catalog;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Text.Json;
 
 namespace GhseeliApis.Repositories;
 
@@ -13,6 +14,8 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
 {
     private const string GraphQueryTag =
         "CatalogReadModelRepository.GetEnabledProvidersWithGraphAsync";
+    private static readonly JsonSerializerOptions JsonOptions =
+        Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.CreateJsonSerializerOptions();
 
     private readonly ApplicationDbContext _context;
 
@@ -118,6 +121,23 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .SingleOrDefaultAsync(
                 provider => provider.Id == providerId && provider.IsEnabled,
                 cancellationToken);
+
+    public Task<CatalogProviderReadModel?> GetEnabledProviderBySourceCompanyIdWithGraphAsync(
+        Guid sourceCompanyId,
+        CancellationToken cancellationToken) =>
+        _context.CatalogProviders
+            .AsNoTracking()
+            .AsSingleQuery()
+            .Where(provider => provider.IsEnabled && provider.SourceCompanyId == sourceCompanyId)
+            .Include(provider => provider.Branches)
+            .Include(provider => provider.Categories)
+                .ThenInclude(category => category.Offerings)
+                    .ThenInclude(offering => offering.Branch)
+            .Include(provider => provider.Categories)
+                .ThenInclude(category => category.Offerings)
+                    .ThenInclude(offering => offering.AddonGroups)
+                        .ThenInclude(addonGroup => addonGroup.Choices)
+            .SingleOrDefaultAsync(cancellationToken);
 
     public Task<CatalogBranchReadModel?> GetEnabledBranchSummaryAsync(
         Guid branchId,
@@ -387,6 +407,10 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
                 branch.ServiceAreaCenterLongitude = null;
                 branch.ServiceAreaRadiusKm = null;
             }
+
+            branch.AvailabilitySnapshotJson = snapshotBranch.Availability is null
+                ? null
+                : JsonSerializer.Serialize(snapshotBranch.Availability, JsonOptions);
 
             branchEntities[snapshotBranch.Id] = branch;
             seenBranchIds.Add(snapshotBranch.Id);

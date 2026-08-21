@@ -38,6 +38,12 @@ public class CompanyRepository : BusinessMutationRepositoryBase, ICompanyReposit
         return Context.Companies
             .Include(company => company.Branches)
                 .ThenInclude(branch => branch.ServiceArea)
+            .Include(company => company.Branches)
+                .ThenInclude(branch => branch.AvailabilitySettings)
+            .Include(company => company.Branches)
+                .ThenInclude(branch => branch.RecurringSchedules)
+            .Include(company => company.Branches)
+                .ThenInclude(branch => branch.AvailabilityOverrides)
             .Include(company => company.Categories)
                 .ThenInclude(category => category.Offerings)
                     .ThenInclude(offering => offering.Branch)

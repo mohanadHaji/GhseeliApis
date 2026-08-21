@@ -484,6 +484,7 @@ internal sealed class RelationalCatalogHarness : IAsyncDisposable
             }
         });
         services.AddScoped<ICatalogReadModelRepository, CatalogReadModelRepository>();
+        services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRefreshCoordinator>();
         services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
         services.AddSingleton<IBusinessApiClient>(BusinessApiClient);
         services.AddSingleton<TimeProvider>(TimeProvider);

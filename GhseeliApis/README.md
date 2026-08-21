@@ -1,7 +1,7 @@
 # ?? Ghseeli - Car Washing Service Platform
 
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/Tests-461%20Passing-success)](.)
+[![Tests](https://img.shields.io/badge/Tests-931%20Passing-success)](.)
 [![Google Cloud SQL](https://img.shields.io/badge/Database-Google%20Cloud%20SQL-4285F4)](https://cloud.google.com/sql)
 [![Entity Framework](https://img.shields.io/badge/EF%20Core-8.0-512BD4)](https://docs.microsoft.com/ef/)
 [![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google%20%7C%20Facebook-4285F4)](.)
@@ -71,6 +71,7 @@ Always verify the configured database name before running either destructive `da
 - ?? **Address Management** - Save multiple service addresses
 - ?? **Company Management** - Service provider profiles and availability
 - ?? **Service Catalog** - Multiple service types with customizable options
+- ?? **Anonymous Checkout Drafts** - Device-owned draft intents with expiry and optimistic versioning
 - ?? **Booking System** - Complete booking lifecycle management
 - ?? **Payment Processing** - Multiple payment methods with refund support
 - ?? **Wallet System** - Digital wallet for users
@@ -851,6 +852,20 @@ The Customer API stores local read-model IDs for providers, branches, categories
 ```
 
 Populate `Providers` from environment-specific config, environment variables, or user secrets using `sourceCompanyId`, `enabled`, and `order`. Leaving `Providers` empty is intentional and safe: list browse endpoints return localized empty collections without contacting Business. Normal reads refresh missing or hard-stale provider caches on demand, while `?refresh=true` forces verification. Business client configuration is validated only when a refresh call is actually attempted. If no usable cache exists after refresh, the API returns `503 catalog_unavailable`; unknown businesses and offerings return `404 catalog_business_not_found` or `404 catalog_offering_not_found`, and cross-provider filter mixes return `400 catalog_filter_mismatch`.
+
+### Customer checkout drafts
+
+`POST /api/v1/checkout/drafts`, `GET /api/v1/checkout/drafts/{orderGuid}`, and `PUT /api/v1/checkout/drafts/{orderGuid}` are device-token protected anonymous endpoints. Drafts never accept an owner device ID in the body: ownership comes only from the authenticated `X-Device-Token` context. The public `orderGuid` is generated server-side, the internal database key stays private, and wrong-device lookups intentionally return the same localized `404 checkout_draft_not_found` response as a missing draft.
+
+Expired drafts are intentionally a gone resource, not a conflict: read/update attempts after expiry return `410 checkout_draft_expired`.
+
+Drafts persist normalized source IDs for the selected business, branch, offerings, and add-on choices together with an anonymous vehicle snapshot, customer location snapshot, catalog version, and normalized UTC slot intent. Each successful write returns `requiresReprice: true`, increments the public `version` exactly once, refreshes the draft expiry using the `CheckoutDrafts` options below, and enforces a 64 KB JSON request-body ceiling on create/update calls:
+
+```json
+"CheckoutDrafts": {
+  "LifetimeMinutes": 30
+}
+```
 
 ### **4. Commit & Push**
 ```bash

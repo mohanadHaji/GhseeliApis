@@ -1,0 +1,1158 @@
+﻿{
+  "name": "Step 10 checkout drafts",
+  "sensitiveFields": [
+    "token",
+    "x-device-token",
+    "authorization",
+    "signature",
+    "secret"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "firstInstallationId": "{{gen:guid}}",
+    "secondInstallationId": "{{gen:guid}}",
+    "missingOrderGuid": "{{gen:guid}}",
+    "businessSourceId": "11111111-1111-4111-8111-111111111111",
+    "branchSourceId": "22222222-2222-4222-8222-222222222222",
+    "offeringSourceId": "44444444-4444-4444-8444-444444444444",
+    "unknownDeviceToken": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "malformedDeviceToken": "short-token",
+    "invalidCorrelationId": "corr-step10-overlong-correlation-id-that-must-be-replaced-before-roundtrip-{{var:runStamp}}",
+    "createSlotStartUtc": "2026-08-24T10:00:00Z",
+    "updateSlotStartUtc": "2026-08-24T11:00:00Z",
+    "leadFailureSlotStartUtc": "2026-08-24T08:20:00Z",
+    "horizonFailureSlotStartUtc": "2026-09-24T10:00:00Z",
+    "misalignedSlotStartUtc": "2026-08-24T10:15:00Z",
+    "duplicateOfferingSourceId": "44444444-4444-4444-8444-444444444444",
+    "duplicateAddonChoiceSourceId": "44444444-4444-4444-a444-444444444444",
+    "foreignBranchSourceId": "{{gen:guid}}",
+    "foreignAddonChoiceSourceId": "55555555-5555-4555-a555-555555555555",
+    "boundaryLatitude": 32.1,
+    "boundaryLongitude": 34.9273942285319,
+    "serviceAreaOutsideLatitude": 35.5,
+    "serviceAreaOutsideLongitude": 36.5,
+    "boundaryVehicleType": "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV",
+    "boundaryLicensePlate": "LLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+    "boundaryMake": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+    "boundaryModel": "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "boundaryColor": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "boundaryAddressLine": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "boundaryCity": "YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY",
+    "boundaryArea": "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR"
+  },
+  "scenarios": [
+    {
+      "id": "STEP10-SWAGGER-001",
+      "feature": "step10",
+      "tags": ["step10", "live", "contract", "docs"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.info.title", "equals": "Ghseeli APIs"},
+          {"path": "$.paths['/api/v1/checkout/drafts'].post", "exists": true},
+          {"path": "$.paths['/api/v1/checkout/drafts/{orderGuid}'].get", "exists": true},
+          {"path": "$.paths['/api/v1/checkout/drafts/{orderGuid}'].put", "exists": true}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-DEVICE-ISSUE-002",
+      "feature": "step10",
+      "tags": ["step10", "live", "setup", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "installationId": "{{var:firstInstallationId}}",
+        "platform": "iOS",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.installationId", "equals": "{{var:firstInstallationId}}"},
+          {"path": "$.platform", "equals": "iOS"},
+          {"path": "$.appVersion", "equals": "1.0.0"},
+          {"path": "$.token", "exists": true},
+          {"path": "$.expiresAt", "exists": true}
+        ]
+      },
+      "extract": {
+        "firstDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP10-DEVICE-ROTATE-003",
+      "feature": "step10",
+      "tags": ["step10", "live", "setup", "rotation", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:firstDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:firstInstallationId}}",
+        "platform": "Android",
+        "appVersion": "1.1.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.installationId", "equals": "{{var:firstInstallationId}}"},
+          {"path": "$.platform", "equals": "Android"},
+          {"path": "$.appVersion", "equals": "1.1.0"},
+          {"path": "$.token", "exists": true},
+          {"path": "$.expiresAt", "exists": true}
+        ]
+      },
+      "extract": {
+        "rotatedDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP10-DEVICE-ISSUE-SECOND-004",
+      "feature": "step10",
+      "tags": ["step10", "live", "setup", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "installationId": "{{var:secondInstallationId}}",
+        "platform": "Android",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.installationId", "equals": "{{var:secondInstallationId}}"},
+          {"path": "$.platform", "equals": "Android"},
+          {"path": "$.appVersion", "equals": "1.0.0"},
+          {"path": "$.token", "exists": true},
+          {"path": "$.expiresAt", "exists": true}
+        ]
+      },
+      "extract": {
+        "secondDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP10-CREATE-DEFAULT-005",
+      "feature": "step10",
+      "tags": ["step10", "live", "create", "validation", "security", "contract"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "quotedSubtotal": 0.01,
+        "quotedTotal": 0.02,
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue",
+          "quotedVehiclePrice": 0.03
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8,
+          "quotedServiceFee": 0.04
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "quotedBasePrice": 0.05,
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.expiresAt", "exists": true},
+          {"path": "$.version", "equals": 1},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.intent.businessSourceId", "equals": "{{var:businessSourceId}}"},
+          {"path": "$.intent.branchSourceId", "equals": "{{var:branchSourceId}}"},
+          {"path": "$.intent.catalogVersion", "exists": true},
+          {"path": "$.intent.requestedSlotStartUtc", "matches": "^2026-08-24T10:00:00(?:Z|\\+00:00)$"},
+          {"path": "$.intent.vehicle.vehicleType", "equals": "Sedan"},
+          {"path": "$.intent.vehicle.licensePlate", "equals": "12-345-67"},
+          {"path": "$.intent.vehicle.make", "equals": "Toyota"},
+          {"path": "$.intent.vehicle.model", "equals": "Corolla"},
+          {"path": "$.intent.vehicle.color", "equals": "Blue"},
+          {"path": "$.intent.location.addressLine", "equals": "الشارع الرئيسي 10"},
+          {"path": "$.intent.location.city", "equals": "حيفا"},
+          {"path": "$.intent.location.area", "equals": "الكرمل"},
+          {"path": "$.intent.location.latitude", "equals": 32.1},
+          {"path": "$.intent.location.longitude", "equals": 34.8},
+          {"path": "$.intent.items[0].offeringSourceId", "equals": "{{var:offeringSourceId}}"},
+          {"path": "$.intent.items[0].selections[0]", "exists": false},
+          {"path": "$.quotedTotal", "exists": false},
+          {"path": "$.intent.quotedSubtotal", "exists": false}
+        ]
+      },
+      "extract": {
+        "createdOrderGuid": "$.orderGuid",
+        "createdVersion": "$.version",
+        "createdCatalogVersion": "$.intent.catalogVersion"
+      }
+    },
+    {
+      "id": "STEP10-MISSING-TOKEN-006",
+      "feature": "step10",
+      "tags": ["step10", "live", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:missingOrderGuid}}?language=he",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true,
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "device_token_missing",
+        "json": [
+          {"path": "$.title", "equals": "אימות המכשיר נכשל."},
+          {"path": "$.detail", "equals": "נדרש אסימון מכשיר."},
+          {"path": "$.language", "equals": "he"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-MALFORMED-TOKEN-007",
+      "feature": "step10",
+      "tags": ["step10", "live", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:missingOrderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "-, ;q=1",
+        "X-Device-Token": "{{var:malformedDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من الجهاز."},
+          {"path": "$.detail", "equals": "رمز الجهاز غير صالح."},
+          {"path": "$.language", "equals": "ar"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-UNKNOWN-TOKEN-008",
+      "feature": "step10",
+      "tags": ["step10", "live", "security", "auth"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:missingOrderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he-IL,ar;q=0.8",
+        "X-Device-Token": "{{var:unknownDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {"path": "$.title", "equals": "אימות המכשיר נכשל."},
+          {"path": "$.detail", "equals": "אסימון המכשיר אינו תקין."},
+          {"path": "$.language", "equals": "he"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-OLD-TOKEN-009",
+      "feature": "step10",
+      "tags": ["step10", "live", "security", "rotation"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:missingOrderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:firstDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "errorCode": "device_token_invalid",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من الجهاز."},
+          {"path": "$.detail", "equals": "رمز الجهاز غير صالح."},
+          {"path": "$.language", "equals": "ar"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-READ-HE-010",
+      "feature": "step10",
+      "tags": ["step10", "live", "read", "localization", "security"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:createdOrderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he-IL,ar;q=0.8",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.orderGuid", "equals": "{{var:createdOrderGuid}}"},
+          {"path": "$.version", "equals": "{{var:createdVersion}}"},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.intent.catalogVersion", "equals": "{{var:createdCatalogVersion}}"},
+          {"path": "$.intent.requestedSlotStartUtc", "matches": "^2026-08-24T10:00:00(?:Z|\\+00:00)$"},
+          {"path": "$.intent.items[0].offeringSourceId", "equals": "{{var:offeringSourceId}}"},
+          {"path": "$.intent.items[0].selections[0]", "exists": false}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-UPDATE-AR-011",
+      "feature": "step10",
+      "tags": ["step10", "live", "update", "localization", "version", "security"],
+      "method": "PUT",
+      "url": "/api/v1/checkout/drafts/{{var:createdOrderGuid}}?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:createdVersion}}",
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:updateSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Green"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.orderGuid", "equals": "{{var:createdOrderGuid}}"},
+          {"path": "$.version", "equals": 2},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.intent.catalogVersion", "equals": "{{var:createdCatalogVersion}}"},
+          {"path": "$.intent.requestedSlotStartUtc", "matches": "^2026-08-24T11:00:00(?:Z|\\+00:00)$"},
+          {"path": "$.intent.vehicle.color", "equals": "Green"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-CONFLICT-012",
+      "feature": "step10",
+      "tags": ["step10", "live", "update", "version", "conflict", "security"],
+      "method": "PUT",
+      "url": "/api/v1/checkout/drafts/{{var:createdOrderGuid}}?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:createdVersion}}",
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:updateSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Green"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_version_conflict",
+        "json": [
+          {"path": "$.title", "equals": "حدث تعارض في مسودة الدفع."},
+          {"path": "$.detail", "equals": "تم تعديل مسودة الدفع. حدّث البيانات وأعد المحاولة."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.expectedVersion[0]", "equals": "تم تعديل مسودة الدفع. حدّث البيانات وأعد المحاولة."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-INVALID-LANGUAGE-013",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "localization", "correlation", "security"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "Accept-Language": "he-IL,ar;q=0.8",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:invalidCorrelationId}}",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "exists": true,
+            "notEquals": "{{var:invalidCorrelationId}}",
+            "matches": "^[0-9a-f]{32}$"
+          }
+        },
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {"path": "$.title", "equals": "אימות הבקשה נכשל."},
+          {"path": "$.detail", "equals": "שפת הבקשה אינה נתמכת. השתמש ב-ar או ב-he."},
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "notEquals": "{{var:invalidCorrelationId}}"},
+          {"path": "$.correlationId", "matches": "^[0-9a-f]{32}$"},
+          {"path": "$.fieldErrors.language[0]", "equals": "שפת הבקשה אינה נתמכת. השתמש ב-ar או ב-he."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-METHOD-014",
+      "feature": "step10",
+      "tags": ["step10", "live", "contract", "routing"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "expect": {
+        "status": 405,
+        "headers": {
+          "Allow": {
+            "exists": true,
+            "matches": "\\bPOST\\b"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP10-MALFORMED-ORDERGUID-015",
+      "feature": "step10",
+      "tags": ["step10", "live", "contract", "routing"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/not-a-guid",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 404
+      }
+    },
+    {
+      "id": "STEP10-MISSING-ORDERGUID-016",
+      "feature": "step10",
+      "tags": ["step10", "live", "read", "not-found", "security"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:missingOrderGuid}}?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {"path": "$.title", "equals": "הטיוטה המבוקשת לא נמצאה."},
+          {"path": "$.detail", "equals": "טיוטת התשלום המבוקשת לא נמצאה."},
+          {"path": "$.language", "equals": "he"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-WRONG-DEVICE-GET-017",
+      "feature": "step10",
+      "tags": ["step10", "live", "read", "ownership", "security"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:createdOrderGuid}}?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:secondDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {"path": "$.title", "equals": "הטיוטה המבוקשת לא נמצאה."},
+          {"path": "$.detail", "equals": "טיוטת התשלום המבוקשת לא נמצאה."},
+          {"path": "$.language", "equals": "he"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-WRONG-DEVICE-PUT-018",
+      "feature": "step10",
+      "tags": ["step10", "live", "update", "ownership", "security"],
+      "method": "PUT",
+      "url": "/api/v1/checkout/drafts/{{var:createdOrderGuid}}?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:secondDeviceToken}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:createdVersion}}",
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:updateSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Green"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {"path": "$.title", "equals": "הטיוטה המבוקשת לא נמצאה."},
+          {"path": "$.detail", "equals": "טיוטת התשלום המבוקשת לא נמצאה."},
+          {"path": "$.language", "equals": "he"}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-BOUNDARY-019",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "boundary", "security"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "{{var:boundaryVehicleType}}",
+          "licensePlate": "{{var:boundaryLicensePlate}}",
+          "make": "{{var:boundaryMake}}",
+          "model": "{{var:boundaryModel}}",
+          "color": "{{var:boundaryColor}}"
+        },
+        "location": {
+          "addressLine": "{{var:boundaryAddressLine}}",
+          "city": "{{var:boundaryCity}}",
+          "area": "{{var:boundaryArea}}",
+          "latitude": "{{var:boundaryLatitude}}",
+          "longitude": "{{var:boundaryLongitude}}"
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.version", "equals": 1},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.intent.vehicle.vehicleType", "equals": "{{var:boundaryVehicleType}}"},
+          {"path": "$.intent.vehicle.licensePlate", "equals": "{{var:boundaryLicensePlate}}"},
+          {"path": "$.intent.vehicle.make", "equals": "{{var:boundaryMake}}"},
+          {"path": "$.intent.vehicle.model", "equals": "{{var:boundaryModel}}"},
+          {"path": "$.intent.vehicle.color", "equals": "{{var:boundaryColor}}"},
+          {"path": "$.intent.location.addressLine", "equals": "{{var:boundaryAddressLine}}"},
+          {"path": "$.intent.location.city", "equals": "{{var:boundaryCity}}"},
+          {"path": "$.intent.location.area", "equals": "{{var:boundaryArea}}"},
+          {"path": "$.intent.location.latitude", "equals": 32.1},
+          {"path": "$.intent.location.longitude", "matches": "^34\\.927394$"},
+          {"path": "$.intent.items[0].selections[0]", "exists": false}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-OUT-OF-SERVICE-020",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "service-area"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": "{{var:serviceAreaOutsideLatitude}}",
+          "longitude": "{{var:serviceAreaOutsideLongitude}}"
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_out_of_service_area",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "موقع الخدمة خارج نطاق التغطية."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.location[0]", "equals": "موقع الخدمة خارج نطاق التغطية."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-LEAD-TIME-021",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "slot"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:leadFailureSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_slot_unavailable",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "موعد الخدمة المطلوب غير متاح."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.requestedSlotStartUtc[0]", "equals": "موعد الخدمة المطلوب غير متاح."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-HORIZON-022",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "slot"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:horizonFailureSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_slot_unavailable",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "موعد الخدمة المطلوب غير متاح."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.requestedSlotStartUtc[0]", "equals": "موعد الخدمة المطلوب غير متاح."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-MISALIGNED-023",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "slot", "alignment"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:misalignedSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_slot_unavailable",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "موعد الخدمة المطلوب غير متاح."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.requestedSlotStartUtc[0]", "equals": "موعد الخدمة المطلوب غير متاح."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-DUPLICATE-SELECTIONS-024",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "duplicate", "items", "addons"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:duplicateOfferingSourceId}}",
+            "selections": [
+              {
+                "addonChoiceSourceId": "{{var:duplicateAddonChoiceSourceId}}",
+                "quantity": 1
+              },
+              {
+                "addonChoiceSourceId": "{{var:duplicateAddonChoiceSourceId}}",
+                "quantity": 0
+              }
+            ]
+          },
+          {
+            "offeringSourceId": "{{var:duplicateOfferingSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_invalid",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "بيانات مسودة الدفع غير صالحة."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.items[0]", "equals": "لا يمكن تكرار نفس الخدمة أكثر من مرة."},
+          {"path": "$.fieldErrors['items[0].selections'][0]", "equals": "لا يمكن تكرار نفس الإضافة أكثر من مرة لكل خدمة."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-FOREIGN-BRANCH-025",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "foreign", "branch"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:foreignBranchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_selection_invalid",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "عناصر مسودة الدفع المحددة غير متاحة حالياً."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors.branchSourceId[0]", "equals": "عناصر مسودة الدفع المحددة غير متاحة حالياً."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-FOREIGN-ADDON-026",
+      "feature": "step10",
+      "tags": ["step10", "live", "validation", "foreign", "addons"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:createSlotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "12-345-67",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "الشارع الرئيسي 10",
+          "city": "حيفا",
+          "area": "الكرمل",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:offeringSourceId}}",
+            "selections": [
+              {
+                "addonChoiceSourceId": "{{var:foreignAddonChoiceSourceId}}",
+                "quantity": 1
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_selection_invalid",
+        "json": [
+          {"path": "$.title", "equals": "فشل التحقق من صحة الطلب."},
+          {"path": "$.detail", "equals": "عناصر مسودة الدفع المحددة غير متاحة حالياً."},
+          {"path": "$.language", "equals": "ar"},
+          {"path": "$.fieldErrors['items[0].selections'][0]", "equals": "عناصر مسودة الدفع المحددة غير متاحة حالياً."}
+        ]
+      }
+    },
+    {
+      "id": "STEP10-MALFORMED-JSON-027",
+      "feature": "step10",
+      "tags": ["step10", "live", "transport", "malformed", "body"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "bodyFile": "step-10-checkout-drafts.results.md",
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json"
+      }
+    },
+    {
+      "id": "STEP10-UNSUPPORTED-CONTENT-TYPE-028",
+      "feature": "step10",
+      "tags": ["step10", "live", "transport", "content-type"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "text/plain",
+        "X-Device-Token": "{{var:rotatedDeviceToken}}"
+      },
+      "jsonBody": {
+        "ignored": true
+      },
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json"
+      }
+    }
+  ]
+}

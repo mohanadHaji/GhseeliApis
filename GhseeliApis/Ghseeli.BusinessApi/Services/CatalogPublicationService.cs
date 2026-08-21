@@ -57,7 +57,8 @@ public class CatalogPublicationService : ICatalogPublicationService
                     AddressAr = branch.AddressAr,
                     AddressHe = branch.AddressHe,
                     Latitude = branch.Latitude,
-                    Longitude = branch.Longitude
+                    Longitude = branch.Longitude,
+                    Availability = CreateSnapshotAvailability(branch)
                 })
                 .ToArray(),
             ServiceAreas = publishedServiceAreas,
@@ -153,6 +154,48 @@ public class CatalogPublicationService : ICatalogPublicationService
             CenterLatitude = centerLatitude,
             CenterLongitude = centerLongitude,
             RadiusKm = branch.ServiceArea.RadiusKm
+        };
+    }
+
+    private static CatalogSnapshotBranchAvailability? CreateSnapshotAvailability(Models.Branch branch)
+    {
+        if (branch.AvailabilitySettings is null)
+        {
+            return null;
+        }
+
+        return new CatalogSnapshotBranchAvailability
+        {
+            IsActive = branch.AvailabilitySettings.IsActive,
+            TimeZoneId = branch.AvailabilitySettings.TimeZoneId,
+            MinimumLeadMinutes = branch.AvailabilitySettings.MinimumLeadMinutes,
+            BookingHorizonDays = branch.AvailabilitySettings.BookingHorizonDays,
+            RecurringSchedules = branch.RecurringSchedules
+                .Where(schedule => schedule.IsActive)
+                .OrderBy(schedule => schedule.DayOfWeek)
+                .ThenBy(schedule => schedule.StartLocalTime)
+                .Select(schedule => new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = schedule.DayOfWeek,
+                    StartLocalTime = schedule.StartLocalTime,
+                    EndLocalTime = schedule.EndLocalTime,
+                    SlotDurationMinutes = schedule.SlotDurationMinutes,
+                    Capacity = schedule.Capacity
+                })
+                .ToArray(),
+            AvailabilityOverrides = branch.AvailabilityOverrides
+                .Where(overrideItem => overrideItem.IsActive)
+                .OrderBy(overrideItem => overrideItem.OverrideDate)
+                .Select(overrideItem => new CatalogSnapshotAvailabilityOverride
+                {
+                    OverrideDate = overrideItem.OverrideDate,
+                    IsClosed = overrideItem.IsClosed,
+                    StartLocalTime = overrideItem.StartLocalTime,
+                    EndLocalTime = overrideItem.EndLocalTime,
+                    SlotDurationMinutes = overrideItem.SlotDurationMinutes,
+                    Capacity = overrideItem.Capacity
+                })
+                .ToArray()
         };
     }
 

@@ -61,6 +61,7 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
 {
     private readonly ICatalogReadModelRepository _repository;
     private readonly IBusinessApiClient _businessApiClient;
+    private readonly ICatalogProviderRefreshCoordinator _refreshCoordinator;
     private readonly IOptionsMonitor<CatalogReadModelOptions> _optionsMonitor;
     private readonly TimeProvider _timeProvider;
     private readonly IAppLogger _logger;
@@ -68,12 +69,14 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     public CatalogReadModelService(
         ICatalogReadModelRepository repository,
         IBusinessApiClient businessApiClient,
+        ICatalogProviderRefreshCoordinator refreshCoordinator,
         IOptionsMonitor<CatalogReadModelOptions> optionsMonitor,
         TimeProvider timeProvider,
         IAppLogger logger)
     {
         _repository = repository;
         _businessApiClient = businessApiClient;
+        _refreshCoordinator = refreshCoordinator;
         _optionsMonitor = optionsMonitor;
         _timeProvider = timeProvider;
         _logger = logger;
@@ -418,245 +421,11 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             cancellationToken);
     }
 
-    private async Task EnsureProviderUsableAsync(
+    private Task EnsureProviderUsableAsync(
         CatalogProviderReadModel provider,
         bool forceRefresh,
-        CancellationToken cancellationToken)
-    {
-        var options = _optionsMonitor.CurrentValue;
-        var now = _timeProvider.GetUtcNow();
-        var freshness = CatalogProviderFreshnessState.Create(provider, now, options);
-
-        if (!forceRefresh)
-        {
-            if (!freshness.HasSnapshot)
-            {
-                await RefreshProviderAsync(provider, freshness, cancellationToken);
-                return;
-            }
-
-            if (freshness.IsFresh || freshness.CanServeStale)
-            {
-                return;
-            }
-        }
-
-        await RefreshProviderAsync(provider, freshness, cancellationToken);
-    }
-
-    private async Task RefreshProviderAsync(
-        CatalogProviderReadModel provider,
-        CatalogProviderFreshnessState currentFreshness,
-        CancellationToken cancellationToken)
-    {
-        var options = _optionsMonitor.CurrentValue;
-        var now = _timeProvider.GetUtcNow();
-        var leaseToken = Guid.NewGuid().ToString("N");
-        var leaseExpiresAtUtc = now.AddSeconds(options.LeaseDurationSeconds);
-        var acquired = await _repository.TryAcquireRefreshLeaseAsync(
-            provider.Id,
-            leaseToken,
-            now,
-            leaseExpiresAtUtc,
-            cancellationToken);
-
-        if (!acquired)
-        {
-            var providerAfterConcurrentRefresh = await WaitForConcurrentRefreshAsync(
-                provider.Id,
-                provider.LastSuccessfulRefreshAtUtc,
-                cancellationToken);
-            var concurrentFreshness = providerAfterConcurrentRefresh is null
-                ? CatalogProviderFreshnessState.Empty
-                : CatalogProviderFreshnessState.Create(
-                    providerAfterConcurrentRefresh,
-                    _timeProvider.GetUtcNow(),
-                    options);
-
-            if (concurrentFreshness.HasSnapshot && concurrentFreshness.CanServeStale)
-            {
-                return;
-            }
-
-            if (currentFreshness.HasSnapshot && currentFreshness.CanServeStale)
-            {
-                return;
-            }
-
-            throw CreateUnavailable("The catalog provider is being refreshed by another request.");
-        }
-
-        try
-        {
-            var snapshot = await _businessApiClient.GetCatalogSnapshotAsync(
-                provider.SourceCompanyId,
-                cancellationToken);
-
-            CatalogSnapshotValidator.Validate(provider.SourceCompanyId, snapshot);
-            var snapshotHash = CatalogSnapshotHasher.Compute(snapshot);
-
-            if (snapshot.CatalogVersion == provider.CatalogVersion &&
-                !string.IsNullOrWhiteSpace(provider.SnapshotHash) &&
-                !string.Equals(provider.SnapshotHash, snapshotHash, StringComparison.Ordinal))
-            {
-                _logger.LogWarning(
-                    $"Catalog snapshot hash changed without a version increment for provider {provider.Id}.");
-            }
-
-            var applyResult = await _repository.ApplySnapshotAsync(
-                provider.Id,
-                snapshot,
-                snapshotHash,
-                now,
-                leaseToken,
-                cancellationToken);
-
-            if (applyResult == CatalogSnapshotApplyResult.VerifiedUnchanged)
-            {
-                _logger.LogInfo(
-                    $"Catalog snapshot verified without content changes for provider {provider.Id} at version {snapshot.CatalogVersion}.");
-            }
-            else if (applyResult == CatalogSnapshotApplyResult.RejectedVersionRegression)
-            {
-                _logger.LogWarning(
-                    $"Catalog snapshot version regression rejected for provider {provider.Id}. ExistingVersion={provider.CatalogVersion}, IncomingVersion={snapshot.CatalogVersion}.");
-            }
-            else if (applyResult == CatalogSnapshotApplyResult.LeaseLost)
-            {
-                _logger.LogWarning(
-                    $"Catalog refresh lease was lost before provider {provider.Id} could apply its snapshot.");
-                await ThrowWhenNoUsableCacheExistsAsync(provider.Id, cancellationToken);
-                return;
-            }
-
-            var refreshedProvider = await _repository.GetEnabledProviderSummaryAsync(
-                provider.Id,
-                cancellationToken);
-            var refreshedFreshness = refreshedProvider is null
-                ? CatalogProviderFreshnessState.Empty
-                : CatalogProviderFreshnessState.Create(
-                    refreshedProvider,
-                    _timeProvider.GetUtcNow(),
-                    options);
-
-            if (!refreshedFreshness.HasSnapshot || !refreshedFreshness.CanServeStale)
-            {
-                throw CreateUnavailable("The catalog provider could not produce a usable cache.");
-            }
-        }
-        catch (BusinessApiException exception)
-        {
-            _logger.LogWarning(
-                $"Catalog refresh failed for provider {provider.Id} with {exception.GetType().Name}.");
-            await ReleaseLeaseSafelyAsync(
-                provider.Id,
-                leaseToken,
-                now,
-                "business_api_failure",
-                cancellationToken);
-            await ThrowWhenNoUsableCacheExistsAsync(provider.Id, cancellationToken);
-        }
-        catch (CatalogSnapshotValidationException exception)
-        {
-            _logger.LogWarning(
-                $"Catalog snapshot validation failed for provider {provider.Id} with code {exception.Code}.");
-            await ReleaseLeaseSafelyAsync(
-                provider.Id,
-                leaseToken,
-                now,
-                exception.Code,
-                cancellationToken);
-            await ThrowWhenNoUsableCacheExistsAsync(provider.Id, cancellationToken);
-        }
-        catch (DbUpdateException exception)
-        {
-            _logger.LogError(
-                $"Catalog refresh persistence failed for provider {provider.Id}.",
-                exception);
-            await ReleaseLeaseSafelyAsync(
-                provider.Id,
-                leaseToken,
-                now,
-                "catalog_persistence_failure",
-                cancellationToken);
-            await ThrowWhenNoUsableCacheExistsAsync(provider.Id, cancellationToken);
-        }
-    }
-
-    private async Task ThrowWhenNoUsableCacheExistsAsync(
-        Guid providerId,
-        CancellationToken cancellationToken)
-    {
-        var provider = await _repository.GetEnabledProviderSummaryAsync(providerId, cancellationToken);
-        var freshness = provider is null
-            ? CatalogProviderFreshnessState.Empty
-            : CatalogProviderFreshnessState.Create(
-                provider,
-                _timeProvider.GetUtcNow(),
-                _optionsMonitor.CurrentValue);
-
-        if (!freshness.HasSnapshot || !freshness.CanServeStale)
-        {
-            throw CreateUnavailable("The catalog provider does not have a usable cache.");
-        }
-    }
-
-    private async Task<CatalogProviderReadModel?> WaitForConcurrentRefreshAsync(
-        Guid providerId,
-        DateTimeOffset? previousLastSuccessfulRefreshAtUtc,
-        CancellationToken cancellationToken)
-    {
-        var options = _optionsMonitor.CurrentValue;
-        var deadline = _timeProvider.GetUtcNow().AddSeconds(options.LeaseDurationSeconds);
-
-        while (_timeProvider.GetUtcNow() < deadline)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
-            var provider = await _repository.GetEnabledProviderSummaryAsync(providerId, cancellationToken);
-            if (provider is null)
-            {
-                return null;
-            }
-
-            if (provider.LastSuccessfulRefreshAtUtc != previousLastSuccessfulRefreshAtUtc ||
-                !HasActiveLease(provider, _timeProvider.GetUtcNow()))
-            {
-                return provider;
-            }
-        }
-
-        return await _repository.GetEnabledProviderSummaryAsync(providerId, cancellationToken);
-    }
-
-    private async Task ReleaseLeaseSafelyAsync(
-        Guid providerId,
-        string leaseToken,
-        DateTimeOffset failedAtUtc,
-        string failureCode,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await _repository.ReleaseRefreshLeaseAsync(
-                providerId,
-                leaseToken,
-                failedAtUtc,
-                failureCode,
-                cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException exception)
-        {
-            _logger.LogWarning(
-                $"Catalog refresh lease release raced for provider {providerId}: {exception.GetType().Name}.");
-        }
-    }
-
-    private static bool HasActiveLease(
-        CatalogProviderReadModel provider,
-        DateTimeOffset now) =>
-        !string.IsNullOrWhiteSpace(provider.RefreshLeaseToken) &&
-        provider.RefreshLeaseExpiresAtUtc.HasValue &&
-        provider.RefreshLeaseExpiresAtUtc.Value > now;
+        CancellationToken cancellationToken) =>
+        _refreshCoordinator.EnsureProviderUsableAsync(provider, forceRefresh, cancellationToken);
 
     private void ValidateCompatibleProviderScope(
         Guid? branchProviderId,

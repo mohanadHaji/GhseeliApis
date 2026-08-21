@@ -35,6 +35,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<CatalogOfferingReadModel> CatalogOfferings => Set<CatalogOfferingReadModel>();
     public DbSet<CatalogAddonGroupReadModel> CatalogAddonGroups => Set<CatalogAddonGroupReadModel>();
     public DbSet<CatalogAddonChoiceReadModel> CatalogAddonChoices => Set<CatalogAddonChoiceReadModel>();
+    public DbSet<CheckoutDraft> CheckoutDrafts => Set<CheckoutDraft>();
+    public DbSet<CheckoutDraftItem> CheckoutDraftItems => Set<CheckoutDraftItem>();
+    public DbSet<CheckoutDraftSelection> CheckoutDraftSelections => Set<CheckoutDraftSelection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -139,6 +142,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         });
 
         modelBuilder.ConfigureCatalogReadModel();
+        modelBuilder.ConfigureCheckoutDrafts();
 
         // ============================================
         // User and Wallet 1:1 Relationship

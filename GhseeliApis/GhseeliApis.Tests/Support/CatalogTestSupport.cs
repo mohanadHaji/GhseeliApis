@@ -98,7 +98,9 @@ internal static class CatalogTestSupport
         string addonChoiceNameAr = "شمع",
         string? addonChoiceNameHe = "ווקס",
         bool includeServiceArea = true,
-        bool globalOffering = false)
+        bool globalOffering = false,
+        bool includeAvailability = true,
+        CatalogSnapshotBranchAvailability? availability = null)
     {
         branchId ??= Guid.NewGuid();
         categoryId ??= Guid.NewGuid();
@@ -130,7 +132,10 @@ internal static class CatalogTestSupport
                     AddressAr = addressAr,
                     AddressHe = addressHe,
                     Latitude = 32.1,
-                    Longitude = 34.8
+                    Longitude = 34.8,
+                    Availability = includeAvailability
+                        ? availability ?? CreateDefaultAvailability()
+                        : null
                 }
             ],
             ServiceAreas = includeServiceArea
@@ -181,7 +186,7 @@ internal static class CatalogTestSupport
                                     NameHe = addonGroupNameHe,
                                     DescriptionAr = "وصف الإضافة",
                                     DescriptionHe = "תיאור התוספת",
-                                    SelectionType = "Multiple",
+                                    SelectionType = "MultipleChoice",
                                     IsRequired = false,
                                     MinimumSelections = 0,
                                     MaximumSelections = 2,
@@ -209,6 +214,74 @@ internal static class CatalogTestSupport
             ]
         };
     }
+
+    private static CatalogSnapshotBranchAvailability CreateDefaultAvailability() =>
+        new()
+        {
+            IsActive = true,
+            TimeZoneId = "UTC",
+            MinimumLeadMinutes = 30,
+            BookingHorizonDays = 30,
+            RecurringSchedules =
+            [
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Monday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Tuesday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Wednesday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Thursday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Friday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Saturday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                },
+                new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = DayOfWeek.Sunday,
+                    StartLocalTime = TimeSpan.FromHours(8),
+                    EndLocalTime = TimeSpan.FromHours(18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 4
+                }
+            ]
+        };
 
     public static CustomerDevice CreateDevice(
         string token,

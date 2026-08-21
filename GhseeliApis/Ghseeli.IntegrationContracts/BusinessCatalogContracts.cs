@@ -62,6 +62,38 @@ public sealed class CatalogSnapshotBranch
     public string? AddressHe { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
+    public CatalogSnapshotBranchAvailability? Availability { get; set; }
+}
+
+public sealed class CatalogSnapshotBranchAvailability
+{
+    public bool IsActive { get; set; }
+    public string TimeZoneId { get; set; } = "UTC";
+    public int MinimumLeadMinutes { get; set; }
+    public int BookingHorizonDays { get; set; }
+    public IReadOnlyCollection<CatalogSnapshotRecurringSchedule> RecurringSchedules { get; set; } =
+        Array.Empty<CatalogSnapshotRecurringSchedule>();
+    public IReadOnlyCollection<CatalogSnapshotAvailabilityOverride> AvailabilityOverrides { get; set; } =
+        Array.Empty<CatalogSnapshotAvailabilityOverride>();
+}
+
+public sealed class CatalogSnapshotRecurringSchedule
+{
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan StartLocalTime { get; set; }
+    public TimeSpan EndLocalTime { get; set; }
+    public int SlotDurationMinutes { get; set; }
+    public int Capacity { get; set; }
+}
+
+public sealed class CatalogSnapshotAvailabilityOverride
+{
+    public DateOnly OverrideDate { get; set; }
+    public bool IsClosed { get; set; }
+    public TimeSpan? StartLocalTime { get; set; }
+    public TimeSpan? EndLocalTime { get; set; }
+    public int? SlotDurationMinutes { get; set; }
+    public int? Capacity { get; set; }
 }
 
 public sealed class CatalogSnapshotServiceArea

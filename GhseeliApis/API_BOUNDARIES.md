@@ -166,11 +166,11 @@ New endpoints use RFC 7807 `ProblemDetails` with these extensions:
 
 ```json
 {
-  "type": "https://api.ghseeli.example/errors/draft-expired",
+  "type": "https://api.ghseeli.example/errors/checkout_draft_expired",
   "title": "Request could not be completed",
-  "status": 409,
+  "status": 410,
   "detail": "Localized customer-safe message",
-  "code": "draft_expired",
+  "code": "checkout_draft_expired",
   "correlationId": "string",
   "language": "ar",
   "fieldErrors": {
@@ -187,7 +187,8 @@ Rules:
 - Missing authentication returns `401`.
 - Insufficient role/ownership returns `403`.
 - Missing resources return `404`.
-- State, expiry, version, or idempotency conflicts return `409`.
+- State, version, and idempotency conflicts return `409`.
+- Expired checkout drafts return `410 checkout_draft_expired`.
 - Upstream unavailability returns `503`; it must not be returned as an empty successful result.
 
 ### Correlation and idempotency
@@ -264,7 +265,7 @@ Rules:
 | POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice |
 | POST | `/api/v1/checkout/drafts` | Yes | No | Create anonymous draft |
 | GET | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Read device-owned draft |
-| PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update and reprice draft |
+| PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update anonymous draft intent |
 | POST | `/api/v1/checkout/reprice` | Yes | No | Reprice using `X-Order-Guid` |
 | POST | `/api/v1/bookings/from-draft` | Yes | Yes | Confirm a draft as a booking |
 | GET | `/api/v1/bookings` | Yes | Yes | Customer booking history |
@@ -456,7 +457,7 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Reusing an idempotency key with a different request body returns `409 idempotency_conflict`.
 - Oversized internal request bodies return `413`.
 - When an idempotent in-progress result cannot be replayed in time, return `503 idempotency_unavailable`.
-- Customer typed clients map `401`/`403` to authentication exceptions, `409` to conflict exceptions, malformed or empty successful payloads to contract exceptions, persistent timeouts to timeout exceptions, and retry-exhausted network/`408`/`429`/`5xx` failures to unavailable exceptions.
+- Customer typed clients map `401`/`403` to authentication exceptions, `409` to conflict exceptions, `410` to expired/gone exceptions for checkout drafts, malformed or empty successful payloads to contract exceptions, persistent timeouts to timeout exceptions, and retry-exhausted network/`408`/`429`/`5xx` failures to unavailable exceptions.
 
 ### Authoritative business mutations
 
@@ -526,6 +527,9 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 - Client-supplied prices are ignored/rejected.
 - Direct and `orderGuid` repricing return equal totals for equal selections.
 - Mixed-business drafts are rejected.
+- Anonymous drafts are owned only by the issuing device identity and are addressed by a public `orderGuid`, never by an internal database key.
+- Draft writes require an expected public version and fail closed on expiry or optimistic concurrency conflicts.
+- Draft intent stores immutable source IDs plus anonymous vehicle/location snapshots and always returns `requiresReprice=true` until authoritative repricing succeeds.
 - Invalid min/max, quantity, inactive option, expired draft, stale version, unavailable slot, and out-of-area location return stable errors.
 - Decimal rounding is deterministic.
 - Unsupported payment methods are disabled with localized reasons.

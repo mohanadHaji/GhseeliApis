@@ -73,4 +73,63 @@ public class BusinessCatalogContractSerializationTests
         responseDocument.RootElement.GetProperty("addonSubtotal").GetDecimal().Should().Be(20.02m);
         responseDocument.RootElement.GetProperty("totalPrice").GetDecimal().Should().Be(70.03m);
     }
+
+    [Fact]
+    public void CatalogSnapshotResponse_RoundTripsBranchAvailabilityRules()
+    {
+        var response = new CatalogSnapshotResponse
+        {
+            GeneratedAtUtc = new DateTime(2026, 8, 24, 9, 30, 0, DateTimeKind.Utc),
+            Company = new CatalogSnapshotCompany
+            {
+                Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                NameAr = "شركة"
+            },
+            Branches =
+            [
+                new CatalogSnapshotBranch
+                {
+                    Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    NameAr = "فرع",
+                    AddressAr = "عنوان",
+                    Availability = new CatalogSnapshotBranchAvailability
+                    {
+                        IsActive = true,
+                        TimeZoneId = "UTC",
+                        MinimumLeadMinutes = 30,
+                        BookingHorizonDays = 20,
+                        RecurringSchedules =
+                        [
+                            new CatalogSnapshotRecurringSchedule
+                            {
+                                DayOfWeek = DayOfWeek.Monday,
+                                StartLocalTime = TimeSpan.FromHours(8),
+                                EndLocalTime = TimeSpan.FromHours(18),
+                                SlotDurationMinutes = 30,
+                                Capacity = 4
+                            }
+                        ],
+                        AvailabilityOverrides =
+                        [
+                            new CatalogSnapshotAvailabilityOverride
+                            {
+                                OverrideDate = new DateOnly(2026, 8, 25),
+                                IsClosed = true
+                            }
+                        ]
+                    }
+                }
+            ]
+        };
+
+        var payload = JsonSerializer.Serialize(response, JsonOptions);
+        var roundTripped = JsonSerializer.Deserialize<CatalogSnapshotResponse>(payload, JsonOptions);
+
+        roundTripped.Should().NotBeNull();
+        roundTripped!.Branches.Single().Availability!.TimeZoneId.Should().Be("UTC");
+        roundTripped.Branches.Single().Availability!.RecurringSchedules.Single().SlotDurationMinutes.Should().Be(30);
+        roundTripped.Branches.Single().Availability!.AvailabilityOverrides.Single().OverrideDate
+            .Should()
+            .Be(new DateOnly(2026, 8, 25));
+    }
 }

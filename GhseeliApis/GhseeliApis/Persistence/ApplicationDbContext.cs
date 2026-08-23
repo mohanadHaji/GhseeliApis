@@ -38,6 +38,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<CheckoutDraft> CheckoutDrafts => Set<CheckoutDraft>();
     public DbSet<CheckoutDraftItem> CheckoutDraftItems => Set<CheckoutDraftItem>();
     public DbSet<CheckoutDraftSelection> CheckoutDraftSelections => Set<CheckoutDraftSelection>();
+    public DbSet<CheckoutDraftPricingSnapshot> CheckoutDraftPricingSnapshots => Set<CheckoutDraftPricingSnapshot>();
+    public DbSet<CheckoutDraftPricingItemSnapshot> CheckoutDraftPricingItemSnapshots => Set<CheckoutDraftPricingItemSnapshot>();
+    public DbSet<CheckoutDraftPricingSelectionSnapshot> CheckoutDraftPricingSelectionSnapshots => Set<CheckoutDraftPricingSelectionSnapshot>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

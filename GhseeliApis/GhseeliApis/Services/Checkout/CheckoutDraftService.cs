@@ -198,6 +198,7 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
         draft.Latitude = ToCoordinate(normalized.Latitude);
         draft.Longitude = ToCoordinate(normalized.Longitude);
         draft.RequiresReprice = true;
+        draft.PricingSnapshot = null;
         draft.UpdatedAt = now;
         draft.ExpiresAt = now.AddMinutes(_options.LifetimeMinutes);
         draft.PublicVersion = checked(draft.PublicVersion + 1);
@@ -904,7 +905,7 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
         }
     }
 
-    private static CheckoutDraftResponse MapResponse(CheckoutDraft draft, string language)
+    internal static CheckoutDraftResponse MapResponse(CheckoutDraft draft, string language)
     {
         return new CheckoutDraftResponse
         {
@@ -913,6 +914,53 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
             Version = draft.PublicVersion,
             ExpiresAt = draft.ExpiresAt,
             RequiresReprice = draft.RequiresReprice,
+            Pricing = draft.PricingSnapshot is null
+                ? null
+                : new CheckoutPricingSnapshotResponse
+                {
+                    CatalogVersion = draft.PricingSnapshot.CatalogVersion,
+                    Currency = draft.PricingSnapshot.Currency,
+                    QuotedAtUtc = draft.PricingSnapshot.QuotedAtUtc,
+                    BaseSubtotal = draft.PricingSnapshot.BaseSubtotal,
+                    AddonSubtotal = draft.PricingSnapshot.AddonSubtotal,
+                    ItemSubtotal = draft.PricingSnapshot.ItemSubtotal,
+                    ServiceFee = draft.PricingSnapshot.ServiceFee,
+                    ServiceFeeMode = draft.PricingSnapshot.ServiceFeeMode,
+                    ServiceFeeFlatAmount = draft.PricingSnapshot.ServiceFeeFlatAmount,
+                    ServiceFeePercentageRate = draft.PricingSnapshot.ServiceFeePercentageRate,
+                    TaxableSubtotal = draft.PricingSnapshot.TaxableSubtotal,
+                    TaxRatePercent = draft.PricingSnapshot.TaxRatePercent,
+                    TaxAppliesToServiceFee = draft.PricingSnapshot.TaxAppliesToServiceFee,
+                    Tax = draft.PricingSnapshot.Tax,
+                    GrandTotal = draft.PricingSnapshot.GrandTotal,
+                    TotalDurationMinutes = draft.PricingSnapshot.TotalDurationMinutes,
+                    Items = draft.PricingSnapshot.Items
+                        .OrderBy(item => item.DisplayOrder)
+                        .Select(item => new CheckoutPricingItemSnapshotResponse
+                        {
+                            OfferingSourceId = item.OfferingSourceId,
+                            BaseSubtotal = item.BaseSubtotal,
+                            AddonSubtotal = item.AddonSubtotal,
+                            ItemSubtotal = item.ItemSubtotal,
+                            TotalDurationMinutes = item.TotalDurationMinutes,
+                            Selections = item.Selections
+                                .OrderBy(selection => selection.DisplayOrder)
+                                .Select(selection => new CheckoutPricingSelectionSnapshotResponse
+                                {
+                                    AddonGroupSourceId = selection.AddonGroupSourceId,
+                                    AddonChoiceSourceId = selection.AddonChoiceSourceId,
+                                    SelectionType = selection.SelectionType,
+                                    Quantity = selection.Quantity,
+                                    UnitPriceAdjustment = selection.UnitPriceAdjustment,
+                                    TotalPriceAdjustment = selection.TotalPriceAdjustment,
+                                    UnitDurationAdjustmentMinutes = selection.UnitDurationAdjustmentMinutes,
+                                    TotalDurationAdjustmentMinutes = selection.TotalDurationAdjustmentMinutes,
+                                    IsDefaultApplied = selection.IsDefaultApplied
+                                })
+                                .ToArray()
+                        })
+                        .ToArray()
+                },
             Intent = new CheckoutDraftIntentResponse
             {
                 BusinessSourceId = draft.BusinessSourceId,

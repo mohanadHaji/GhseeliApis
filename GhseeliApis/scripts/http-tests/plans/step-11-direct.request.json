@@ -1,0 +1,35 @@
+{
+  "businessSourceId": "{{var:businessSourceId}}",
+  "branchSourceId": "{{var:branchSourceId}}",
+  "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+  "currency": "USD",
+  "quotedSubtotal": 0.01,
+  "serviceFee": 999.99,
+  "tax": 999.99,
+  "grandTotal": 0.02,
+  "vehicle": {
+    "vehicleType": "Sedan",
+    "licensePlate": "12-345-67",
+    "make": "Toyota",
+    "model": "Corolla",
+    "color": "{{var:vehicleColor}}",
+    "quotedVehiclePrice": 0.03
+  },
+  "location": {
+    "addressLine": "الشارع الرئيسي 10",
+    "city": "حيفا",
+    "area": "الكرمل",
+    "latitude": 32.1,
+    "longitude": 34.8,
+    "quotedServiceFee": 0.04
+  },
+  "items": [
+    {
+      "offeringSourceId": "{{var:defaultOfferingId}}",
+      "quotedBasePrice": 0.05,
+      "baseSubtotal": 0.06,
+      "grandTotal": 0.07,
+      "selections": []
+    }
+  ]
+}

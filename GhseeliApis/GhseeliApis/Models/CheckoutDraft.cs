@@ -27,4 +27,5 @@ public sealed class CheckoutDraft
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public ICollection<CheckoutDraftItem> Items { get; set; } = new List<CheckoutDraftItem>();
+    public CheckoutDraftPricingSnapshot? PricingSnapshot { get; set; }
 }

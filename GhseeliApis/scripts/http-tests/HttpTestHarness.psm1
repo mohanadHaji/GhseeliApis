@@ -1303,9 +1303,11 @@ function Build-RequestBody {
 
     $jsonBody = Get-ObjectPropertyValue -Object $Scenario -Name 'jsonBody'
     $bodyFile = Get-ObjectPropertyValue -Object $Scenario -Name 'bodyFile'
+    $repeatBody = Get-ObjectPropertyValue -Object $Scenario -Name 'repeatBody'
 
-    if ($null -ne $jsonBody -and $null -ne $bodyFile) {
-        throw "Scenario '$((Get-ObjectPropertyValue -Object $Scenario -Name 'id' -Required))' cannot define both jsonBody and bodyFile."
+    $bodySourceCount = @($jsonBody, $bodyFile, $repeatBody | Where-Object { $null -ne $_ }).Count
+    if ($bodySourceCount -gt 1) {
+        throw "Scenario '$((Get-ObjectPropertyValue -Object $Scenario -Name 'id' -Required))' can define only one of jsonBody, bodyFile, or repeatBody."
     }
 
     if ($null -ne $jsonBody) {
@@ -1313,6 +1315,7 @@ function Build-RequestBody {
         return [pscustomobject]@{
             Content     = ($resolvedBody | ConvertTo-Json -Depth 100 -Compress)
             ContentType = 'application/json'
+            ForceChunked = $false
         }
     }
 
@@ -1334,12 +1337,28 @@ function Build-RequestBody {
         return [pscustomobject]@{
             Content     = $resolvedBody
             ContentType = $defaultContentType
+            ForceChunked = $false
+        }
+    }
+
+    if ($null -ne $repeatBody) {
+        $text = [string](Resolve-TemplatedValue -Value (Get-ObjectPropertyValue -Object $repeatBody -Name 'text' -Required) -Variables $Variables)
+        $count = [int](Get-ObjectPropertyValue -Object $repeatBody -Name 'count' -Required)
+        if ($count -lt 1 -or $count -gt 1000000) {
+            throw "Scenario '$((Get-ObjectPropertyValue -Object $Scenario -Name 'id' -Required))' repeatBody count must be between 1 and 1000000."
+        }
+
+        return [pscustomobject]@{
+            Content     = ($text * $count)
+            ContentType = [string](Get-ObjectPropertyValue -Object $repeatBody -Name 'contentType')
+            ForceChunked = $true
         }
     }
 
     return [pscustomobject]@{
         Content     = $null
         ContentType = $null
+        ForceChunked = $false
     }
 }
 
@@ -1758,8 +1777,9 @@ function Assert-Manifest {
 
         $hasJsonBody = Test-ObjectProperty -Object $scenario -Name 'jsonBody'
         $hasBodyFile = Test-ObjectProperty -Object $scenario -Name 'bodyFile'
-        if ($hasJsonBody -and $hasBodyFile) {
-            throw "Scenario '$scenarioId' cannot define both jsonBody and bodyFile."
+        $hasRepeatBody = Test-ObjectProperty -Object $scenario -Name 'repeatBody'
+        if (@($hasJsonBody, $hasBodyFile, $hasRepeatBody | Where-Object { $_ }).Count -gt 1) {
+            throw "Scenario '$scenarioId' can define only one of jsonBody, bodyFile, or repeatBody."
         }
 
         $internalAuth = Get-ObjectPropertyValue -Object $scenario -Name 'internalAuth'
@@ -1887,6 +1907,10 @@ function Invoke-HttpScenario {
             $request.Content = New-Object System.Net.Http.StringContent -ArgumentList $body.Content
             $request.Content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($finalContentType)
             $request.Content.Headers.ContentType.CharSet = 'utf-8'
+            if ($body.ForceChunked) {
+                $request.Headers.TransferEncodingChunked = $true
+                $request.Content.Headers.ContentLength = $null
+            }
             $resolvedHeaders['Content-Type'] = $finalContentType
         }
         elseif (-not [string]::IsNullOrWhiteSpace($contentTypeHeader)) {
@@ -2631,6 +2655,24 @@ function Invoke-HttpTestHarnessSelfTest {
 
     Add-SelfTestResult -Name 'AllowNonLocal bypasses the local guard intentionally' -Action {
         Assert-LocalBaseUrl -BaseUri ([uri]'https://api.example.com') -AllowNonLocal
+    }
+
+    Add-SelfTestResult -Name 'Repeated request bodies support transport limits' -Action {
+        $body = Build-RequestBody `
+            -Scenario ([ordered]@{
+                id = 'oversized-body'
+                repeatBody = [ordered]@{
+                    text = 'x'
+                    count = 70000
+                    contentType = 'application/json'
+                }
+            }) `
+            -Variables @{} `
+            -ManifestDirectory $PSScriptRoot
+
+        if ($body.Content.Length -ne 70000 -or $body.ContentType -ne 'application/json' -or -not $body.ForceChunked) {
+            throw 'Repeated request body generation failed.'
+        }
     }
 
     Add-SelfTestResult -Name 'Sample manifest parses and validates' -Action {

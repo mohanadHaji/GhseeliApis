@@ -31,11 +31,19 @@ internal sealed class ManualTimeProvider : TimeProvider
 internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
 {
     private int _catalogSnapshotRequests;
+    private int _validateAppointmentRequests;
+    private readonly object _validationSync = new();
 
     public Func<Guid, CancellationToken, Task<CatalogSnapshotResponse>> GetCatalogSnapshotHandler { get; set; } =
         (_, _) => throw new NotImplementedException();
 
+    public Func<ValidateAppointmentRequest, string, CancellationToken, Task<ValidateAppointmentResponse>>
+        ValidateAppointmentHandler { get; set; } =
+        (_, _, _) => throw new NotImplementedException();
+
     public int CatalogSnapshotRequests => _catalogSnapshotRequests;
+    public int ValidateAppointmentRequests => _validateAppointmentRequests;
+    public List<(ValidateAppointmentRequest Request, string IdempotencyKey)> ValidationRequests { get; } = [];
 
     public Task<CatalogSnapshotResponse> GetCatalogSnapshotAsync(
         Guid companyId,
@@ -50,7 +58,13 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
         string idempotencyKey,
         CancellationToken cancellationToken = default)
     {
-        throw new NotSupportedException();
+        Interlocked.Increment(ref _validateAppointmentRequests);
+        lock (_validationSync)
+        {
+            ValidationRequests.Add((request, idempotencyKey));
+        }
+
+        return ValidateAppointmentHandler(request, idempotencyKey, cancellationToken);
     }
 }
 
@@ -72,6 +86,134 @@ internal sealed class TestAppLogger : IAppLogger
 
 internal static class CatalogTestSupport
 {
+    public static ValidateAppointmentResponse CreateValidationResponse(
+        CatalogSnapshotResponse snapshot,
+        ValidateAppointmentRequest request,
+        long? catalogVersion = null,
+        string? currency = null,
+        IReadOnlyCollection<AppointmentValidationIssue>? errors = null)
+    {
+        var resolvedCatalogVersion = catalogVersion ?? snapshot.CatalogVersion;
+        var resolvedCurrency = currency ?? request.Currency;
+        var offering = snapshot.Categories
+            .SelectMany(category => category.Offerings)
+            .SingleOrDefault(candidate => candidate.Id == request.OfferingId);
+        if (offering is null)
+        {
+            return new ValidateAppointmentResponse
+            {
+                ContractVersion = Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
+                Valid = false,
+                CatalogVersion = resolvedCatalogVersion,
+                Currency = resolvedCurrency,
+                BranchId = request.BranchId,
+                OfferingId = request.OfferingId,
+                Errors = errors ??
+                [
+                    new AppointmentValidationIssue
+                    {
+                        Code = AppointmentValidationErrorCodes.OfferingNotFound,
+                        Field = "offeringId",
+                        Message = "The requested offering was not found."
+                    }
+                ]
+            };
+        }
+
+        if (errors is not null && errors.Count > 0)
+        {
+            return new ValidateAppointmentResponse
+            {
+                ContractVersion = Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
+                Valid = false,
+                CatalogVersion = resolvedCatalogVersion,
+                Currency = resolvedCurrency,
+                BranchId = request.BranchId,
+                OfferingId = request.OfferingId,
+                Errors = errors
+            };
+        }
+
+        var requestedByChoiceId = request.SelectedAddons?
+            .ToDictionary(selection => selection.AddonChoiceId, selection => selection.Quantity) ??
+            new Dictionary<Guid, int>();
+        var normalizedSelections = new List<NormalizedAddonSelection>();
+        var addonSubtotal = 0m;
+        var durationAdjustmentMinutes = 0;
+
+        foreach (var group in offering.AddonGroups
+                     .OrderBy(group => group.DisplayOrder)
+                     .ThenBy(group => group.NameAr))
+        {
+            foreach (var choice in group.Choices
+                         .OrderBy(choice => choice.DisplayOrder)
+                         .ThenBy(choice => choice.NameAr))
+            {
+                var quantity = requestedByChoiceId.TryGetValue(choice.Id, out var explicitQuantity)
+                    ? explicitQuantity
+                    : choice.DefaultQuantity;
+                if (quantity <= 0)
+                {
+                    continue;
+                }
+
+                var unitPrice = RoundToCurrency(choice.PriceAdjustment);
+                var totalPrice = RoundToCurrency(unitPrice * quantity);
+                var totalDuration = checked(choice.DurationAdjustmentMinutes * quantity);
+                normalizedSelections.Add(new NormalizedAddonSelection
+                {
+                    AddonGroupId = group.Id,
+                    AddonChoiceId = choice.Id,
+                    SelectionType = group.SelectionType,
+                    Quantity = quantity,
+                    UnitPriceAdjustment = unitPrice,
+                    TotalPriceAdjustment = totalPrice,
+                    UnitDurationAdjustmentMinutes = choice.DurationAdjustmentMinutes,
+                    TotalDurationAdjustmentMinutes = totalDuration,
+                    IsDefaultApplied = !requestedByChoiceId.ContainsKey(choice.Id) && choice.DefaultQuantity > 0
+                });
+
+                addonSubtotal = RoundToCurrency(checked(addonSubtotal + totalPrice));
+                durationAdjustmentMinutes = checked(durationAdjustmentMinutes + totalDuration);
+            }
+        }
+
+        var baseSubtotal = RoundToCurrency(offering.BasePrice);
+        var totalDurationMinutes = checked(offering.DurationMinutes + durationAdjustmentMinutes);
+
+        return new ValidateAppointmentResponse
+        {
+            ContractVersion = Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
+            Valid = true,
+            CatalogVersion = resolvedCatalogVersion,
+            Currency = resolvedCurrency,
+            BranchId = request.BranchId,
+            OfferingId = request.OfferingId,
+            Errors = Array.Empty<AppointmentValidationIssue>(),
+            NormalizedSelections = normalizedSelections,
+            BaseSubtotal = baseSubtotal,
+            AddonSubtotal = addonSubtotal,
+            TotalPrice = RoundToCurrency(baseSubtotal + addonSubtotal),
+            TotalDurationMinutes = totalDurationMinutes,
+            Availability = new AppointmentAvailabilityFacts
+            {
+                IsAvailable = true,
+                HasActiveConfiguration = true,
+                RequestedSlotStartUtc = request.RequestedSlotStartUtc.UtcDateTime,
+                RequestedSlotEndUtc = request.RequestedSlotStartUtc.UtcDateTime.AddMinutes(totalDurationMinutes),
+                CapacityReservationChecked = false,
+                WindowSource = "Test"
+            },
+            ServiceArea = new AppointmentServiceAreaFacts
+            {
+                ServiceAreaConfigured = true,
+                CustomerLocationRequired = true,
+                IsWithinServiceArea = true,
+                UsedBranchCoordinates = true
+            }
+        };
+    }
+
     public static CatalogSnapshotResponse CreateSnapshot(
         Guid companyId,
         long version = 1,
@@ -214,6 +356,9 @@ internal static class CatalogTestSupport
             ]
         };
     }
+
+    private static decimal RoundToCurrency(decimal value) =>
+        decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 
     private static CatalogSnapshotBranchAvailability CreateDefaultAvailability() =>
         new()

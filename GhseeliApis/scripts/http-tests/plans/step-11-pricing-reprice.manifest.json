@@ -1,0 +1,554 @@
+{
+  "name": "Step 11 authoritative pricing and draft repricing",
+  "sensitiveFields": [
+    "token",
+    "x-device-token",
+    "authorization",
+    "signature",
+    "secret"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "correlationId": "step11-{{var:runStamp}}",
+    "firstInstallationId": "{{gen:guid}}",
+    "secondInstallationId": "{{gen:guid}}",
+    "missingOrderGuid": "{{gen:guid}}",
+    "businessSourceId": "11111111-1111-4111-8111-111111111111",
+    "branchSourceId": "22222222-2222-4222-8222-222222222222",
+    "defaultOfferingId": "44444444-4444-4444-8444-444444444444",
+    "multipleChoiceId": "44444444-4444-4444-b444-444444444444",
+    "singleOfferingId": "55555555-5555-4555-8555-555555555555",
+    "singleChoiceId": "55555555-5555-4555-b555-555555555555",
+    "quantityOfferingId": "66666666-6666-4666-8666-666666666666",
+    "quantityChoiceId": "66666666-6666-4666-a666-666666666666",
+    "fixedOfferingId": "77777777-7777-4777-8777-777777777777",
+    "fixedChoiceId": "77777777-7777-4777-a777-777777777777",
+    "segmentedOfferingId": "88888888-8888-4888-8888-888888888888",
+    "segmentedChoiceId": "88888888-8888-4888-b888-888888888888",
+    "slotStartUtc": "2026-08-24T12:00:00Z",
+    "updatedSlotStartUtc": "2026-08-24T13:00:00Z",
+    "vehicleColor": "Blue"
+  },
+  "scenarios": [
+    {
+      "id": "STEP11-SWAGGER-001",
+      "feature": "step11",
+      "tags": ["step11", "live", "contract", "docs"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {"Accept": "application/json"},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.paths['/api/v1/pricing/reprice'].post", "exists": true},
+          {"path": "$.paths['/api/v1/checkout/reprice'].post", "exists": true}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DEVICE-FIRST-002",
+      "feature": "step11",
+      "tags": ["step11", "live", "setup", "auth"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}"},
+      "jsonBody": {"installationId": "{{var:firstInstallationId}}", "platform": "iOS", "appVersion": "1.0.0"},
+      "expect": {"status": 200, "contentType": "application/json", "json": [{"path": "$.token", "exists": true}]},
+      "extract": {"firstDeviceToken": "$.token"}
+    },
+    {
+      "id": "STEP11-DEVICE-SECOND-003",
+      "feature": "step11",
+      "tags": ["step11", "live", "setup", "auth", "ownership"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}"},
+      "jsonBody": {"installationId": "{{var:secondInstallationId}}", "platform": "Android", "appVersion": "1.0.0"},
+      "expect": {"status": 200, "contentType": "application/json", "json": [{"path": "$.token", "exists": true}]},
+      "extract": {"secondDeviceToken": "$.token"}
+    },
+    {
+      "id": "STEP11-DIRECT-AUTH-004",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "auth", "localization"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice?language=he",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}"},
+      "bodyFile": "step-11-direct.request.json",
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "device_token_missing",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-AUTH-005",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "auth", "localization"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=he",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "jsonBody": {"expectedVersion": 1},
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "device_token_missing",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DIRECT-LANGUAGE-006",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "localization", "validation"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice?language=en",
+      "headers": {"Accept": "application/json", "Accept-Language": "he-IL,ar;q=0.8", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-direct.request.json",
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-LANGUAGE-007",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "localization", "validation"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=en",
+      "headers": {"Accept": "application/json", "Accept-Language": "he", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "jsonBody": {"expectedVersion": 1},
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "configuration_language_invalid",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DIRECT-MALFORMED-008",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "transport", "malformed"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-malformed.request.txt",
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_invalid",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-MALFORMED-009",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "transport", "malformed"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "bodyFile": "step-11-malformed.request.txt",
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_invalid",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DIRECT-CONTENT-TYPE-010",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "transport", "content-type"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "text/plain", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "jsonBody": {"ignored": true},
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_unsupported_media_type",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-CONTENT-TYPE-011",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "transport", "content-type"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "text/plain", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "jsonBody": {"ignored": true},
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_unsupported_media_type",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DIRECT-SIZE-012",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "transport", "size"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "repeatBody": {"text": "x", "count": 65537, "contentType": "application/json"},
+      "expect": {
+        "status": 413,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_request_body_too_large",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-SIZE-013",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "transport", "size"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "repeatBody": {"text": "x", "count": 65537, "contentType": "application/json"},
+      "expect": {
+        "status": 413,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_request_body_too_large",
+        "json": [{"path": "$.correlationId", "equals": "{{var:correlationId}}"}]
+      }
+    },
+    {
+      "id": "STEP11-DIRECT-AUTHORITATIVE-014",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "pricing", "forgery", "payment"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice?language=he",
+      "headers": {"Accept": "application/json", "Accept-Language": "ar", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-direct.request.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {"equals": "no-store"},
+          "X-Correlation-Id": {"equals": "{{var:correlationId}}"}
+        },
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.intent.catalogVersion", "exists": true},
+          {"path": "$.pricing.catalogVersion", "exists": true},
+          {"path": "$.pricing.currency", "equals": "ILS"},
+          {"path": "$.pricing.baseSubtotal", "equals": 79.5},
+          {"path": "$.pricing.addonSubtotal", "equals": 0},
+          {"path": "$.pricing.itemSubtotal", "equals": 79.5},
+          {"path": "$.pricing.serviceFee", "equals": 0},
+          {"path": "$.pricing.tax", "equals": 0},
+          {"path": "$.pricing.grandTotal", "equals": 79.5},
+          {"path": "$.pricing.totalDurationMinutes", "equals": 30},
+          {"path": "$.pricing.quotedAtUtc", "exists": true},
+          {"path": "$.paymentCapabilities.methods[0].method", "equals": "CreditCard"},
+          {"path": "$.paymentCapabilities.methods[0].enabled", "equals": false},
+          {"path": "$.paymentCapabilities.methods[0].reasonCode", "equals": "payment_method_provider_unavailable"},
+          {"path": "$.paymentCapabilities.methods[1].reasonCode", "equals": "payment_method_not_yet_supported"},
+          {"path": "$.currency", "exists": false},
+          {"path": "$.grandTotal", "exists": false}
+        ]
+      },
+      "extract": {"directCatalogVersion": "$.pricing.catalogVersion", "directGrandTotal": "$.pricing.grandTotal"}
+    },
+    {
+      "id": "STEP11-DIRECT-STATELESS-015",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "stateless", "retry"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-direct.request.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "json": [
+          {"path": "$.pricing.catalogVersion", "equals": "{{var:directCatalogVersion}}"},
+          {"path": "$.pricing.grandTotal", "equals": "{{var:directGrandTotal}}"},
+          {"path": "$.orderGuid", "exists": false},
+          {"path": "$.version", "exists": false}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-SELECTION-TYPES-016",
+      "feature": "step11",
+      "tags": ["step11", "live", "direct", "pricing", "selection-types", "rounding"],
+      "method": "POST",
+      "url": "/api/v1/pricing/reprice?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-all-selections.request.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "json": [
+          {"path": "$.pricing.baseSubtotal", "equals": 304.5},
+          {"path": "$.pricing.addonSubtotal", "equals": 11},
+          {"path": "$.pricing.grandTotal", "equals": 315.5},
+          {"path": "$.pricing.totalDurationMinutes", "equals": 150},
+          {"path": "$.pricing.items[0].selections[0].selectionType", "equals": "MultipleChoice"},
+          {"path": "$.pricing.items[1].selections[0].selectionType", "equals": "SingleChoice"},
+          {"path": "$.pricing.items[2].selections[0].selectionType", "equals": "QuantityCounter"},
+          {"path": "$.pricing.items[2].selections[0].quantity", "equals": 2},
+          {"path": "$.pricing.items[3].selections[0].selectionType", "equals": "FixedIncludedChoice"},
+          {"path": "$.pricing.items[3].selections[0].isDefaultApplied", "equals": true},
+          {"path": "$.pricing.items[4].selections[0].selectionType", "equals": "SegmentedSingleButtonChoice"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-CREATE-DRAFT-017",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "setup", "persistence"],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-direct.request.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "json": [
+          {"path": "$.version", "equals": 1},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.pricing", "exists": false},
+          {"path": "$.paymentCapabilities", "exists": false}
+        ]
+      },
+      "extract": {"orderGuid": "$.orderGuid", "createdVersion": "$.version"}
+    },
+    {
+      "id": "STEP11-DRAFT-REPRICE-018",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "pricing", "persistence", "version"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=he",
+      "headers": {"Accept": "application/json", "Accept-Language": "ar", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:orderGuid}}"},
+      "jsonBody": {"expectedVersion": "{{var:createdVersion}}"},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {"equals": "no-store"},
+          "X-Correlation-Id": {"equals": "{{var:correlationId}}"}
+        },
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.version", "equals": 2},
+          {"path": "$.requiresReprice", "equals": false},
+          {"path": "$.pricing.catalogVersion", "equals": "{{var:directCatalogVersion}}"},
+          {"path": "$.pricing.grandTotal", "equals": "{{var:directGrandTotal}}"},
+          {"path": "$.paymentCapabilities.methods[0].method", "equals": "CreditCard"}
+        ]
+      },
+      "extract": {"repricedVersion": "$.version", "draftQuotedAtUtc": "$.pricing.quotedAtUtc"}
+    },
+    {
+      "id": "STEP11-DRAFT-REREAD-019",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "read", "persistence"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:orderGuid}}?language=ar",
+      "headers": {"Accept": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {"equals": "no-store"},
+          "X-Correlation-Id": {"equals": "{{var:correlationId}}"}
+        },
+        "json": [
+          {"path": "$.version", "equals": "{{var:repricedVersion}}"},
+          {"path": "$.requiresReprice", "equals": false},
+          {"path": "$.pricing.grandTotal", "equals": "{{var:directGrandTotal}}"},
+          {"path": "$.pricing.quotedAtUtc", "equals": "{{var:draftQuotedAtUtc}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-STALE-VERSION-020",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "conflict", "version"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=he",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:orderGuid}}"},
+      "jsonBody": {"expectedVersion": "{{var:createdVersion}}"},
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "checkout_draft_version_conflict",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-WRONG-OWNER-021",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "ownership", "security"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=he",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:secondDeviceToken}}", "X-Order-Guid": "{{var:orderGuid}}"},
+      "jsonBody": {"expectedVersion": "{{var:repricedVersion}}"},
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-MISSING-022",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "ownership", "not-found"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=he",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:secondDeviceToken}}", "X-Order-Guid": "{{var:missingOrderGuid}}"},
+      "jsonBody": {"expectedVersion": "{{var:repricedVersion}}"},
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {"path": "$.language", "equals": "he"},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-MISSING-HEADER-023",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "validation", "header"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "jsonBody": {"expectedVersion": "{{var:repricedVersion}}"},
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_invalid",
+        "json": [
+          {"path": "$.fieldErrors.orderGuid[0]", "exists": true},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-MALFORMED-HEADER-024",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "validation", "header"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "not-a-guid"},
+      "jsonBody": {"expectedVersion": "{{var:repricedVersion}}"},
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {"X-Correlation-Id": {"equals": "{{var:correlationId}}"}},
+        "errorCode": "pricing_invalid",
+        "json": [
+          {"path": "$.fieldErrors.orderGuid[0]", "exists": true},
+          {"path": "$.correlationId", "equals": "{{var:correlationId}}"}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-INVALIDATE-025",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "update", "invalidation"],
+      "method": "PUT",
+      "url": "/api/v1/checkout/drafts/{{var:orderGuid}}?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "bodyFile": "step-11-update-draft.request.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.version", "equals": 3},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.pricing", "exists": false},
+          {"path": "$.paymentCapabilities", "exists": false},
+          {"path": "$.intent.vehicle.color", "equals": "Green"}
+        ]
+      },
+      "extract": {"invalidatedVersion": "$.version"}
+    },
+    {
+      "id": "STEP11-DRAFT-REREAD-INVALIDATED-026",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "read", "invalidation"],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:orderGuid}}",
+      "headers": {"Accept": "application/json", "X-Correlation-Id": "{{var:correlationId}}", "X-Device-Token": "{{var:firstDeviceToken}}"},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {"equals": "no-store"},
+          "X-Correlation-Id": {"equals": "{{var:correlationId}}"}
+        },
+        "json": [
+          {"path": "$.version", "equals": "{{var:invalidatedVersion}}"},
+          {"path": "$.requiresReprice", "equals": true},
+          {"path": "$.pricing", "exists": false}
+        ]
+      }
+    },
+    {
+      "id": "STEP11-DRAFT-REPRICE-AGAIN-027",
+      "feature": "step11",
+      "tags": ["step11", "live", "draft", "pricing", "replacement", "retry"],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=ar",
+      "headers": {"Accept": "application/json", "Content-Type": "application/json", "X-Device-Token": "{{var:firstDeviceToken}}", "X-Order-Guid": "{{var:orderGuid}}"},
+      "jsonBody": {"expectedVersion": "{{var:invalidatedVersion}}"},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {"path": "$.version", "equals": 4},
+          {"path": "$.requiresReprice", "equals": false},
+          {"path": "$.pricing.grandTotal", "equals": "{{var:directGrandTotal}}"},
+          {"path": "$.intent.requestedSlotStartUtc", "matches": "^2026-08-24T13:00:00(?:Z|\\+00:00)$"}
+        ]
+      }
+    }
+  ]
+}

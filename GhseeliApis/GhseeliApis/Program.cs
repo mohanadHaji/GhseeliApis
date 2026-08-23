@@ -16,6 +16,8 @@ using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -25,6 +27,42 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers(options =>
 {
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    var defaultFactory = options.InvalidModelStateResponseFactory;
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        if (!IsPricingRepricePath(context.HttpContext.Request.Path))
+        {
+            return defaultFactory(context);
+        }
+
+        var unsupportedMediaType = context.ModelState.Values
+            .SelectMany(entry => entry.Errors)
+            .Any(error => error.Exception is UnsupportedContentTypeException);
+        var statusCode = unsupportedMediaType
+            ? StatusCodes.Status415UnsupportedMediaType
+            : StatusCodes.Status400BadRequest;
+        var code = unsupportedMediaType
+            ? CheckoutPricingProblemCodes.UnsupportedMediaType
+            : CheckoutPricingProblemCodes.Invalid;
+        var request = context.HttpContext.Request;
+        var language = ConfigurationLanguageResolver.Resolve(
+            request.Query["language"].ToString(),
+            request.Headers.AcceptLanguage.ToString());
+        var problem = CheckoutPricingProblemDetailsFactory.Create(
+            statusCode,
+            code,
+            language,
+            context.HttpContext.TraceIdentifier);
+
+        return new ObjectResult(problem)
+        {
+            StatusCode = statusCode,
+            ContentTypes = { "application/problem+json" }
+        };
+    };
 });
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -205,6 +243,8 @@ builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationS
 builder.Services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRefreshCoordinator>();
 builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
 builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
+builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
+builder.Services.AddSingleton<ICheckoutPaymentCapabilitiesService, CheckoutPaymentCapabilitiesService>();
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
     DeviceTokenOptionsValidator>();
@@ -214,6 +254,9 @@ builder.Services.AddSingleton<
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<CheckoutDraftOptions>,
     CheckoutDraftOptionsValidator>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CheckoutPricingOptions>,
+    CheckoutPricingOptionsValidator>();
 builder.Services.AddOptions<DeviceTokenOptions>()
     .Bind(builder.Configuration.GetSection(DeviceTokenOptions.SectionName))
     .ValidateOnStart();
@@ -223,6 +266,11 @@ builder.Services.AddOptions<CatalogReadModelOptions>()
 builder.Services.AddOptions<CheckoutDraftOptions>()
     .Bind(builder.Configuration.GetSection(CheckoutDraftOptions.SectionName))
     .ValidateOnStart();
+builder.Services.AddOptions<CheckoutPricingOptions>()
+    .Bind(builder.Configuration.GetSection(CheckoutPricingOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.Configure<StripeConfigurationOptions>(
+    builder.Configuration.GetSection(StripeConfigurationOptions.SectionName));
 builder.Services.Configure<BusinessApiClientOptions>(
     builder.Configuration.GetSection(BusinessApiClientOptions.SectionName));
 builder.Services.AddTransient<BusinessApiResilienceDelegatingHandler>();
@@ -312,5 +360,9 @@ catch (Exception ex)
 }
 
 app.Run();
+
+static bool IsPricingRepricePath(PathString path) =>
+    path.Equals("/api/v1/pricing/reprice", StringComparison.OrdinalIgnoreCase) ||
+    path.Equals("/api/v1/checkout/reprice", StringComparison.OrdinalIgnoreCase);
 
 public partial class Program;

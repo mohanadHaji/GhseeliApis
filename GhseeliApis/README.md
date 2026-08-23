@@ -1,7 +1,7 @@
 # ?? Ghseeli - Car Washing Service Platform
 
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%209.0-512BD4)](https://dotnet.microsoft.com/)
-[![Tests](https://img.shields.io/badge/Tests-931%20Passing-success)](.)
+[![Tests](https://img.shields.io/badge/Tests-1001%20Passing-success)](.)
 [![Google Cloud SQL](https://img.shields.io/badge/Database-Google%20Cloud%20SQL-4285F4)](https://cloud.google.com/sql)
 [![Entity Framework](https://img.shields.io/badge/EF%20Core-8.0-512BD4)](https://docs.microsoft.com/ef/)
 [![OAuth 2.0](https://img.shields.io/badge/OAuth%202.0-Google%20%7C%20Facebook-4285F4)](.)
@@ -866,6 +866,37 @@ Drafts persist normalized source IDs for the selected business, branch, offering
   "LifetimeMinutes": 30
 }
 ```
+
+### Customer authoritative pricing
+
+`POST /api/v1/pricing/reprice` is the stateless authoritative pricing endpoint for anonymous checkout intents. It is device-token protected, returns `Cache-Control: no-store`, accepts the same checkout intent envelope as draft creation, and never persists a draft. Any client-supplied price, fee, tax, total, or currency fields are ignored; the Customer API validates each item against the Business API and returns authoritative normalized selections, catalog version, quoted timestamp, itemized subtotals, service fee, taxable subtotal, tax, grand total, and server-derived payment capabilities.
+
+`POST /api/v1/checkout/reprice` reprices an existing device-owned draft using `X-Order-Guid` plus:
+
+```json
+{
+  "expectedVersion": 1
+}
+```
+
+On success, the API stores an immutable pricing snapshot on the draft, updates normalized selections and catalog version from the authoritative response, sets `requiresReprice: false`, and increments the public `version` exactly once. A later `PUT /api/v1/checkout/drafts/{orderGuid}` intent mutation deletes the stored snapshot and restores `requiresReprice: true`.
+
+Pricing defaults are intentionally safe and non-billable until operators configure them:
+
+```json
+"CheckoutPricing": {
+  "Currency": "ILS",
+  "TaxRatePercent": 0,
+  "TaxAppliesToServiceFee": false,
+  "ServiceFee": {
+    "Mode": "None",
+    "FlatAmount": 0,
+    "PercentageRate": 0
+  }
+}
+```
+
+`CreditCard` is exposed only when valid Stripe publishable and secret keys are configured. `Wallet`, `CashOnArrival`, and `ThirdParty` remain disabled with stable reason codes until their server flows exist.
 
 ### **4. Commit & Push**
 ```bash

@@ -1,0 +1,57 @@
+{
+  "businessSourceId": "{{var:businessSourceId}}",
+  "branchSourceId": "{{var:branchSourceId}}",
+  "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+  "vehicle": {
+    "vehicleType": "Sedan",
+    "licensePlate": "12-345-67"
+  },
+  "location": {
+    "addressLine": "الشارع الرئيسي 10",
+    "city": "حيفا",
+    "latitude": 32.1,
+    "longitude": 34.8
+  },
+  "items": [
+    {
+      "offeringSourceId": "{{var:defaultOfferingId}}",
+      "selections": [
+        {
+          "addonChoiceSourceId": "{{var:multipleChoiceId}}",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "offeringSourceId": "{{var:singleOfferingId}}",
+      "selections": [
+        {
+          "addonChoiceSourceId": "{{var:singleChoiceId}}",
+          "quantity": 1
+        }
+      ]
+    },
+    {
+      "offeringSourceId": "{{var:quantityOfferingId}}",
+      "selections": [
+        {
+          "addonChoiceSourceId": "{{var:quantityChoiceId}}",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "offeringSourceId": "{{var:fixedOfferingId}}",
+      "selections": []
+    },
+    {
+      "offeringSourceId": "{{var:segmentedOfferingId}}",
+      "selections": [
+        {
+          "addonChoiceSourceId": "{{var:segmentedChoiceId}}",
+          "quantity": 1
+        }
+      ]
+    }
+  ]
+}

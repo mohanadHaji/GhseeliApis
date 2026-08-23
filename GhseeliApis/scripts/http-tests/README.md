@@ -140,7 +140,7 @@ Supported scenario fields:
 
 - `id`, `feature`, `tags`
 - `method`, `url`, `headers`
-- `jsonBody` or `bodyFile`
+- `jsonBody`, `bodyFile`, or `repeatBody`
 - `internalAuth` for runtime HMAC headers/signature using a secret environment variable
 - `setVariables`
 - `expect.status`
@@ -214,6 +214,9 @@ Do not commit `artifacts\` results or `*.local.json` / `local.*.json` files.
 ## Notes
 
 - `bodyFile` is resolved relative to the manifest directory when not absolute.
+- `repeatBody` generates transport-boundary payloads without committing large fixtures:
+  `{"text":"x","count":70000,"contentType":"application/json"}`. These payloads
+  use chunked transfer so a server can return an early size-limit response cleanly.
 - Define dependent `setupVariables` / `setVariables` in the order they should resolve.
 - The bundled sample manifest has public smoke tests and opt-in auth chaining examples. Run `-Tags smoke` if you only want non-auth public checks.
 - The sample auth chain reuses the extracted token with `Authorization: Bearer {{var:authToken}}`; keep real secrets in environment variables, not in the manifest.

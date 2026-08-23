@@ -11,5 +11,28 @@ public interface ICheckoutDraftRepository
         Guid ownerDeviceId,
         CancellationToken cancellationToken);
 
+    void AddPricingSnapshot(CheckoutDraftPricingSnapshot snapshot);
+
+    void RemovePricingSnapshot(CheckoutDraftPricingSnapshot snapshot);
+
+    Task<CheckoutDraftPersistenceState?> GetPersistenceStateForUpdateAsync(
+        Guid draftId,
+        CancellationToken cancellationToken);
+
+    Task ExecuteInTransactionAsync(
+        Func<CancellationToken, Task> operation,
+        CheckoutDraftPricingPersistenceExpectation expectation,
+        CancellationToken cancellationToken);
+
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
+
+public sealed record CheckoutDraftPersistenceState(
+    int PublicVersion,
+    DateTimeOffset ExpiresAt,
+    byte[] RowVersion);
+
+public sealed record CheckoutDraftPricingPersistenceExpectation(
+    Guid DraftId,
+    int PublicVersion,
+    Guid PricingSnapshotId);

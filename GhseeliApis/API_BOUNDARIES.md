@@ -262,11 +262,11 @@ Rules:
 | GET | `/api/v1/catalog/businesses/{id}/offerings` | Yes | No | Browse offerings |
 | GET | `/api/v1/catalog/offerings/{id}` | Yes | No | Get offering and add-on rules |
 | GET | `/api/v1/availability` | Yes | No | Query customer-facing slots |
-| POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice |
+| POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice for a checkout-like intent |
 | POST | `/api/v1/checkout/drafts` | Yes | No | Create anonymous draft |
 | GET | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Read device-owned draft |
 | PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update anonymous draft intent |
-| POST | `/api/v1/checkout/reprice` | Yes | No | Reprice using `X-Order-Guid` |
+| POST | `/api/v1/checkout/reprice` | Yes | No | Reprice a device-owned draft using `X-Order-Guid` and `expectedVersion` |
 | POST | `/api/v1/bookings/from-draft` | Yes | Yes | Confirm a draft as a booking |
 | GET | `/api/v1/bookings` | Yes | Yes | Customer booking history |
 | GET | `/api/v1/bookings/{id}` | Yes | Yes | Customer booking details |
@@ -525,14 +525,18 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 ### Pricing and drafts
 
 - Client-supplied prices are ignored/rejected.
+- `POST /api/v1/pricing/reprice` is stateless, returns `Cache-Control: no-store`, accepts the checkout intent envelope, and never creates or mutates a draft.
+- `POST /api/v1/checkout/reprice` is device-owned draft repricing only; it requires `X-Order-Guid` plus a body `expectedVersion`, fails closed on missing/wrong device ownership, expiry, or optimistic concurrency, and increments the public draft version exactly once on success.
 - Direct and `orderGuid` repricing return equal totals for equal selections.
 - Mixed-business drafts are rejected.
 - Anonymous drafts are owned only by the issuing device identity and are addressed by a public `orderGuid`, never by an internal database key.
 - Draft writes require an expected public version and fail closed on expiry or optimistic concurrency conflicts.
 - Draft intent stores immutable source IDs plus anonymous vehicle/location snapshots and always returns `requiresReprice=true` until authoritative repricing succeeds.
+- Successful draft repricing persists an immutable authoritative pricing snapshot with itemized selections, catalog version, currency, fees, tax, grand total, and quote timestamp; later draft intent mutations delete that stored snapshot and restore `requiresReprice=true`.
+- Authoritative repricing validates each draft item against Business with the exact catalog version and stable per-request idempotency keys, refreshes stale catalog data at most once, and never trusts client-supplied currency, fee, tax, subtotal, or total fields.
 - Invalid min/max, quantity, inactive option, expired draft, stale version, unavailable slot, and out-of-area location return stable errors.
 - Decimal rounding is deterministic.
-- Unsupported payment methods are disabled with localized reasons.
+- Safe pricing defaults are non-billable until configured: currency defaults to `ILS`, tax defaults to `0`, service fees default to `None`, and only valid configured Stripe keys enable `CreditCard`. `Wallet`, `CashOnArrival`, and `ThirdParty` remain disabled with localized reason codes until implemented.
 
 ### Booking integration
 

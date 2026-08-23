@@ -44,6 +44,9 @@ internal static class CheckoutDraftConfiguration
             entity.Property(draft => draft.CreatedAt).IsRequired();
             entity.Property(draft => draft.UpdatedAt).IsRequired();
             entity.Property(draft => draft.ExpiresAt).IsRequired();
+            entity.Property(draft => draft.ConfirmationClaimedAtUtc);
+            entity.Property(draft => draft.ConfirmationClaimedVersion);
+            entity.Property(draft => draft.ConfirmationBookingReference);
             entity.Property(draft => draft.RowVersion)
                 .IsRowVersion()
                 .IsConcurrencyToken();

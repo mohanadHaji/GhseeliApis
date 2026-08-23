@@ -185,6 +185,40 @@ public class CheckoutDraftServiceTests
     }
 
     [Fact]
+    public async Task UpdateAsync_WhenConfirmationHasClaimedDraft_ThrowsConflict()
+    {
+        var snapshot = CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 4);
+        await using var harness = await CreateHarnessAsync(snapshot);
+        var created = await harness.Service.CreateAsync(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                snapshot,
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)),
+            harness.DeviceId,
+            "ar",
+            "ar",
+            CancellationToken.None);
+        var draft = await harness.Context.CheckoutDrafts.SingleAsync();
+        draft.ConfirmationClaimedVersion = draft.PublicVersion;
+        draft.ConfirmationBookingReference = Guid.NewGuid();
+        draft.ConfirmationClaimedAtUtc = harness.TimeProvider.GetUtcNow();
+        await harness.Context.SaveChangesAsync();
+
+        var action = () => harness.Service.UpdateAsync(
+            created.OrderGuid,
+            CheckoutDraftTestSupport.CreateValidUpdateRequest(
+                snapshot,
+                new DateTimeOffset(2026, 8, 24, 11, 0, 0, TimeSpan.Zero),
+                created.Version),
+            harness.DeviceId,
+            "ar",
+            "ar",
+            CancellationToken.None);
+
+        await action.Should().ThrowAsync<CheckoutDraftException>()
+            .Where(exception => exception.Code == CheckoutDraftProblemCodes.VersionConflict);
+    }
+
+    [Fact]
     public async Task UpdateAsync_WhenExpectedVersionMatches_SucceedsAndIncrementsExactlyOnce()
     {
         var snapshot = CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 4);

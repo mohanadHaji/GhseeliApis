@@ -1,4 +1,5 @@
 using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -25,11 +26,18 @@ public sealed class EnforceJsonRequestContentTypeAttribute : Attribute, IAsyncRe
         var language = ConfigurationLanguageResolver.Resolve(
             request.Query["language"].ToString(),
             request.Headers.AcceptLanguage.ToString());
-        var problem = CheckoutPricingProblemDetailsFactory.Create(
-            StatusCodes.Status415UnsupportedMediaType,
-            CheckoutPricingProblemCodes.UnsupportedMediaType,
-            language,
-            context.HttpContext.TraceIdentifier);
+        var bookingRoute = request.Path.StartsWithSegments("/api/v1/bookings");
+        var problem = bookingRoute
+            ? BookingConfirmationProblemDetailsFactory.Create(
+                StatusCodes.Status415UnsupportedMediaType,
+                BookingConfirmationProblemCodes.UnsupportedMediaType,
+                language,
+                context.HttpContext.TraceIdentifier)
+            : CheckoutPricingProblemDetailsFactory.Create(
+                StatusCodes.Status415UnsupportedMediaType,
+                CheckoutPricingProblemCodes.UnsupportedMediaType,
+                language,
+                context.HttpContext.TraceIdentifier);
 
         context.Result = new ObjectResult(problem)
         {

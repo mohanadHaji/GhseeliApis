@@ -34,7 +34,8 @@ public sealed class InternalServiceAuthenticationOptionsValidator :
     private static readonly HashSet<string> KnownOperations = new(StringComparer.Ordinal)
     {
         InternalServiceOperationNames.CatalogSnapshot,
-        InternalServiceOperationNames.AppointmentValidate
+        InternalServiceOperationNames.AppointmentValidate,
+        InternalServiceOperationNames.ReservationCreate
     };
 
     public ValidateOptionsResult Validate(

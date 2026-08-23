@@ -124,6 +124,7 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
         }
 
         EnsureActive(draft);
+        EnsureNotClaimed(draft);
         if (draft.PublicVersion != request.ExpectedVersion)
         {
             throw CreateDraftVersionConflict();
@@ -164,6 +165,7 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
                         innerCancellationToken);
                     if (persistenceState is null ||
                         persistenceState.PublicVersion != request.ExpectedVersion ||
+                        persistenceState.ConfirmationClaimedVersion.HasValue ||
                         !persistenceState.RowVersion.SequenceEqual(originalRowVersion))
                     {
                         throw new DbUpdateConcurrencyException();
@@ -1527,6 +1529,14 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
     private void EnsureActive(CheckoutDraft draft)
     {
         EnsureActive(draft.ExpiresAt);
+    }
+
+    private static void EnsureNotClaimed(CheckoutDraft draft)
+    {
+        if (draft.ConfirmationClaimedVersion.HasValue)
+        {
+            throw CreateDraftVersionConflict();
+        }
     }
 
     private void EnsureActive(DateTimeOffset expiresAt)

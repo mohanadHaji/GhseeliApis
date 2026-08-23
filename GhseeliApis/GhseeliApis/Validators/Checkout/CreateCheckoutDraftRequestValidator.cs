@@ -21,9 +21,13 @@ public abstract class CheckoutDraftMutationRequestValidatorBase<TRequest>
             .MustUseNonEmptySourceId();
 
         RuleFor(request => request.RequestedSlotStartUtc)
+            .Cascade(CascadeMode.Stop)
             .Must(value => value != default)
             .WithMessage("Requested slot is required.")
-            .WithErrorCode(CheckoutDraftFieldErrorCodes.RequestedSlotRequired);
+            .WithErrorCode(CheckoutDraftFieldErrorCodes.RequestedSlotRequired)
+            .Must(value => value.Offset == TimeSpan.Zero)
+            .WithMessage("Requested slot must use the UTC offset.")
+            .WithErrorCode(CheckoutDraftFieldErrorCodes.RequestedSlotMustBeUtc);
 
         RuleFor(request => request.Vehicle)
             .NotNull()

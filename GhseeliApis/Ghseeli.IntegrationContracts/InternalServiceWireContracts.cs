@@ -43,6 +43,7 @@ public static class InternalServiceOperationNames
 {
     public const string CatalogSnapshot = "catalog_snapshot";
     public const string AppointmentValidate = "appointment_validate";
+    public const string ReservationCreate = "reservation_create";
 }
 
 public static class InternalServiceProblemCodes

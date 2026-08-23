@@ -32,6 +32,7 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
 {
     private int _catalogSnapshotRequests;
     private int _validateAppointmentRequests;
+    private int _createReservationRequests;
     private readonly object _validationSync = new();
 
     public Func<Guid, CancellationToken, Task<CatalogSnapshotResponse>> GetCatalogSnapshotHandler { get; set; } =
@@ -41,9 +42,15 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
         ValidateAppointmentHandler { get; set; } =
         (_, _, _) => throw new NotImplementedException();
 
+    public Func<CreateReservationRequest, string, CancellationToken, Task<CreateReservationResponse>>
+        CreateReservationHandler { get; set; } =
+        (_, _, _) => throw new NotImplementedException();
+
     public int CatalogSnapshotRequests => _catalogSnapshotRequests;
     public int ValidateAppointmentRequests => _validateAppointmentRequests;
+    public int CreateReservationRequests => _createReservationRequests;
     public List<(ValidateAppointmentRequest Request, string IdempotencyKey)> ValidationRequests { get; } = [];
+    public List<(CreateReservationRequest Request, string IdempotencyKey)> ReservationRequests { get; } = [];
 
     public Task<CatalogSnapshotResponse> GetCatalogSnapshotAsync(
         Guid companyId,
@@ -65,6 +72,20 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
         }
 
         return ValidateAppointmentHandler(request, idempotencyKey, cancellationToken);
+    }
+
+    public Task<CreateReservationResponse> CreateReservationAsync(
+        CreateReservationRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _createReservationRequests);
+        lock (_validationSync)
+        {
+            ReservationRequests.Add((request, idempotencyKey));
+        }
+
+        return CreateReservationHandler(request, idempotencyKey, cancellationToken);
     }
 }
 

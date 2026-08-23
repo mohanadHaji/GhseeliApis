@@ -32,10 +32,9 @@ public sealed class InternalRequestIdempotencyMiddleware
             .GetMetadata<InternalServiceOperationAttribute>()?
             .Operation;
 
-        if (!string.Equals(
-                endpointOperation,
-                InternalServiceOperationNames.AppointmentValidate,
-                StringComparison.Ordinal))
+        if (endpointOperation is not (
+                InternalServiceOperationNames.AppointmentValidate or
+                InternalServiceOperationNames.ReservationCreate))
         {
             await _next(context);
             return;

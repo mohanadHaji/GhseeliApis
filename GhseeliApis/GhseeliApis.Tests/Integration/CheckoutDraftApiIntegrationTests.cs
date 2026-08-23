@@ -57,7 +57,7 @@ public class CheckoutDraftApiIntegrationTests
 
         var createRequest = CheckoutDraftTestSupport.CreateValidCreateRequest(
             factory.Snapshot,
-            new DateTimeOffset(2026, 8, 24, 13, 0, 0, TimeSpan.FromHours(3)));
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
         using var createMessage = CreateRequest(
             HttpMethod.Post,
             "/api/v1/checkout/drafts?language=he",

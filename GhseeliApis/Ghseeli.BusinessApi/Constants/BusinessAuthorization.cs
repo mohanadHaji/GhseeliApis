@@ -15,6 +15,7 @@ public static class BusinessPolicies
     public const string OwnerOrAdmin = "OwnerOrAdmin";
     public const string InternalCatalogRead = "InternalCatalogRead";
     public const string InternalAppointmentValidate = "InternalAppointmentValidate";
+    public const string InternalReservationCreate = "InternalReservationCreate";
 }
 
 public static class BusinessClaimTypes

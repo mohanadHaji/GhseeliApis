@@ -30,6 +30,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     public DbSet<InternalServiceNonce> InternalServiceNonces => Set<InternalServiceNonce>();
     public DbSet<InternalServiceIdempotencyRecord> InternalServiceIdempotencyRecords =>
         Set<InternalServiceIdempotencyRecord>();
+    public DbSet<AppointmentReservation> AppointmentReservations => Set<AppointmentReservation>();
+    public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
+    public DbSet<WorkOrderItem> WorkOrderItems => Set<WorkOrderItem>();
+    public DbSet<WorkOrderSelection> WorkOrderSelections => Set<WorkOrderSelection>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -330,6 +334,92 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 record.IdempotencyKey
             }).IsUnique();
             entity.HasIndex(record => record.ExpiresAtUtc);
+        });
+
+        builder.Entity<AppointmentReservation>(entity =>
+        {
+            entity.ToTable("AppointmentReservations");
+            entity.HasKey(reservation => reservation.Id);
+            entity.Property(reservation => reservation.PublicId).IsRequired();
+            entity.Property(reservation => reservation.CustomerBookingReference).IsRequired();
+            entity.Property(reservation => reservation.OrderGuid).IsRequired();
+            entity.Property(reservation => reservation.RequestHash).HasMaxLength(64).IsRequired();
+            entity.Property(reservation => reservation.BranchId).IsRequired();
+            entity.Property(reservation => reservation.Currency).HasMaxLength(10).IsRequired();
+            entity.Property(reservation => reservation.ItemSubtotal).HasPrecision(18, 2);
+            entity.Property(reservation => reservation.Status).HasMaxLength(32).IsRequired();
+            entity.Property(reservation => reservation.RowVersion).IsRowVersion();
+            entity.HasIndex(reservation => reservation.PublicId).IsUnique();
+            entity.HasIndex(reservation => reservation.CustomerBookingReference).IsUnique();
+            entity.HasIndex(reservation => reservation.OrderGuid).IsUnique();
+            entity.HasIndex(reservation => new
+            {
+                reservation.BranchId,
+                reservation.RequestedSlotStartUtc,
+                reservation.RequestedSlotEndUtc,
+                reservation.Status
+            });
+        });
+
+        builder.Entity<WorkOrder>(entity =>
+        {
+            entity.ToTable("WorkOrders");
+            entity.HasKey(workOrder => workOrder.Id);
+            entity.Property(workOrder => workOrder.PublicId).IsRequired();
+            entity.Property(workOrder => workOrder.Status).HasMaxLength(32).IsRequired();
+            entity.Property(workOrder => workOrder.CustomerName).HasMaxLength(150).IsRequired();
+            entity.Property(workOrder => workOrder.CustomerEmail).HasMaxLength(254);
+            entity.Property(workOrder => workOrder.CustomerPhone).HasMaxLength(32);
+            entity.Property(workOrder => workOrder.VehicleType).HasMaxLength(50).IsRequired();
+            entity.Property(workOrder => workOrder.LicensePlate).HasMaxLength(50);
+            entity.Property(workOrder => workOrder.VehicleMake).HasMaxLength(150);
+            entity.Property(workOrder => workOrder.VehicleModel).HasMaxLength(150);
+            entity.Property(workOrder => workOrder.VehicleColor).HasMaxLength(50);
+            entity.Property(workOrder => workOrder.AddressLine).HasMaxLength(300).IsRequired();
+            entity.Property(workOrder => workOrder.City).HasMaxLength(120);
+            entity.Property(workOrder => workOrder.Area).HasMaxLength(120);
+            entity.Property(workOrder => workOrder.Latitude).HasPrecision(9, 6);
+            entity.Property(workOrder => workOrder.Longitude).HasPrecision(9, 6);
+            entity.HasOne(workOrder => workOrder.AppointmentReservation)
+                .WithOne(reservation => reservation.WorkOrder)
+                .HasForeignKey<WorkOrder>(workOrder => workOrder.AppointmentReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(workOrder => workOrder.PublicId).IsUnique();
+            entity.HasIndex(workOrder => workOrder.AppointmentReservationId).IsUnique();
+        });
+
+        builder.Entity<WorkOrderItem>(entity =>
+        {
+            entity.ToTable("WorkOrderItems");
+            entity.HasKey(item => item.Id);
+            entity.Property(item => item.BaseSubtotal).HasPrecision(18, 2);
+            entity.Property(item => item.AddonSubtotal).HasPrecision(18, 2);
+            entity.Property(item => item.ItemSubtotal).HasPrecision(18, 2);
+            entity.HasOne(item => item.WorkOrder)
+                .WithMany(workOrder => workOrder.Items)
+                .HasForeignKey(item => item.WorkOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(item => new { item.WorkOrderId, item.DisplayOrder });
+            entity.HasIndex(item => new { item.WorkOrderId, item.OfferingId }).IsUnique();
+        });
+
+        builder.Entity<WorkOrderSelection>(entity =>
+        {
+            entity.ToTable("WorkOrderSelections");
+            entity.HasKey(selection => selection.Id);
+            entity.Property(selection => selection.SelectionType).HasMaxLength(64).IsRequired();
+            entity.Property(selection => selection.UnitPriceAdjustment).HasPrecision(18, 2);
+            entity.Property(selection => selection.TotalPriceAdjustment).HasPrecision(18, 2);
+            entity.HasOne(selection => selection.WorkOrderItem)
+                .WithMany(item => item.Selections)
+                .HasForeignKey(selection => selection.WorkOrderItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(selection => new { selection.WorkOrderItemId, selection.DisplayOrder });
+            entity.HasIndex(selection => new
+            {
+                selection.WorkOrderItemId,
+                selection.AddonChoiceId
+            }).IsUnique();
         });
     }
 }

@@ -24,6 +24,9 @@ public sealed class CheckoutDraft
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
+    public DateTimeOffset? ConfirmationClaimedAtUtc { get; set; }
+    public int? ConfirmationClaimedVersion { get; set; }
+    public Guid? ConfirmationBookingReference { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public ICollection<CheckoutDraftItem> Items { get; set; } = new List<CheckoutDraftItem>();

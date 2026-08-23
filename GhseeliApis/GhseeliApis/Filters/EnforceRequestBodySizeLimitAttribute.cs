@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Configuration;
 
 namespace GhseeliApis.Filters;
@@ -63,11 +64,17 @@ public sealed class EnforceRequestBodySizeLimitAttribute : Attribute, IAsyncReso
         var language = ConfigurationLanguageResolver.Resolve(
             context.Request.Query["language"].ToString(),
             context.Request.Headers.AcceptLanguage.ToString());
-        var problem = CheckoutPricingProblemDetailsFactory.Create(
-            StatusCodes.Status413PayloadTooLarge,
-            _problemCode,
-            language,
-            context.TraceIdentifier);
+        var problem = context.Request.Path.StartsWithSegments("/api/v1/bookings")
+            ? BookingConfirmationProblemDetailsFactory.Create(
+                StatusCodes.Status413PayloadTooLarge,
+                _problemCode,
+                language,
+                context.TraceIdentifier)
+            : CheckoutPricingProblemDetailsFactory.Create(
+                StatusCodes.Status413PayloadTooLarge,
+                _problemCode,
+                language,
+                context.TraceIdentifier);
 
         return new ObjectResult(problem)
         {

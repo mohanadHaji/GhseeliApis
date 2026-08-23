@@ -20,6 +20,11 @@ public interface IBusinessApiClient
         ValidateAppointmentRequest request,
         string idempotencyKey,
         CancellationToken cancellationToken = default);
+
+    Task<CreateReservationResponse> CreateReservationAsync(
+        CreateReservationRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class BusinessApiClient : IBusinessApiClient
@@ -120,6 +125,48 @@ public sealed class BusinessApiClient : IBusinessApiClient
             cancellationToken);
     }
 
+    public async Task<CreateReservationResponse> CreateReservationAsync(
+        CreateReservationRequest request,
+        string idempotencyKey,
+        CancellationToken cancellationToken = default)
+    {
+        if (!InternalServiceHeaderValueValidator.IsValidIdempotencyKey(idempotencyKey))
+        {
+            throw new ArgumentException("The idempotency key is invalid.", nameof(idempotencyKey));
+        }
+
+        request.ContractVersion = BusinessCatalogContract.Version;
+        var correlationId = ResolveCorrelationId();
+        var requestUri = ResolveRequestUri("/api/v1/internal/reservations", correlationId);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(request, JsonOptions),
+                Encoding.UTF8,
+                "application/json")
+        };
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.IdempotencyKeyHeaderName,
+            idempotencyKey);
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
+
+        return await ReadResponseAsync<CreateReservationResponse>(
+            response,
+            "reservation",
+            correlationId,
+            cancellationToken);
+    }
+
     private async Task<TResponse> ReadResponseAsync<TResponse>(
         HttpResponseMessage response,
         string operationName,
@@ -157,17 +204,17 @@ public sealed class BusinessApiClient : IBusinessApiClient
             ? string.Empty
             : await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var detail = TryReadProblemDetail(content);
-        var message = string.IsNullOrWhiteSpace(detail)
+        var problem = TryReadProblem(content);
+        var message = string.IsNullOrWhiteSpace(problem.Detail)
             ? $"Business API returned {(int)response.StatusCode}."
-            : detail;
+            : problem.Detail;
 
         throw response.StatusCode switch
         {
             HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden =>
                 new BusinessApiAuthenticationException(message, correlationId),
             HttpStatusCode.Conflict =>
-                new BusinessApiConflictException(message, correlationId),
+                new BusinessApiConflictException(message, correlationId, problem.Code),
             HttpStatusCode.BadRequest or HttpStatusCode.NotFound =>
                 new BusinessApiContractException(message, correlationId),
             HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests
@@ -224,30 +271,35 @@ public sealed class BusinessApiClient : IBusinessApiClient
         return new Uri(baseUri, relativePath);
     }
 
-    private static string? TryReadProblemDetail(string content)
+    private static (string? Code, string? Detail) TryReadProblem(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
-            return null;
+            return (null, null);
         }
 
         try
         {
             using var document = JsonDocument.Parse(content);
+            var code = document.RootElement.TryGetProperty("code", out var codeElement)
+                ? codeElement.GetString()
+                : null;
             if (document.RootElement.TryGetProperty("detail", out var detail))
             {
-                return detail.GetString();
+                return (code, detail.GetString());
             }
 
             if (document.RootElement.TryGetProperty("message", out var message))
             {
-                return message.GetString();
+                return (code, message.GetString());
             }
+
+            return (code, null);
         }
         catch (JsonException)
         {
         }
 
-        return null;
+        return (null, null);
     }
 }

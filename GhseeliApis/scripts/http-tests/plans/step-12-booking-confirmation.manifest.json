@@ -1,0 +1,3398 @@
+﻿{
+  "name": "Step 12 booking confirmation",
+  "sensitiveFields": [
+    "password",
+    "token",
+    "authorization",
+    "x-device-token",
+    "signature",
+    "secret",
+    "email",
+    "phone",
+    "addressLine"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "correlationId": "step12-{{var:runStamp}}",
+    "replayCorrelationId": "step12-replay-{{var:runStamp}}",
+    "firstInstallationId": "{{gen:guid}}",
+    "secondInstallationId": "{{gen:guid}}",
+    "missingOrderGuid": "{{gen:guid}}",
+    "businessStaleOrderGuid": "{{gen:guid}}",
+    "businessStaleReference": "{{gen:guid}}",
+    "businessInvalidOrderGuid": "{{gen:guid}}",
+    "businessInvalidReference": "{{gen:guid}}",
+    "businessNullItemOrderGuid": "{{gen:guid}}",
+    "businessNullItemReference": "{{gen:guid}}",
+    "businessSlotOrderGuid": "{{gen:guid}}",
+    "businessSlotReference": "{{gen:guid}}",
+    "userEmail": "step12-{{var:runStamp}}@example.test",
+    "businessSourceId": "11111111-1111-4111-8111-111111111111",
+    "branchSourceId": "22222222-2222-4222-8222-222222222222",
+    "defaultOfferingId": "44444444-4444-4444-8444-444444444444",
+    "multipleChoiceId": "44444444-4444-4444-b444-444444444444",
+    "singleOfferingId": "55555555-5555-4555-8555-555555555555",
+    "singleChoiceId": "55555555-5555-4555-b555-555555555555",
+    "slotStartUtc": "{{gen:timestamp:yyyy-MM-dd:+4d}}T12:00:00Z",
+    "slotStartUtc2": "{{gen:timestamp:yyyy-MM-dd:+5d}}T12:00:00Z",
+    "unavailableSlotUtc": "{{gen:timestamp:yyyy-MM-dd:+4d}}T03:00:00Z",
+    "businessPriceOrderGuid": "{{gen:guid}}",
+    "businessPriceReference": "{{gen:guid}}",
+    "businessCanonicalOrderGuid": "{{gen:guid}}",
+    "businessCanonicalReference": "{{gen:guid}}",
+    "businessCanonicalSlotUtc": "{{gen:timestamp:yyyy-MM-dd:+6d}}T12:00:00Z"
+  },
+  "scenarios": [
+    {
+      "id": "STEP12-SWAGGER-CUSTOMER-001",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "swagger",
+        "contract"
+      ],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/bookings/from-draft'].post",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-SWAGGER-BUSINESS-002",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "swagger",
+        "contract",
+        "business"
+      ],
+      "method": "GET",
+      "url": "https://localhost:50691/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/internal/reservations'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/reservations/{reference}'].get",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-FIRST-003",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "device-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:firstInstallationId}}",
+        "platform": "iOS",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.token",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "firstDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-SECOND-004",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "device-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:secondInstallationId}}",
+        "platform": "Android",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.token",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "secondDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-ROTATE-005",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "device-auth",
+        "rotation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Device-Token": "{{var:firstDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:firstInstallationId}}",
+        "platform": "iOS",
+        "appVersion": "1.1.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.token",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "activeDeviceToken": "$.token"
+      }
+    },
+    {
+      "id": "STEP12-USER-REGISTER-005",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "jwt-auth"
+      ],
+      "method": "POST",
+      "url": "/api/auth/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "email": "{{var:userEmail}}",
+        "password": "{{env:GHSEELI_HTTP_TEST_CUSTOMER_PASSWORD}}",
+        "confirmPassword": "{{env:GHSEELI_HTTP_TEST_CUSTOMER_PASSWORD}}",
+        "fullName": "Step Twelve Customer",
+        "phoneNumber": "+972500000012"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.token",
+            "exists": true
+          },
+          {
+            "path": "$.userId",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "userToken": "$.token",
+        "userId": "$.userId"
+      }
+    },
+    {
+      "id": "STEP12-JWT-MISSING-006",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "jwt-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-JWT-INVALID-007",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "jwt-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer invalid.jwt.token",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-JWT-EMPTY-006B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "jwt-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-JWT-EXPIRED-007B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "jwt-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_EXPIRED_JWT}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-EMPTY-009B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "device-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "device_token_missing"
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-MALFORMED-009C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "device-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "short-token",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "device_token_invalid"
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-ROTATED-OLD-009D",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "device-auth",
+        "rotation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:firstDeviceToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "device_token_invalid"
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-MISSING-008",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "device-auth",
+        "localization"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "device_token_missing",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-DEVICE-UNKNOWN-009",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "device-auth"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "device_token_invalid"
+      }
+    },
+    {
+      "id": "STEP12-LANGUAGE-010",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "localization",
+        "precedence"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}",
+        "Accept-Language": "he-IL,ar;q=0.8"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-CORRELATION-UNSAFE-011",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "correlation",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "unsafe correlation value with spaces that must be replaced because it is far too long 123456789",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "not-a-guid"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[0-9a-f]{32}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-CONTENT-012",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "content-type",
+        "expected-contract"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "text/plain",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_unsupported_media_type"
+      }
+    },
+    {
+      "id": "STEP12-MALFORMED-013",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "malformed",
+        "expected-contract"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "bodyFile": "step-12-malformed.request.txt",
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-SIZE-014",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "body-limit",
+        "expected-contract"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65526,
+        "contentType": "application/json"
+      },
+      "expect": {
+        "status": 413,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_request_body_too_large"
+      }
+    },
+    {
+      "id": "STEP12-ORDER-MISSING-015",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-ORDER-MALFORMED-016",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "bad-guid"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-BODY-VERSION-017",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 0,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-BODY-POLICY-018",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": false
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid"
+      }
+    },
+    {
+      "id": "STEP12-ORDER-EMPTY-016B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": ""
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-ORDER-EMPTYGUID-016C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "00000000-0000-0000-0000-000000000000"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-BODY-MISSING-VERSION-017B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "jsonBody": {
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-BODY-NEGATIVE-VERSION-017C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": -1,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-BODY-MISSING-POLICY-018B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2
+      }
+    },
+    {
+      "id": "STEP12-BODY-NULL-018C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      },
+      "bodyFile": "step-12-null.request.txt"
+    },
+    {
+      "id": "STEP12-LANGUAGE-EXPLICIT-HE-010B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "bad-guid",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-LANGUAGE-ACCEPT-HE-010C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "bad-guid",
+        "Accept-Language": "he-IL,ar;q=0.8"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-LANGUAGE-DEFAULT-AR-010D",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "bad-guid"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ]
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      }
+    },
+    {
+      "id": "STEP12-SIZE-BOUNDARY-014B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "body-limit"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65536,
+        "contentType": "application/json",
+        "forceChunked": false
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "booking_confirmation_invalid",
+        "json": [
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-CREATE-UNPRICED-019",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "draft"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "S12-{{var:runStamp}}",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "Step 12 local test address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:defaultOfferingId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.requiresReprice",
+            "equals": true
+          }
+        ]
+      },
+      "extract": {
+        "unpricedOrderGuid": "$.orderGuid",
+        "unpricedVersion": "$.version"
+      }
+    },
+    {
+      "id": "STEP12-CONFIRM-UNPRICED-020",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "unpriced",
+        "reprice"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:unpricedOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:unpricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_requires_reprice"
+      }
+    },
+    {
+      "id": "STEP12-CREATE-HAPPY-021",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "draft"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "S12-{{var:runStamp}}",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "Step 12 local test address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:defaultOfferingId}}",
+            "selections": []
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.version",
+            "equals": 1
+          }
+        ]
+      },
+      "extract": {
+        "orderGuid": "$.orderGuid",
+        "draftVersion": "$.version"
+      }
+    },
+    {
+      "id": "STEP12-REPRICE-HAPPY-022",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "setup",
+        "pricing"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:draftVersion}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.version",
+            "equals": 2
+          },
+          {
+            "path": "$.requiresReprice",
+            "equals": false
+          },
+          {
+            "path": "$.pricing.grandTotal",
+            "equals": 79.5
+          }
+        ]
+      },
+      "extract": {
+        "pricedVersion": "$.version",
+        "quotedAtUtc": "$.pricing.quotedAtUtc"
+      }
+    },
+    {
+      "id": "STEP12-NOTFOUND-023",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "ownership"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:missingOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 2,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-OWNERSHIP-024",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "ownership"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:secondDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_not_found",
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-VERSION-025",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "version"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 1,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "checkout_draft_version_conflict"
+      }
+    },
+    {
+      "id": "STEP12-HAPPY-026",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "success",
+        "snapshot",
+        "cross-reference",
+        "no-stripe"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.orderGuid",
+            "equals": "{{var:orderGuid}}"
+          },
+          {
+            "path": "$.reference",
+            "exists": true
+          },
+          {
+            "path": "$.businessReservationId",
+            "exists": true
+          },
+          {
+            "path": "$.businessWorkOrderId",
+            "exists": true
+          },
+          {
+            "path": "$.status",
+            "equals": "Reserved"
+          },
+          {
+            "path": "$.draftVersion",
+            "equals": "{{var:pricedVersion}}"
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.currency",
+            "equals": "ILS"
+          },
+          {
+            "path": "$.grandTotal",
+            "equals": 79.5
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 30
+          },
+          {
+            "path": "$.items[0].offeringSourceId",
+            "equals": "{{var:defaultOfferingId}}"
+          },
+          {
+            "path": "$.payment",
+            "exists": false
+          },
+          {
+            "path": "$.stripePaymentIntentId",
+            "exists": false
+          },
+          {
+            "path": "$.id",
+            "exists": true
+          },
+          {
+            "path": "$.providerName",
+            "equals": "Step10 Business 20260821_232758"
+          },
+          {
+            "path": "$.branchName",
+            "equals": "Main Branch 20260821_232758"
+          },
+          {
+            "path": "$.requestedSlotStartUtc",
+            "matches": "T12:00:00(?:Z|\\+00:00)$"
+          },
+          {
+            "path": "$.requestedSlotEndUtc",
+            "matches": "T12:30:00(?:Z|\\+00:00)$"
+          },
+          {
+            "path": "$.items[0].serviceName",
+            "equals": "Default Offering"
+          },
+          {
+            "path": "$.items[0].itemSubtotal",
+            "equals": 79.5
+          },
+          {
+            "path": "$.items[0].totalDurationMinutes",
+            "equals": 30
+          }
+        ]
+      },
+      "extract": {
+        "bookingId": "$.id",
+        "bookingReference": "$.reference",
+        "reservationId": "$.businessReservationId",
+        "workOrderId": "$.businessWorkOrderId",
+        "slotEnd": "$.requestedSlotEndUtc"
+      }
+    },
+    {
+      "id": "STEP12-REPLAY-027",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "replay"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:replayCorrelationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:replayCorrelationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.businessReservationId",
+            "equals": "{{var:reservationId}}"
+          },
+          {
+            "path": "$.businessWorkOrderId",
+            "equals": "{{var:workOrderId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-TAMPER-MONEY-028",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "tamper",
+        "unknown-fields",
+        "replay"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 999,
+        "cancellationPolicyAcknowledged": true,
+        "amount": 0.01,
+        "grandTotal": 0.02,
+        "currency": "USD",
+        "tax": 999,
+        "serviceFee": 999,
+        "businessSourceId": "{{var:missingOrderGuid}}",
+        "userId": "{{var:missingOrderGuid}}",
+        "deviceId": "{{var:missingOrderGuid}}",
+        "status": "Paid"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.grandTotal",
+            "equals": 79.5
+          },
+          {
+            "path": "$.currency",
+            "equals": "ILS"
+          },
+          {
+            "path": "$.status",
+            "equals": "Reserved"
+          },
+          {
+            "path": "$.businessReservationId",
+            "equals": "{{var:reservationId}}"
+          },
+          {
+            "path": "$.businessWorkOrderId",
+            "equals": "{{var:workOrderId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-TAMPER-PAYMENT-CASH-028A",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "tamper",
+        "unknown-fields",
+        "replay",
+        "no-payment"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true,
+        "paymentMethod": "CashOnArrival"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.payment",
+            "exists": false
+          },
+          {
+            "path": "$.stripePaymentIntentId",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-TAMPER-PAYMENT-CARD-028B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "tamper",
+        "unknown-fields",
+        "replay",
+        "no-payment"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true,
+        "paymentMethod": "CreditCard"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.payment",
+            "exists": false
+          },
+          {
+            "path": "$.stripePaymentIntentId",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-TAMPER-PAYMENT-WALLET-028C",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "tamper",
+        "unknown-fields",
+        "replay",
+        "no-payment"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true,
+        "paymentMethod": "Wallet"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.payment",
+            "exists": false
+          },
+          {
+            "path": "$.stripePaymentIntentId",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-TAMPER-PAYMENT-THIRD-028D",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "tamper",
+        "unknown-fields",
+        "replay",
+        "no-payment"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:pricedVersion}}",
+        "cancellationPolicyAcknowledged": true,
+        "paymentMethod": "ThirdParty"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.payment",
+            "exists": false
+          },
+          {
+            "path": "$.stripePaymentIntentId",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-REPLAY-STALE-VERSION-028E",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "same-order-replay"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 999,
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.id",
+            "equals": "{{var:bookingId}}"
+          },
+          {
+            "path": "$.reference",
+            "equals": "{{var:bookingReference}}"
+          },
+          {
+            "path": "$.businessReservationId",
+            "equals": "{{var:reservationId}}"
+          },
+          {
+            "path": "$.businessWorkOrderId",
+            "equals": "{{var:workOrderId}}"
+          },
+          {
+            "path": "$.grandTotal",
+            "equals": 79.5
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-DRAFT-POSTCONFIRM-GET-029",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "terminal-state",
+        "expected-contract"
+      ],
+      "method": "GET",
+      "url": "/api/v1/checkout/drafts/{{var:orderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.orderGuid",
+            "equals": "{{var:orderGuid}}"
+          },
+          {
+            "path": "$.version",
+            "equals": "{{var:pricedVersion}}"
+          },
+          {
+            "path": "$.requiresReprice",
+            "equals": false
+          },
+          {
+            "path": "$.pricing.grandTotal",
+            "equals": 79.5
+          },
+          {
+            "path": "$.pricing.quotedAtUtc",
+            "equals": "{{var:quotedAtUtc}}"
+          },
+          {
+            "path": "$.bookingReference",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-DRAFT-POSTCONFIRM-PUT-030",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "post-confirm",
+        "mutation"
+      ],
+      "method": "PUT",
+      "url": "/api/v1/checkout/drafts/{{var:orderGuid}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "S12-{{var:runStamp}}",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Green"
+        },
+        "location": {
+          "addressLine": "Step 12 local test address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:defaultOfferingId}}",
+            "selections": []
+          }
+        ],
+        "expectedVersion": "{{var:pricedVersion}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "errorCode": "checkout_draft_version_conflict"
+      }
+    },
+    {
+      "id": "STEP12-DRAFT-POSTCONFIRM-REPRICE-030B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "post-confirm",
+        "mutation"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:orderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": 3
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "errorCode": "checkout_draft_version_conflict"
+      }
+    },
+    {
+      "id": "STEP12-MULTI-CREATE-031",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "multi-item"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/drafts",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}"
+      },
+      "jsonBody": {
+        "businessSourceId": "{{var:businessSourceId}}",
+        "branchSourceId": "{{var:branchSourceId}}",
+        "requestedSlotStartUtc": "{{var:slotStartUtc2}}",
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "S12-{{var:runStamp}}",
+          "make": "Toyota",
+          "model": "Corolla",
+          "color": "Blue"
+        },
+        "location": {
+          "addressLine": "Step 12 local test address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "items": [
+          {
+            "offeringSourceId": "{{var:defaultOfferingId}}",
+            "selections": [
+              {
+                "addonChoiceSourceId": "{{var:multipleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          },
+          {
+            "offeringSourceId": "{{var:singleOfferingId}}",
+            "selections": [
+              {
+                "addonChoiceSourceId": "{{var:singleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.version",
+            "equals": 1
+          }
+        ]
+      },
+      "extract": {
+        "multiOrderGuid": "$.orderGuid",
+        "multiVersion": "$.version"
+      }
+    },
+    {
+      "id": "STEP12-MULTI-REPRICE-032",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "multi-item"
+      ],
+      "method": "POST",
+      "url": "/api/v1/checkout/reprice",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:multiOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:multiVersion}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.pricing.items[1]",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "multiPricedVersion": "$.version",
+        "multiGrandTotal": "$.pricing.grandTotal"
+      }
+    },
+    {
+      "id": "STEP12-MULTI-CONFIRM-033",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "multi-item",
+        "success"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Order-Guid": "{{var:multiOrderGuid}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:multiPricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.items[1]",
+            "exists": true
+          },
+          {
+            "path": "$.grandTotal",
+            "equals": "{{var:multiGrandTotal}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Reserved"
+          }
+        ]
+      },
+      "extract": {
+        "multiBookingReference": "$.reference",
+        "multiReservationId": "$.businessReservationId"
+      }
+    },
+    {
+      "id": "STEP12-MULTI-REPLAY-033B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "multi-item",
+        "same-order-replay"
+      ],
+      "method": "POST",
+      "url": "/api/v1/bookings/from-draft",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:userToken}}",
+        "X-Device-Token": "{{var:activeDeviceToken}}",
+        "X-Order-Guid": "{{var:multiOrderGuid}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "expectedVersion": "{{var:multiPricedVersion}}",
+        "cancellationPolicyAcknowledged": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.reference",
+            "equals": "{{var:multiBookingReference}}"
+          },
+          {
+            "path": "$.businessReservationId",
+            "equals": "{{var:multiReservationId}}"
+          },
+          {
+            "path": "$.items[0].itemSubtotal",
+            "equals": 83.5
+          },
+          {
+            "path": "$.items[0].totalDurationMinutes",
+            "equals": 30
+          },
+          {
+            "path": "$.items[1].itemSubtotal",
+            "equals": 57
+          },
+          {
+            "path": "$.items[1].totalDurationMinutes",
+            "equals": 30
+          },
+          {
+            "path": "$.grandTotal",
+            "equals": 140.5
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 60
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-VALIDATION-034",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-stale-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessStaleReference}}",
+        "orderGuid": "{{var:businessStaleOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 999,
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-12"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "json": [
+          {
+            "path": "$.code",
+            "equals": "CATALOG_CHANGED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-INVALID-035",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-invalid-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessInvalidReference}}",
+        "orderGuid": "{{var:businessInvalidOrderGuid}}",
+        "branchId": "{{var:missingOrderGuid}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-12"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "json": [
+          {
+            "path": "$.code",
+            "equals": "RESERVATION_INVALID"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-PRICE-035B",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "validation"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-price-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessPriceReference}}",
+        "orderGuid": "{{var:businessPriceOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 0.01,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 0.01,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-12"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "json": [
+          {
+            "path": "$.code",
+            "equals": "PRICE_CHANGED"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-SLOT-036",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "slot"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-slot-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessSlotReference}}",
+        "orderGuid": "{{var:businessSlotOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:unavailableSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-12"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "json": [
+          {
+            "path": "$.code",
+            "equals": "SLOT_UNAVAILABLE"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-CANONICAL-CREATE-037",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "success",
+        "multi-item",
+        "canonical-replay"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-canonical-create-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessCanonicalReference}}",
+        "orderGuid": "{{var:businessCanonicalOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:businessCanonicalSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 140.5,
+        "expectedTotalDurationMinutes": 60,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 4,
+            "expectedItemSubtotal": 83.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": [
+              {
+                "addonChoiceId": "{{var:multipleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          },
+          {
+            "offeringId": "{{var:singleOfferingId}}",
+            "expectedBaseSubtotal": 55,
+            "expectedAddonSubtotal": 2,
+            "expectedItemSubtotal": 57,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": [
+              {
+                "addonChoiceId": "{{var:singleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CANONICAL"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:businessCanonicalReference}}"
+          },
+          {
+            "path": "$.reservationId",
+            "exists": true
+          },
+          {
+            "path": "$.workOrderId",
+            "exists": true
+          },
+          {
+            "path": "$.status",
+            "equals": "Reserved"
+          },
+          {
+            "path": "$.catalogVersion",
+            "equals": 10
+          },
+          {
+            "path": "$.currency",
+            "equals": "ILS"
+          },
+          {
+            "path": "$.itemSubtotal",
+            "equals": 140.5
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 60
+          },
+          {
+            "path": "$.requestedSlotStartUtc",
+            "matches": "T12:00:00(?:Z|\\+00:00)$"
+          },
+          {
+            "path": "$.requestedSlotEndUtc",
+            "matches": "T13:00:00(?:Z|\\+00:00)$"
+          },
+          {
+            "path": "$.items[0].offeringId",
+            "equals": "{{var:defaultOfferingId}}"
+          },
+          {
+            "path": "$.items[0].itemSubtotal",
+            "equals": 83.5
+          },
+          {
+            "path": "$.items[1].offeringId",
+            "equals": "{{var:singleOfferingId}}"
+          },
+          {
+            "path": "$.items[1].itemSubtotal",
+            "equals": 57
+          }
+        ]
+      },
+      "extract": {
+        "businessCanonicalReservationId": "$.reservationId",
+        "businessCanonicalWorkOrderId": "$.workOrderId"
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-CANONICAL-REPLAY-038",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "multi-item",
+        "canonical-replay"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-canonical-replay-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:replayCorrelationId}}"
+      },
+      "jsonBody": {
+        "orderGuid": "{{var:businessCanonicalOrderGuid}}",
+        "bookingReference": "{{var:businessCanonicalReference}}",
+        "contractVersion": "v1",
+        "requestedSlotStartUtc": "{{var:businessCanonicalSlotUtc}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "currency": "ILS",
+        "expectedTotalDurationMinutes": 60,
+        "expectedItemSubtotal": 140.5,
+        "items": [
+          {
+            "selectedAddons": [
+              {
+                "quantity": 1,
+                "addonChoiceId": "{{var:singleChoiceId}}"
+              }
+            ],
+            "expectedDurationMinutes": 30,
+            "expectedItemSubtotal": 57,
+            "expectedAddonSubtotal": 2,
+            "expectedBaseSubtotal": 55,
+            "offeringId": "{{var:singleOfferingId}}"
+          },
+          {
+            "selectedAddons": [
+              {
+                "quantity": 1,
+                "addonChoiceId": "{{var:multipleChoiceId}}"
+              }
+            ],
+            "expectedDurationMinutes": 30,
+            "expectedItemSubtotal": 83.5,
+            "expectedAddonSubtotal": 4,
+            "expectedBaseSubtotal": 79.5,
+            "offeringId": "{{var:defaultOfferingId}}"
+          }
+        ],
+        "customer": {
+          "phone": "+972500000012",
+          "email": "safe@example.test",
+          "name": "Safe Local Customer"
+        },
+        "vehicle": {
+          "licensePlate": "SAFE-CANONICAL",
+          "vehicleType": "Sedan"
+        },
+        "location": {
+          "longitude": 34.8,
+          "latitude": 32.1,
+          "area": "Carmel",
+          "city": "Haifa",
+          "addressLine": "Safe local address"
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:businessCanonicalReference}}"
+          },
+          {
+            "path": "$.reservationId",
+            "equals": "{{var:businessCanonicalReservationId}}"
+          },
+          {
+            "path": "$.workOrderId",
+            "equals": "{{var:businessCanonicalWorkOrderId}}"
+          },
+          {
+            "path": "$.itemSubtotal",
+            "equals": 140.5
+          },
+          {
+            "path": "$.totalDurationMinutes",
+            "equals": 60
+          },
+          {
+            "path": "$.items[0].offeringId",
+            "equals": "{{var:defaultOfferingId}}"
+          },
+          {
+            "path": "$.items[1].offeringId",
+            "equals": "{{var:singleOfferingId}}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-ORDER-CONFLICT-039",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "order-conflict"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-order-conflict-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessCanonicalReference}}",
+        "orderGuid": "{{var:businessCanonicalOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:businessCanonicalSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 140.51,
+        "expectedTotalDurationMinutes": 60,
+        "items": [
+          {
+            "offeringId": "{{var:defaultOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 4,
+            "expectedItemSubtotal": 83.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": [
+              {
+                "addonChoiceId": "{{var:multipleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          },
+          {
+            "offeringId": "{{var:singleOfferingId}}",
+            "expectedBaseSubtotal": 55,
+            "expectedAddonSubtotal": 2,
+            "expectedItemSubtotal": 57,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": [
+              {
+                "addonChoiceId": "{{var:singleChoiceId}}",
+                "quantity": 1
+              }
+            ]
+          }
+        ],
+        "customer": {
+          "name": "Safe Local Customer",
+          "email": "safe@example.test",
+          "phone": "+972500000012"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CANONICAL"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "json": [
+          {
+            "path": "$.code",
+            "equals": "RESERVATION_INVALID"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP12-BUSINESS-NULL-ITEM-040",
+      "feature": "step12",
+      "tags": [
+        "step12",
+        "live",
+        "business",
+        "malformed",
+        "null-item"
+      ],
+      "method": "POST",
+      "url": "https://localhost:50691/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/problem+json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step12-null-item-{{var:runStamp}}",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:businessNullItemReference}}",
+        "orderGuid": "{{var:businessNullItemOrderGuid}}",
+        "branchId": "{{var:branchSourceId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:slotStartUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 0,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          null
+        ],
+        "customer": {
+          "name": "Safe Local Customer"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "customer-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "errorCode": "RESERVATION_INVALID",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": 400
+          },
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ]
+      }
+    }
+  ]
+}

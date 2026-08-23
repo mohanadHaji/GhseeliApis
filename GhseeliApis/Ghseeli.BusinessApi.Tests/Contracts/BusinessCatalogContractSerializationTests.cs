@@ -10,6 +10,48 @@ namespace Ghseeli.BusinessApi.Tests.Contracts;
 /// </summary>
 public class BusinessCatalogContractSerializationTests
 {
+    [Fact]
+    public void ReservationContracts_RoundTripCrossSystemReferencesAndMoney()
+    {
+        var options = BusinessCatalogContract.CreateJsonSerializerOptions();
+        var request = new CreateReservationRequest
+        {
+            BookingReference = Guid.NewGuid(),
+            OrderGuid = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            ExpectedCatalogVersion = 12,
+            RequestedSlotStartUtc = new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
+            Currency = "ILS",
+            ExpectedItemSubtotal = 123.45m,
+            ExpectedTotalDurationMinutes = 60,
+            Customer = new ReservationCustomerSnapshot { Name = "Customer" },
+            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Location = new ReservationLocationSnapshot { AddressLine = "Street 1" },
+            CancellationPolicyAcknowledged = true,
+            Items =
+            [
+                new CreateReservationItemRequest
+                {
+                    OfferingId = Guid.NewGuid(),
+                    ExpectedBaseSubtotal = 100m,
+                    ExpectedAddonSubtotal = 23.45m,
+                    ExpectedItemSubtotal = 123.45m,
+                    ExpectedDurationMinutes = 60
+                }
+            ]
+        };
+
+        var json = JsonSerializer.Serialize(request, options);
+        var roundTrip = JsonSerializer.Deserialize<CreateReservationRequest>(json, options);
+
+        roundTrip.Should().NotBeNull();
+        roundTrip!.BookingReference.Should().Be(request.BookingReference);
+        roundTrip.OrderGuid.Should().Be(request.OrderGuid);
+        roundTrip.ExpectedItemSubtotal.Should().Be(123.45m);
+        roundTrip.Items.Should().ContainSingle();
+        roundTrip.Items.Single().OfferingId.Should().Be(request.Items.Single().OfferingId);
+    }
+
     private static readonly JsonSerializerOptions JsonOptions =
         BusinessCatalogContract.CreateJsonSerializerOptions();
 

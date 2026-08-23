@@ -10,6 +10,7 @@ using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Checkout;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
+using GhseeliApis.Services.Bookings;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories;
@@ -33,7 +34,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     var defaultFactory = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
-        if (!IsPricingRepricePath(context.HttpContext.Request.Path))
+        if (!IsPricingRepricePath(context.HttpContext.Request.Path) &&
+            !IsBookingConfirmationPath(context.HttpContext.Request.Path))
         {
             return defaultFactory(context);
         }
@@ -44,18 +46,27 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var statusCode = unsupportedMediaType
             ? StatusCodes.Status415UnsupportedMediaType
             : StatusCodes.Status400BadRequest;
-        var code = unsupportedMediaType
-            ? CheckoutPricingProblemCodes.UnsupportedMediaType
-            : CheckoutPricingProblemCodes.Invalid;
         var request = context.HttpContext.Request;
         var language = ConfigurationLanguageResolver.Resolve(
             request.Query["language"].ToString(),
             request.Headers.AcceptLanguage.ToString());
-        var problem = CheckoutPricingProblemDetailsFactory.Create(
-            statusCode,
-            code,
-            language,
-            context.HttpContext.TraceIdentifier);
+        var bookingRoute = IsBookingConfirmationPath(request.Path);
+        var problem = bookingRoute
+            ? BookingConfirmationProblemDetailsFactory.Create(
+                statusCode,
+                unsupportedMediaType
+                    ? BookingConfirmationProblemCodes.UnsupportedMediaType
+                    : BookingConfirmationProblemCodes.Invalid,
+                language,
+                context.HttpContext.TraceIdentifier)
+            : CheckoutPricingProblemDetailsFactory.Create(
+                statusCode,
+                unsupportedMediaType
+                    ? CheckoutPricingProblemCodes.UnsupportedMediaType
+                    : CheckoutPricingProblemCodes.Invalid,
+                language,
+                context.HttpContext.TraceIdentifier);
+        context.HttpContext.Response.Headers.CacheControl = "no-store";
 
         return new ObjectResult(problem)
         {
@@ -244,6 +255,7 @@ builder.Services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRe
 builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
 builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
+builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
 builder.Services.AddSingleton<ICheckoutPaymentCapabilitiesService, CheckoutPaymentCapabilitiesService>();
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
@@ -316,6 +328,51 @@ if (swaggerEnabled)
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.Use(async (context, next) =>
+{
+    if (!IsBookingConfirmationPath(context.Request.Path))
+    {
+        await next();
+        return;
+    }
+
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        return Task.CompletedTask;
+    });
+
+    try
+    {
+        await next();
+    }
+    catch (BadHttpRequestException exception) when (!context.Response.HasStarted)
+    {
+        context.Response.Clear();
+        var statusCode = exception.StatusCode;
+        var code = statusCode == StatusCodes.Status413PayloadTooLarge
+            ? BookingConfirmationProblemCodes.RequestBodyTooLarge
+            : BookingConfirmationProblemCodes.Invalid;
+        await WriteBookingProblemAsync(context, statusCode, code);
+        return;
+    }
+
+    if (!context.Response.HasStarted &&
+        context.Response.StatusCode >= StatusCodes.Status400BadRequest)
+    {
+        var code = context.Response.StatusCode switch
+        {
+            StatusCodes.Status413PayloadTooLarge =>
+                BookingConfirmationProblemCodes.RequestBodyTooLarge,
+            StatusCodes.Status415UnsupportedMediaType =>
+                BookingConfirmationProblemCodes.UnsupportedMediaType,
+            StatusCodes.Status503ServiceUnavailable =>
+                BookingConfirmationProblemCodes.Unavailable,
+            _ => BookingConfirmationProblemCodes.Invalid
+        };
+        await WriteBookingProblemAsync(context, context.Response.StatusCode, code);
+    }
+});
 app.UseMiddleware<DeviceTokenMiddleware>();
 
 // Add Authentication & Authorization middleware
@@ -364,5 +421,28 @@ app.Run();
 static bool IsPricingRepricePath(PathString path) =>
     path.Equals("/api/v1/pricing/reprice", StringComparison.OrdinalIgnoreCase) ||
     path.Equals("/api/v1/checkout/reprice", StringComparison.OrdinalIgnoreCase);
+
+static bool IsBookingConfirmationPath(PathString path) =>
+    path.StartsWithSegments("/api/v1/bookings", StringComparison.OrdinalIgnoreCase);
+
+static async Task WriteBookingProblemAsync(HttpContext context, int statusCode, string code)
+{
+    var language = ConfigurationLanguageResolver.Resolve(
+        context.Request.Query["language"].ToString(),
+        context.Request.Headers.AcceptLanguage.ToString());
+    var problem = BookingConfirmationProblemDetailsFactory.Create(
+        statusCode,
+        code,
+        language,
+        context.TraceIdentifier);
+    context.Response.StatusCode = statusCode;
+    context.Response.ContentType = "application/problem+json";
+    context.Response.Headers.CacheControl = "no-store";
+    await context.Response.WriteAsJsonAsync(
+        problem,
+        options: null,
+        contentType: "application/problem+json",
+        cancellationToken: context.RequestAborted);
+}
 
 public partial class Program;

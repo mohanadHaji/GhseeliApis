@@ -153,6 +153,20 @@ public class CheckoutDraftRequestValidatorTests
             error.PropertyName == "Location.Longitude");
     }
 
+    [Fact]
+    public void Validate_RejectsRequestedSlotWithNonUtcOffset()
+    {
+        var request = CreateValidCreateRequest();
+        request.RequestedSlotStartUtc =
+            new DateTimeOffset(2026, 8, 24, 13, 0, 0, TimeSpan.FromHours(3));
+
+        var result = _createValidator.Validate(request);
+
+        result.Errors.Should().ContainSingle(error =>
+            error.PropertyName == nameof(CreateCheckoutDraftRequest.RequestedSlotStartUtc) &&
+            error.ErrorCode == "checkout_requested_slot_must_be_utc");
+    }
+
     private static CreateCheckoutDraftRequest CreateValidCreateRequest() =>
         new()
         {

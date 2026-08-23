@@ -53,7 +53,11 @@ public sealed class CheckoutDraftRepository : ICheckoutDraftRepository
             .Select(draft => new CheckoutDraftPersistenceState(
                 draft.PublicVersion,
                 draft.ExpiresAt,
-                draft.RowVersion))
+                draft.RowVersion,
+                draft.RequiresReprice,
+                draft.PricingSnapshot == null ? null : draft.PricingSnapshot.Id,
+                draft.ConfirmationClaimedVersion,
+                draft.ConfirmationBookingReference))
             .SingleOrDefaultAsync(cancellationToken);
     }
 

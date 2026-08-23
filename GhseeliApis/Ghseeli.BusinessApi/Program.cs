@@ -243,6 +243,14 @@ builder.Services.AddAuthorization(options =>
             BusinessClaimTypes.InternalAllowedOperation,
             InternalServiceOperationNames.AppointmentValidate);
     });
+    options.AddPolicy(BusinessPolicies.InternalReservationCreate, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.ReservationCreate);
+    });
 });
 
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
@@ -267,6 +275,7 @@ builder.Services.AddScoped<ICatalogService, CatalogService>();
 builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagementService>();
 builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
 builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
+builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddSingleton<Ghseeli.BusinessApi.Services.Availability.ISystemClock, Ghseeli.BusinessApi.Services.Availability.SystemClock>();
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 

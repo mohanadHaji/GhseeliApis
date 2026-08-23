@@ -98,6 +98,38 @@ public class BusinessApiClientTests
     }
 
     [Fact]
+    public async Task CreateReservationAsync_WhenServerReturnsConflict_PreservesStructuredCode()
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = new StringContent(
+                    "{\"code\":\"PRICE_CHANGED\",\"message\":\"changed\"}",
+                    Encoding.UTF8,
+                    "application/json")
+            }
+        ]);
+        var client = CreateClient(handler, "corr-step12-conflict");
+
+        var action = () => client.CreateReservationAsync(
+            new CreateReservationRequest
+            {
+                BookingReference = Guid.NewGuid(),
+                OrderGuid = Guid.NewGuid(),
+                BranchId = Guid.NewGuid(),
+                RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddDays(1),
+                Currency = "ILS",
+                CancellationPolicyAcknowledged = true
+            },
+            "booking-step12");
+
+        var exception = await action.Should().ThrowAsync<BusinessApiConflictException>();
+        exception.Which.Code.Should().Be(ReservationErrorCodes.PriceChanged);
+        exception.Which.CorrelationId.Should().Be("corr-step12-conflict");
+    }
+
+    [Fact]
     public async Task GetCatalogSnapshotAsync_WhenSuccessBodyIsEmpty_ThrowsTypedContractException()
     {
         var handler = new RecordingHandler(

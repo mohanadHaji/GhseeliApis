@@ -45,10 +45,17 @@ public sealed class BusinessApiAuthenticationException : BusinessApiException
 
 public sealed class BusinessApiConflictException : BusinessApiException
 {
-    public BusinessApiConflictException(string message, string? correlationId, Exception? innerException = null)
+    public BusinessApiConflictException(
+        string message,
+        string? correlationId,
+        string? code = null,
+        Exception? innerException = null)
         : base(message, correlationId, innerException)
     {
+        Code = code;
     }
+
+    public string? Code { get; }
 }
 
 public sealed class BusinessApiContractException : BusinessApiException

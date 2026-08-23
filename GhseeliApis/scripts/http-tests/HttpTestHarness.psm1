@@ -437,6 +437,7 @@ function Resolve-TemplateTokenValue {
 function Resolve-TemplateString {
     param(
         [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
         [string]$Template,
 
         [Parameter(Mandatory = $true)]
@@ -1344,6 +1345,7 @@ function Build-RequestBody {
     if ($null -ne $repeatBody) {
         $text = [string](Resolve-TemplatedValue -Value (Get-ObjectPropertyValue -Object $repeatBody -Name 'text' -Required) -Variables $Variables)
         $count = [int](Get-ObjectPropertyValue -Object $repeatBody -Name 'count' -Required)
+        $configuredForceChunked = Get-ObjectPropertyValue -Object $repeatBody -Name 'forceChunked'
         if ($count -lt 1 -or $count -gt 1000000) {
             throw "Scenario '$((Get-ObjectPropertyValue -Object $Scenario -Name 'id' -Required))' repeatBody count must be between 1 and 1000000."
         }
@@ -1351,7 +1353,7 @@ function Build-RequestBody {
         return [pscustomobject]@{
             Content     = ($text * $count)
             ContentType = [string](Get-ObjectPropertyValue -Object $repeatBody -Name 'contentType')
-            ForceChunked = $true
+            ForceChunked = if ($null -eq $configuredForceChunked) { $true } else { [bool]$configuredForceChunked }
         }
     }
 
@@ -2230,9 +2232,17 @@ function Invoke-HttpTestHarnessSelfTest {
             if ($resolved -ne 'prefix-value-ok-env-ok') {
                 throw "Unexpected interpolation result '$resolved'."
             }
+
         }
         finally {
             [System.Environment]::SetEnvironmentVariable('HTTP_TEST_HARNESS_SELFTEST_VALUE', $null, 'Process')
+        }
+    }
+
+    Add-SelfTestResult -Name 'Template interpolation preserves empty header values' -Action {
+        $resolved = Resolve-TemplatedValue -Value '' -Variables @{}
+        if ($resolved -ne '') {
+            throw "Expected an empty string but received '$resolved'."
         }
     }
 
@@ -2672,6 +2682,23 @@ function Invoke-HttpTestHarnessSelfTest {
 
         if ($body.Content.Length -ne 70000 -or $body.ContentType -ne 'application/json' -or -not $body.ForceChunked) {
             throw 'Repeated request body generation failed.'
+        }
+
+        $fixedLengthBody = Build-RequestBody `
+            -Scenario ([ordered]@{
+                id = 'fixed-length-boundary'
+                repeatBody = [ordered]@{
+                    text = 'x'
+                    count = 65536
+                    contentType = 'application/json'
+                    forceChunked = $false
+                }
+            }) `
+            -Variables @{} `
+            -ManifestDirectory $PSScriptRoot
+
+        if ($fixedLengthBody.Content.Length -ne 65536 -or $fixedLengthBody.ForceChunked) {
+            throw 'Fixed-length repeated request body generation failed.'
         }
     }
 

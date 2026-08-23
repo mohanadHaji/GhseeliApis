@@ -203,6 +203,13 @@ Rules:
 - Reusing a completed identical request returns the original logical result without re-executing the operation.
 - Internal retries use a fresh nonce on every attempt and the same `Idempotency-Key` and `X-Correlation-Id`.
 
+### Business reservation durability
+
+- A successful Business reservation is immediately and durably `Reserved`; it is not a temporary hold.
+- `reservationExpiresAtUtc` is therefore `null`. Capacity remains consumed until a later explicit business booking-status transition releases or completes the reservation.
+- Authoritative catalog, selection, price, duration, service-area, aggregate-slot, and capacity checks run in the same serializable transaction that creates the reservation and work order.
+- Reservation replay uses a canonical semantic request hash: item and add-on ordering do not affect replay identity, while changed values return an idempotency conflict.
+
 ## 6. Internal HTTPS security
 
 Initial integration uses HMAC-authenticated HTTPS and does not depend on an external identity provider or message broker.
@@ -400,6 +407,13 @@ The Customer API may add its own disclosed customer-side tax, discount, or platf
 
 ### Reservation
 
+Customer confirmation uses `POST /api/v1/bookings/from-draft`, requires both the
+device token and Customer JWT, sends `orderGuid` in `X-Order-Guid`, and sends
+`expectedVersion` plus `cancellationPolicyAcknowledged` in the JSON body.
+The Customer API persists a durable confirmation attempt before calling Business,
+so retries reuse the exact reservation body and `booking-{orderGuid:N}`
+idempotency key.
+
 Request contains:
 
 - cross-system booking reference;
@@ -417,6 +431,14 @@ Response contains:
 - accepted snapshot;
 - status;
 - reservation expiry when applicable.
+
+Business persists the reservation and work order in one serializable transaction.
+Unique `orderGuid`, customer booking reference, reservation public ID, and work
+order public ID constraints prevent duplicates. Customer persistence uses a
+unique `orderGuid` and immutable provider, branch, service, selection, vehicle,
+location, price, fee, tax, duration, and appointment snapshots. A lost Business
+response is recovered by replaying the durable attempt with the same key; no
+payment or Stripe capture occurs during confirmation.
 
 ### Booking status callback
 

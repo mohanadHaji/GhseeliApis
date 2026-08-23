@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Ghseeli.BusinessApi.Tests.Infrastructure;
 
@@ -114,6 +115,60 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
     }
 
     [Fact]
+    public async Task CreateReservation_WhenSameOrderAndIdempotencyKeyAreReplayed_ExecutesOnce()
+    {
+        await using var factory = new RelationalInternalServiceFactory();
+        using var client = factory.CreateSecureClient();
+        var request = CreateReservationRequest();
+
+        var firstResponse = await SendReservationAsync(client, "reservation-replay", request);
+        var secondResponse = await SendReservationAsync(client, "reservation-replay", request);
+
+        var firstBody = await firstResponse.Content.ReadAsStringAsync();
+        var secondBody = await secondResponse.Content.ReadAsStringAsync();
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondBody.Should().Be(firstBody);
+        factory.ReservationService.InvocationCount.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData("""{"items":[null]}""")]
+    [InlineData("""{"items":[{"selectedAddons":null}]}""")]
+    [InlineData("""{"items":[{"selectedAddons":[null]}]}""")]
+    public async Task CreateReservation_WhenNestedCollectionContentIsNull_ReturnsReplayableProblemInsteadOfSuccess(
+        string malformedFragment)
+    {
+        await using var factory = new RelationalInternalServiceFactory();
+        using var client = factory.CreateSecureClient();
+        var request = CreateReservationRequest();
+        var body = JsonSerializer.SerializeToNode(
+            request,
+            BusinessCatalogContract.CreateJsonSerializerOptions())!.AsObject();
+        var malformed = JsonNode.Parse(malformedFragment)!.AsObject();
+        body["items"] = malformed["items"]!.DeepClone();
+        var idempotencyKey = $"reservation-null-{Guid.NewGuid():N}";
+
+        var firstResponse = await SendReservationAsync(
+            client,
+            idempotencyKey,
+            body);
+        var secondResponse = await SendReservationAsync(
+            client,
+            idempotencyKey,
+            body);
+        var firstBody = await firstResponse.Content.ReadAsStringAsync();
+        var secondBody = await secondResponse.Content.ReadAsStringAsync();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest, firstBody);
+        firstResponse.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest, secondBody);
+        secondBody.Should().Be(firstBody);
+        firstBody.Should().Contain(ReservationErrorCodes.Invalid);
+        factory.ReservationService.InvocationCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task ValidateAppointment_WhenStoredResponseExceedsCap_AllowsSuccessfulRetryWithSameIdempotencyKey()
     {
         await using var factory = new RelationalInternalServiceFactory(maxStoredResponseBytes: 1024);
@@ -154,6 +209,52 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
         return await client.SendAsync(request);
     }
 
+    private static async Task<HttpResponseMessage> SendReservationAsync(
+        HttpClient client,
+        string idempotencyKey,
+        object body)
+    {
+        var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/reservations",
+            body,
+            idempotencyKey: idempotencyKey);
+        return await client.SendAsync(request);
+    }
+
+    private static CreateReservationRequest CreateReservationRequest() =>
+        new()
+        {
+            BookingReference = Guid.NewGuid(),
+            OrderGuid = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            ExpectedCatalogVersion = 3,
+            RequestedSlotStartUtc = new DateTimeOffset(2026, 8, 24, 9, 0, 0, TimeSpan.Zero),
+            Currency = "ILS",
+            ExpectedItemSubtotal = 100m,
+            ExpectedTotalDurationMinutes = 30,
+            Customer = new ReservationCustomerSnapshot { Name = "Customer" },
+            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Location = new ReservationLocationSnapshot
+            {
+                AddressLine = "Street 1",
+                Latitude = 32.1,
+                Longitude = 34.8
+            },
+            CancellationPolicyAcknowledged = true,
+            Items =
+            [
+                new CreateReservationItemRequest
+                {
+                    OfferingId = Guid.NewGuid(),
+                    ExpectedBaseSubtotal = 100m,
+                    ExpectedItemSubtotal = 100m,
+                    ExpectedDurationMinutes = 30
+                }
+            ]
+        };
+
     private sealed class RelationalInternalServiceFactory : WebApplicationFactory<Program>, IAsyncDisposable
     {
         private readonly string _databaseName = $"GhseeliStep6_{Guid.NewGuid():N}";
@@ -170,6 +271,8 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
 
         public FakeAppointmentValidationService AppointmentValidationService =>
             Services.GetRequiredService<FakeAppointmentValidationService>();
+        public FakeReservationService ReservationService =>
+            Services.GetRequiredService<FakeReservationService>();
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -188,6 +291,7 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
             builder.UseSetting("InternalServiceAuthentication:Services:0:ActiveSecret", CatalogApiFactory.InternalServiceActiveSecret);
             builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
             builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:1", InternalServiceOperationNames.AppointmentValidate);
+            builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:2", InternalServiceOperationNames.ReservationCreate);
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll(typeof(DbContextOptions<BusinessDbContext>));
@@ -197,12 +301,16 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
 
                 services.RemoveAll<ICatalogPublicationService>();
                 services.RemoveAll<IAppointmentValidationService>();
+                services.RemoveAll<IReservationService>();
                 services.AddSingleton<FakeCatalogPublicationService>();
                 services.AddSingleton<ICatalogPublicationService>(serviceProvider =>
                     serviceProvider.GetRequiredService<FakeCatalogPublicationService>());
                 services.AddSingleton<FakeAppointmentValidationService>();
                 services.AddSingleton<IAppointmentValidationService>(serviceProvider =>
                     serviceProvider.GetRequiredService<FakeAppointmentValidationService>());
+                services.AddSingleton<FakeReservationService>();
+                services.AddSingleton<IReservationService>(serviceProvider =>
+                    serviceProvider.GetRequiredService<FakeReservationService>());
 
                 using var scope = services.BuildServiceProvider().CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<BusinessDbContext>();
@@ -321,6 +429,44 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
                     RequestedSlotEndUtc = request.RequestedSlotStartUtc.UtcDateTime.AddMinutes(30)
                 }
             };
+        }
+    }
+
+    private sealed class FakeReservationService : IReservationService
+    {
+        private int _invocationCount;
+        public int InvocationCount => _invocationCount;
+
+        public Task<CreateReservationResponse> CreateAsync(
+            CreateReservationRequest request,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref _invocationCount);
+            if (request.Items is null ||
+                request.Items.Any(item =>
+                    item is null ||
+                    item.SelectedAddons is null ||
+                    item.SelectedAddons.Any(selection => selection is null)))
+            {
+                throw new ReservationRejectedException(
+                    ReservationErrorCodes.Invalid,
+                    "The reservation request is invalid.");
+            }
+
+            return Task.FromResult(new CreateReservationResponse
+            {
+                BookingReference = request.BookingReference,
+                ReservationId = Guid.NewGuid(),
+                WorkOrderId = Guid.NewGuid(),
+                Status = ReservationStatuses.Reserved,
+                CatalogVersion = request.ExpectedCatalogVersion,
+                Currency = request.Currency,
+                ItemSubtotal = request.ExpectedItemSubtotal,
+                TotalDurationMinutes = request.ExpectedTotalDurationMinutes,
+                RequestedSlotStartUtc = request.RequestedSlotStartUtc,
+                RequestedSlotEndUtc = request.RequestedSlotStartUtc.AddMinutes(
+                    request.ExpectedTotalDurationMinutes)
+            });
         }
     }
 

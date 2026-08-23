@@ -175,6 +175,7 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
         }
 
         EnsureActive(draft);
+        EnsureNotClaimed(draft);
         if (draft.PublicVersion != request.ExpectedVersion)
         {
             throw CreateVersionConflict();
@@ -902,6 +903,14 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
                 CheckoutDraftProblemCodes.Expired,
                 StatusCodes.Status410Gone,
                 "The checkout draft has expired.");
+        }
+    }
+
+    private static void EnsureNotClaimed(CheckoutDraft draft)
+    {
+        if (draft.ConfirmationClaimedVersion.HasValue)
+        {
+            throw CreateVersionConflict();
         }
     }
 

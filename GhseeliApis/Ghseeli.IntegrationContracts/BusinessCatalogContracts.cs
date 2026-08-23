@@ -29,6 +29,19 @@ public static class AppointmentValidationErrorCodes
     public const string SlotMisaligned = "SLOT_MISALIGNED";
 }
 
+public static class ReservationErrorCodes
+{
+    public const string Invalid = "RESERVATION_INVALID";
+    public const string PriceChanged = "PRICE_CHANGED";
+    public const string SlotUnavailable = "SLOT_UNAVAILABLE";
+    public const string CatalogChanged = "CATALOG_CHANGED";
+}
+
+public static class ReservationStatuses
+{
+    public const string Reserved = "Reserved";
+}
+
 public sealed class CatalogSnapshotResponse
 {
     public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
@@ -253,4 +266,90 @@ public sealed class AppointmentServiceAreaFacts
     public double? RadiusKm { get; set; }
     public double? EffectiveCenterLatitude { get; set; }
     public double? EffectiveCenterLongitude { get; set; }
+}
+
+public sealed class CreateReservationRequest
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public Guid BookingReference { get; set; }
+    public Guid OrderGuid { get; set; }
+    public Guid BranchId { get; set; }
+    public long ExpectedCatalogVersion { get; set; }
+    public DateTimeOffset RequestedSlotStartUtc { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public decimal ExpectedItemSubtotal { get; set; }
+    public int ExpectedTotalDurationMinutes { get; set; }
+    public IReadOnlyCollection<CreateReservationItemRequest> Items { get; set; } =
+        Array.Empty<CreateReservationItemRequest>();
+    public ReservationCustomerSnapshot Customer { get; set; } = new();
+    public ReservationVehicleSnapshot Vehicle { get; set; } = new();
+    public ReservationLocationSnapshot Location { get; set; } = new();
+    public bool CancellationPolicyAcknowledged { get; set; }
+}
+
+public sealed class CreateReservationItemRequest
+{
+    public Guid OfferingId { get; set; }
+    public decimal ExpectedBaseSubtotal { get; set; }
+    public decimal ExpectedAddonSubtotal { get; set; }
+    public decimal ExpectedItemSubtotal { get; set; }
+    public int ExpectedDurationMinutes { get; set; }
+    public IReadOnlyCollection<ValidateAppointmentAddonSelectionRequest> SelectedAddons { get; set; } =
+        Array.Empty<ValidateAppointmentAddonSelectionRequest>();
+}
+
+public sealed class ReservationCustomerSnapshot
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+}
+
+public sealed class ReservationVehicleSnapshot
+{
+    public string VehicleType { get; set; } = string.Empty;
+    public string? LicensePlate { get; set; }
+    public string? Make { get; set; }
+    public string? Model { get; set; }
+    public string? Color { get; set; }
+}
+
+public sealed class ReservationLocationSnapshot
+{
+    public string AddressLine { get; set; } = string.Empty;
+    public string? City { get; set; }
+    public string? Area { get; set; }
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+}
+
+public sealed class CreateReservationResponse
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public Guid BookingReference { get; set; }
+    public Guid ReservationId { get; set; }
+    public Guid WorkOrderId { get; set; }
+    public string Status { get; set; } = ReservationStatuses.Reserved;
+    public long CatalogVersion { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public decimal ItemSubtotal { get; set; }
+    public int TotalDurationMinutes { get; set; }
+    public DateTimeOffset RequestedSlotStartUtc { get; set; }
+    public DateTimeOffset RequestedSlotEndUtc { get; set; }
+    public DateTimeOffset? ReservationExpiresAtUtc { get; set; }
+    public IReadOnlyCollection<ReservationAcceptedItem> Items { get; set; } =
+        Array.Empty<ReservationAcceptedItem>();
+    public IReadOnlyCollection<AppointmentValidationIssue> Errors { get; set; } =
+        Array.Empty<AppointmentValidationIssue>();
+}
+
+public sealed class ReservationAcceptedItem
+{
+    public Guid OfferingId { get; set; }
+    public decimal BaseSubtotal { get; set; }
+    public decimal AddonSubtotal { get; set; }
+    public decimal ItemSubtotal { get; set; }
+    public int TotalDurationMinutes { get; set; }
+    public IReadOnlyCollection<NormalizedAddonSelection> Selections { get; set; } =
+        Array.Empty<NormalizedAddonSelection>();
 }

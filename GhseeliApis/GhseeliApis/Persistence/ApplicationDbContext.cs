@@ -41,6 +41,10 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<CheckoutDraftPricingSnapshot> CheckoutDraftPricingSnapshots => Set<CheckoutDraftPricingSnapshot>();
     public DbSet<CheckoutDraftPricingItemSnapshot> CheckoutDraftPricingItemSnapshots => Set<CheckoutDraftPricingItemSnapshot>();
     public DbSet<CheckoutDraftPricingSelectionSnapshot> CheckoutDraftPricingSelectionSnapshots => Set<CheckoutDraftPricingSelectionSnapshot>();
+    public DbSet<CustomerBooking> CustomerBookings => Set<CustomerBooking>();
+    public DbSet<CustomerBookingItem> CustomerBookingItems => Set<CustomerBookingItem>();
+    public DbSet<CustomerBookingSelection> CustomerBookingSelections => Set<CustomerBookingSelection>();
+    public DbSet<BookingConfirmationAttempt> BookingConfirmationAttempts => Set<BookingConfirmationAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -146,6 +150,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
 
         modelBuilder.ConfigureCatalogReadModel();
         modelBuilder.ConfigureCheckoutDrafts();
+        modelBuilder.ConfigureCustomerBookings();
 
         // ============================================
         // User and Wallet 1:1 Relationship

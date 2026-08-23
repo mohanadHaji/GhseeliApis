@@ -19,6 +19,7 @@ internal static class CheckoutDraftFieldErrorCodes
     public const string CoordinateFinite = "checkout_coordinate_finite";
     public const string CoordinateRange = "checkout_coordinate_range";
     public const string RequestedSlotRequired = "checkout_requested_slot_required";
+    public const string RequestedSlotMustBeUtc = "checkout_requested_slot_must_be_utc";
     public const string CollectionRequired = "checkout_collection_required";
     public const string CollectionTooMany = "checkout_collection_too_many";
     public const string DuplicateOffering = "checkout_duplicate_offering";

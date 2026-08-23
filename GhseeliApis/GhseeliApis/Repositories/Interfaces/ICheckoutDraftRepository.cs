@@ -30,7 +30,11 @@ public interface ICheckoutDraftRepository
 public sealed record CheckoutDraftPersistenceState(
     int PublicVersion,
     DateTimeOffset ExpiresAt,
-    byte[] RowVersion);
+    byte[] RowVersion,
+    bool RequiresReprice,
+    Guid? PricingSnapshotId,
+    int? ConfirmationClaimedVersion,
+    Guid? ConfirmationBookingReference);
 
 public sealed record CheckoutDraftPricingPersistenceExpectation(
     Guid DraftId,

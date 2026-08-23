@@ -15,6 +15,8 @@ public sealed class CustomerBooking
     public long CatalogVersion { get; set; }
     public int ConfirmedDraftVersion { get; set; }
     public string Status { get; set; } = string.Empty;
+    public long BusinessStatusSequence { get; set; }
+    public DateTimeOffset StatusChangedAtUtc { get; set; }
     public DateTimeOffset RequestedSlotStartUtc { get; set; }
     public DateTimeOffset RequestedSlotEndUtc { get; set; }
     public string ProviderNameAr { get; set; } = string.Empty;
@@ -49,6 +51,8 @@ public sealed class CustomerBooking
     public DateTimeOffset CreatedAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public ICollection<CustomerBookingItem> Items { get; set; } = new List<CustomerBookingItem>();
+    public ICollection<ProcessedBookingStatusMessage> ProcessedStatusMessages { get; set; } =
+        new List<ProcessedBookingStatusMessage>();
 }
 
 public sealed class BookingConfirmationAttempt

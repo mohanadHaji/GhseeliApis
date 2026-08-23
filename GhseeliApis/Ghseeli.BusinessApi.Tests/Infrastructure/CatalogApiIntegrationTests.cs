@@ -329,6 +329,11 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("InternalServiceAuthentication:Services:1:ServiceId", SnapshotOnlyServiceId);
         builder.UseSetting("InternalServiceAuthentication:Services:1:ActiveSecret", SnapshotOnlySecret);
         builder.UseSetting("InternalServiceAuthentication:Services:1:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
+        builder.UseSetting("CustomerBookingStatusClient:BaseUrl", "https://customer.example");
+        builder.UseSetting("CustomerBookingStatusClient:ServiceId", "business-api-tests");
+        builder.UseSetting(
+            "CustomerBookingStatusClient:ActiveSecret",
+            "CatalogCallbackSecret_Minimum32Characters");
         builder.ConfigureServices(services =>
         {
             services.RemoveAll(typeof(DbContextOptions<BusinessDbContext>));
@@ -349,6 +354,17 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         var client = CreateSecureClient();
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", CreateToken(userId, roles));
+        return client;
+    }
+
+    public HttpClient CreateExpiredAuthenticatedClient(Guid userId, params string[] roles)
+    {
+        var client = CreateSecureClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", CreateToken(
+                userId,
+                roles,
+                DateTime.UtcNow.AddMinutes(-1)));
         return client;
     }
 
@@ -377,7 +393,10 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         context.SaveChanges();
     }
 
-    private string CreateToken(Guid userId, IEnumerable<string> roles)
+    private string CreateToken(
+        Guid userId,
+        IEnumerable<string> roles,
+        DateTime? expires = null)
     {
         var claims = new List<Claim>
         {
@@ -391,7 +410,7 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
             issuer: JwtIssuer,
             audience: JwtAudience,
             claims: claims,
-            expires: DateTime.UtcNow.AddMinutes(30),
+            expires: expires ?? DateTime.UtcNow.AddMinutes(30),
             signingCredentials: new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSecret)),
                 SecurityAlgorithms.HmacSha256));

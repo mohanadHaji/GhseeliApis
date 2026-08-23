@@ -7,6 +7,7 @@ public sealed class WorkOrder
     public Guid AppointmentReservationId { get; set; }
     public AppointmentReservation AppointmentReservation { get; set; } = null!;
     public string Status { get; set; } = string.Empty;
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public string CustomerName { get; set; } = string.Empty;
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }

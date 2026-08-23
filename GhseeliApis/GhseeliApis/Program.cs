@@ -11,8 +11,11 @@ using GhseeliApis.Services.Checkout;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Bookings;
+using GhseeliApis.Services.Internal;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
+using Ghseeli.IntegrationContracts.Bookings;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -35,7 +38,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     options.InvalidModelStateResponseFactory = context =>
     {
         if (!IsPricingRepricePath(context.HttpContext.Request.Path) &&
-            !IsBookingConfirmationPath(context.HttpContext.Request.Path))
+            !IsBookingConfirmationPath(context.HttpContext.Request.Path) &&
+            !IsBookingStatusCallbackPath(context.HttpContext.Request.Path))
         {
             return defaultFactory(context);
         }
@@ -50,8 +54,17 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var language = ConfigurationLanguageResolver.Resolve(
             request.Query["language"].ToString(),
             request.Headers.AcceptLanguage.ToString());
+        var bookingStatusRoute = IsBookingStatusCallbackPath(request.Path);
         var bookingRoute = IsBookingConfirmationPath(request.Path);
-        var problem = bookingRoute
+        var problem = bookingStatusRoute
+            ? BookingStatusProblemDetailsFactory.Create(
+                statusCode,
+                unsupportedMediaType
+                    ? BookingStatusErrorCodes.UnsupportedMediaType
+                    : BookingStatusErrorCodes.Invalid,
+                language,
+                context.HttpContext.TraceIdentifier)
+            : bookingRoute
             ? BookingConfirmationProblemDetailsFactory.Create(
                 statusCode,
                 unsupportedMediaType
@@ -256,6 +269,19 @@ builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
 builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
+builder.Services.AddScoped<IBookingStatusInboxService, BookingStatusInboxService>();
+builder.Services.AddScoped<
+    ICustomerInternalIdempotencyCleanupService,
+    CustomerInternalIdempotencyCleanupService>();
+builder.Services.AddScoped<
+    ICustomerInternalIdempotencyLeaseService,
+    CustomerInternalIdempotencyLeaseService>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CustomerInternalServiceOptions>,
+    CustomerInternalServiceOptionsValidator>();
+builder.Services.AddOptions<CustomerInternalServiceOptions>()
+    .Bind(builder.Configuration.GetSection(CustomerInternalServiceOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.AddSingleton<ICheckoutPaymentCapabilitiesService, CheckoutPaymentCapabilitiesService>();
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<DeviceTokenOptions>,
@@ -330,7 +356,27 @@ app.UseRouting();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.Use(async (context, next) =>
 {
-    if (!IsBookingConfirmationPath(context.Request.Path))
+    if (context.Request.Path.StartsWithSegments(
+            "/api/v1/internal/bookings",
+            StringComparison.OrdinalIgnoreCase,
+            out var remaining) &&
+        !IsKnownInternalBookingRouteShape(remaining))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    await next();
+});
+app.UseMiddleware<CustomerInternalServiceMiddleware>();
+app.Use(async (context, next) =>
+{
+    var bookingStatusRoute = string.Equals(
+        context.GetEndpoint()?
+            .Metadata.GetMetadata<CustomerInternalOperationAttribute>()?.Operation,
+        InternalServiceOperationNames.BookingStatusCallback,
+        StringComparison.Ordinal);
+    if (!IsBookingConfirmationPath(context.Request.Path) && !bookingStatusRoute)
     {
         await next();
         return;
@@ -342,6 +388,15 @@ app.Use(async (context, next) =>
         return Task.CompletedTask;
     });
 
+    if (bookingStatusRoute && !IsJsonContentType(context.Request.ContentType))
+    {
+        await WriteBookingStatusProblemAsync(
+            context,
+            StatusCodes.Status415UnsupportedMediaType,
+            BookingStatusErrorCodes.UnsupportedMediaType);
+        return;
+    }
+
     try
     {
         await next();
@@ -350,10 +405,27 @@ app.Use(async (context, next) =>
     {
         context.Response.Clear();
         var statusCode = exception.StatusCode;
-        var code = statusCode == StatusCodes.Status413PayloadTooLarge
-            ? BookingConfirmationProblemCodes.RequestBodyTooLarge
-            : BookingConfirmationProblemCodes.Invalid;
-        await WriteBookingProblemAsync(context, statusCode, code);
+        if (bookingStatusRoute)
+        {
+            await WriteBookingStatusProblemAsync(
+                context,
+                statusCode,
+                statusCode == StatusCodes.Status413PayloadTooLarge
+                    ? BookingStatusErrorCodes.RequestBodyTooLarge
+                    : BookingStatusErrorCodes.Invalid);
+        }
+        else
+        {
+            var code = statusCode == StatusCodes.Status413PayloadTooLarge
+                ? BookingConfirmationProblemCodes.RequestBodyTooLarge
+                : BookingConfirmationProblemCodes.Invalid;
+            await WriteBookingProblemAsync(context, statusCode, code);
+        }
+        return;
+    }
+
+    if (bookingStatusRoute)
+    {
         return;
     }
 
@@ -425,12 +497,64 @@ static bool IsPricingRepricePath(PathString path) =>
 static bool IsBookingConfirmationPath(PathString path) =>
     path.StartsWithSegments("/api/v1/bookings", StringComparison.OrdinalIgnoreCase);
 
+static bool IsBookingStatusCallbackPath(PathString path) =>
+    path.Equals(
+        "/api/v1/internal/bookings/status",
+        StringComparison.OrdinalIgnoreCase);
+
+static bool IsKnownInternalBookingRouteShape(PathString remaining)
+{
+    var segments = remaining.Value?
+        .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        ?? [];
+    if (segments.Length == 1 &&
+        string.Equals(segments[0], "status", StringComparison.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    return segments.Length is 1 or 2 &&
+        Guid.TryParse(segments[0], out _) &&
+        (segments.Length == 1 ||
+         string.Equals(segments[1], "reconcile", StringComparison.OrdinalIgnoreCase));
+}
+
+static bool IsJsonContentType(string? contentType)
+{
+    var mediaType = contentType?.Split(';', 2)[0].Trim();
+    return string.Equals(mediaType, "application/json", StringComparison.OrdinalIgnoreCase) ||
+        mediaType?.EndsWith("+json", StringComparison.OrdinalIgnoreCase) == true;
+}
+
 static async Task WriteBookingProblemAsync(HttpContext context, int statusCode, string code)
 {
     var language = ConfigurationLanguageResolver.Resolve(
         context.Request.Query["language"].ToString(),
         context.Request.Headers.AcceptLanguage.ToString());
     var problem = BookingConfirmationProblemDetailsFactory.Create(
+        statusCode,
+        code,
+        language,
+        context.TraceIdentifier);
+    context.Response.StatusCode = statusCode;
+    context.Response.ContentType = "application/problem+json";
+    context.Response.Headers.CacheControl = "no-store";
+    await context.Response.WriteAsJsonAsync(
+        problem,
+        options: null,
+        contentType: "application/problem+json",
+        cancellationToken: context.RequestAborted);
+}
+
+static async Task WriteBookingStatusProblemAsync(
+    HttpContext context,
+    int statusCode,
+    string code)
+{
+    var language = ConfigurationLanguageResolver.Resolve(
+        context.Request.Query["language"].ToString(),
+        context.Request.Headers.AcceptLanguage.ToString());
+    var problem = BookingStatusProblemDetailsFactory.Create(
         statusCode,
         code,
         language,

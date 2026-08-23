@@ -29,6 +29,8 @@ internal static class CustomerBookingConfiguration
             entity.Property(booking => booking.PublicReference).IsRequired();
             entity.Property(booking => booking.OrderGuid).IsRequired();
             entity.Property(booking => booking.Status).HasMaxLength(32).IsRequired();
+            entity.Property(booking => booking.BusinessStatusSequence).IsRequired();
+            entity.Property(booking => booking.StatusChangedAtUtc).IsRequired();
             entity.Property(booking => booking.ProviderNameAr).HasMaxLength(200).IsRequired();
             entity.Property(booking => booking.ProviderNameHe).HasMaxLength(200);
             entity.Property(booking => booking.BranchNameAr).HasMaxLength(200).IsRequired();
@@ -66,6 +68,54 @@ internal static class CustomerBookingConfiguration
             entity.HasIndex(booking => booking.BusinessWorkOrderId).IsUnique();
             entity.HasIndex(booking => new { booking.UserId, booking.CreatedAtUtc });
             entity.HasIndex(booking => new { booking.OwnerDeviceId, booking.OrderGuid });
+        });
+
+        modelBuilder.Entity<CustomerInternalServiceNonce>(entity =>
+        {
+            entity.ToTable("CustomerInternalServiceNonces");
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.ServiceId).HasMaxLength(64).IsRequired();
+            entity.Property(value => value.Nonce).HasMaxLength(128).IsRequired();
+            entity.HasIndex(value => new { value.ServiceId, value.Nonce }).IsUnique();
+            entity.HasIndex(value => value.ExpiresAtUtc);
+        });
+
+        modelBuilder.Entity<CustomerInternalIdempotencyRecord>(entity =>
+        {
+            entity.ToTable("CustomerInternalIdempotencyRecords");
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.ServiceId).HasMaxLength(64).IsRequired();
+            entity.Property(value => value.Operation).HasMaxLength(64).IsRequired();
+            entity.Property(value => value.IdempotencyKey).HasMaxLength(128).IsRequired();
+            entity.Property(value => value.RequestHash).HasMaxLength(64).IsRequired();
+            entity.Property(value => value.OwnerToken);
+            entity.Property(value => value.LeaseExpiresAtUtc);
+            entity.Property(value => value.ResponseContentType).HasMaxLength(128);
+            entity.Property(value => value.ResponseBody).HasColumnType("varbinary(max)");
+            entity.HasIndex(value => new
+            {
+                value.ServiceId,
+                value.Operation,
+                value.IdempotencyKey
+            }).IsUnique();
+            entity.HasIndex(value => value.ExpiresAtUtc);
+            entity.HasIndex(value => value.OwnerToken)
+                .IsUnique()
+                .HasFilter("[OwnerToken] IS NOT NULL");
+            entity.HasIndex(value => new { value.State, value.LeaseExpiresAtUtc });
+        });
+
+        modelBuilder.Entity<ProcessedBookingStatusMessage>(entity =>
+        {
+            entity.ToTable("ProcessedBookingStatusMessages");
+            entity.HasKey(value => value.EventId);
+            entity.Property(value => value.RequestHash).HasMaxLength(64).IsRequired();
+            entity.Property(value => value.Status).HasMaxLength(32).IsRequired();
+            entity.HasOne(value => value.CustomerBooking)
+                .WithMany(value => value.ProcessedStatusMessages)
+                .HasForeignKey(value => value.CustomerBookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(value => new { value.CustomerBookingId, value.Sequence });
         });
 
         modelBuilder.Entity<CustomerBookingItem>(entity =>

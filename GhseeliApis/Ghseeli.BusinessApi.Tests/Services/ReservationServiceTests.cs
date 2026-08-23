@@ -6,6 +6,7 @@ using Ghseeli.BusinessApi.Services.Availability;
 using Ghseeli.BusinessApi.Services.Interfaces;
 using Ghseeli.Common.Logging;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Bookings;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
@@ -65,6 +66,71 @@ public class ReservationServiceTests
         exception.Which.Code.Should().Be(ReservationErrorCodes.SlotUnavailable);
         (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(1);
         (await fixture.Context.WorkOrders.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateAsync_LegacyReservedRecord_StillConsumesCapacity()
+    {
+        var fixture = await CreateFixtureAsync(capacity: 1);
+        await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
+        var existing = await fixture.Context.AppointmentReservations.SingleAsync();
+        existing.Status = "Reserved";
+        await fixture.Context.SaveChangesAsync();
+        fixture.Request.OrderGuid = Guid.NewGuid();
+        fixture.Request.BookingReference = Guid.NewGuid();
+
+        var action = () => fixture.Service.CreateAsync(
+            fixture.Request,
+            CancellationToken.None);
+
+        var exception = await action.Should().ThrowAsync<ReservationRejectedException>();
+        exception.Which.Code.Should().Be(ReservationErrorCodes.SlotUnavailable);
+    }
+
+    [Theory]
+    [InlineData(BookingStatuses.Pending)]
+    [InlineData(BookingStatuses.Confirmed)]
+    [InlineData(BookingStatuses.InProgress)]
+    public async Task CreateAsync_ActiveReservationStatus_ConsumesCapacity(string status)
+    {
+        var fixture = await CreateFixtureAsync(capacity: 1);
+        await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
+        var existing = await fixture.Context.AppointmentReservations.SingleAsync();
+        existing.Status = status;
+        existing.WorkOrder.Status = status;
+        await fixture.Context.SaveChangesAsync();
+        fixture.Request.OrderGuid = Guid.NewGuid();
+        fixture.Request.BookingReference = Guid.NewGuid();
+
+        var action = () => fixture.Service.CreateAsync(
+            fixture.Request,
+            CancellationToken.None);
+
+        var exception = await action.Should().ThrowAsync<ReservationRejectedException>();
+        exception.Which.Code.Should().Be(ReservationErrorCodes.SlotUnavailable);
+    }
+
+    [Theory]
+    [InlineData(BookingStatuses.Completed)]
+    [InlineData(BookingStatuses.Cancelled)]
+    [InlineData(BookingStatuses.NoShow)]
+    public async Task CreateAsync_TerminalReservationStatus_ReleasesCapacity(string status)
+    {
+        var fixture = await CreateFixtureAsync(capacity: 1);
+        await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
+        var existing = await fixture.Context.AppointmentReservations.SingleAsync();
+        existing.Status = status;
+        existing.WorkOrder.Status = status;
+        await fixture.Context.SaveChangesAsync();
+        fixture.Request.OrderGuid = Guid.NewGuid();
+        fixture.Request.BookingReference = Guid.NewGuid();
+
+        var result = await fixture.Service.CreateAsync(
+            fixture.Request,
+            CancellationToken.None);
+
+        result.Status.Should().Be(BookingStatuses.Pending);
+        (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(2);
     }
 
     [Fact]
@@ -152,7 +218,7 @@ public class ReservationServiceTests
 
         var result = await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
 
-        result.Status.Should().Be(ReservationStatuses.Reserved);
+        result.Status.Should().Be(ReservationStatuses.Pending);
         (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(1);
     }
 
@@ -174,7 +240,7 @@ public class ReservationServiceTests
 
         var result = await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
 
-        result.Status.Should().Be(ReservationStatuses.Reserved);
+        result.Status.Should().Be(ReservationStatuses.Pending);
     }
 
     [Fact]
@@ -309,13 +375,13 @@ public class ReservationServiceTests
     }
 
     [Fact]
-    public async Task CreateAsync_CreatesPermanentReservedReservationWithoutExpiry()
+    public async Task CreateAsync_CreatesPendingReservationWithoutExpiry()
     {
         var fixture = await CreateFixtureAsync(capacity: 2);
 
         var response = await fixture.Service.CreateAsync(fixture.Request, CancellationToken.None);
 
-        response.Status.Should().Be(ReservationStatuses.Reserved);
+        response.Status.Should().Be(ReservationStatuses.Pending);
         response.ReservationExpiresAtUtc.Should().BeNull();
         (await fixture.Context.AppointmentReservations.SingleAsync()).ExpiresAtUtc.Should().BeNull();
     }

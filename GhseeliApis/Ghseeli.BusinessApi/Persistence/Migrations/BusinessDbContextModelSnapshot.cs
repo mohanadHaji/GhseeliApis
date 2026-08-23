@@ -214,6 +214,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<DateTimeOffset>("StatusChangedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long>("StatusSequence")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("TotalDurationMinutes")
                         .HasColumnType("int");
 
@@ -231,6 +237,148 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("BranchId", "RequestedSlotStartUtc", "RequestedSlotEndUtc", "Status");
 
                     b.ToTable("AppointmentReservations", (string)null);
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusOutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AppointmentReservationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeadLetteredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset?>("DeliveredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DeliveryGeneration")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("DeliveryState")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("LastErrorCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("LeaseOwner")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("LeaseToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("NextAttemptAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("RequestJson")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RequeueRequestId")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset?>("RequeuedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid?>("RequeuedByAdminUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("WorkOrderPublicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentReservationId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("DeliveryState", "NextAttemptAtUtc", "LeaseExpiresAtUtc");
+
+                    b.ToTable("BookingStatusOutboxMessages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BookingStatusOutboxMessages_DeliveryGeneration", "[DeliveryGeneration] >= 0");
+
+                            t.HasCheckConstraint("CK_BookingStatusOutboxMessages_RequeueAudit", "([RequeuedAtUtc] IS NULL AND [RequeuedByAdminUserId] IS NULL AND [RequeueRequestId] IS NULL) OR ([RequeuedAtUtc] IS NOT NULL AND [RequeuedByAdminUserId] IS NOT NULL AND [RequeueRequestId] IS NOT NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusRequeueHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AdminUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BookingStatusOutboxMessageId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Generation")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset>("RequeuedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingStatusOutboxMessageId", "Generation")
+                        .IsUnique();
+
+                    b.HasIndex("BookingStatusOutboxMessageId", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("BookingStatusRequeueHistory", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_BookingStatusRequeueHistory_Generation", "[Generation] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
@@ -928,6 +1076,12 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -1207,6 +1361,28 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.Navigation("ServiceOffering");
                 });
 
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusOutboxMessage", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.AppointmentReservation", "AppointmentReservation")
+                        .WithMany("StatusOutboxMessages")
+                        .HasForeignKey("AppointmentReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppointmentReservation");
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusRequeueHistory", b =>
+                {
+                    b.HasOne("Ghseeli.BusinessApi.Models.BookingStatusOutboxMessage", "BookingStatusOutboxMessage")
+                        .WithMany("RequeueHistory")
+                        .HasForeignKey("BookingStatusOutboxMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("BookingStatusOutboxMessage");
+                });
+
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>
                 {
                     b.HasOne("Ghseeli.BusinessApi.Models.Company", "Company")
@@ -1408,8 +1584,15 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.AppointmentReservation", b =>
                 {
+                    b.Navigation("StatusOutboxMessages");
+
                     b.Navigation("WorkOrder")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusOutboxMessage", b =>
+                {
+                    b.Navigation("RequeueHistory");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Branch", b =>

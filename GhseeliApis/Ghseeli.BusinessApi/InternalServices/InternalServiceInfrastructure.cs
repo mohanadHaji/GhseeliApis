@@ -141,6 +141,7 @@ public static class InternalServiceProblemResponseFactory
         string code,
         IReadOnlyCollection<string>? missingHeaders = null)
     {
+        context.Response.Headers.CacheControl = "no-store";
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
 
@@ -169,6 +170,40 @@ public static class InternalServiceProblemResponseFactory
             failure.Detail,
             failure.Code,
             failure.MissingHeaders);
+    }
+}
+
+public static class BusinessAuthenticationProblemResponseFactory
+{
+    private static readonly JsonSerializerOptions JsonOptions =
+        BusinessCatalogContract.CreateJsonSerializerOptions();
+
+    public static Task WriteAsync(
+        HttpContext context,
+        int statusCode,
+        string title,
+        string detail,
+        string code)
+    {
+        if (context.Response.HasStarted)
+        {
+            return Task.CompletedTask;
+        }
+
+        context.Response.Clear();
+        context.Response.StatusCode = statusCode;
+        context.Response.ContentType = "application/problem+json";
+        context.Response.Headers.CacheControl = "no-store";
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(new
+        {
+            type = $"https://api.ghseeli.example/errors/{code}",
+            title,
+            status = statusCode,
+            detail,
+            code,
+            correlationId = context.GetCorrelationId()
+        }, JsonOptions));
     }
 }
 

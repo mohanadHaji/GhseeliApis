@@ -34,6 +34,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
     public DbSet<WorkOrderItem> WorkOrderItems => Set<WorkOrderItem>();
     public DbSet<WorkOrderSelection> WorkOrderSelections => Set<WorkOrderSelection>();
+    public DbSet<BookingStatusOutboxMessage> BookingStatusOutboxMessages =>
+        Set<BookingStatusOutboxMessage>();
+    public DbSet<BookingStatusRequeueHistory> BookingStatusRequeueHistory =>
+        Set<BookingStatusRequeueHistory>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -348,6 +352,8 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.Property(reservation => reservation.Currency).HasMaxLength(10).IsRequired();
             entity.Property(reservation => reservation.ItemSubtotal).HasPrecision(18, 2);
             entity.Property(reservation => reservation.Status).HasMaxLength(32).IsRequired();
+            entity.Property(reservation => reservation.StatusSequence).IsRequired();
+            entity.Property(reservation => reservation.StatusChangedAtUtc).IsRequired();
             entity.Property(reservation => reservation.RowVersion).IsRowVersion();
             entity.HasIndex(reservation => reservation.PublicId).IsUnique();
             entity.HasIndex(reservation => reservation.CustomerBookingReference).IsUnique();
@@ -367,6 +373,7 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.HasKey(workOrder => workOrder.Id);
             entity.Property(workOrder => workOrder.PublicId).IsRequired();
             entity.Property(workOrder => workOrder.Status).HasMaxLength(32).IsRequired();
+            entity.Property(workOrder => workOrder.RowVersion).IsRowVersion();
             entity.Property(workOrder => workOrder.CustomerName).HasMaxLength(150).IsRequired();
             entity.Property(workOrder => workOrder.CustomerEmail).HasMaxLength(254);
             entity.Property(workOrder => workOrder.CustomerPhone).HasMaxLength(32);
@@ -386,6 +393,78 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasIndex(workOrder => workOrder.PublicId).IsUnique();
             entity.HasIndex(workOrder => workOrder.AppointmentReservationId).IsUnique();
+        });
+
+        builder.Entity<BookingStatusOutboxMessage>(entity =>
+        {
+            entity.ToTable(
+                "BookingStatusOutboxMessages",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "CK_BookingStatusOutboxMessages_RequeueAudit",
+                        "([RequeuedAtUtc] IS NULL AND [RequeuedByAdminUserId] IS NULL AND [RequeueRequestId] IS NULL) OR " +
+                        "([RequeuedAtUtc] IS NOT NULL AND [RequeuedByAdminUserId] IS NOT NULL AND [RequeueRequestId] IS NOT NULL)");
+                    table.HasCheckConstraint(
+                        "CK_BookingStatusOutboxMessages_DeliveryGeneration",
+                        "[DeliveryGeneration] >= 0");
+                });
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.RequestJson).HasMaxLength(4096).IsRequired();
+            entity.Property(message => message.RequestHash).HasMaxLength(64).IsRequired();
+            entity.Property(message => message.WorkOrderPublicId).IsRequired();
+            entity.Property(message => message.Status).HasMaxLength(32).IsRequired();
+            entity.Property(message => message.Sequence).IsRequired();
+            entity.Property(message => message.CorrelationId).HasMaxLength(64).IsRequired();
+            entity.Property(message => message.DeliveryState).HasMaxLength(20).IsRequired();
+            entity.Property(message => message.DeliveryGeneration).HasDefaultValue(0).IsRequired();
+            entity.Property(message => message.LeaseOwner).HasMaxLength(128);
+            entity.Property(message => message.LastErrorCode).HasMaxLength(64);
+            entity.Property(message => message.RequeueRequestId).HasMaxLength(128);
+            entity.Property(message => message.RowVersion).IsRowVersion();
+            entity.HasOne(message => message.AppointmentReservation)
+                .WithMany(reservation => reservation.StatusOutboxMessages)
+                .HasForeignKey(message => message.AppointmentReservationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(message => new
+            {
+                message.DeliveryState,
+                message.NextAttemptAtUtc,
+                message.LeaseExpiresAtUtc
+            });
+            entity.HasIndex(message => new
+            {
+                message.AppointmentReservationId,
+                message.Sequence
+            }).IsUnique();
+        });
+
+        builder.Entity<BookingStatusRequeueHistory>(entity =>
+        {
+            entity.ToTable(
+                "BookingStatusRequeueHistory",
+                table => table.HasCheckConstraint(
+                    "CK_BookingStatusRequeueHistory_Generation",
+                    "[Generation] > 0"));
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.Generation).IsRequired();
+            entity.Property(value => value.AdminUserId).IsRequired();
+            entity.Property(value => value.RequestId).HasMaxLength(128).IsRequired();
+            entity.Property(value => value.RequeuedAtUtc).IsRequired();
+            entity.HasOne(value => value.BookingStatusOutboxMessage)
+                .WithMany(value => value.RequeueHistory)
+                .HasForeignKey(value => value.BookingStatusOutboxMessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(value => new
+            {
+                value.BookingStatusOutboxMessageId,
+                value.Generation
+            }).IsUnique();
+            entity.HasIndex(value => new
+            {
+                value.BookingStatusOutboxMessageId,
+                value.RequestId
+            }).IsUnique();
         });
 
         builder.Entity<WorkOrderItem>(entity =>

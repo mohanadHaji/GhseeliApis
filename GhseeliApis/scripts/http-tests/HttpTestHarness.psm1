@@ -185,7 +185,13 @@ function Read-JsonDocument {
     }
 
     try {
-        $parsed = $rawContent | ConvertFrom-Json -ErrorAction Stop
+        $convertCommand = Get-Command ConvertFrom-Json
+        if ($convertCommand.Parameters.ContainsKey('DateKind')) {
+            $parsed = $rawContent | ConvertFrom-Json -DateKind String -ErrorAction Stop
+        }
+        else {
+            $parsed = $rawContent | ConvertFrom-Json -ErrorAction Stop
+        }
     }
     catch {
         throw "Invalid JSON in '$Path': $($_.Exception.Message)"
@@ -765,10 +771,26 @@ function Apply-InternalAuthHeaders {
             $idempotencyKeyValue = [string]$idempotencyKeyValue
         }
 
+        $signingMethod = [string](Get-ObjectPropertyValue -Object $resolvedInternalAuth -Name 'signMethod')
+        if ([string]::IsNullOrWhiteSpace($signingMethod)) {
+            $signingMethod = $Method
+        }
+
+        $signingUri = $RequestUri
+        $signUrl = [string](Get-ObjectPropertyValue -Object $resolvedInternalAuth -Name 'signUrl')
+        if (-not [string]::IsNullOrWhiteSpace($signUrl)) {
+            $signingUri = [uri]::new($RequestUri, $signUrl)
+        }
+
+        $signingBody = Get-ObjectPropertyValue -Object $resolvedInternalAuth -Name 'signBody'
+        if ($null -ne $signingBody) {
+            $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes([string]$signingBody)
+        }
+
         $canonicalRequest = Build-InternalCanonicalRequest `
             -ServiceId ([string]$ResolvedHeaders[$serviceIdHeaderName]) `
-            -Method $Method `
-            -RequestUri $RequestUri `
+            -Method $signingMethod `
+            -RequestUri $signingUri `
             -Timestamp ([string]$ResolvedHeaders[$timestampHeaderName]) `
             -Nonce ([string]$ResolvedHeaders[$nonceHeaderName]) `
             -IdempotencyKey $idempotencyKeyValue `
@@ -1866,6 +1888,15 @@ function Invoke-HttpScenario {
     try {
         Resolve-VariableAssignments -Assignments (Get-ObjectPropertyValue -Object $Scenario -Name 'setVariables') -Variables $Variables
 
+        $delayBeforeMs = Get-ObjectPropertyValue -Object $Scenario -Name 'delayBeforeMs'
+        if ($null -ne $delayBeforeMs) {
+            $delay = [int]$delayBeforeMs
+            if ($delay -lt 0 -or $delay -gt 30000) {
+                throw "Scenario '$scenarioId' delayBeforeMs must be between 0 and 30000."
+            }
+            Start-Sleep -Milliseconds $delay
+        }
+
         $resolvedRelativeUrl = [string](Resolve-TemplatedValue -Value (Get-ObjectPropertyValue -Object $Scenario -Name 'url' -Required) -Variables $Variables)
         $requestUri = [System.Uri]::new($BaseUri, $resolvedRelativeUrl)
         $result.requestUrl = $requestUri.AbsoluteUri
@@ -1907,8 +1938,10 @@ function Invoke-HttpScenario {
             }
 
             $request.Content = New-Object System.Net.Http.StringContent -ArgumentList $body.Content
-            $request.Content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($finalContentType)
-            $request.Content.Headers.ContentType.CharSet = 'utf-8'
+            [void]$request.Content.Headers.Remove('Content-Type')
+            if (-not $request.Content.Headers.TryAddWithoutValidation('Content-Type', $finalContentType)) {
+                throw "Content-Type could not be added to scenario '$scenarioId'."
+            }
             if ($body.ForceChunked) {
                 $request.Headers.TransferEncodingChunked = $true
                 $request.Content.Headers.ContentLength = $null

@@ -44,6 +44,10 @@ public static class InternalServiceOperationNames
     public const string CatalogSnapshot = "catalog_snapshot";
     public const string AppointmentValidate = "appointment_validate";
     public const string ReservationCreate = "reservation_create";
+    public const string ReservationStatusRead = "reservation_status_read";
+    public const string BookingStatusCallback = "booking_status_callback";
+    public const string BookingStatusReconcile = "booking_status_reconcile";
+    public const string BookingStatusRead = "booking_status_read";
 }
 
 public static class InternalServiceProblemCodes

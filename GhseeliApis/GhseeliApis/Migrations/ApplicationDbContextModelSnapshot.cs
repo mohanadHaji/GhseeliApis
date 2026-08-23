@@ -925,6 +925,9 @@ namespace GhseeliApis.Migrations
                     b.Property<Guid>("BusinessSourceId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("BusinessStatusSequence")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("BusinessWorkOrderId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1020,6 +1023,9 @@ namespace GhseeliApis.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset>("StatusChangedAtUtc")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<decimal>("Tax")
                         .HasPrecision(18, 2)
@@ -1328,6 +1334,108 @@ namespace GhseeliApis.Migrations
                     b.ToTable("CustomerDevices");
                 });
 
+            modelBuilder.Entity("GhseeliApis.Models.CustomerInternalIdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTimeOffset?>("LeaseExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("OwnerToken")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("ResponseBody")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ResponseContentType")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<int?>("ResponseStatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ServiceId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("State")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("OwnerToken")
+                        .IsUnique()
+                        .HasFilter("[OwnerToken] IS NOT NULL");
+
+                    b.HasIndex("State", "LeaseExpiresAtUtc");
+
+                    b.HasIndex("ServiceId", "Operation", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("CustomerInternalIdempotencyRecords", (string)null);
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.CustomerInternalServiceNonce", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("AcceptedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("ExpiresAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Nonce")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ServiceId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAtUtc");
+
+                    b.HasIndex("ServiceId", "Nonce")
+                        .IsUnique();
+
+                    b.ToTable("CustomerInternalServiceNonces", (string)null);
+                });
+
             modelBuilder.Entity("GhseeliApis.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1402,6 +1510,41 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("CustomerBookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ProcessedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("EventId");
+
+                    b.HasIndex("CustomerBookingId", "Sequence");
+
+                    b.ToTable("ProcessedBookingStatusMessages", (string)null);
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.Service", b =>
@@ -2044,6 +2187,17 @@ namespace GhseeliApis.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
+                {
+                    b.HasOne("GhseeliApis.Models.CustomerBooking", "CustomerBooking")
+                        .WithMany("ProcessedStatusMessages")
+                        .HasForeignKey("CustomerBookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CustomerBooking");
+                });
+
             modelBuilder.Entity("GhseeliApis.Models.ServiceOption", b =>
                 {
                     b.HasOne("GhseeliApis.Models.Company", "Company")
@@ -2234,6 +2388,8 @@ namespace GhseeliApis.Migrations
             modelBuilder.Entity("GhseeliApis.Models.CustomerBooking", b =>
                 {
                     b.Navigation("Items");
+
+                    b.Navigation("ProcessedStatusMessages");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerBookingItem", b =>

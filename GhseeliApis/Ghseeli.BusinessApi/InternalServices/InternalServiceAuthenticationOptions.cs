@@ -35,7 +35,8 @@ public sealed class InternalServiceAuthenticationOptionsValidator :
     {
         InternalServiceOperationNames.CatalogSnapshot,
         InternalServiceOperationNames.AppointmentValidate,
-        InternalServiceOperationNames.ReservationCreate
+        InternalServiceOperationNames.ReservationCreate,
+        InternalServiceOperationNames.ReservationStatusRead
     };
 
     public ValidateOptionsResult Validate(

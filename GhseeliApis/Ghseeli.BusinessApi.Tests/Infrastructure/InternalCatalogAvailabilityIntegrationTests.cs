@@ -2,6 +2,7 @@ using FluentAssertions;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 using Ghseeli.BusinessApi.Models;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -42,10 +43,21 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
     {
         _factory.ResetState();
         var client = _factory.CreateSecureClient();
+        client.DefaultRequestHeaders.Add("X-Correlation-Id", "step13-unsigned-protected");
         var response = await client.GetAsync(
             $"/api/v1/internal/catalog/snapshot?companyId={_factory.CompanyId:D}");
+        var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        response.Headers.GetValues("X-Correlation-Id").Should()
+            .ContainSingle("step13-unsigned-protected");
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(InternalServiceProblemCodes.MissingAuthenticationHeader);
+        document.RootElement.GetProperty("correlationId").GetString()
+            .Should().Be("step13-unsigned-protected");
     }
 
     [Fact]

@@ -71,6 +71,32 @@ public class InternalServiceSecurityIntegrationTests : IClassFixture<CatalogApiF
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task UnknownInternalRoute_WhenRequestIsSigned_ReturnsNotFoundWithoutConsumingNonce()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        var nonce = Guid.NewGuid().ToString("N");
+        using var unknownRequest = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Get,
+            "/api/v1/internal/unknown-step13-route",
+            nonce: nonce);
+
+        var unknownResponse = await client.SendAsync(unknownRequest);
+
+        unknownResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        using var protectedRequest = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/v1/internal/catalog/snapshot?companyId={_factory.CompanyId}",
+            nonce: nonce);
+        var protectedResponse = await client.SendAsync(protectedRequest);
+
+        protectedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
     [Theory]
     [InlineData(InternalServiceWireConstants.ServiceIdHeaderName)]
     [InlineData(InternalServiceWireConstants.TimestampHeaderName)]

@@ -1,4 +1,5 @@
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Bookings;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -24,6 +25,10 @@ public interface IBusinessApiClient
     Task<CreateReservationResponse> CreateReservationAsync(
         CreateReservationRequest request,
         string idempotencyKey,
+        CancellationToken cancellationToken = default);
+
+    Task<AuthoritativeBookingStatusResponse?> GetReservationStatusAsync(
+        Guid bookingReference,
         CancellationToken cancellationToken = default);
 }
 
@@ -163,6 +168,37 @@ public sealed class BusinessApiClient : IBusinessApiClient
         return await ReadResponseAsync<CreateReservationResponse>(
             response,
             "reservation",
+            correlationId,
+            cancellationToken);
+    }
+
+    public async Task<AuthoritativeBookingStatusResponse?> GetReservationStatusAsync(
+        Guid bookingReference,
+        CancellationToken cancellationToken = default)
+    {
+        var correlationId = ResolveCorrelationId();
+        var requestUri = ResolveRequestUri(
+            $"/api/v1/internal/reservations/{bookingReference:D}",
+            correlationId);
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        request.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            request,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
+        return await ReadResponseAsync<AuthoritativeBookingStatusResponse>(
+            response,
+            "reservation status",
             correlationId,
             cancellationToken);
     }

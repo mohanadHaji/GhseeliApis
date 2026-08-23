@@ -23,7 +23,7 @@ public sealed class InternalServiceAuthenticationHandler :
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (!Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase))
+        if (Context.GetEndpoint()?.Metadata.GetMetadata<InternalServiceOperationAttribute>() is null)
         {
             return AuthenticateResult.NoResult();
         }

@@ -201,11 +201,32 @@ Rules:
 - Each receiving API stores the key, operation, request hash, status, and serialized response body.
 - Reusing a key with different request content returns `409 idempotency_conflict`.
 - Reusing a completed identical request returns the original logical result without re-executing the operation.
+- Customer in-progress transport claims have a durable, per-generation owner
+  token and a separately renewable lease. The receiver renews at the configured
+  safe fraction of `InProgressRecoverySeconds` for the entire endpoint
+  execution, including reconciliation calls. The computed interval must be at
+  least 100 ms and strictly before the configured safety margin; invalid values
+  fail startup instead of being clamped. Renewal retries transient database
+  failures with bounded backoff while before the last confirmed expiry's safety
+  deadline. Ownership loss or an unconfirmed renewal cancels the server-provided
+  endpoint token so cooperative downstream work stops before further side
+  effects. Each renewal and completion uses a fresh dependency-injection scope
+  and a bounded server token independent of client disconnects.
+- Once endpoint execution begins, client cancellation cannot cancel heartbeat or
+  durable completion. Cancellation or exceptions after that boundary are
+  side-effect-ambiguous: middleware preserves the owned `InProgress` claim and
+  never deletes it. Callback/reconciliation domain operations are independently
+  idempotent, so an abandoned claim may be safely reclaimed only after its lease
+  expires. Completion, reclaim, and renewal verify both owner and active lease;
+  a stale generation cannot overwrite or delete its successor. A crash stops
+  renewal and is eventually reclaimable. Owner tokens are internal concurrency
+  data and are never returned or logged.
 - Internal retries use a fresh nonce on every attempt and the same `Idempotency-Key` and `X-Correlation-Id`.
 
 ### Business reservation durability
 
-- A successful Business reservation is immediately and durably `Reserved`; it is not a temporary hold.
+- A successful Business reservation is immediately and durably `Pending`; legacy
+  `Reserved` rows are normalized by the Step 13 migrations and remain capacity-occupying.
 - `reservationExpiresAtUtc` is therefore `null`. Capacity remains consumed until a later explicit business booking-status transition releases or completes the reservation.
 - Authoritative catalog, selection, price, duration, service-area, aggregate-slot, and capacity checks run in the same serializable transaction that creates the reservation and work order.
 - Reservation replay uses a canonical semantic request hash: item and add-on ordering do not affect replay identity, while changed values return an idempotency conflict.
@@ -299,6 +320,7 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 | GET | `/api/v1/business/work-orders` | Yes | Owned work-order queue |
 | GET | `/api/v1/business/work-orders/{id}` | Yes | Work-order details |
 | POST | `/api/v1/business/work-orders/{id}/transitions` | Yes | Allowed status transition |
+| POST | `/api/v1/business/admin/booking-status-outbox/{eventId}/requeue` | Global Admin only | Explicit dead-letter recovery requiring a bounded `Idempotency-Key`. Each new audited request against a dead letter increments its delivery generation. Repeating the same request returns `AlreadyRequeued` without another increment; non-dead-letter events with a new request return 409. |
 
 ### Business API internal endpoints
 
@@ -318,8 +340,22 @@ Business internal routes accept only HMAC-authenticated internal service calls a
 |---|---|---|
 | POST | `/api/v1/internal/bookings/status` | Idempotently apply a business status callback |
 | GET | `/api/v1/internal/bookings/{reference}` | Reconcile customer booking state |
+| POST | `/api/v1/internal/bookings/{reference}/reconcile` | Query authoritative Business state and repair a missed callback |
 
-## 8. Initial integration contracts
+## 8. Booking status authority and delivery
+
+- Business is authoritative for operational booking status. Customer callback payloads contain only immutable public references, status, sequence, event ID, and occurrence time; identity, ownership, catalog snapshots, and money are never accepted from callbacks.
+- Allowed transitions are `Pending→Confirmed/Cancelled`, `Confirmed→InProgress/Cancelled/NoShow`, and `InProgress→Completed/Cancelled/NoShow`. Completed, Cancelled, and NoShow are terminal.
+- Capacity classification is shared with those transition rules: `Pending`, legacy `Reserved`, `Confirmed`, and `InProgress` consume capacity; only `Completed`, `Cancelled`, and `NoShow` release it.
+- Every Business transition updates reservation/work-order state and inserts a durable outbox message in one transaction. Normal delivery retries preserve event ID, request bytes, delivery generation, transport idempotency key, and correlation ID while using a fresh HMAC timestamp and nonce. Generation 0 uses `booking-status-{eventId:N}`. Each explicit audited dead-letter requeue atomically increments the durable generation and uses `booking-status-{eventId:N}-g{generation}` without changing the domain event or body.
+- Per-reservation delivery is strict head-of-line ordering: pending, leased, and dead-letter messages all block later sequences. A dead letter remains an ordering barrier until a global Business Admin explicitly requeues it through the audited recovery endpoint. Requeue clears only delivery bookkeeping and never changes the immutable event payload, hash, reservation, work order, status, or sequence.
+- Requeue history is durable and unique by event/generation and event/request ID. Repeating the same admin request returns its original generation as a stable successful no-op even after lease, delivery, or another dead-letter cycle. A new request can recover each later dead-letter exactly once; active leases and new requests against non-dead-letter states conflict. Unknown IDs return a non-enumerating localized problem. Silent skip/discard is not supported.
+- The outbox hosted worker requires a valid Customer callback URL and signing configuration at startup outside the explicit `Testing` disable mode. It yields during startup, contains non-cancellation database/transport persistence failures within each cycle, logs only safe operation/event data, applies bounded delays, continues dispatching, and exits cleanly on host cancellation.
+- Customer persists the booking update and processed-message inbox row in one serializable transaction. Duplicate event IDs replay only when the raw request hash matches. Lower sequences are recorded as stale and cannot move state backward; a different event at the current sequence is rejected.
+- A forward sequence gap is accepted only when the current-to-target status edge is directly allowed. A new event cannot self-transition, and terminal states cannot transition.
+- Reconciliation reads minimal authoritative Business state over signed HTTPS and applies the same reference, sequence, and direct-transition rules as callbacks. It cannot skip an invalid edge, move backward, or leave a terminal state; an already-current read is a no-op.
+
+## 9. Initial integration contracts
 
 Contracts are versioned independently from database schemas.
 
@@ -453,7 +489,7 @@ Contains:
 
 Customer API validates the transition and stores callback IDs to prevent duplicate application.
 
-## 9. Failure behavior
+## 10. Failure behavior
 
 ### Catalog reads
 
@@ -476,9 +512,22 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Authenticated internal services that lack the required operation permission return `403`.
 - Insecure internal HTTP requests return `403 https_required` unless development HTTP is explicitly enabled.
 - Missing or invalid `Idempotency-Key` values return `400`.
-- Reusing an idempotency key with a different request body returns `409 idempotency_conflict`.
+- Reusing a Customer internal transport idempotency key with a changed canonical
+  request returns `409 idempotency_conflict`. Its bounded canonical identity is
+  the method, normalized path/query, normalized content media type/charset, and
+  exact body bytes; arbitrary request headers are excluded. Valid content types
+  use the normalized media type/charset. Malformed or overlong content types use
+  a bounded class, UTF-8 length, and SHA-256 digest, so distinct invalid values
+  cannot collapse while raw unbounded header values are never persisted or logged. Consequently, an
+  identical wrong-content-type request deterministically replays its stored
+  `415`, while correcting it to `application/json` requires a new key.
 - Oversized internal request bodies return `413`.
 - When an idempotent in-progress result cannot be replayed in time, return `503 idempotency_unavailable`.
+- Customer transport-idempotency retention deletes expired completed records and
+  expired orphaned in-progress claims in configurable bounded batches using a
+  clock-driven conditional predicate. It never removes an actively renewed
+  claim; cleanup rechecks its current lease expiry at deletion time.
+- Anonymous or expired Business JWT requests return `401 business_authentication_required`; authentication errors never reuse request media-type codes.
 - Customer typed clients map `401`/`403` to authentication exceptions, `409` to conflict exceptions, `410` to expired/gone exceptions for checkout drafts, malformed or empty successful payloads to contract exceptions, persistent timeouts to timeout exceptions, and retry-exhausted network/`408`/`429`/`5xx` failures to unavailable exceptions.
 
 ### Authoritative business mutations
@@ -486,6 +535,7 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Business company, catalog, branch, service-area, schedule, and override mutations increment the authoritative catalog version atomically with the underlying write.
 - Reads never bump catalog version.
 - When optimistic concurrency or relational uniqueness detects a stale or overlapping write, the Business API returns `409` instead of silently dropping a version increment or surfacing a `500`.
+- Concurrent work-order status transitions return `409 BOOKING_TRANSITION_CONFLICT` with Problem Details.
 
 ### Status callbacks
 
@@ -493,7 +543,7 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Invalid or out-of-order transitions return `409`.
 - A reconciliation endpoint is available for support when a callback could not be delivered.
 
-## 10. Acceptance test matrix
+## 11. Acceptance test matrix
 
 These are behavioral contracts for later roadmap steps. Tests are written before each corresponding implementation and must first fail for the expected missing behavior.
 
@@ -576,7 +626,7 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 - Repeated intent requests and webhooks do not duplicate charges or payment records.
 - Only verified Stripe events change paid state.
 
-## 11. Step 1 completion rules
+## 12. Step 1 completion rules
 
 Step 1 is complete when:
 

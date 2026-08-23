@@ -13,9 +13,11 @@ public static class BusinessPolicies
 {
     public const string BusinessMember = "BusinessMember";
     public const string OwnerOrAdmin = "OwnerOrAdmin";
+    public const string Admin = "Admin";
     public const string InternalCatalogRead = "InternalCatalogRead";
     public const string InternalAppointmentValidate = "InternalAppointmentValidate";
     public const string InternalReservationCreate = "InternalReservationCreate";
+    public const string InternalReservationStatusRead = "InternalReservationStatusRead";
 }
 
 public static class BusinessClaimTypes
@@ -29,4 +31,10 @@ public static class BusinessAuthenticationSchemes
 {
     public const string Combined = "BusinessCombined";
     public const string InternalService = "InternalService";
+}
+
+public static class BusinessAuthenticationProblemCodes
+{
+    public const string AuthenticationRequired = "business_authentication_required";
+    public const string AuthorizationForbidden = "business_authorization_forbidden";
 }

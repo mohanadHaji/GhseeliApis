@@ -1,0 +1,3955 @@
+{
+  "name": "Step 13 booking status callbacks",
+  "sensitiveFields": [
+    "authorization",
+    "signature",
+    "secret",
+    "token",
+    "email",
+    "phone",
+    "addressLine"
+  ],
+  "setupVariables": {
+    "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "correlationId": "step13-{{var:runStamp}}",
+    "unknownReference": "{{gen:guid}}",
+    "eventConflict": "{{gen:guid}}",
+    "event1": "{{gen:guid}}",
+    "event2": "{{gen:guid}}",
+    "event3": "{{gen:guid}}",
+    "event4": "{{gen:guid}}",
+    "event5": "{{gen:guid}}",
+    "event6": "{{gen:guid}}",
+    "event7": "{{gen:guid}}",
+    "event8": "{{gen:guid}}",
+    "event9": "{{gen:guid}}",
+    "event10": "{{gen:guid}}",
+    "event11": "{{gen:guid}}",
+    "event12": "{{gen:guid}}",
+    "utcSuffix": "Z"
+  },
+  "scenarios": [
+    {
+      "id": "STEP13-CONTRACT-CUSTOMER-SWAGGER-001",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/internal/bookings/status'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/{reference}/reconcile'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/{reference}'].get",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CONTRACT-BUSINESS-SWAGGER-002",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/business/work-orders/{id}/transitions'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/reservations/{reference}'].get",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-ROUTE-WRONG-VERB-003",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "PUT",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "expect": {
+        "status": 405,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-ROUTE-UNKNOWN-004",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/unknown",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "route-unknown"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-AUTH-CUSTOMER-JWT-006",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer invalid-step13-token",
+        "Idempotency-Key": "jwt-customer"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-AUTH-ANONYMOUS-008",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "anonymous"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-AUTH-RECONCILE-FORBIDDEN-010",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference1}}/reconcile",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Idempotency-Key": "forbidden-reconcile"
+      },
+      "internalAuth": {
+        "serviceId": "callback-only",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_CALLBACK_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 403,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_service_forbidden"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-TRANSITION-ANONYMOUS-011",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/work-orders/{{var:workOrderId5}}/transitions",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "status": "Confirmed"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "business_authentication_required"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-TRANSITION-CLAIM-MISSING-011A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/work-orders/{{var:workOrderId5}}/transitions",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_OWNER_MISSING_CLAIM_JWT}}"
+      },
+      "jsonBody": {
+        "status": "Confirmed"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "business_authentication_required"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-TRANSITION-CLAIM-MALFORMED-011B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/work-orders/{{var:workOrderId5}}/transitions",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_OWNER_MALFORMED_CLAIM_JWT}}"
+      },
+      "jsonBody": {
+        "status": "Confirmed"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "business_authentication_required"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-ADMIN-CLAIM-MISSING-011C",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/admin/booking-status-outbox/{{var:unknownReference}}/requeue",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_ADMIN_MISSING_CLAIM_JWT}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "business_authentication_required"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-ADMIN-CLAIM-MALFORMED-011D",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/admin/booking-status-outbox/{{var:unknownReference}}/requeue",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_ADMIN_MALFORMED_CLAIM_JWT}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "business_authentication_required"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-ADMIN-REQUEUE-GENERATION-011E",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/admin/booking-status-outbox/{{var:recoveryOutboxEventId}}/requeue",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_ADMIN_JWT}}",
+        "Idempotency-Key": "step13-recovery-requeue-1"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.eventId",
+            "equals": "{{var:recoveryOutboxEventId}}"
+          },
+          {
+            "path": "$.outcome",
+            "equals": "Requeued"
+          },
+          {
+            "path": "$.deliveryState",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.generation",
+            "equals": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-ADMIN-REQUEUE-REPEAT-011F",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/admin/booking-status-outbox/{{var:recoveryOutboxEventId}}/requeue",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_ADMIN_JWT}}",
+        "Idempotency-Key": "step13-recovery-requeue-1"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.eventId",
+            "equals": "{{var:recoveryOutboxEventId}}"
+          },
+          {
+            "path": "$.outcome",
+            "equals": "AlreadyRequeued"
+          },
+          {
+            "path": "$.generation",
+            "equals": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-HMAC-MISSING-01-014",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "missing-1",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-MISSING-02-014",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "missing-2",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-MISSING-03-014",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "missing-3",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-MISSING-04-014",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "missing-4",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-EMPTY-01-015",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "empty-1",
+        "X-Ghseeli-Service-Id": " ",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-EMPTY-02-015",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "empty-2",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Timestamp": " ",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-EMPTY-03-015",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "empty-3",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Nonce": " ",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-EMPTY-04-015",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "empty-4",
+        "X-Ghseeli-Service-Id": "business-api",
+        "X-Ghseeli-Timestamp": "2030-01-15T09:00:00Z",
+        "X-Ghseeli-Nonce": "0123456789abcdef0123456789abcdef",
+        "X-Ghseeli-Signature": " "
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_missing_header"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-SERVICE-MALFORMED-016",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-service-malformed-016",
+        "X-Ghseeli-Service-Id": "bad service"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_service"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-SERVICE-UNKNOWN-017",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-service-unknown-017",
+        "X-Ghseeli-Service-Id": "unknown-service"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_service"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TIMESTAMP-MALFORMED-018",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-timestamp-malformed-018",
+        "X-Ghseeli-Timestamp": "yesterday"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_timestamp"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TIMESTAMP-STALE-019",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-timestamp-stale-019",
+        "X-Ghseeli-Timestamp": "2000-01-01T00:00:00.0000000+00:00"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "2000-01-01T00:00:00.0000000+00:00",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_timestamp_out_of_range"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TIMESTAMP-FUTURE-020",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-timestamp-future-020",
+        "X-Ghseeli-Timestamp": "2100-01-01T00:00:00.0000000+00:00"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "2100-01-01T00:00:00.0000000+00:00",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_timestamp_out_of_range"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-NONCE-MALFORMED-021",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-nonce-malformed-021",
+        "X-Ghseeli-Nonce": "short"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_nonce"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-SIGNATURE-MALFORMED-022",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "h-signature-malformed-022",
+        "X-Ghseeli-Signature": "nothex"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-WRONG-SECRET-023",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "wrong-secret"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_WRONG_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-WRONG-DIRECTION-024",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "wrong-direction"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TAMPER-METHOD-026",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tamper-method"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}",
+        "signMethod": "PUT"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TAMPER-PATH-027",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tamper-path"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}",
+        "signUrl": "/api/v1/internal/bookings/altered"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-TAMPER-BODY-028",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "tamper-body"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}",
+        "signBody": "{}"
+      },
+      "expect": {
+        "status": 401,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "internal_auth_invalid_signature"
+      }
+    },
+    {
+      "id": "STEP13-IDEM-MISSING-034",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_key_required"
+      }
+    },
+    {
+      "id": "STEP13-IDEM-EMPTY-035",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": " "
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_key_required"
+      }
+    },
+    {
+      "id": "STEP13-IDEM-MALFORMED-036",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "bad key"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_key_invalid"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-037",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "text/plain",
+        "Idempotency-Key": "body-type"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 415,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_UNSUPPORTED_MEDIA_TYPE"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-REPLAY-037A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "TEXT/PLAIN",
+        "Idempotency-Key": "body-type"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 415,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_UNSUPPORTED_MEDIA_TYPE"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-CONFLICT-037B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "body-type"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_conflict"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-NEW-KEY-037C",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "body-type-corrected"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-MALFORMED-037D",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "bad type/a",
+        "Idempotency-Key": "body-type-malformed"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 415,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_UNSUPPORTED_MEDIA_TYPE"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-MALFORMED-REPLAY-037E",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "bad type/a",
+        "Idempotency-Key": "body-type-malformed"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 415,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_UNSUPPORTED_MEDIA_TYPE"
+      }
+    },
+    {
+      "id": "STEP13-BODY-CONTENT-TYPE-MALFORMED-CONFLICT-037F",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "bad type/b",
+        "Idempotency-Key": "body-type-malformed"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_conflict"
+      }
+    },
+    {
+      "id": "STEP13-BODY-EMPTY-038",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "body-empty"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      },
+      "bodyFile": "step-13-empty.request.txt"
+    },
+    {
+      "id": "STEP13-BODY-NULL-039",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-body-null-039"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      },
+      "bodyFile": "step-13-null.request.txt"
+    },
+    {
+      "id": "STEP13-BODY-MALFORMED-040",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-body-malformed-040"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      },
+      "bodyFile": "step-13-malformed.request.txt"
+    },
+    {
+      "id": "STEP13-BODY-OVERSIZE-LENGTH-041",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "oversize-length"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 413,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_REQUEST_BODY_TOO_LARGE"
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65537,
+        "contentType": "application/json",
+        "forceChunked": false
+      }
+    },
+    {
+      "id": "STEP13-BODY-OVERSIZE-CHUNKED-042",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "oversize-chunked"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 413,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_REQUEST_BODY_TOO_LARGE"
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65537,
+        "contentType": "application/json",
+        "forceChunked": true
+      }
+    },
+    {
+      "id": "STEP13-BODY-VERSION-045",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "invalid-version-045"
+      },
+      "jsonBody": {
+        "contractVersion": "v2",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-BODY-EVENT-046",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "invalid-event-046"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "00000000-0000-0000-0000-000000000000",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-BODY-STATUS-047",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "invalid-status-047"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-BODY-SEQUENCE-048",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "invalid-sequence-048"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 0,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-BODY-OCCURRED-049",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "invalid-occurred-049"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "0001-01-01T00:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-APPLY-050",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "apply-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.contractVersion",
+            "equals": "v1"
+          },
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.applied",
+            "equals": true
+          },
+          {
+            "path": "$.stale",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-SAME-EVENT-REPLAY-051",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "apply-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.applied",
+            "equals": true
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-SAME-EVENT-NEW-IDEM-052",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "new-idem-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event1}}",
+        "bookingReference": "{{var:bookingReference1}}",
+        "reservationId": "{{var:reservationId1}}",
+        "workOrderId": "{{var:workOrderId1}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-IDEM-SEED-053A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "idem-conflict-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event2}}",
+        "bookingReference": "{{var:bookingReference2}}",
+        "reservationId": "{{var:reservationId2}}",
+        "workOrderId": "{{var:workOrderId2}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-IDEM-CONFLICT-054",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "idem-conflict-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:eventConflict}}",
+        "bookingReference": "{{var:bookingReference2}}",
+        "reservationId": "{{var:reservationId2}}",
+        "workOrderId": "{{var:workOrderId2}}",
+        "status": "Cancelled",
+        "sequence": 2,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "idempotency_conflict"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-EVENT-SEED-055A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "event-seed"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event3}}",
+        "bookingReference": "{{var:bookingReference3}}",
+        "reservationId": "{{var:reservationId3}}",
+        "workOrderId": "{{var:workOrderId3}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-EVENT-CONFLICT-055",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "event-conflict"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event3}}",
+        "bookingReference": "{{var:bookingReference3}}",
+        "reservationId": "{{var:reservationId3}}",
+        "workOrderId": "{{var:workOrderId3}}",
+        "status": "Cancelled",
+        "sequence": 2,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_STATUS_EVENT_CONFLICT"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-SEQUENCE-GAP-059",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "gap"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event4}}",
+        "bookingReference": "{{var:bookingReference4}}",
+        "reservationId": "{{var:reservationId4}}",
+        "workOrderId": "{{var:workOrderId4}}",
+        "status": "Confirmed",
+        "sequence": 2,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.sequence",
+            "equals": 2
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-UNKNOWN-BOOKING-060",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "unknown"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event5}}",
+        "bookingReference": "{{var:unknownReference}}",
+        "reservationId": "{{var:reservationId5}}",
+        "workOrderId": "{{var:workOrderId5}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-RESERVATION-MISMATCH-061",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "mismatch-res"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event5}}",
+        "bookingReference": "{{var:bookingReference5}}",
+        "reservationId": "{{var:reservationId6}}",
+        "workOrderId": "{{var:workOrderId5}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_REFERENCE_MISMATCH"
+      }
+    },
+    {
+      "id": "STEP13-CALLBACK-WORKORDER-MISMATCH-062",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "mismatch-wo"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event5}}",
+        "bookingReference": "{{var:bookingReference5}}",
+        "reservationId": "{{var:reservationId5}}",
+        "workOrderId": "{{var:workOrderId6}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_REFERENCE_MISMATCH"
+      }
+    },
+    {
+      "id": "STEP13-HMAC-NEXT-SECRET-025",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "next-secret"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:event5}}",
+        "bookingReference": "{{var:bookingReference5}}",
+        "reservationId": "{{var:reservationId5}}",
+        "workOrderId": "{{var:workOrderId5}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_NEXT_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.applied",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-CUSTOMER-READ-071",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference1}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:bookingReference1}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.grandTotal",
+            "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-BUSINESS-READ-072",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations/{{var:bookingReference1}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:bookingReference1}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-UNKNOWN-CUSTOMER-073A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:unknownReference}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND"
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-UNKNOWN-BUSINESS-073B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations/{{var:unknownReference}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND"
+      }
+    },
+    {
+      "id": "STEP13-BUSINESS-TRANSITION-067",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/work-orders/{{var:workOrderId6}}/transitions",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_OWNER_JWT}}"
+      },
+      "jsonBody": {
+        "status": "Confirmed"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.eventId",
+            "exists": true
+          }
+        ]
+      },
+      "extract": {
+        "outboxEventId": "$.eventId"
+      }
+    },
+    {
+      "id": "STEP13-OUTBOX-LIVE-DELIVER-069",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference6}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          }
+        ]
+      },
+      "delayBeforeMs": 7000
+    },
+    {
+      "id": "STEP13-BUSINESS-TRANSITION-REPEAT-068",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/business/work-orders/{{var:workOrderId6}}/transitions",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{env:GHSEELI_HTTP_TEST_BUSINESS_OWNER_JWT}}"
+      },
+      "jsonBody": {
+        "status": "Confirmed"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_TRANSITION_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-LOCALIZATION-AR-076",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:unknownReference}}?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "تم رفض طلب حالة الحجز."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-LOCALIZATION-HE-077",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:unknownReference}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Accept-Language": "he"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "בקשת סטטוס ההזמנה נדחתה."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-LOCALIZATION-PRECEDENCE-078",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:unknownReference}}?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Accept-Language": "ar"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_NOT_FOUND",
+        "json": [
+          {
+            "path": "$.title",
+            "equals": "בקשת סטטוס ההזמנה נדחתה."
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-LOCALIZATION-MALFORMED-078B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:unknownReference}}?language=not-supported",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Accept-Language": "he"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 400,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "contains": "no-store"
+          }
+        },
+        "contentType": "application/problem+json"
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-PENDING-082",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-pending",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityPendingBookingReference}}",
+        "orderGuid": "{{var:capacityPendingOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityPendingSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "errorCode": "SLOT_UNAVAILABLE",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "contains": "no-store"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-RESERVED-083",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-reserved",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityReservedBookingReference}}",
+        "orderGuid": "{{var:capacityReservedOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityReservedSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "errorCode": "SLOT_UNAVAILABLE",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "contains": "no-store"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-CONFIRMED-084",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-confirmed",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityConfirmedBookingReference}}",
+        "orderGuid": "{{var:capacityConfirmedOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityConfirmedSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "errorCode": "SLOT_UNAVAILABLE",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "contains": "no-store"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-INPROGRESS-085",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-inprogress",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityInProgressBookingReference}}",
+        "orderGuid": "{{var:capacityInProgressOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityInProgressSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "errorCode": "SLOT_UNAVAILABLE",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "contains": "no-store"
+          }
+        }
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-COMPLETED-086",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-completed",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityCompletedBookingReference}}",
+        "orderGuid": "{{var:capacityCompletedOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityCompletedSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:capacityCompletedBookingReference}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.reservationId",
+            "exists": true
+          },
+          {
+            "path": "$.workOrderId",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-CANCELLED-087",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-cancelled",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityCancelledBookingReference}}",
+        "orderGuid": "{{var:capacityCancelledOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityCancelledSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:capacityCancelledBookingReference}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.reservationId",
+            "exists": true
+          },
+          {
+            "path": "$.workOrderId",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-CAPACITY-NOSHOW-088",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "business",
+        "capacity"
+      ],
+      "method": "POST",
+      "url": "{{env:GHSEELI_HTTP_TEST_BUSINESS_BASE_URL}}/api/v1/internal/reservations",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "step13-capacity-noshow",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "bookingReference": "{{var:capacityNoShowBookingReference}}",
+        "orderGuid": "{{var:capacityNoShowOrderGuid}}",
+        "branchId": "{{var:capacityBranchId}}",
+        "expectedCatalogVersion": 10,
+        "requestedSlotStartUtc": "{{var:capacityNoShowSlotUtc}}",
+        "currency": "ILS",
+        "expectedItemSubtotal": 79.5,
+        "expectedTotalDurationMinutes": 30,
+        "items": [
+          {
+            "offeringId": "{{var:capacityOfferingId}}",
+            "expectedBaseSubtotal": 79.5,
+            "expectedAddonSubtotal": 0,
+            "expectedItemSubtotal": 79.5,
+            "expectedDurationMinutes": 30,
+            "selectedAddons": []
+          }
+        ],
+        "customer": {
+          "name": "Safe Capacity Customer",
+          "email": "capacity@example.test",
+          "phone": "+972500000013"
+        },
+        "vehicle": {
+          "vehicleType": "Sedan",
+          "licensePlate": "SAFE-CAP"
+        },
+        "location": {
+          "addressLine": "Safe local address",
+          "city": "Haifa",
+          "area": "Carmel",
+          "latitude": 32.1,
+          "longitude": 34.8
+        },
+        "cancellationPolicyAcknowledged": true
+      },
+      "internalAuth": {
+        "serviceId": "{{env:GHSEELI_HTTP_TEST_BUSINESS_SERVICE_ID}}",
+        "secretEnv": "GHSEELI_HTTP_TEST_INTERNAL_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "json": [
+          {
+            "path": "$.bookingReference",
+            "equals": "{{var:capacityNoShowBookingReference}}"
+          },
+          {
+            "path": "$.status",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.reservationId",
+            "exists": true
+          },
+          {
+            "path": "$.workOrderId",
+            "exists": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-INITIAL-PENDING-079",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "GET",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference7}}",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Pending"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 0
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-THEN-REAL-080A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference7}}/reconcile",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Idempotency-Key": "reconcile-real-7-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.applied",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-THEN-REAL-080B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "real-after-reconcile-7-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:realEventId7}}",
+        "bookingReference": "{{var:bookingReference7}}",
+        "reservationId": "{{var:reservationId7}}",
+        "workOrderId": "{{var:workOrderId7}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.applied",
+            "equals": false
+          },
+          {
+            "path": "$.stale",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-CONFLICT-081A",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/{{var:bookingReference8}}/reconcile",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Idempotency-Key": "reconcile-conflict-8-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.applied",
+            "equals": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-CONFLICT-081B",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "equal-conflict-8-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:realEventId8}}",
+        "bookingReference": "{{var:bookingReference8}}",
+        "reservationId": "{{var:reservationId8}}",
+        "workOrderId": "{{var:workOrderId8}}",
+        "status": "InProgress",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 409,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/problem+json",
+        "errorCode": "BOOKING_TRANSITION_INVALID"
+      }
+    },
+    {
+      "id": "STEP13-RECONCILE-CONFLICT-NOT-POISONED-081C",
+      "feature": "step13",
+      "tags": [
+        "step13",
+        "live",
+        "customer-fix"
+      ],
+      "method": "POST",
+      "url": "/api/v1/internal/bookings/status",
+      "headers": {
+        "Accept": "application/json",
+        "X-Correlation-Id": "{{var:correlationId}}",
+        "Content-Type": "application/json",
+        "Idempotency-Key": "equal-corrected-8-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "eventId": "{{var:realEventId8}}",
+        "bookingReference": "{{var:bookingReference8}}",
+        "reservationId": "{{var:reservationId8}}",
+        "workOrderId": "{{var:workOrderId8}}",
+        "status": "Confirmed",
+        "sequence": 1,
+        "occurredAtUtc": "2030-01-15T09:00:00{{var:utcSuffix}}"
+      },
+      "internalAuth": {
+        "serviceId": "business-api",
+        "secretEnv": "GHSEELI_HTTP_TEST_STEP13_ACTIVE_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          }
+        },
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Confirmed"
+          },
+          {
+            "path": "$.sequence",
+            "equals": 1
+          },
+          {
+            "path": "$.applied",
+            "equals": false
+          },
+          {
+            "path": "$.stale",
+            "equals": false
+          }
+        ]
+      }
+    }
+  ]
+}

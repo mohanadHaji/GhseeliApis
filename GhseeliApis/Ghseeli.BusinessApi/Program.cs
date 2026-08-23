@@ -16,6 +16,7 @@ using Ghseeli.BusinessApi.Services.Validation.Catalog;
 using Ghseeli.BusinessApi.Services.Validation.Companies;
 using Ghseeli.BusinessApi.Swagger;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.Bookings;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -215,6 +216,26 @@ authenticationBuilder.AddJwtBearer(
                 Encoding.UTF8.GetBytes(businessJwtSecret)),
             ClockSkew = TimeSpan.Zero
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                return BusinessAuthenticationProblemResponseFactory.WriteAsync(
+                    context.HttpContext,
+                    StatusCodes.Status401Unauthorized,
+                    "Authentication is required.",
+                    "A valid Business API access token is required.",
+                    BusinessAuthenticationProblemCodes.AuthenticationRequired);
+            },
+            OnForbidden = context =>
+                BusinessAuthenticationProblemResponseFactory.WriteAsync(
+                    context.HttpContext,
+                    StatusCodes.Status403Forbidden,
+                    "Access is forbidden.",
+                    "The authenticated principal is not authorized for this operation.",
+                    BusinessAuthenticationProblemCodes.AuthorizationForbidden)
+        };
     });
 
 authenticationBuilder.AddScheme<AuthenticationSchemeOptions, InternalServiceAuthenticationHandler>(
@@ -227,6 +248,8 @@ builder.Services.AddAuthorization(options =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Employee, BusinessRoles.Admin));
     options.AddPolicy(BusinessPolicies.OwnerOrAdmin, policy =>
         policy.RequireRole(BusinessRoles.Owner, BusinessRoles.Admin));
+    options.AddPolicy(BusinessPolicies.Admin, policy =>
+        policy.RequireRole(BusinessRoles.Admin));
     options.AddPolicy(BusinessPolicies.InternalCatalogRead, policy =>
     {
         policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
@@ -250,6 +273,14 @@ builder.Services.AddAuthorization(options =>
         policy.RequireClaim(
             BusinessClaimTypes.InternalAllowedOperation,
             InternalServiceOperationNames.ReservationCreate);
+    });
+    options.AddPolicy(BusinessPolicies.InternalReservationStatusRead, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.ReservationStatusRead);
     });
 });
 
@@ -276,6 +307,25 @@ builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagemen
 builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
 builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddScoped<IBookingStatusService, BookingStatusService>();
+builder.Services.AddScoped<IBookingStatusOutboxDispatcher, BookingStatusOutboxDispatcher>();
+builder.Services.AddScoped<IBookingStatusDeadLetterService, BookingStatusDeadLetterService>();
+builder.Services.Configure<BookingStatusOutboxOptions>(
+    builder.Configuration.GetSection(BookingStatusOutboxOptions.SectionName));
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CustomerBookingStatusClientOptions>,
+    CustomerBookingStatusClientOptionsValidator>();
+builder.Services
+    .AddOptions<CustomerBookingStatusClientOptions>()
+    .Bind(builder.Configuration.GetSection(CustomerBookingStatusClientOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddHttpClient<ICustomerBookingStatusClient, CustomerBookingStatusClient>((provider, client) =>
+{
+    var options = provider.GetRequiredService<
+        Microsoft.Extensions.Options.IOptions<CustomerBookingStatusClientOptions>>().Value;
+    client.Timeout = TimeSpan.FromSeconds(Math.Max(1, options.TimeoutSeconds));
+});
+builder.Services.AddHostedService<BookingStatusOutboxWorker>();
 builder.Services.AddSingleton<Ghseeli.BusinessApi.Services.Availability.ISystemClock, Ghseeli.BusinessApi.Services.Availability.SystemClock>();
 builder.Services.AddSingleton<IAppLogger, ConsoleLogger>();
 

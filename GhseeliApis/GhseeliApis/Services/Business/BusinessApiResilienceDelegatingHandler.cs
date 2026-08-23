@@ -37,6 +37,7 @@ public sealed class BusinessApiResilienceDelegatingHandler : DelegatingHandler
             HttpResponseMessage response;
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 response = await base.SendAsync(
                     clonedRequest,
                     timeoutCancellationTokenSource.Token);
@@ -45,9 +46,12 @@ public sealed class BusinessApiResilienceDelegatingHandler : DelegatingHandler
                 when (!cancellationToken.IsCancellationRequested &&
                       timeoutCancellationTokenSource.IsCancellationRequested)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (attempt < options.MaxRetryAttempts)
                 {
                     attempt++;
+                    cancellationToken.ThrowIfCancellationRequested();
                     continue;
                 }
 
@@ -58,9 +62,12 @@ public sealed class BusinessApiResilienceDelegatingHandler : DelegatingHandler
             }
             catch (HttpRequestException exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 if (attempt < options.MaxRetryAttempts)
                 {
                     attempt++;
+                    cancellationToken.ThrowIfCancellationRequested();
                     continue;
                 }
 
@@ -78,11 +85,14 @@ public sealed class BusinessApiResilienceDelegatingHandler : DelegatingHandler
             var delay = GetRetryDelay(response, options.MaxRetryAfterSeconds);
             response.Dispose();
             attempt++;
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (delay > TimeSpan.Zero)
             {
                 await Task.Delay(delay, cancellationToken);
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
         }
     }
 

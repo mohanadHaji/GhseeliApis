@@ -15,8 +15,12 @@ public sealed class AppointmentReservation
     public DateTime RequestedSlotStartUtc { get; set; }
     public DateTime RequestedSlotEndUtc { get; set; }
     public string Status { get; set; } = string.Empty;
+    public long StatusSequence { get; set; }
+    public DateTimeOffset StatusChangedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public DateTime? ExpiresAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public WorkOrder WorkOrder { get; set; } = null!;
+    public ICollection<BookingStatusOutboxMessage> StatusOutboxMessages { get; set; } =
+        new List<BookingStatusOutboxMessage>();
 }

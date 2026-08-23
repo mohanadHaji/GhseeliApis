@@ -1,5 +1,6 @@
 using Ghseeli.Common.Logging;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Bookings;
 using GhseeliApis.Models;
 using GhseeliApis.Services.Business;
 using Microsoft.AspNetCore.WebUtilities;
@@ -45,6 +46,9 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
     public Func<CreateReservationRequest, string, CancellationToken, Task<CreateReservationResponse>>
         CreateReservationHandler { get; set; } =
         (_, _, _) => throw new NotImplementedException();
+    public Func<Guid, CancellationToken, Task<AuthoritativeBookingStatusResponse?>>
+        GetReservationStatusHandler { get; set; } =
+        (_, _) => throw new NotImplementedException();
 
     public int CatalogSnapshotRequests => _catalogSnapshotRequests;
     public int ValidateAppointmentRequests => _validateAppointmentRequests;
@@ -87,6 +91,11 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
 
         return CreateReservationHandler(request, idempotencyKey, cancellationToken);
     }
+
+    public Task<AuthoritativeBookingStatusResponse?> GetReservationStatusAsync(
+        Guid bookingReference,
+        CancellationToken cancellationToken = default) =>
+        GetReservationStatusHandler(bookingReference, cancellationToken);
 }
 
 internal sealed class TestAppLogger : IAppLogger

@@ -65,7 +65,11 @@ public class BusinessApiStartupTests : IClassFixture<WebApplicationFactory<Progr
                     ["InternalServiceAuthentication:Services:0:AllowedOperations:0"] =
                         Ghseeli.IntegrationContracts.InternalHttp.InternalServiceOperationNames.CatalogSnapshot,
                     ["InternalServiceAuthentication:Services:0:AllowedOperations:1"] =
-                        Ghseeli.IntegrationContracts.InternalHttp.InternalServiceOperationNames.AppointmentValidate
+                        Ghseeli.IntegrationContracts.InternalHttp.InternalServiceOperationNames.AppointmentValidate,
+                    ["CustomerBookingStatusClient:BaseUrl"] = "https://customer.example",
+                    ["CustomerBookingStatusClient:ServiceId"] = "business-api-tests",
+                    ["CustomerBookingStatusClient:ActiveSecret"] =
+                        "BusinessStartupCallbackSecret_Minimum32Characters"
                 });
             });
         });
@@ -159,5 +163,21 @@ public class BusinessApiStartupTests : IClassFixture<WebApplicationFactory<Progr
         var action = () => invalidFactory.CreateClient();
 
         action.Should().Throw<OptionsValidationException>();
+    }
+
+    [Fact]
+    public void Startup_WhenCustomerCallbackBaseUrlIsMissingOutsideTesting_ThrowsOptionsValidationException()
+    {
+        using var invalidFactory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["CustomerBookingStatusClient:BaseUrl"] = string.Empty
+                })));
+
+        var action = () => invalidFactory.CreateClient();
+
+        action.Should().Throw<OptionsValidationException>()
+            .Which.Message.Should().Contain("CustomerBookingStatusClient");
     }
 }

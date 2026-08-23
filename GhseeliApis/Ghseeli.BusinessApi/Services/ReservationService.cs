@@ -4,6 +4,7 @@ using Ghseeli.BusinessApi.Services.Availability;
 using Ghseeli.BusinessApi.Services.Interfaces;
 using Ghseeli.Common.Logging;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Bookings;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 using System.Globalization;
@@ -107,7 +108,7 @@ public sealed class ReservationService : IReservationService
                 var occupied = await _context.AppointmentReservations.CountAsync(
                     reservation =>
                         reservation.BranchId == request.BranchId &&
-                        reservation.Status == ReservationStatuses.Reserved &&
+                        BookingStatuses.CapacityOccupying.Contains(reservation.Status) &&
                         reservation.RequestedSlotStartUtc < endUtc &&
                         reservation.RequestedSlotEndUtc > startUtc,
                     cancellationToken);
@@ -135,13 +136,15 @@ public sealed class ReservationService : IReservationService
                     TotalDurationMinutes = totalDuration,
                     RequestedSlotStartUtc = startUtc,
                     RequestedSlotEndUtc = endUtc,
-                    Status = ReservationStatuses.Reserved,
+                    Status = ReservationStatuses.Pending,
+                    StatusSequence = 0,
+                    StatusChangedAtUtc = now,
                     CreatedAtUtc = now,
                     WorkOrder = new WorkOrder
                     {
                         Id = Guid.NewGuid(),
                         PublicId = Guid.NewGuid(),
-                        Status = ReservationStatuses.Reserved,
+                        Status = ReservationStatuses.Pending,
                         CustomerName = request.Customer.Name,
                         CustomerEmail = request.Customer.Email,
                         CustomerPhone = request.Customer.Phone,

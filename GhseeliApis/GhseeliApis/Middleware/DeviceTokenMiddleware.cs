@@ -97,6 +97,13 @@ public sealed class DeviceTokenMiddleware
             return false;
         }
 
+        if (context.Request.Path.StartsWithSegments(
+                "/api/v1/internal",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         var endpoint = context.GetEndpoint();
         return endpoint is not null &&
                endpoint.Metadata.GetMetadata<AllowWithoutDeviceTokenAttribute>() is null;

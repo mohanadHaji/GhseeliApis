@@ -39,7 +39,10 @@ public static class ReservationErrorCodes
 
 public static class ReservationStatuses
 {
-    public const string Reserved = "Reserved";
+    public const string Pending = Bookings.BookingStatuses.Pending;
+
+    [Obsolete("Reserved is retained only for source compatibility. Persist Pending.")]
+    public const string Reserved = Pending;
 }
 
 public sealed class CatalogSnapshotResponse
@@ -329,7 +332,7 @@ public sealed class CreateReservationResponse
     public Guid BookingReference { get; set; }
     public Guid ReservationId { get; set; }
     public Guid WorkOrderId { get; set; }
-    public string Status { get; set; } = ReservationStatuses.Reserved;
+    public string Status { get; set; } = ReservationStatuses.Pending;
     public long CatalogVersion { get; set; }
     public string Currency { get; set; } = string.Empty;
     public decimal ItemSubtotal { get; set; }

@@ -619,7 +619,7 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             response.BookingReference == bookingReference &&
             response.ReservationId != Guid.Empty &&
             response.WorkOrderId != Guid.Empty &&
-            response.Status == ReservationStatuses.Reserved &&
+            response.Status == ReservationStatuses.Pending &&
             response.CatalogVersion == pricing.CatalogVersion &&
             string.Equals(response.Currency, pricing.Currency, StringComparison.Ordinal) &&
             response.ItemSubtotal == pricing.ItemSubtotal &&
@@ -738,6 +738,8 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             CatalogVersion = pricing.CatalogVersion,
             ConfirmedDraftVersion = draft.PublicVersion,
             Status = reservation.Status,
+            BusinessStatusSequence = 0,
+            StatusChangedAtUtc = now,
             RequestedSlotStartUtc = reservation.RequestedSlotStartUtc,
             RequestedSlotEndUtc = reservation.RequestedSlotEndUtc,
             ProviderNameAr = provider.NameAr,

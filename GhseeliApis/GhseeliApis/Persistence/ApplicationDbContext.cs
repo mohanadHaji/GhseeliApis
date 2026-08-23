@@ -45,6 +45,12 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<CustomerBookingItem> CustomerBookingItems => Set<CustomerBookingItem>();
     public DbSet<CustomerBookingSelection> CustomerBookingSelections => Set<CustomerBookingSelection>();
     public DbSet<BookingConfirmationAttempt> BookingConfirmationAttempts => Set<BookingConfirmationAttempt>();
+    public DbSet<CustomerInternalServiceNonce> CustomerInternalServiceNonces =>
+        Set<CustomerInternalServiceNonce>();
+    public DbSet<CustomerInternalIdempotencyRecord> CustomerInternalIdempotencyRecords =>
+        Set<CustomerInternalIdempotencyRecord>();
+    public DbSet<ProcessedBookingStatusMessage> ProcessedBookingStatusMessages =>
+        Set<ProcessedBookingStatusMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

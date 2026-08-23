@@ -53,6 +53,8 @@ public class BookingConfirmationServiceTests
         stored.OrderGuid.Should().Be(fixture.Draft.OrderGuid);
         stored.UserId.Should().Be(fixture.UserId);
         stored.OwnerDeviceId.Should().Be(fixture.DeviceId);
+        stored.Status.Should().Be(ReservationStatuses.Pending);
+        stored.BusinessStatusSequence.Should().Be(0);
         stored.GrandTotal.Should().Be(126m);
         stored.Items.Should().ContainSingle();
         stored.Items.Single().ServiceNameAr.Should().Be("Service AR");
@@ -137,7 +139,7 @@ public class BookingConfirmationServiceTests
                 BookingReference = request.BookingReference,
                 ReservationId = Guid.NewGuid(),
                 WorkOrderId = Guid.NewGuid(),
-                Status = ReservationStatuses.Reserved,
+                Status = ReservationStatuses.Pending,
                 CatalogVersion = request.ExpectedCatalogVersion,
                 Currency = request.Currency,
                 ItemSubtotal = request.ExpectedItemSubtotal,
@@ -506,7 +508,7 @@ public class BookingConfirmationServiceTests
             BookingReference = request.BookingReference,
             ReservationId = Guid.NewGuid(),
             WorkOrderId = Guid.NewGuid(),
-            Status = ReservationStatuses.Reserved,
+            Status = ReservationStatuses.Pending,
             CatalogVersion = request.ExpectedCatalogVersion,
             Currency = request.Currency,
             ItemSubtotal = request.ExpectedItemSubtotal,
@@ -731,7 +733,7 @@ public class BookingConfirmationServiceTests
                     BookingReference = request.BookingReference,
                     ReservationId = Guid.NewGuid(),
                     WorkOrderId = Guid.NewGuid(),
-                    Status = ReservationStatuses.Reserved,
+                    Status = ReservationStatuses.Pending,
                     CatalogVersion = request.ExpectedCatalogVersion,
                     Currency = request.Currency,
                     ItemSubtotal = request.ExpectedItemSubtotal,

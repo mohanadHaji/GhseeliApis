@@ -458,7 +458,7 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
                 BookingReference = request.BookingReference,
                 ReservationId = Guid.NewGuid(),
                 WorkOrderId = Guid.NewGuid(),
-                Status = ReservationStatuses.Reserved,
+                Status = ReservationStatuses.Pending,
                 CatalogVersion = request.ExpectedCatalogVersion,
                 Currency = request.Currency,
                 ItemSubtotal = request.ExpectedItemSubtotal,

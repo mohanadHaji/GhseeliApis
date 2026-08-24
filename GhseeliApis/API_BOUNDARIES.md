@@ -1,6 +1,6 @@
 # Ghseeli Customer and Business API Boundaries
 
-Status: Architecture boundary and finalized Step 15 HTTP contract
+Status: Final Step 16 ownership boundary and HTTP contract
 
 ## 1. Applications
 
@@ -19,8 +19,7 @@ It owns:
 - customer-facing catalog read models;
 - checkout drafts and repricing orchestration;
 - customer bookings and immutable booking snapshots;
-- payments, Stripe PaymentIntents, refunds, and Stripe webhooks;
-- customer notifications.
+- payments, Stripe PaymentIntents, refunds, and Stripe webhooks.
 
 ### Business API
 
@@ -67,19 +66,19 @@ Neither API may reference the other API's implementation project or connect to t
 | `UsersController` customer self-service | Customer API |
 | `VehiclesController` | Customer API |
 | `AddressesController` | Customer API |
-| `PaymentsController` and `StripeWebhookController` | Customer API, redesigned around server totals |
-| Customer booking history/cancel operations | Customer API |
-| Company booking confirm/start/complete operations | Business API |
-| `CompaniesController` public reads | Replaced by Customer API catalog read endpoints |
-| `CompaniesController` writes | Business API |
-| `ServicesController` and `ServiceOptionsController` writes | Business API |
+| Legacy `PaymentsController` | Removed; modern `/api/v1/payments/*` and Stripe webhook routes remain in Customer API |
+| Legacy `BookingsController` | Removed; modern Customer booking confirmation/status integration remains |
+| Legacy `CompaniesController` | Removed; Customer catalog reads and Business company management replace it |
+| Legacy `ServicesController` and `ServiceOptionsController` | Removed; Customer catalog reads and Business catalog management replace them |
 | Service/company catalog reads | Customer API read model populated from Business API |
 | `CompanyAvailability` writes and rules | Business API |
 | Customer-facing availability lookup | Customer API backed by Business API validation |
-| Customer wallet | Customer API, implementation deferred |
+| Wallet, wallet transactions, and notifications | No runtime/schema owner until their deferred features are implemented |
 | Health and Swagger | Separate implementation in each API |
 
-Existing customer routes may be replaced. Compatibility aliases are not required.
+The removed legacy routes are not compatibility aliases. They are absent from
+runtime routing and Swagger and return a route-level `404` before
+authentication on the Customer host.
 
 ## 3. Data ownership
 
@@ -101,8 +100,13 @@ Existing customer routes may be replaced. Compatibility aliases are not required
 - CustomerBooking
 - CustomerBookingItem
 - CustomerBookingSelection
-- Payment
-- Notification
+- BookingConfirmationAttempt
+- CustomerPayment
+- CustomerPaymentIdempotencyRecord
+- StripeWebhookEvent
+- CustomerInternalServiceNonce
+- CustomerInternalIdempotencyRecord
+- ProcessedBookingStatusMessage
 
 ### Business database
 
@@ -141,9 +145,10 @@ Database IDs are private to their owning API. Integration contracts use explicit
 
 ### Runtime authentication schemes and exemptions
 
-- `CustomerBearer` is the Customer API HTTP bearer scheme. Legacy Customer
-  operations use it according to their existing `[Authorize]` policies; modern
-  booking and payment operations require it together with `X-Device-Token`.
+- `CustomerBearer` is the Customer API HTTP bearer scheme. Customer
+  self-service operations use it according to their `[Authorize]` policies;
+  modern booking and payment operations require it together with
+  `X-Device-Token`.
 - `BusinessBearer` is the Business API HTTP bearer scheme. Business management
   operations additionally enforce the applicable Owner, Employee, Admin, and
   company/branch-assignment policies.
@@ -373,7 +378,12 @@ Rules:
 - Safe retries reuse the same idempotency key and correlation ID and generate a fresh nonce per attempt.
 - HTTPS is required by default; development HTTP is allowed only by an explicit override and only after trusted ASP.NET forwarded-header processing.
 
-## 7. Initial route map
+## 7. Final route map
+
+The exhaustive verb/path/security inventories are maintained in
+[`STEP_16_HTTP_TEST_PLAN.md`](STEP_16_HTTP_TEST_PLAN.md) and are checked
+against runtime endpoint metadata and both OpenAPI documents. The tables below
+summarize the cross-domain routes; they do not create compatibility aliases.
 
 ### Customer API
 
@@ -386,16 +396,12 @@ Rules:
 | GET | `/api/v1/catalog/businesses/{id}` | Yes | No | Get business details |
 | GET | `/api/v1/catalog/businesses/{id}/offerings` | Yes | No | Browse offerings |
 | GET | `/api/v1/catalog/offerings/{id}` | Yes | No | Get offering and add-on rules |
-| GET | `/api/v1/availability` | Yes | No | Query customer-facing slots |
 | POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice for a checkout-like intent |
 | POST | `/api/v1/checkout/drafts` | Yes | No | Create anonymous draft |
 | GET | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Read device-owned draft |
 | PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update anonymous draft intent |
 | POST | `/api/v1/checkout/reprice` | Yes | No | Reprice a device-owned draft using `X-Order-Guid` and `expectedVersion` |
 | POST | `/api/v1/bookings/from-draft` | Yes | Yes | Confirm a draft as a booking |
-| GET | `/api/v1/bookings` | Yes | Yes | Customer booking history |
-| GET | `/api/v1/bookings/{id}` | Yes | Yes | Customer booking details |
-| POST | `/api/v1/bookings/{id}/cancel` | Yes | Yes | Request allowed cancellation |
 | POST | `/api/v1/payments/intents` | Yes | Yes | Create Stripe intent from booking total |
 | GET | `/api/v1/payments/{id}` | Yes | Yes | Read owned payment |
 | POST | `/api/stripe/webhook` | No | No | Stripe signature-protected webhook |
@@ -407,15 +413,9 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 | Method group | Route | Business JWT | Purpose |
 |---|---|---:|---|
 | POST | `/api/v1/business/auth/*` | No/varies | Business registration and login |
-| GET/PUT | `/api/v1/business/profile` | Yes | Owner/employee profile |
-| GET/POST/PUT | `/api/v1/business/companies/*` | Yes | Owned company and branch management |
-| GET/POST/PUT/DELETE | `/api/v1/business/categories/*` | Yes | Localized category management |
-| GET/POST/PUT/DELETE | `/api/v1/business/offerings/*` | Yes | Offering management |
-| GET/POST/PUT/DELETE | `/api/v1/business/offerings/{id}/addon-groups/*` | Yes | Add-on group management |
-| GET/POST/PUT/DELETE | `/api/v1/business/addon-groups/{id}/choices/*` | Yes | Add-on choice management |
+| GET/PUT/POST | `/api/v1/business/company/*` | Yes | Owned company and branch management |
+| GET/POST/PUT/DELETE | `/api/v1/business/catalog/*` | Yes | Category, offering, add-on group, and choice management |
 | GET/POST/PUT/DELETE | `/api/v1/business/availability/*` | Yes | Schedules, closures, and capacity |
-| GET | `/api/v1/business/work-orders` | Yes | Owned work-order queue |
-| GET | `/api/v1/business/work-orders/{id}` | Yes | Work-order details |
 | POST | `/api/v1/business/work-orders/{id}/transitions` | Yes | Allowed status transition |
 | POST | `/api/v1/business/admin/booking-status-outbox/{eventId}/requeue` | Global Admin only | Explicit dead-letter recovery requiring a bounded `Idempotency-Key`. Each new audited request against a dead letter increments its delivery generation. Repeating the same request returns `AlreadyRequeued` without another increment; non-dead-letter events with a new request return 409. |
 
@@ -423,11 +423,10 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/api/v1/internal/catalog/snapshot?companyId={companyId}` | Return a versioned catalog snapshot or delta for one company |
+| GET | `/api/v1/internal/catalog/snapshot` | Return a versioned catalog snapshot |
 | POST | `/api/v1/internal/appointments/validate` | Validate catalog selections, duration, price, service area, and slot |
 | POST | `/api/v1/internal/reservations` | Idempotently reserve an appointment and create a work order |
 | GET | `/api/v1/internal/reservations/{reference}` | Reconcile reservation/work-order state |
-| POST | `/api/v1/internal/reservations/{reference}/cancel` | Apply an allowed customer cancellation |
 
 Business internal routes accept only HMAC-authenticated internal service calls and never accept Business or Customer JWTs.
 
@@ -446,7 +445,7 @@ Development or by explicit non-production configuration and is disabled by
 default in Production. Each UI reads its own document and "Try it" targets only
 that host.
 
-The Customer document contains Customer modern and legacy routes, Customer
+The Customer document contains only retained Customer routes, Customer
 internal callbacks, health, OAuth, and Stripe webhook only. The Business
 document contains Business owner/staff and Business internal routes only.
 Neither document requires the other implementation or database.

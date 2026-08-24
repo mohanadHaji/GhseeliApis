@@ -52,7 +52,7 @@ public class CheckoutDraftModelTests
     }
 
     [Fact]
-    public void AddCheckoutDraftsMigration_CreatesUniqueDraftItemAndSelectionIndexes()
+    public void InitialCustomerDatabaseMigration_CreatesUniqueDraftItemAndSelectionIndexes()
     {
         var migrationBuilder = new MigrationBuilder("SqlServer");
         new CheckoutDraftMigrationAccessor().ApplyUp(migrationBuilder);
@@ -68,7 +68,7 @@ public class CheckoutDraftModelTests
             operation.IsUnique);
     }
 
-    private sealed class CheckoutDraftMigrationAccessor : AddCheckoutDrafts
+    private sealed class CheckoutDraftMigrationAccessor : InitialCustomerDatabase
     {
         public void ApplyUp(MigrationBuilder migrationBuilder) => Up(migrationBuilder);
     }

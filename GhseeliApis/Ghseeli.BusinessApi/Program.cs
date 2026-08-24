@@ -183,8 +183,22 @@ if (string.IsNullOrWhiteSpace(businessConnection))
         "Business database connection is not configured. Set ConnectionStrings__BusinessConnection.");
 }
 
+builder.Services.AddOptions<BusinessSchemaOptions>()
+    .Bind(builder.Configuration.GetSection(BusinessSchemaOptions.SectionName))
+    .Validate(
+        options => string.Equals(
+            options.DefaultSchema,
+            BusinessSchemaOptions.OwnedDefaultSchema,
+            StringComparison.Ordinal),
+        "BusinessSchema:DefaultSchema must identify the owned dbo schema.")
+    .ValidateOnStart();
+
 builder.Services.AddDbContext<BusinessDbContext>(options =>
-    options.UseSqlServer(businessConnection));
+    options.UseSqlServer(
+        businessConnection,
+        sqlServer => sqlServer.MigrationsHistoryTable(
+            BusinessSchemaOptions.MigrationsHistoryTable,
+            BusinessSchemaOptions.OwnedDefaultSchema)));
 
 builder.Services
     .AddIdentityCore<BusinessUser>(options =>
@@ -389,17 +403,48 @@ app.UseMiddleware<InternalRequestIdempotencyMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGet("/api/health", () => Results.Text(
-    System.Text.Json.JsonSerializer.Serialize(new
+app.MapGet("/api/health", async ([FromServices] BusinessDbContext context) =>
+{
+    var healthy = false;
+    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+    try
     {
-        status = "Healthy",
+        if (!context.Database.IsRelational())
+        {
+            _ = await context.Companies.AsNoTracking().AnyAsync(timeout.Token);
+            healthy = true;
+        }
+        else if (await context.Database.CanConnectAsync(timeout.Token))
+        {
+            _ = await context.Companies.AsNoTracking().AnyAsync(timeout.Token);
+            var expected = context.Database.GetMigrations().ToArray();
+            var applied = (await context.Database.GetAppliedMigrationsAsync(timeout.Token)).ToArray();
+            var pending = (await context.Database.GetPendingMigrationsAsync(timeout.Token)).ToArray();
+            healthy = expected.SequenceEqual(applied, StringComparer.Ordinal) &&
+                      pending.Length == 0;
+        }
+    }
+    catch
+    {
+        healthy = false;
+    }
+
+    var payload = System.Text.Json.JsonSerializer.Serialize(new
+    {
+        status = healthy ? "Healthy" : "Unhealthy",
         service = "Ghseeli Business API",
         timestamp = DateTime.UtcNow.ToString(
             "O",
             System.Globalization.CultureInfo.InvariantCulture),
         version = "v1"
-    }),
-    "application/json"));
+    });
+    return Results.Text(
+        payload,
+        "application/json",
+        statusCode: healthy
+            ? StatusCodes.Status200OK
+            : StatusCodes.Status503ServiceUnavailable);
+});
 app.MapMethods("/api/health", [HttpMethods.Head], () => Results.Ok())
     .ExcludeFromDescription();
 

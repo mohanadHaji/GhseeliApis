@@ -97,9 +97,7 @@ public class UserHandler : IUserHandler
                 DeleteScheduledFor = user.DeleteScheduledFor,
                 Roles = roles.ToList(),
                 VehicleCount = user.Vehicles?.Count ?? 0,
-                AddressCount = user.Addresses?.Count ?? 0,
-                BookingCount = user.Bookings?.Count ?? 0,
-                WalletBalance = user.Wallet?.Balance
+                AddressCount = user.Addresses?.Count ?? 0
             };
             
             _logger.LogInfo($"GetUserByIdAsync: Successfully retrieved user ID={id}, Email='{user.Email}', Roles={string.Join(",", roles)}");
@@ -170,9 +168,7 @@ public class UserHandler : IUserHandler
                 UpdatedAt = user.UpdatedAt,
                 Roles = roles.ToList(),
                 VehicleCount = 0,
-                AddressCount = 0,
-                BookingCount = 0,
-                WalletBalance = null
+                AddressCount = 0
             };
             
             return response;
@@ -259,9 +255,7 @@ public class UserHandler : IUserHandler
                 DeleteScheduledFor = user.DeleteScheduledFor,
                 Roles = roles.ToList(),
                 VehicleCount = user.Vehicles?.Count ?? 0,
-                AddressCount = user.Addresses?.Count ?? 0,
-                BookingCount = user.Bookings?.Count ?? 0,
-                WalletBalance = user.Wallet?.Balance
+                AddressCount = user.Addresses?.Count ?? 0
             };
             
             return response;

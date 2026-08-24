@@ -17,61 +17,11 @@ namespace GhseeliApis.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("dbo")
                 .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
-
-            modelBuilder.Entity("GhseeliApis.Models.Booking", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AddressId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("EndDateTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsPaid")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Notes")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("ServiceOptionId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("StartDateTime")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("VehicleId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AddressId");
-
-                    b.HasIndex("CompanyId");
-
-                    b.HasIndex("ServiceOptionId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("VehicleId");
-
-                    b.ToTable("Bookings");
-                });
 
             modelBuilder.Entity("GhseeliApis.Models.BookingConfirmationAttempt", b =>
                 {
@@ -121,7 +71,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId", "OwnerDeviceId");
 
-                    b.ToTable("BookingConfirmationAttempts", (string)null);
+                    b.ToTable("BookingConfirmationAttempts", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonChoiceReadModel", b =>
@@ -173,7 +123,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("AddonGroupId", "DisplayOrder");
 
-                    b.ToTable("CatalogAddonChoices", (string)null);
+                    b.ToTable("CatalogAddonChoices", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonGroupReadModel", b =>
@@ -229,7 +179,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("OfferingId", "DisplayOrder");
 
-                    b.ToTable("CatalogAddonGroups", (string)null);
+                    b.ToTable("CatalogAddonGroups", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogBranchReadModel", b =>
@@ -296,7 +246,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("ProviderId", "DisplayOrder");
 
-                    b.ToTable("CatalogBranches", (string)null);
+                    b.ToTable("CatalogBranches", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogCategoryReadModel", b =>
@@ -338,7 +288,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("ProviderId", "DisplayOrder");
 
-                    b.ToTable("CatalogCategories", (string)null);
+                    b.ToTable("CatalogCategories", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogOfferingReadModel", b =>
@@ -400,7 +350,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("CategoryId", "DisplayOrder");
 
-                    b.ToTable("CatalogOfferings", (string)null);
+                    b.ToTable("CatalogOfferings", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogProviderReadModel", b =>
@@ -485,7 +435,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("IsEnabled", "DisplayOrder");
 
-                    b.ToTable("CatalogProviders", (string)null);
+                    b.ToTable("CatalogProviders", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraft", b =>
@@ -593,7 +543,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("OwnerDeviceId", "OrderGuid");
 
-                    b.ToTable("CheckoutDrafts", (string)null);
+                    b.ToTable("CheckoutDrafts", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraftItem", b =>
@@ -618,7 +568,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("CheckoutDraftId", "OfferingSourceId")
                         .IsUnique();
 
-                    b.ToTable("CheckoutDraftItems", (string)null);
+                    b.ToTable("CheckoutDraftItems", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraftPricingItemSnapshot", b =>
@@ -658,7 +608,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("PricingSnapshotId", "OfferingSourceId")
                         .IsUnique();
 
-                    b.ToTable("CheckoutDraftPricingItemSnapshots", (string)null);
+                    b.ToTable("CheckoutDraftPricingItemSnapshots", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraftPricingSelectionSnapshot", b =>
@@ -711,7 +661,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("PricingItemSnapshotId", "DisplayOrder");
 
-                    b.ToTable("CheckoutDraftPricingSelectionSnapshots", (string)null);
+                    b.ToTable("CheckoutDraftPricingSelectionSnapshots", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraftPricingSnapshot", b =>
@@ -792,7 +742,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("Currency", "CatalogVersion", "QuotedAtUtc");
 
-                    b.ToTable("CheckoutDraftPricingSnapshots", (string)null);
+                    b.ToTable("CheckoutDraftPricingSnapshots", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CheckoutDraftSelection", b =>
@@ -823,65 +773,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("CheckoutDraftItemId", "DisplayOrder");
 
-                    b.ToTable("CheckoutDraftSelections", (string)null);
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Company", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(30)
-                        .HasColumnType("nvarchar(30)");
-
-                    b.Property<string>("ServiceAreaDescription")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Companies");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.CompanyAvailability", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int?>("DayOfWeek")
-                        .HasColumnType("int");
-
-                    b.Property<TimeSpan>("EndTime")
-                        .HasColumnType("time");
-
-                    b.Property<DateTime?>("SpecificDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<TimeSpan>("StartTime")
-                        .HasColumnType("time");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyId");
-
-                    b.ToTable("CompanyAvailabilities");
+                    b.ToTable("CheckoutDraftSelections", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerBooking", b =>
@@ -1093,7 +985,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId", "CreatedAtUtc");
 
-                    b.ToTable("CustomerBookings", null, t =>
+                    b.ToTable("CustomerBookings", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_CustomerBookings_PaymentState", "[PaymentState] IN ('Unpaid','Pending','Completed','Failed','Refunded')");
                         });
@@ -1145,7 +1037,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("CustomerBookingId", "OfferingSourceId")
                         .IsUnique();
 
-                    b.ToTable("CustomerBookingItems", (string)null);
+                    b.ToTable("CustomerBookingItems", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerBookingSelection", b =>
@@ -1216,7 +1108,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("CustomerBookingItemId", "DisplayOrder");
 
-                    b.ToTable("CustomerBookingSelections", (string)null);
+                    b.ToTable("CustomerBookingSelections", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerConfiguration", b =>
@@ -1293,7 +1185,7 @@ namespace GhseeliApis.Migrations
                         .IsUnique()
                         .HasFilter("[IsActive] = 1");
 
-                    b.ToTable("CustomerConfigurations");
+                    b.ToTable("CustomerConfigurations", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerDevice", b =>
@@ -1344,7 +1236,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.ToTable("CustomerDevices");
+                    b.ToTable("CustomerDevices", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerInternalIdempotencyRecord", b =>
@@ -1414,7 +1306,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("ServiceId", "Operation", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("CustomerInternalIdempotencyRecords", (string)null);
+                    b.ToTable("CustomerInternalIdempotencyRecords", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerInternalServiceNonce", b =>
@@ -1446,7 +1338,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("ServiceId", "Nonce")
                         .IsUnique();
 
-                    b.ToTable("CustomerInternalServiceNonces", (string)null);
+                    b.ToTable("CustomerInternalServiceNonces", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerPayment", b =>
@@ -1554,7 +1446,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("UserId", "OwnerDeviceId", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("CustomerPayments", null, t =>
+                    b.ToTable("CustomerPayments", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_CustomerPayments_Amount", "[Amount] > 0");
 
@@ -1598,83 +1490,7 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("UserId", "OwnerDeviceId", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("CustomerPaymentIdempotencyRecords", (string)null);
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Notification", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsRead")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Message")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Notifications");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Payment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("BookingId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Method")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PaymentIntentId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("PaymentMethodId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("TransactionId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BookingId")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Payments");
+                    b.ToTable("CustomerPaymentIdempotencyRecords", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
@@ -1709,62 +1525,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("CustomerBookingId", "Sequence");
 
-                    b.ToTable("ProcessedBookingStatusMessages", (string)null);
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Service", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Services");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.ServiceOption", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("CompanyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("DurationMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("ServiceId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyId");
-
-                    b.HasIndex("ServiceId", "CompanyId", "Name");
-
-                    b.ToTable("ServiceOptions");
+                    b.ToTable("ProcessedBookingStatusMessages", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.StripeWebhookEventRecord", b =>
@@ -1827,7 +1588,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("CustomerPaymentId", "State", "ChargeId");
 
-                    b.ToTable("StripeWebhookEvents", null, t =>
+                    b.ToTable("StripeWebhookEvents", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_StripeWebhookEvents_State", "[State] IN ('Processing','Completed','Quarantined','Deferred')");
                         });
@@ -1927,7 +1688,7 @@ namespace GhseeliApis.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("AspNetUsers", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.UserAddress", b =>
@@ -1965,7 +1726,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserAddresses");
+                    b.ToTable("UserAddresses", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.Vehicle", b =>
@@ -2000,57 +1761,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId", "LicensePlate");
 
-                    b.ToTable("Vehicles");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Wallet", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Balance")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("UserId");
-
-                    b.ToTable("Wallets");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.WalletTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("BookingId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("WalletUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BookingId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("WalletUserId");
-
-                    b.ToTable("WalletTransactions");
+                    b.ToTable("Vehicles", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -2078,7 +1789,7 @@ namespace GhseeliApis.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -2102,7 +1813,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -2126,7 +1837,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -2147,7 +1858,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -2162,7 +1873,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -2181,50 +1892,7 @@ namespace GhseeliApis.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Booking", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.UserAddress", "Address")
-                        .WithMany("Bookings")
-                        .HasForeignKey("AddressId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.Company", "Company")
-                        .WithMany("Bookings")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.ServiceOption", "ServiceOption")
-                        .WithMany("Bookings")
-                        .HasForeignKey("ServiceOptionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.User", "User")
-                        .WithMany("Bookings")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.Vehicle", "Vehicle")
-                        .WithMany("Bookings")
-                        .HasForeignKey("VehicleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Address");
-
-                    b.Navigation("Company");
-
-                    b.Navigation("ServiceOption");
-
-                    b.Navigation("User");
-
-                    b.Navigation("Vehicle");
+                    b.ToTable("AspNetUserTokens", "dbo");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonChoiceReadModel", b =>
@@ -2344,17 +2012,6 @@ namespace GhseeliApis.Migrations
                     b.Navigation("CheckoutDraftItem");
                 });
 
-            modelBuilder.Entity("GhseeliApis.Models.CompanyAvailability", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.Company", "Company")
-                        .WithMany("Availabilities")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Company");
-                });
-
             modelBuilder.Entity("GhseeliApis.Models.CustomerBooking", b =>
                 {
                     b.HasOne("GhseeliApis.Models.User", "User")
@@ -2410,36 +2067,6 @@ namespace GhseeliApis.Migrations
                     b.Navigation("CustomerPayment");
                 });
 
-            modelBuilder.Entity("GhseeliApis.Models.Notification", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.User", "User")
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Payment", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.Booking", "Booking")
-                        .WithOne("Payment")
-                        .HasForeignKey("GhseeliApis.Models.Payment", "BookingId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Booking");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
                 {
                     b.HasOne("GhseeliApis.Models.CustomerBooking", "CustomerBooking")
@@ -2449,24 +2076,6 @@ namespace GhseeliApis.Migrations
                         .IsRequired();
 
                     b.Navigation("CustomerBooking");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.ServiceOption", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.Company", "Company")
-                        .WithMany("ServiceOptions")
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("GhseeliApis.Models.Service", "Service")
-                        .WithMany("Options")
-                        .HasForeignKey("ServiceId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Company");
-
-                    b.Navigation("Service");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.StripeWebhookEventRecord", b =>
@@ -2499,39 +2108,6 @@ namespace GhseeliApis.Migrations
                         .IsRequired();
 
                     b.Navigation("Owner");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Wallet", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.User", "User")
-                        .WithOne("Wallet")
-                        .HasForeignKey("GhseeliApis.Models.Wallet", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.WalletTransaction", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.Booking", "Booking")
-                        .WithMany()
-                        .HasForeignKey("BookingId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("GhseeliApis.Models.User", "User")
-                        .WithMany("WalletTransactions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("GhseeliApis.Models.Wallet", null)
-                        .WithMany("Transactions")
-                        .HasForeignKey("WalletUserId");
-
-                    b.Navigation("Booking");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -2585,11 +2161,6 @@ namespace GhseeliApis.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("GhseeliApis.Models.Booking", b =>
-                {
-                    b.Navigation("Payment");
-                });
-
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonGroupReadModel", b =>
                 {
                     b.Navigation("Choices");
@@ -2639,15 +2210,6 @@ namespace GhseeliApis.Migrations
                     b.Navigation("Items");
                 });
 
-            modelBuilder.Entity("GhseeliApis.Models.Company", b =>
-                {
-                    b.Navigation("Availabilities");
-
-                    b.Navigation("Bookings");
-
-                    b.Navigation("ServiceOptions");
-                });
-
             modelBuilder.Entity("GhseeliApis.Models.CustomerBooking", b =>
                 {
                     b.Navigation("Items");
@@ -2667,44 +2229,11 @@ namespace GhseeliApis.Migrations
                     b.Navigation("IdempotencyRecords");
                 });
 
-            modelBuilder.Entity("GhseeliApis.Models.Service", b =>
-                {
-                    b.Navigation("Options");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.ServiceOption", b =>
-                {
-                    b.Navigation("Bookings");
-                });
-
             modelBuilder.Entity("GhseeliApis.Models.User", b =>
                 {
                     b.Navigation("Addresses");
 
-                    b.Navigation("Bookings");
-
-                    b.Navigation("Notifications");
-
                     b.Navigation("Vehicles");
-
-                    b.Navigation("Wallet");
-
-                    b.Navigation("WalletTransactions");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.UserAddress", b =>
-                {
-                    b.Navigation("Bookings");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Vehicle", b =>
-                {
-                    b.Navigation("Bookings");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.Wallet", b =>
-                {
-                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

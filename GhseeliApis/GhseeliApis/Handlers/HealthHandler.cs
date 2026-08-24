@@ -39,11 +39,19 @@ public class HealthHandler : IHealthHandler
                 try
                 {
                     var userCount = await _healthRepository.GetUserCountAsync();
+                    if (!await _healthRepository.CanQueryOwnedSchemaAsync())
+                    {
+                        _logger.LogWarning(
+                            "CheckDatabaseHealthAsync: Customer schema or migration history is incompatible.");
+                        return false;
+                    }
                     _logger.LogInfo($"CheckDatabaseHealthAsync: Database query successful - Current user count: {userCount}");
                 }
                 catch (Exception queryEx)
                 {
-                    _logger.LogWarning($"CheckDatabaseHealthAsync: Database connected but query failed - Connection may be limited - Error: {queryEx.Message}");
+                    _logger.LogWarning(
+                        $"CheckDatabaseHealthAsync: Customer-owned schema query failed - Error type: {queryEx.GetType().Name}");
+                    return false;
                 }
             }
             else

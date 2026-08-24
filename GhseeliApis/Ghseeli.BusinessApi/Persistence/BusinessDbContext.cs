@@ -42,6 +42,7 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        builder.HasDefaultSchema(BusinessSchemaOptions.OwnedDefaultSchema);
 
         builder.Entity<BusinessUser>(entity =>
         {

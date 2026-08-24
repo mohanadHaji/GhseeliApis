@@ -100,6 +100,7 @@ public sealed class InternalBookingStatusController : ControllerBase
     }
 
     [HttpPost("{unmatched}")]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public IActionResult UnknownPost(string unmatched) => NotFound();
 
     private ObjectResult ProblemResult(int status, string code, string? detail = null)

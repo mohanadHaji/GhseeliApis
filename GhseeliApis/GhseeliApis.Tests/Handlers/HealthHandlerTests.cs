@@ -67,6 +67,21 @@ public class HealthHandlerTests : IDisposable
 public class HealthHandlerErrorTests
 {
     [Fact]
+    public async Task CheckDatabaseHealthAsync_ReturnsFalse_WhenOwnedSchemaQueryFails()
+    {
+        var repository = new Mock<IHealthRepository>();
+        repository.Setup(value => value.CanConnectAsync()).ReturnsAsync(true);
+        repository.Setup(value => value.GetUserCountAsync()).ReturnsAsync(0);
+        repository.Setup(value => value.CanQueryOwnedSchemaAsync())
+            .ThrowsAsync(new InvalidOperationException("Owned table is missing."));
+        var handler = new HealthHandler(repository.Object, Mock.Of<IAppLogger>());
+
+        var result = await handler.CheckDatabaseHealthAsync();
+
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task CheckDatabaseHealthAsync_ReturnsFalse_WhenDatabaseIsNotAccessible()
     {
         // Arrange

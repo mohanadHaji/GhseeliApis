@@ -1239,7 +1239,7 @@ internal sealed class BookingStatusCallbackFactory : WebApplicationFactory<Progr
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("ConnectionStrings:RemoteTest", "Server=(localdb)\\MSSQLLocalDB;Database=Step13;Trusted_Connection=True;");
+        builder.UseSetting("ConnectionStrings:CustomerConnection", "Server=(localdb)\\MSSQLLocalDB;Database=Step13;Trusted_Connection=True;");
         builder.UseSetting("JwtSettings:SecretKey", "step13-jwt-secret-at-least-thirty-two-characters");
         builder.UseSetting("CustomerInternalServiceAuthentication:RequireHttps", "true");
         builder.UseSetting("CustomerInternalServiceAuthentication:Services:0:ServiceId", ServiceId);

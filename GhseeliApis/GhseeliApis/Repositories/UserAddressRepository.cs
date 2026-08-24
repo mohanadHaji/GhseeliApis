@@ -91,15 +91,6 @@ public class UserAddressRepository : IUserAddressRepository
         }
     }
 
-    public async Task<bool> HasActiveBookingsAsync(Guid addressId)
-    {
-        return await _context.Bookings
-            .AnyAsync(b => b.AddressId == addressId &&
-                          (b.Status == BookingStatus.Pending ||
-                           b.Status == BookingStatus.Confirmed ||
-                           b.Status == BookingStatus.InProgress));
-    }
-
     private async Task UnsetPrimaryForUserAsync(Guid userId)
     {
         var primaryAddresses = await _context.UserAddresses

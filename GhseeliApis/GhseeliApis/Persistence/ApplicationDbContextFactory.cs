@@ -23,18 +23,20 @@ public class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Applicati
 
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
         
-        // Try to get connection string from various sources
-        // Priority: RemoteTest (user secrets) > Production (env vars) > DefaultConnection (local)
-        var connectionString = configuration.GetConnectionString("RemoteTest")
-            ?? configuration.GetConnectionString("Production")
-            ?? configuration.GetConnectionString("DefaultConnection")
-            ?? throw new InvalidOperationException("No connection string found for migrations. Please configure a connection string.");
+        var connectionString = configuration.GetConnectionString("CustomerConnection")
+            ?? throw new InvalidOperationException(
+                "Customer database connection is not configured. Set ConnectionStrings__CustomerConnection.");
 
         optionsBuilder.UseSqlServer(
             connectionString,
-            options => options.EnableRetryOnFailure(
-                maxRetryCount: 0  // Disable retry for design-time
-            )
+            options =>
+            {
+                options.MigrationsHistoryTable(
+                    "__EFMigrationsHistory",
+                    CustomerSchemaOptions.OwnedDefaultSchema);
+                options.EnableRetryOnFailure(
+                    maxRetryCount: 0);
+            }
         );
 
         return new ApplicationDbContext(optionsBuilder.Options);

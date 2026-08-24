@@ -43,11 +43,6 @@ public interface IVehicleRepository
     Task<bool> ExistsAsync(Guid id);
 
     /// <summary>
-    /// Checks if a vehicle has active bookings
-    /// </summary>
-    Task<bool> HasActiveBookingsAsync(Guid vehicleId);
-
-    /// <summary>
     /// Gets a vehicle by license plate
     /// </summary>
     Task<Vehicle?> GetByLicensePlateAsync(string licensePlate);

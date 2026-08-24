@@ -1,9 +1,12 @@
 using FluentAssertions;
+using Ghseeli.BusinessApi.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -175,8 +178,15 @@ public class Step15SharedHttpPolicyTests
                 });
             });
             builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<BusinessDbContext>();
+                services.RemoveAll<DbContextOptions<BusinessDbContext>>();
+                services.AddDbContext<BusinessDbContext>(options =>
+                    options.UseInMemoryDatabase(
+                        $"Step15Shared-{environment}-{Guid.NewGuid():N}"));
                 services.AddControllers()
-                    .AddApplicationPart(typeof(Step15SharedFailureController).Assembly));
+                    .AddApplicationPart(typeof(Step15SharedFailureController).Assembly);
+            });
         });
 
     private static string? Header(HttpResponseMessage response, string name) =>

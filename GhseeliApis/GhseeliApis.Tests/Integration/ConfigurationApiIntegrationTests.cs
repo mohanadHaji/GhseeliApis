@@ -469,7 +469,7 @@ public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Prog
     {
         builder.UseEnvironment("Development");
         builder.UseSetting(
-            "ConnectionStrings:RemoteTest",
+            "ConnectionStrings:CustomerConnection",
             "Server=(localdb)\\MSSQLLocalDB;Database=CustomerConfigurationApiTests;Trusted_Connection=True;TrustServerCertificate=True;");
         builder.UseSetting("JwtSettings:SecretKey", "CustomerConfigurationTestsSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.ConfigurationTests");

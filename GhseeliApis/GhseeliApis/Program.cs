@@ -23,6 +23,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -157,6 +159,13 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Add SQL Server
+if (string.IsNullOrWhiteSpace(
+        builder.Configuration.GetConnectionString("CustomerConnection")))
+{
+    throw new InvalidOperationException(
+        "Customer database connection is not configured. Set ConnectionStrings__CustomerConnection.");
+}
+
 builder.Services.AddSqlServer(builder.Configuration);
 
 // Configure ASP.NET Core Identity
@@ -330,36 +339,15 @@ else
 // Configure Authorization Policies
 builder.Services.AddAuthorization(options =>
 {
-    // User policy - requires User role
     options.AddPolicy("UserPolicy", policy => policy.RequireRole("User"));
-    
-    // Company policy - requires Company role
-    options.AddPolicy("CompanyPolicy", policy => policy.RequireRole("Company"));
-    
-    // Admin policy - requires Admin role
     options.AddPolicy("AdminPolicy", policy => policy.RequireRole("Admin"));
-    
-    // UserOrCompany policy - requires either User or Company role
-    options.AddPolicy("UserOrCompanyPolicy", policy => policy.RequireRole("User", "Company"));
-    
-    // CompanyOrAdmin policy - requires either Company or Admin role
-    options.AddPolicy("CompanyOrAdminPolicy", policy => policy.RequireRole("Company", "Admin"));
 });
 
 // Register Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
-builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IUserAddressRepository, UserAddressRepository>();
-builder.Services.AddScoped<IServiceRepository, ServiceRepository>();
-builder.Services.AddScoped<IServiceOptionRepository, ServiceOptionRepository>();
-builder.Services.AddScoped<IBookingRepository, BookingRepository>();
-builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
-builder.Services.AddScoped<IWalletRepository, WalletRepository>();
-builder.Services.AddScoped<IWalletTransactionRepository, WalletTransactionRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<ICompanyAvailabilityRepository, CompanyAvailabilityRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ICustomerConfigurationRepository, CustomerConfigurationRepository>();
 builder.Services.AddScoped<ICatalogReadModelRepository, CatalogReadModelRepository>();
@@ -370,15 +358,9 @@ builder.Services.AddScoped<IUserHandler, UserHandler>();
 builder.Services.AddScoped<IHealthHandler, HealthHandler>();
 builder.Services.AddScoped<IVehicleHandler, VehicleHandler>();
 builder.Services.AddScoped<IUserAddressHandler, UserAddressHandler>();
-builder.Services.AddScoped<IBookingHandler, BookingHandler>();
-builder.Services.AddScoped<ICompanyHandler, CompanyHandler>();
-builder.Services.AddScoped<IServiceHandler, ServiceHandler>();
-builder.Services.AddScoped<IServiceOptionHandler, ServiceOptionHandler>();
-builder.Services.AddScoped<IPaymentHandler, PaymentHandler>();
 
 // Register Services
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, GhseeliApis.Services.AuthService>();
-builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayService, GhseeliApis.Services.StripePaymentService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IDeviceTokenGenerator, DeviceTokenGenerator>();
 builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
@@ -402,6 +384,15 @@ builder.Services.AddScoped<
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<CustomerInternalServiceOptions>,
     CustomerInternalServiceOptionsValidator>();
+builder.Services.AddOptions<CustomerSchemaOptions>()
+    .Bind(builder.Configuration.GetSection(CustomerSchemaOptions.SectionName))
+    .Validate(
+        options => string.Equals(
+            options.DefaultSchema,
+            CustomerSchemaOptions.OwnedDefaultSchema,
+            StringComparison.Ordinal),
+        "CustomerSchema:DefaultSchema must identify the owned dbo schema.")
+    .ValidateOnStart();
 builder.Services.AddOptions<CustomerInternalServiceOptions>()
     .Bind(builder.Configuration.GetSection(CustomerInternalServiceOptions.SectionName))
     .ValidateOnStart();
@@ -449,6 +440,21 @@ builder.Services.AddHttpClient<IBusinessApiClient, BusinessApiClient>((servicePr
         }
 
         client.Timeout = Timeout.InfiniteTimeSpan;
+    })
+    .ConfigurePrimaryHttpMessageHandler(serviceProvider =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<BusinessApiClientOptions>>()
+            .Value;
+        var environment = serviceProvider.GetRequiredService<IWebHostEnvironment>();
+        var handler = new HttpClientHandler();
+        if (environment.IsDevelopment() &&
+            options.AllowUntrustedDevelopmentCertificate)
+        {
+            handler.ServerCertificateCustomValidationCallback =
+                HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
+        }
+        return handler;
     })
     .AddHttpMessageHandler<BusinessApiResilienceDelegatingHandler>()
     .AddHttpMessageHandler<CorrelationIdPropagationHandler>()
@@ -582,40 +588,76 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapMethods("/api/Health", ["HEAD"], () => Results.Ok())
+    .AllowAnonymous()
+    .ExcludeFromDescription();
 
 if (swaggerEnabled)
 {
     app.MapGet("/", () => Results.Redirect("/swagger"));
 }
 
-// Seed roles without preventing the API from starting when the database is temporarily unavailable.
-try
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
     var logger = scope.ServiceProvider.GetRequiredService<IAppLogger>();
-
-    string[] roles = ["User", "Company", "Admin"];
-    foreach (var role in roles)
+    var healthHandler = scope.ServiceProvider.GetRequiredService<IHealthHandler>();
+    if (await healthHandler.CheckDatabaseHealthAsync())
     {
-        if (!await roleManager.RoleExistsAsync(role))
+        using var roleInitializationTimeout = new CancellationTokenSource();
+        roleInitializationTimeout.CancelAfter(TimeSpan.FromSeconds(2));
+        try
         {
-            var result = await roleManager.CreateAsync(new IdentityRole<Guid>(role));
-            if (result.Succeeded)
+            var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            string[] roles = ["User", "Admin"];
+            var createdRoles = new List<string>();
+            foreach (var role in roles)
             {
-                logger.LogInfo($"Role '{role}' created successfully");
+                var normalizedRole = role.ToUpperInvariant();
+                if (!await context.Roles.AnyAsync(
+                        candidate => candidate.NormalizedName == normalizedRole,
+                        roleInitializationTimeout.Token))
+                {
+                    context.Roles.Add(new IdentityRole<Guid>
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = role,
+                        NormalizedName = normalizedRole,
+                        ConcurrencyStamp = Guid.NewGuid().ToString()
+                    });
+                    createdRoles.Add(role);
+                }
             }
-            else
+            if (createdRoles.Count > 0)
             {
-                logger.LogError($"Failed to create role '{role}': {string.Join(", ", result.Errors.Select(e => e.Description))}");
+                await context.SaveChangesAsync(roleInitializationTimeout.Token);
+                foreach (var role in createdRoles)
+                {
+                    logger.LogInfo($"Role '{role}' created successfully");
+                }
             }
         }
+        catch (OperationCanceledException)
+            when (roleInitializationTimeout.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                "Customer role initialization timed out; startup will continue without changing roles.");
+        }
+        catch (SqlException)
+        {
+            logger.LogWarning(
+                "Customer role initialization failed because the database became unavailable.");
+        }
+        catch (DbUpdateException)
+        {
+            logger.LogWarning(
+                "Customer role initialization failed because the database became unavailable.");
+        }
     }
-}
-catch (Exception ex)
-{
-    app.Services.GetRequiredService<IAppLogger>()
-        .LogError("Role seeding failed during startup. The API will continue running.", ex);
+    else
+    {
+        logger.LogWarning(
+            "Skipping Customer role initialization because the owned database schema is not ready.");
+    }
 }
 
 app.Run();

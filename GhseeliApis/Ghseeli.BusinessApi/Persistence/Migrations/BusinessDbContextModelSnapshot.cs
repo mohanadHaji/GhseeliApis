@@ -17,6 +17,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
+                .HasDefaultSchema("dbo")
                 .HasAnnotation("ProductVersion", "8.0.11")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
@@ -84,7 +85,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("AddonGroupId", "IsActive");
 
-                    b.ToTable("AddonChoices");
+                    b.ToTable("AddonChoices", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonGroup", b =>
@@ -153,7 +154,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("ServiceOfferingId", "IsActive");
 
-                    b.ToTable("AddonGroups");
+                    b.ToTable("AddonGroups", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.AppointmentReservation", b =>
@@ -236,7 +237,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("BranchId", "RequestedSlotStartUtc", "RequestedSlotEndUtc", "Status");
 
-                    b.ToTable("AppointmentReservations", (string)null);
+                    b.ToTable("AppointmentReservations", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BookingStatusOutboxMessage", b =>
@@ -336,7 +337,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("DeliveryState", "NextAttemptAtUtc", "LeaseExpiresAtUtc");
 
-                    b.ToTable("BookingStatusOutboxMessages", null, t =>
+                    b.ToTable("BookingStatusOutboxMessages", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_BookingStatusOutboxMessages_DeliveryGeneration", "[DeliveryGeneration] >= 0");
 
@@ -375,7 +376,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("BookingStatusOutboxMessageId", "RequestId")
                         .IsUnique();
 
-                    b.ToTable("BookingStatusRequeueHistory", null, t =>
+                    b.ToTable("BookingStatusRequeueHistory", "dbo", t =>
                         {
                             t.HasCheckConstraint("CK_BookingStatusRequeueHistory_Generation", "[Generation] > 0");
                         });
@@ -433,7 +434,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("CompanyId", "IsActive");
 
-                    b.ToTable("Branches");
+                    b.ToTable("Branches", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilityOverride", b =>
@@ -485,7 +486,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("BranchId", "OverrideDate")
                         .IsUnique();
 
-                    b.ToTable("BranchAvailabilityOverrides");
+                    b.ToTable("BranchAvailabilityOverrides", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchAvailabilitySettings", b =>
@@ -530,7 +531,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("BranchId")
                         .IsUnique();
 
-                    b.ToTable("BranchAvailabilitySettings");
+                    b.ToTable("BranchAvailabilitySettings", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchRecurringSchedule", b =>
@@ -580,7 +581,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("BranchId", "DayOfWeek", "IsActive");
 
-                    b.ToTable("BranchRecurringSchedules");
+                    b.ToTable("BranchRecurringSchedules", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BranchServiceArea", b =>
@@ -623,7 +624,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("BranchId")
                         .IsUnique();
 
-                    b.ToTable("BranchServiceAreas");
+                    b.ToTable("BranchServiceAreas", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BusinessUser", b =>
@@ -702,7 +703,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasDatabaseName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("AspNetUsers", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.BusinessUserAssignment", b =>
@@ -739,7 +740,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[BranchId] IS NOT NULL");
 
-                    b.ToTable("BusinessUserAssignments");
+                    b.ToTable("BusinessUserAssignments", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.Company", b =>
@@ -797,7 +798,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Companies");
+                    b.ToTable("Companies", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.InternalServiceIdempotencyRecord", b =>
@@ -858,7 +859,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("ServiceId", "Operation", "IdempotencyKey")
                         .IsUnique();
 
-                    b.ToTable("InternalServiceIdempotencyRecords");
+                    b.ToTable("InternalServiceIdempotencyRecords", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.InternalServiceNonce", b =>
@@ -890,7 +891,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("ServiceId", "Nonce")
                         .IsUnique();
 
-                    b.ToTable("InternalServiceNonces");
+                    b.ToTable("InternalServiceNonces", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceCategory", b =>
@@ -945,7 +946,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("CompanyId", "IsActive");
 
-                    b.ToTable("ServiceCategories");
+                    b.ToTable("ServiceCategories", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.ServiceOffering", b =>
@@ -1020,7 +1021,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("CategoryId", "IsActive");
 
-                    b.ToTable("ServiceOfferings");
+                    b.ToTable("ServiceOfferings", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.WorkOrder", b =>
@@ -1112,7 +1113,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique();
 
-                    b.ToTable("WorkOrders", (string)null);
+                    b.ToTable("WorkOrders", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.WorkOrderItem", b =>
@@ -1152,7 +1153,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                     b.HasIndex("WorkOrderId", "OfferingId")
                         .IsUnique();
 
-                    b.ToTable("WorkOrderItems", (string)null);
+                    b.ToTable("WorkOrderItems", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.WorkOrderSelection", b =>
@@ -1205,7 +1206,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("WorkOrderItemId", "DisplayOrder");
 
-                    b.ToTable("WorkOrderSelections", (string)null);
+                    b.ToTable("WorkOrderSelections", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -1233,7 +1234,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasDatabaseName("RoleNameIndex")
                         .HasFilter("[NormalizedName] IS NOT NULL");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AspNetRoles", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -1257,7 +1258,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AspNetRoleClaims", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
@@ -1281,7 +1282,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AspNetUserClaims", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<System.Guid>", b =>
@@ -1302,7 +1303,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AspNetUserLogins", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<System.Guid>", b =>
@@ -1317,7 +1318,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AspNetUserRoles", "dbo");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<System.Guid>", b =>
@@ -1336,7 +1337,7 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AspNetUserTokens", "dbo");
                 });
 
             modelBuilder.Entity("Ghseeli.BusinessApi.Models.AddonChoice", b =>

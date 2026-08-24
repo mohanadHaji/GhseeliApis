@@ -3,3 +3,5 @@
 ################################################################################
 
 /GhseeliApis/test-remote-db.ps1
+/scripts/http-tests/artifacts/
+/scripts/http-tests/*.local.json

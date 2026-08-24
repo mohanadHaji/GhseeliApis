@@ -31,7 +31,7 @@ public sealed class Step15SwaggerCustomerContractTests :
             .ToArray();
 
         actual.Should().Equal(CustomerOperations.Order(StringComparer.Ordinal),
-            "STEP15-SWAGGER-CUSTOMER-ROUTES-130 requires all 86 owned operations exactly once");
+            "the retained Step 15 Customer operations remain exactly discoverable");
         actual.Should().NotContain(operation =>
                 operation.Contains("/api/v1/business/", StringComparison.OrdinalIgnoreCase),
             "STEP15-SWAGGER-CUSTOMER-ROUTES-130 excludes Business routes");
@@ -280,8 +280,8 @@ public sealed class Step15SwaggerCustomerContractTests :
         }
     }
 
-    [Fact(DisplayName = "STEP15-LEGACY-AUTH-114 STEP15-LEGACY-USERS-115 STEP15-LEGACY-ADDRESSES-116 STEP15-LEGACY-VEHICLES-117 STEP15-LEGACY-BOOKINGS-118 STEP15-LEGACY-COMPANIES-119 STEP15-LEGACY-SERVICES-120 STEP15-LEGACY-SERVICEOPTIONS-121 STEP15-LEGACY-PAYMENTS-122 STEP15-LEGACY-HEALTH-123")]
-    public async Task Legacy_operations_have_exact_ownership_security_and_transport_shapes()
+    [Fact(DisplayName = "STEP15-LEGACY-AUTH-114 STEP15-LEGACY-USERS-115 STEP15-LEGACY-ADDRESSES-116 STEP15-LEGACY-VEHICLES-117 STEP15-LEGACY-HEALTH-123")]
+    public async Task Retained_legacy_operations_have_exact_ownership_security_and_transport_shapes()
     {
         using var document = await GetSwaggerAsync();
         var root = document.RootElement;
@@ -293,11 +293,7 @@ public sealed class Step15SwaggerCustomerContractTests :
                      "/api/Auth/me",
                      "/api/Users",
                      "/api/Addresses/my-addresses",
-                     "/api/Vehicles/my-vehicles",
-                     "/api/Bookings/my-bookings",
-                     "/api/Companies",
-                     "/api/Services",
-                     "/api/ServiceOptions"
+                     "/api/Vehicles/my-vehicles"
                  })
         {
             AssertSecurity(root, path, "get", ["CustomerBearer"]);
@@ -308,8 +304,6 @@ public sealed class Step15SwaggerCustomerContractTests :
                 $"{path} is a bodyless legacy read operation");
         }
 
-        root.GetProperty("paths").TryGetProperty("/api/Payments", out _).Should().BeFalse(
-            "STEP15-LEGACY-PAYMENTS-122 removes the unowned legacy payment surface");
         AssertNoSecurity(root, "/api/Health", "get");
         AssertNoSecurity(root, "/api/Health/db", "get");
         var health = OperationAt(root, "/api/Health", "get");
@@ -369,7 +363,6 @@ public sealed class Step15SwaggerCustomerContractTests :
         "POST /api/v1/internal/bookings/status",
         "POST /api/v1/internal/bookings/{reference}/reconcile",
         "GET /api/v1/internal/bookings/{reference}",
-        "POST /api/v1/internal/bookings/{unmatched}",
         "POST /api/stripe/webhook",
         "POST /api/Auth/register",
         "POST /api/Auth/login",
@@ -404,37 +397,6 @@ public sealed class Step15SwaggerCustomerContractTests :
         "POST /api/Vehicles",
         "PUT /api/Vehicles/{id}",
         "DELETE /api/Vehicles/{id}",
-        "GET /api/Bookings/my-bookings",
-        "GET /api/Bookings/my-bookings/upcoming",
-        "GET /api/Bookings/my-bookings/history",
-        "GET /api/Bookings/company/{companyId}",
-        "GET /api/Bookings/{id}",
-        "POST /api/Bookings",
-        "PUT /api/Bookings/{id}",
-        "PUT /api/Bookings/{id}/cancel",
-        "PUT /api/Bookings/{id}/confirm",
-        "PUT /api/Bookings/{id}/start",
-        "PUT /api/Bookings/{id}/complete",
-        "GET /api/Bookings/check-availability",
-        "GET /api/Companies",
-        "GET /api/Companies/{id}",
-        "GET /api/Companies/area/{area}",
-        "POST /api/Companies/create",
-        "PUT /api/Companies/{id}",
-        "DELETE /api/Companies/{id}",
-        "GET /api/Services",
-        "GET /api/Services/{id}",
-        "GET /api/Services/{id}/with-options",
-        "POST /api/Services",
-        "PUT /api/Services/{id}",
-        "DELETE /api/Services/{id}",
-        "GET /api/ServiceOptions",
-        "GET /api/ServiceOptions/{id}",
-        "GET /api/ServiceOptions/service/{serviceId}",
-        "GET /api/ServiceOptions/company/{companyId}",
-        "POST /api/ServiceOptions",
-        "PUT /api/ServiceOptions/{id}",
-        "DELETE /api/ServiceOptions/{id}",
         "GET /api/Health",
         "GET /api/Health/db"
     ];
@@ -587,7 +549,7 @@ public sealed class Step15SwaggerCustomerFactory : WebApplicationFactory<Program
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("ConnectionStrings:RemoteTest", "Step15SwaggerCustomer");
+        builder.UseSetting("ConnectionStrings:CustomerConnection", "Step15SwaggerCustomer");
         builder.UseSetting("JwtSettings:SecretKey", "Step15SwaggerCustomerSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.Step15SwaggerTests");
         builder.UseSetting("JwtSettings:Audience", "GhseeliApis.Step15SwaggerClients");

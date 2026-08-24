@@ -193,6 +193,46 @@ public sealed class BusinessHttpContractMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         AddSecurityHeaders(context, _environment);
+
+        var requestPath = context.Request.Path.Value;
+        var isHealthPath = string.Equals(
+                requestPath,
+                "/api/health",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                requestPath,
+                "/api/health/",
+                StringComparison.OrdinalIgnoreCase);
+        var isExactBusinessHealthPath =
+            requestPath is "/api/health" or "/api/health/";
+        if (isHealthPath && !isExactBusinessHealthPath)
+        {
+            var foreignHealthLanguage = BusinessLanguage.TryResolve(
+                    context.Request,
+                    out var resolvedLanguage)
+                ? resolvedLanguage
+                : "ar";
+            await BusinessProblemCatalog.WriteAsync(
+                context,
+                StatusCodes.Status404NotFound,
+                "resource_not_found",
+                foreignHealthLanguage);
+            return;
+        }
+
+        if (context.Request.Path.StartsWithSegments(
+                "/api/v1/internal/bookings",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            await InternalServiceProblemResponseFactory.WriteAsync(
+                context,
+                StatusCodes.Status404NotFound,
+                "Resource not found.",
+                "The requested resource was not found.",
+                "resource_not_found");
+            return;
+        }
+
         var isInternal = context.Request.Path.StartsWithSegments(
             "/api/v1/internal", StringComparison.OrdinalIgnoreCase);
         var isSwagger = context.Request.Path.StartsWithSegments(

@@ -31,7 +31,6 @@ public class UserAddress : IValidatable
 
     // Navigation properties
     public User User { get; set; } = null!;
-    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public ValidationResult Validate()
     {

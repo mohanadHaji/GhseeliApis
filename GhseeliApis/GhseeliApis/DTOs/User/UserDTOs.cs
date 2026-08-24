@@ -26,7 +26,7 @@ public class CreateUserRequest
     public string Password { get; set; } = string.Empty;
 
     /// <summary>
-    /// Role to assign to the user (User, Company, Admin)
+    /// Role to assign to the user (User or Admin)
     /// Defaults to "User" if not specified
     /// </summary>
     [MaxLength(50)]
@@ -55,7 +55,7 @@ public class UpdateUserRequest
     public bool? IsActive { get; set; }
 
     /// <summary>
-    /// Role to assign to the user (User, Company, Admin)
+    /// Role to assign to the user (User or Admin)
     /// Leave null to keep current role
     /// </summary>
     [MaxLength(50)]
@@ -93,8 +93,6 @@ public class UserResponse
     /// </summary>
     public int VehicleCount { get; set; }
     public int AddressCount { get; set; }
-    public int BookingCount { get; set; }
-    public decimal? WalletBalance { get; set; }
 }
 
 /// <summary>

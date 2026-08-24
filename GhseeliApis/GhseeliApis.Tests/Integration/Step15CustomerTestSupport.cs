@@ -83,7 +83,7 @@ public sealed class Step15CustomerApiFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("ConnectionStrings:RemoteTest", "unused-by-step15-in-memory");
+        builder.UseSetting("ConnectionStrings:CustomerConnection", "unused-by-step15-in-memory");
         builder.UseSetting("JwtSettings:SecretKey", "CheckoutDraftApiTestsSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.CheckoutDraftTests");
         builder.UseSetting("JwtSettings:Audience", "GhseeliApis.CheckoutDraftClients");

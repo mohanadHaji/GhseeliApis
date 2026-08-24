@@ -43,15 +43,12 @@ public sealed class CustomerHttpPolicyMiddleware
             return;
         }
 
-        if (HttpMethods.IsGet(context.Request.Method) &&
-            context.Request.Path.Equals("/api/Payments", StringComparison.OrdinalIgnoreCase) &&
-            string.IsNullOrWhiteSpace(context.Request.Headers.Authorization))
+        if (context.Request.Path.StartsWithSegments(
+                "/api/health",
+                StringComparison.OrdinalIgnoreCase) &&
+            context.Request.Path.Value is not "/api/Health" and not "/api/Health/db")
         {
-            await WriteProblemAsync(
-                context,
-                401,
-                "customer_authentication_required",
-                language);
+            await WriteProblemAsync(context, 404, "resource_not_found", language);
             return;
         }
 

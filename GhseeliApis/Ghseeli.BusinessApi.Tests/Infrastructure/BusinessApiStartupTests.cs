@@ -2,8 +2,10 @@ using FluentAssertions;
 using Ghseeli.BusinessApi.Persistence;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -71,6 +73,14 @@ public class BusinessApiStartupTests : IClassFixture<WebApplicationFactory<Progr
                     ["CustomerBookingStatusClient:ActiveSecret"] =
                         "BusinessStartupCallbackSecret_Minimum32Characters"
                 });
+            });
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<BusinessDbContext>();
+                services.RemoveAll<DbContextOptions<BusinessDbContext>>();
+                services.AddDbContext<BusinessDbContext>(options =>
+                    options.UseInMemoryDatabase(
+                        $"BusinessApiStartup-{Guid.NewGuid():N}"));
             });
         });
     }

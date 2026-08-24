@@ -336,12 +336,7 @@ public sealed class Step15CustomerRouteFamilyHttpTests
         { "STEP15-LEGACY-AUTH-114", "/api/Auth/me" },
         { "STEP15-LEGACY-USERS-115", "/api/Users" },
         { "STEP15-LEGACY-ADDRESSES-116", "/api/Addresses/my-addresses" },
-        { "STEP15-LEGACY-VEHICLES-117", "/api/Vehicles/my-vehicles" },
-        { "STEP15-LEGACY-BOOKINGS-118", "/api/Bookings/my-bookings" },
-        { "STEP15-LEGACY-COMPANIES-119", "/api/Companies" },
-        { "STEP15-LEGACY-SERVICES-120", "/api/Services" },
-        { "STEP15-LEGACY-SERVICEOPTIONS-121", "/api/ServiceOptions" },
-        { "STEP15-LEGACY-PAYMENTS-122", "/api/Payments" }
+        { "STEP15-LEGACY-VEHICLES-117", "/api/Vehicles/my-vehicles" }
     };
 
     [Theory]

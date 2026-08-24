@@ -1456,7 +1456,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("ConnectionStrings:RemoteTest", _database.ConnectionString);
+        builder.UseSetting("ConnectionStrings:CustomerConnection", _database.ConnectionString);
         builder.UseSetting("JwtSettings:SecretKey", "CheckoutDraftApiTestsSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.CheckoutDraftTests");
         builder.UseSetting("JwtSettings:Audience", "GhseeliApis.CheckoutDraftClients");

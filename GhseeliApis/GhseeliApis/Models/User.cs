@@ -25,12 +25,8 @@ public class User : IdentityUser<Guid>, IValidatable
     public bool IsActive { get; set; } = true;
 
     // Navigation properties
-    public Wallet? Wallet { get; set; }
     public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
     public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
-    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
-    public ICollection<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
-    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 
     // Audit fields
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

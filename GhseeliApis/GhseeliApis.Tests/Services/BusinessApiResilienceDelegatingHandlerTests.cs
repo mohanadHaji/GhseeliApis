@@ -79,10 +79,16 @@ public class BusinessApiResilienceDelegatingHandlerTests
         using var cancellationTokenSource = new CancellationTokenSource();
         var downstream = new ScriptedHandler(async (_, attemptCancellationToken) =>
         {
-            using var registration = attemptCancellationToken.Register(
-                cancellationTokenSource.Cancel);
-            await Task.Delay(Timeout.InfiniteTimeSpan, attemptCancellationToken);
-            return new HttpResponseMessage(HttpStatusCode.OK);
+            try
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, attemptCancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+            catch (OperationCanceledException)
+            {
+                cancellationTokenSource.Cancel();
+                throw;
+            }
         });
         using var client = CreateClient(downstream, timeoutSeconds: 0.02);
 

@@ -9,6 +9,7 @@ public sealed class BusinessApiClientOptions
     public string ActiveSecret { get; set; } = string.Empty;
     public bool RequireHttps { get; set; } = true;
     public bool AllowInsecureHttpInDevelopment { get; set; }
+    public bool AllowUntrustedDevelopmentCertificate { get; set; }
     public double TimeoutSeconds { get; set; } = 15;
     public int MaxRetryAttempts { get; set; } = 2;
     public int MaxRetryAfterSeconds { get; set; } = 5;

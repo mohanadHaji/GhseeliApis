@@ -209,7 +209,7 @@ public class HealthControllerTests : IDisposable
 public class HealthControllerDatabaseFailureTests
 {
     [Fact]
-    public async Task CheckDatabaseHealth_ReturnsOkWithUnhealthy_WhenDatabaseConnectionFails()
+    public async Task CheckDatabaseHealth_ReturnsServiceUnavailable_WhenDatabaseConnectionFails()
     {
         // Arrange - Create a context with invalid connection that will fail
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -229,11 +229,10 @@ public class HealthControllerDatabaseFailureTests
         // Act
         var result = await controller.CheckDatabaseHealth();
 
-        // Assert - Handler catches exception and returns false, so controller returns OK with Unhealthy status
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.StatusCode.Should().Be(200);
+        var unavailable = result.Should().BeOfType<ObjectResult>().Subject;
+        unavailable.StatusCode.Should().Be(503);
         
-        var response = okResult.Value;
+        var response = unavailable.Value;
         var statusProperty = response?.GetType().GetProperty("Status");
         statusProperty.Should().NotBeNull();
         statusProperty!.GetValue(response).Should().Be("Unhealthy");

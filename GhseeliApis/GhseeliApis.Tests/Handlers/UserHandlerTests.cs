@@ -35,7 +35,7 @@ public class UserHandlerTests : IDisposable
         // Create mock UserManager
         var store = new Mock<IUserStore<User>>();
         _mockUserManager = new Mock<UserManager<User>>(
-            store.Object, null, null, null, null, null, null, null, null);
+            store.Object, null!, null!, null!, null!, null!, null!, null!, null!);
         
         _handler = new UserHandler(_repository, _mockUserManager.Object, _logger.Object);
     }
@@ -49,7 +49,10 @@ public class UserHandlerTests : IDisposable
     /// <summary>
     /// Creates a valid test user with all required fields
     /// </summary>
-    private static User CreateValidUser(string userName = "testuser", string email = null, string fullName = null)
+    private static User CreateValidUser(
+        string userName = "testuser",
+        string? email = null,
+        string? fullName = null)
     {
         email ??= $"{userName}@test.com";
         fullName ??= $"Test {userName}";

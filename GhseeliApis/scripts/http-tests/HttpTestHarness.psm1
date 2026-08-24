@@ -1535,6 +1535,13 @@ function Test-ScenarioExpectations {
                         break
                     }
                 }
+                if (-not $matches) {
+                    $combinedHeaderValue = @($actualValues) -join ', '
+                    $matches = [string]::Equals(
+                        $combinedHeaderValue,
+                        $expectedHeaderValue,
+                        [System.StringComparison]::OrdinalIgnoreCase)
+                }
 
                 if (-not $matches) {
                     Add-Failure -Failures $failures -Message ("Expected header '{0}' to contain '{1}', but received '{2}'." -f $headerExpectation.Name, $expectedHeaderValue, (@($actualValues) -join ', '))
@@ -1565,6 +1572,13 @@ function Test-ScenarioExpectations {
                         $matches = $true
                         break
                     }
+                }
+                if (-not $matches) {
+                    $combinedHeaderValue = @($actualValues) -join ', '
+                    $matches = [string]::Equals(
+                        $combinedHeaderValue,
+                        $expectedHeaderValue,
+                        [System.StringComparison]::OrdinalIgnoreCase)
                 }
 
                 if (-not $matches) {
@@ -2430,6 +2444,7 @@ function Invoke-HttpTestHarness {
         ResultsPath  = $resolvedResultsPath
         Summary      = [pscustomobject]$resultsDocument.summary
         Scenarios    = $scenarioResultArray
+        RuntimeVariables = $variableBag
     }
 }
 
@@ -2870,6 +2885,9 @@ function Invoke-HttpTestHarnessSelfTest {
                     'Location'         = [ordered]@{
                         exists = $true
                     }
+                    'Allow'            = [ordered]@{
+                        equals = 'GET, PUT'
+                    }
                 }
                 json    = @(
                     [ordered]@{
@@ -2891,6 +2909,7 @@ function Invoke-HttpTestHarnessSelfTest {
         $responseHeaders = @{
             'X-Correlation-Id' = @('corr-123')
             'Location'         = @('/api/auth/me')
+            'Allow'            = @('GET', 'PUT')
         }
         $responseJson = [ordered]@{
             token = 'abc123'

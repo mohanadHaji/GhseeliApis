@@ -354,8 +354,6 @@ public class VehicleHandlerTests
         var vehicle = new Vehicle { Id = vehicleId, UserId = _testUserId };
         _mockRepository.Setup(r => r.GetByIdAsync(vehicleId))
             .ReturnsAsync(vehicle);
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(vehicleId))
-            .ReturnsAsync(false);
         _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<Vehicle>()))
             .Returns(Task.CompletedTask);
 
@@ -375,8 +373,6 @@ public class VehicleHandlerTests
         var vehicle = new Vehicle { Id = vehicleId, UserId = _testUserId };
         _mockRepository.Setup(r => r.GetByIdAsync(vehicleId))
             .ReturnsAsync(vehicle);
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(vehicleId))
-            .ReturnsAsync(false);
         _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<Vehicle>()))
             .Returns(Task.CompletedTask);
 
@@ -385,58 +381,6 @@ public class VehicleHandlerTests
 
         // Assert
         _mockRepository.Verify(r => r.DeleteAsync(vehicle), Times.Once);
-    }
-
-    [Fact]
-    public async Task DeleteAsync_ThrowsException_WhenVehicleHasActiveBookings()
-    {
-        // Arrange
-        var vehicleId = Guid.NewGuid();
-        var vehicle = new Vehicle { Id = vehicleId, UserId = _testUserId };
-        _mockRepository.Setup(r => r.GetByIdAsync(vehicleId))
-            .ReturnsAsync(vehicle);
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(vehicleId))
-            .ReturnsAsync(true);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await _handler.DeleteAsync(vehicleId, _testUserId));
-        
-        _mockRepository.Verify(r => r.DeleteAsync(It.IsAny<Vehicle>()), Times.Never);
-    }
-
-    #endregion
-
-    #region CanDeleteAsync Tests
-
-    [Fact]
-    public async Task CanDeleteAsync_ReturnsTrue_WhenNoActiveBookings()
-    {
-        // Arrange
-        var vehicleId = Guid.NewGuid();
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(vehicleId))
-            .ReturnsAsync(false);
-
-        // Act
-        var result = await _handler.CanDeleteAsync(vehicleId);
-
-        // Assert
-        result.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task CanDeleteAsync_ReturnsFalse_WhenActiveBookingsExist()
-    {
-        // Arrange
-        var vehicleId = Guid.NewGuid();
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(vehicleId))
-            .ReturnsAsync(true);
-
-        // Act
-        var result = await _handler.CanDeleteAsync(vehicleId);
-
-        // Assert
-        result.Should().BeFalse();
     }
 
     #endregion

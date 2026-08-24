@@ -52,8 +52,4 @@ public interface IUserAddressRepository
     /// </summary>
     Task SetAsPrimaryAsync(Guid addressId, Guid userId);
 
-    /// <summary>
-    /// Checks if an address has active bookings
-    /// </summary>
-    Task<bool> HasActiveBookingsAsync(Guid addressId);
 }

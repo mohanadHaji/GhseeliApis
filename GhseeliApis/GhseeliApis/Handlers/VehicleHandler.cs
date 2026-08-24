@@ -165,20 +165,9 @@ public class VehicleHandler : IVehicleHandler
                 return false;
             }
 
-            // Check for active bookings
-            if (await _repository.HasActiveBookingsAsync(id))
-            {
-                _logger.LogWarning($"VehicleHandler: Cannot delete vehicle {id} - has active bookings");
-                throw new InvalidOperationException("Cannot delete vehicle with active bookings");
-            }
-
             await _repository.DeleteAsync(vehicle);
             _logger.LogInfo($"VehicleHandler: Vehicle {id} deleted successfully");
             return true;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
         }
         catch (Exception ex)
         {
@@ -187,16 +176,4 @@ public class VehicleHandler : IVehicleHandler
         }
     }
 
-    public async Task<bool> CanDeleteAsync(Guid id)
-    {
-        try
-        {
-            return !await _repository.HasActiveBookingsAsync(id);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError($"VehicleHandler: Error checking if vehicle {id} can be deleted", ex);
-            throw;
-        }
-    }
 }

@@ -366,7 +366,7 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
-        builder.UseSetting("ConnectionStrings:RemoteTest", "Server=(localdb)\\MSSQLLocalDB;Database=CatalogApiTests;Trusted_Connection=True;TrustServerCertificate=True;");
+        builder.UseSetting("ConnectionStrings:CustomerConnection", "Server=(localdb)\\MSSQLLocalDB;Database=CatalogApiTests;Trusted_Connection=True;TrustServerCertificate=True;");
         builder.UseSetting("JwtSettings:SecretKey", "CatalogApiTestsSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.CatalogTests");
         builder.UseSetting("JwtSettings:Audience", "GhseeliApis.CatalogClients");

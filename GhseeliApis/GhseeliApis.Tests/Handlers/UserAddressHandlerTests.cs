@@ -228,8 +228,6 @@ public class UserAddressHandlerTests
         var address = new UserAddress { Id = addressId, UserId = _testUserId };
         _mockRepository.Setup(r => r.GetByIdAsync(addressId))
             .ReturnsAsync(address);
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(addressId))
-            .ReturnsAsync(false);
         _mockRepository.Setup(r => r.DeleteAsync(It.IsAny<UserAddress>()))
             .Returns(Task.CompletedTask);
 
@@ -239,22 +237,6 @@ public class UserAddressHandlerTests
         // Assert
         result.Should().BeTrue();
         _mockRepository.Verify(r => r.DeleteAsync(address), Times.Once);
-    }
-
-    [Fact]
-    public async Task DeleteAsync_ThrowsException_WhenAddressHasActiveBookings()
-    {
-        // Arrange
-        var addressId = Guid.NewGuid();
-        var address = new UserAddress { Id = addressId, UserId = _testUserId };
-        _mockRepository.Setup(r => r.GetByIdAsync(addressId))
-            .ReturnsAsync(address);
-        _mockRepository.Setup(r => r.HasActiveBookingsAsync(addressId))
-            .ReturnsAsync(true);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await _handler.DeleteAsync(addressId, _testUserId));
     }
 
     [Fact]

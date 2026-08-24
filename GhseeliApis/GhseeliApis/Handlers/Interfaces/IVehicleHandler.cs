@@ -10,5 +10,4 @@ public interface IVehicleHandler
     Task<Vehicle> CreateAsync(Vehicle vehicle, Guid userId);
     Task<Vehicle?> UpdateAsync(Guid id, Vehicle vehicle, Guid userId);
     Task<bool> DeleteAsync(Guid id, Guid userId);
-    Task<bool> CanDeleteAsync(Guid id);
 }

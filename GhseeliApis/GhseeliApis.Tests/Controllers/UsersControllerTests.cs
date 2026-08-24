@@ -104,8 +104,7 @@ public class UsersControllerTests
             CreatedAt = DateTime.UtcNow,
             Roles = new List<string> { "User" },
             VehicleCount = 2,
-            AddressCount = 1,
-            BookingCount = 5
+            AddressCount = 1
         };
 
         _mockUserHandler.Setup(h => h.GetUserByIdAsync(userId))

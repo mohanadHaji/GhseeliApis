@@ -139,19 +139,9 @@ public class UserAddressHandler : IUserAddressHandler
                 return false;
             }
 
-            if (await _repository.HasActiveBookingsAsync(id))
-            {
-                _logger.LogWarning($"UserAddressHandler: Cannot delete address {id} - has active bookings");
-                throw new InvalidOperationException("Cannot delete address with active bookings");
-            }
-
             await _repository.DeleteAsync(address);
             _logger.LogInfo($"UserAddressHandler: Address {id} deleted successfully");
             return true;
-        }
-        catch (InvalidOperationException)
-        {
-            throw;
         }
         catch (Exception ex)
         {

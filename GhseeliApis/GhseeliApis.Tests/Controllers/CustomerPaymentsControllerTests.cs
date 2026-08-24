@@ -16,15 +16,6 @@ namespace GhseeliApis.Tests.Controllers;
 public sealed class CustomerPaymentsControllerTests
 {
     [Fact]
-    public void Legacy_payment_controller_is_not_routable()
-    {
-        typeof(PaymentsController).GetCustomAttributes(typeof(NonControllerAttribute), true)
-            .Should().ContainSingle();
-        typeof(PaymentsController).GetCustomAttributes(typeof(RouteAttribute), true)
-            .Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task Create_safely_rejects_malformed_claim()
     {
         var service = new Mock<ICustomerPaymentService>();

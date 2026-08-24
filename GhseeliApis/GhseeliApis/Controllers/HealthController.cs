@@ -46,10 +46,6 @@ public class HealthController : ControllerBase
         return Ok(response);
     }
 
-    [HttpHead]
-    [ApiExplorerSettings(IgnoreApi = true)]
-    public IActionResult CheckApiHealthHead() => Ok();
-
     /// <summary>
     /// Check database connection health
     /// </summary>
@@ -83,10 +79,12 @@ public class HealthController : ControllerBase
             }
             else
             {
-                _logger.LogWarning($"GET /api/health/db - Database is unhealthy, response time: {duration:F2}ms, returning 200 OK with Unhealthy status");
+                _logger.LogWarning($"GET /api/health/db - Database is unhealthy, response time: {duration:F2}ms, returning 503 Service Unavailable");
             }
 
-            return Ok(response);
+            return canConnect
+                ? Ok(response)
+                : StatusCode(StatusCodes.Status503ServiceUnavailable, response);
         }
         catch (Exception ex)
         {

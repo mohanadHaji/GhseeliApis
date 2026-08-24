@@ -44,8 +44,8 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
 
         var metadata = context.ApiDescription.ActionDescriptor.EndpointMetadata;
         if (metadata.OfType<IAllowAnonymous>().Any() ||
-            path is "/api/v1/devices/register" or "/api/Health" or "/api/Health/db" ||
-            path.StartsWith("/api/Auth/external-login", StringComparison.Ordinal))
+            path is "/api/v1/devices/register" or "/api/Health" or "/api/Health/db" or
+                "/api/Auth/external-login" or "/api/Auth/external-login-callback")
         {
             return [];
         }

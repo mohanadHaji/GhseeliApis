@@ -18,21 +18,22 @@ public static class SqlServerSetupExtension
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Get connection string from configuration based on environment
-        // Priority order:
-        // 1. RemoteTest (from user secrets for testing)
-        // 2. Production (from environment variables in production)
-        // 3. DefaultConnection (from appsettings for local dev)
-        var connectionString = configuration.GetConnectionString("RemoteTest")    // User secrets
-            ?? configuration.GetConnectionString("Production")                     // Production env vars
-            ?? configuration.GetConnectionString("DefaultConnection")              // Local dev
-            ?? throw new InvalidOperationException("Database connection string not configured");
+        var connectionString = configuration.GetConnectionString("CustomerConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
+                "Customer database connection is not configured. Set ConnectionStrings__CustomerConnection.");
+        }
 
         // Add DbContext with SQL Server
         services.AddDbContext<ApplicationDbContext>(options =>
         {
             options.UseSqlServer(connectionString, sqlServerOptions =>
             {
+                sqlServerOptions.MigrationsHistoryTable(
+                    "__EFMigrationsHistory",
+                    CustomerSchemaOptions.OwnedDefaultSchema);
+
                 // Enable retry logic for transient failures
                 sqlServerOptions.EnableRetryOnFailure(
                     maxRetryCount: 5,

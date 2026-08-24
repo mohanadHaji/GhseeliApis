@@ -32,7 +32,7 @@ public class AuthControllerTests
         var userStoreMock = new Mock<IUserStore<User>>();
         _userManagerMock = new Mock<UserManager<User>>(
             userStoreMock.Object,
-            null, null, null, null, null, null, null, null);
+            null!, null!, null!, null!, null!, null!, null!, null!);
 
         // Mock SignInManager
         var contextAccessorMock = new Mock<IHttpContextAccessor>();
@@ -41,7 +41,7 @@ public class AuthControllerTests
             _userManagerMock.Object,
             contextAccessorMock.Object,
             claimsFactoryMock.Object,
-            null, null, null, null);
+            null!, null!, null!, null!);
 
         _controller = new AuthController(
             _authServiceMock.Object,

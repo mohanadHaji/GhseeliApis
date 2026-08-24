@@ -16,4 +16,9 @@ public interface IHealthRepository
     /// </summary>
     /// <returns>Number of users in the database</returns>
     Task<int> GetUserCountAsync();
+
+    /// <summary>
+    /// Verifies a Customer-owned table and the expected migration state.
+    /// </summary>
+    Task<bool> CanQueryOwnedSchemaAsync();
 }

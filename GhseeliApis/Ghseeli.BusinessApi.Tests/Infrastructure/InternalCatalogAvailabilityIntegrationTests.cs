@@ -162,6 +162,9 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         _factory.ResetState();
         var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
         var configured = await ConfigureCatalogAndAvailabilityAsync(client);
+        var expectedStartUtc = GetNextUtcDay(DayOfWeek.Monday).AddHours(9);
+        var requestedStart = new DateTimeOffset(expectedStartUtc)
+            .ToOffset(TimeSpan.FromHours(3));
 
         var validateResponse = await ValidateAsync(
             client,
@@ -171,7 +174,7 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
             configured.CatalogVersion,
             24.7136,
             46.6753,
-            new DateTimeOffset(2026, 8, 24, 12, 0, 0, TimeSpan.FromHours(3)),
+            requestedStart,
             quantity: 1);
         var validateContent = await validateResponse.Content.ReadAsStringAsync();
 
@@ -182,10 +185,10 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         validateDocument.RootElement.GetProperty("valid").GetBoolean().Should().BeTrue(validateContent);
         availability.GetProperty("requestedSlotStartUtc").GetDateTime()
             .Should()
-            .Be(new DateTime(2026, 8, 24, 9, 0, 0, DateTimeKind.Utc));
+            .Be(expectedStartUtc);
         availability.GetProperty("requestedSlotEndUtc").GetDateTime()
             .Should()
-            .Be(new DateTime(2026, 8, 24, 10, 0, 0, DateTimeKind.Utc));
+            .Be(expectedStartUtc.AddHours(1));
     }
 
     [Fact]

@@ -29,7 +29,6 @@ public class Vehicle : IValidatable
 
     // Navigation properties
     public User Owner { get; set; } = null!;
-    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
 
     public ValidationResult Validate()
     {

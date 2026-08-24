@@ -43,7 +43,7 @@ public class AuthService : IAuthService
             }
 
             // Validate role
-            if (role != AppRoles.User && role != AppRoles.Company && role != AppRoles.Admin)
+            if (role != AppRoles.User && role != AppRoles.Admin)
             {
                 _logger.LogWarning($"Registration failed: Invalid role '{role}'");
                 return null;

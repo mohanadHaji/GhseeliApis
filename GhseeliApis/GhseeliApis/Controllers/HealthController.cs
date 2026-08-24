@@ -2,6 +2,7 @@ using GhseeliApis.Handlers.Interfaces;
 using Ghseeli.Common.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Globalization;
 
 namespace GhseeliApis.Controllers;
 
@@ -37,13 +38,17 @@ public class HealthController : ControllerBase
         {
             Status = "Healthy",
             Service = "Ghseeli APIs",
-            Timestamp = DateTime.UtcNow,
+            Timestamp = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
             Version = "v1"
         };
 
         _logger.LogInfo($"GET /api/health - API is healthy, returning 200 OK at {response.Timestamp:yyyy-MM-dd HH:mm:ss}");
         return Ok(response);
     }
+
+    [HttpHead]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public IActionResult CheckApiHealthHead() => Ok();
 
     /// <summary>
     /// Check database connection health
@@ -68,7 +73,7 @@ public class HealthController : ControllerBase
             {
                 Status = status,
                 Database = "SQL Server",
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture),
                 ResponseTime = $"{duration:F2}ms"
             };
 
@@ -94,7 +99,7 @@ public class HealthController : ControllerBase
                     Title = "Database Connection Failed",
                     Detail = ex.Message,
                     Status = StatusCodes.Status503ServiceUnavailable,
-                    Timestamp = DateTime.UtcNow
+                    Timestamp = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture)
                 });
         }
     }

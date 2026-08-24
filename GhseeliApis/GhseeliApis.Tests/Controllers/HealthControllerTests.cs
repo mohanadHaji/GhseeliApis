@@ -9,6 +9,7 @@ using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using System.Globalization;
 
 namespace GhseeliApis.Tests.Controllers;
 
@@ -118,8 +119,14 @@ public class HealthControllerTests : IDisposable
         var timestampProperty = response?.GetType().GetProperty("Timestamp");
         timestampProperty.Should().NotBeNull();
         
-        var timestamp = (DateTime)timestampProperty!.GetValue(response)!;
-        timestamp.Should().BeOnOrAfter(beforeCall).And.BeOnOrBefore(afterCall);
+        var timestampText = timestampProperty!.GetValue(response).Should().BeOfType<string>().Subject;
+        DateTimeOffset.TryParseExact(
+            timestampText,
+            "O",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var timestamp).Should().BeTrue();
+        timestamp.UtcDateTime.Should().BeOnOrAfter(beforeCall).And.BeOnOrBefore(afterCall);
     }
 
     #endregion
@@ -182,8 +189,14 @@ public class HealthControllerTests : IDisposable
         var timestampProperty = response?.GetType().GetProperty("Timestamp");
         timestampProperty.Should().NotBeNull();
         
-        var timestamp = (DateTime)timestampProperty!.GetValue(response)!;
-        timestamp.Should().BeOnOrAfter(beforeCall).And.BeOnOrBefore(afterCall);
+        var timestampText = timestampProperty!.GetValue(response).Should().BeOfType<string>().Subject;
+        DateTimeOffset.TryParseExact(
+            timestampText,
+            "O",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var timestamp).Should().BeTrue();
+        timestamp.UtcDateTime.Should().BeOnOrAfter(beforeCall).And.BeOnOrBefore(afterCall);
     }
 
     #endregion

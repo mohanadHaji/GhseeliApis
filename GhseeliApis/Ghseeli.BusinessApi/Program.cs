@@ -2,6 +2,7 @@ using FluentValidation;
 using FluentValidation.AspNetCore;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.InternalServices;
+using Ghseeli.BusinessApi.Infrastructure;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.BusinessApi.Repositories;
@@ -77,6 +78,12 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+    options.ExcludedHosts.Clear();
+});
 builder.Services.AddSwaggerGen(options =>
 {
     options.SupportNonNullableReferenceTypes();
@@ -86,7 +93,7 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "Independent API for Ghseeli business owners and staff."
     });
-    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    options.AddSecurityDefinition("BusinessBearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
@@ -95,30 +102,51 @@ builder.Services.AddSwaggerGen(options =>
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
         Description = "Enter the Business API JWT."
     });
-    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
-        {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Legacy display alias for the BusinessBearer scheme."
+    });
+    foreach (var definition in new[]
+    {
+        ("HmacServiceId", InternalServiceWireConstants.ServiceIdHeaderName, "<service-id>"),
+        ("HmacTimestamp", InternalServiceWireConstants.TimestampHeaderName, "<utc-iso-timestamp>"),
+        ("HmacNonce", InternalServiceWireConstants.NonceHeaderName, "<unique-nonce>"),
+        ("HmacSignature", InternalServiceWireConstants.SignatureHeaderName, "<hex-hmac-signature>")
+    })
+    {
+        options.AddSecurityDefinition(definition.Item1,
             new Microsoft.OpenApi.Models.OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
+                Name = definition.Item2,
+                Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+                In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+                Description = $"{definition.Item3}; part of the canonical HMAC request and replay protection contract."
+            });
+    }
     options.SchemaFilter<StringEnumSchemaFilter>();
     options.SchemaFilter<BusinessRequestSchemaFilter>();
+    options.OperationFilter<BusinessOperationFilter>();
+    options.DocumentFilter<BusinessDocumentFilter>();
 });
 builder.Services.AddSingleton<
     Microsoft.Extensions.Options.IValidateOptions<InternalServiceAuthenticationOptions>,
     InternalServiceAuthenticationOptionsValidator>();
-builder.Services
+var internalAuthenticationOptions = builder.Services
     .AddOptions<InternalServiceAuthenticationOptions>()
-    .Bind(builder.Configuration.GetSection(InternalServiceAuthenticationOptions.SectionName))
-    .ValidateOnStart();
+    .Bind(builder.Configuration.GetSection(InternalServiceAuthenticationOptions.SectionName));
+if (builder.Configuration
+    .GetSection(InternalServiceAuthenticationOptions.SectionName)
+    .GetSection("Services")
+    .GetChildren()
+    .Any())
+{
+    internalAuthenticationOptions.ValidateOnStart();
+}
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
@@ -334,6 +362,14 @@ var app = builder.Build();
 var swaggerEnabled = app.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Swagger:Enabled");
 
+app.UseForwardedHeaders();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<BusinessHttpContractMiddleware>();
+
 if (swaggerEnabled)
 {
     app.UseSwagger();
@@ -344,9 +380,7 @@ if (swaggerEnabled)
     });
 }
 
-app.UseForwardedHeaders();
 app.UseRouting();
-app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase),
     branch => branch.UseHttpsRedirection());
@@ -355,7 +389,19 @@ app.UseMiddleware<InternalRequestIdempotencyMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapGet("/api/health", () => Results.Text("Healthy - Ghseeli Business API"));
+app.MapGet("/api/health", () => Results.Text(
+    System.Text.Json.JsonSerializer.Serialize(new
+    {
+        status = "Healthy",
+        service = "Ghseeli Business API",
+        timestamp = DateTime.UtcNow.ToString(
+            "O",
+            System.Globalization.CultureInfo.InvariantCulture),
+        version = "v1"
+    }),
+    "application/json"));
+app.MapMethods("/api/health", [HttpMethods.Head], () => Results.Ok())
+    .ExcludeFromDescription();
 
 if (swaggerEnabled)
 {

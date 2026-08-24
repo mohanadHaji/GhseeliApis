@@ -747,7 +747,9 @@ public sealed class CustomerInternalServiceMiddleware
             or InternalServiceOperationNames.BookingStatusRead)
         {
             var language = ConfigurationLanguageResolver.Resolve(
-                context.Request.Query["language"].ToString(),
+                context.Request.Query.ContainsKey("language")
+                    ? context.Request.Query["language"].ToString()
+                    : null,
                 context.Request.Headers.AcceptLanguage.ToString());
             problem = BookingStatusProblemDetailsFactory.Create(
                 status, code, language, context.TraceIdentifier);

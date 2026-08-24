@@ -20,8 +20,6 @@ public class StripePaymentService : IPaymentGatewayService
         _secretKey = configuration["Stripe:SecretKey"]
             ?? throw new InvalidOperationException("Stripe SecretKey is not configured");
 
-        // Set Stripe API key
-        StripeConfiguration.ApiKey = _secretKey;
     }
 
     /// <inheritdoc />
@@ -34,10 +32,10 @@ public class StripePaymentService : IPaymentGatewayService
     {
         try
         {
-            _logger.LogInfo($"Processing Stripe payment: Amount={amount}, Currency={currency}, PaymentMethod={paymentMethodId}");
+            _logger.LogInfo($"Processing legacy Stripe payment: Amount={amount}, Currency={currency}");
 
             // Create payment intent
-            var paymentIntentService = new PaymentIntentService();
+            var paymentIntentService = new PaymentIntentService(new StripeClient(_secretKey));
             var options = new PaymentIntentCreateOptions
             {
                 Amount = amount,
@@ -108,7 +106,7 @@ public class StripePaymentService : IPaymentGatewayService
         {
             _logger.LogInfo($"Processing Stripe refund: ChargeId={transactionId}, Amount={amount ?? 0}, Reason={reason}");
 
-            var refundService = new RefundService();
+            var refundService = new RefundService(new StripeClient(_secretKey));
             var options = new RefundCreateOptions
             {
                 Charge = transactionId,
@@ -166,7 +164,7 @@ public class StripePaymentService : IPaymentGatewayService
         {
             _logger.LogInfo($"Capturing Stripe payment: IntentId={paymentIntentId}, Amount={amount ?? 0}");
 
-            var paymentIntentService = new PaymentIntentService();
+            var paymentIntentService = new PaymentIntentService(new StripeClient(_secretKey));
             var options = new PaymentIntentCaptureOptions
             {
                 AmountToCapture = amount

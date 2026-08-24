@@ -9,9 +9,11 @@ public static class ConfigurationLanguageResolver
 
     public static string Resolve(string? overrideLanguage, string? acceptLanguageHeader)
     {
-        if (TryNormalizeOverride(overrideLanguage, out var normalized))
+        if (overrideLanguage is not null)
         {
-            return normalized;
+            return TryNormalizeOverride(overrideLanguage, out var normalized)
+                ? normalized
+                : Arabic;
         }
 
         return ResolveFromHeader(acceptLanguageHeader);

@@ -12,6 +12,7 @@ using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Internal;
+using GhseeliApis.Services.Payments;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using Ghseeli.IntegrationContracts.Bookings;
@@ -32,6 +33,7 @@ builder.Services.AddControllers(options =>
 {
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
 });
+builder.Services.AddHsts(options => options.ExcludedHosts.Clear());
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     var defaultFactory = options.InvalidModelStateResponseFactory;
@@ -39,7 +41,8 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     {
         if (!IsPricingRepricePath(context.HttpContext.Request.Path) &&
             !IsBookingConfirmationPath(context.HttpContext.Request.Path) &&
-            !IsBookingStatusCallbackPath(context.HttpContext.Request.Path))
+            !IsBookingStatusCallbackPath(context.HttpContext.Request.Path) &&
+            !IsCustomerPaymentPath(context.HttpContext.Request.Path))
         {
             return defaultFactory(context);
         }
@@ -52,11 +55,22 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             : StatusCodes.Status400BadRequest;
         var request = context.HttpContext.Request;
         var language = ConfigurationLanguageResolver.Resolve(
-            request.Query["language"].ToString(),
+            request.Query.ContainsKey("language")
+                ? request.Query["language"].ToString()
+                : null,
             request.Headers.AcceptLanguage.ToString());
         var bookingStatusRoute = IsBookingStatusCallbackPath(request.Path);
         var bookingRoute = IsBookingConfirmationPath(request.Path);
-        var problem = bookingStatusRoute
+        var paymentRoute = IsCustomerPaymentPath(request.Path);
+        object problem = paymentRoute
+            ? CustomerPaymentProblemDetailsFactory.Create(
+                statusCode,
+                unsupportedMediaType
+                    ? CustomerPaymentErrorCodes.PaymentUnsupportedMediaType
+                    : CustomerPaymentErrorCodes.Invalid,
+                language,
+                context.HttpContext.TraceIdentifier)
+            : bookingStatusRoute
             ? BookingStatusProblemDetailsFactory.Create(
                 statusCode,
                 unsupportedMediaType
@@ -79,6 +93,23 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                     : CheckoutPricingProblemCodes.Invalid,
                 language,
                 context.HttpContext.TraceIdentifier);
+        if (paymentRoute && problem is ProblemDetails paymentProblem &&
+            !unsupportedMediaType)
+        {
+            var fieldErrors = context.ModelState
+                .Where(entry => entry.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    entry => NormalizePaymentField(entry.Key),
+                    entry => entry.Value!.Errors
+                        .Select(_ => CustomerPaymentErrorCodes.Invalid)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToArray(),
+                    StringComparer.Ordinal);
+            if (fieldErrors.Count > 0)
+            {
+                paymentProblem.Extensions["fieldErrors"] = fieldErrors;
+            }
+        }
         context.HttpContext.Response.Headers.CacheControl = "no-store";
 
         return new ObjectResult(problem)
@@ -100,6 +131,29 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "A simple ASP.NET Core Web API with SQL Server and ASP.NET Core Identity"
     });
+    options.AddSecurityDefinition("CustomerBearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Enter the Customer API JWT."
+    });
+    static Microsoft.OpenApi.Models.OpenApiSecurityScheme ApiKey(string name) => new()
+    {
+        Name = name,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header
+    };
+    options.AddSecurityDefinition("DeviceToken", ApiKey("X-Device-Token"));
+    options.AddSecurityDefinition("HmacServiceId", ApiKey("X-Service-Id"));
+    options.AddSecurityDefinition("HmacTimestamp", ApiKey("X-Timestamp"));
+    options.AddSecurityDefinition("HmacNonce", ApiKey("X-Nonce"));
+    options.AddSecurityDefinition("HmacSignature", ApiKey("X-Signature"));
+    options.AddSecurityDefinition("StripeSignature", ApiKey("Stripe-Signature"));
+    options.OperationFilter<GhseeliApis.Filters.SwaggerAuthorizationOperationFilter>();
+    options.DocumentFilter<GhseeliApis.Filters.Step15SwaggerDocumentFilter>();
 });
 
 // Add SQL Server
@@ -162,6 +216,71 @@ authenticationBuilder.AddJwtBearer(options =>
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero // Remove default 5 minute clock skew
+    };
+    options.Events = new JwtBearerEvents
+    {
+        OnChallenge = async context =>
+        {
+            context.HandleResponse();
+            var response = context.Response;
+            response.StatusCode = StatusCodes.Status401Unauthorized;
+            response.Headers.CacheControl = "no-store";
+            response.Headers.WWWAuthenticate = "Bearer";
+            var language =
+                context.HttpContext.Items[
+                    CustomerHttpPolicyMiddleware.ResolvedLanguageItemKey] as string ??
+                ConfigurationLanguageResolver.Resolve(
+                    context.Request.Query.ContainsKey("language")
+                        ? context.Request.Query["language"].ToString()
+                        : null,
+                    context.Request.Headers.AcceptLanguage.ToString());
+            var problem = IsCustomerPaymentPath(context.Request.Path)
+                ? CustomerPaymentProblemDetailsFactory.Create(
+                    StatusCodes.Status401Unauthorized,
+                    "customer_authentication_required",
+                    language,
+                    context.HttpContext.TraceIdentifier)
+                : ConfigurationProblemDetailsFactory.Create(
+                    StatusCodes.Status401Unauthorized,
+                    "customer_authentication_required",
+                    language,
+                    context.HttpContext.TraceIdentifier);
+            await response.WriteAsJsonAsync(
+                problem,
+                options: null,
+                contentType: "application/problem+json",
+                cancellationToken: context.HttpContext.RequestAborted);
+        },
+        OnForbidden = async context =>
+        {
+            var response = context.Response;
+            response.StatusCode = StatusCodes.Status403Forbidden;
+            response.Headers.CacheControl = "no-store";
+            var language =
+                context.HttpContext.Items[
+                    CustomerHttpPolicyMiddleware.ResolvedLanguageItemKey] as string ??
+                ConfigurationLanguageResolver.Resolve(
+                    context.Request.Query.ContainsKey("language")
+                        ? context.Request.Query["language"].ToString()
+                        : null,
+                    context.Request.Headers.AcceptLanguage.ToString());
+            var problem = IsCustomerPaymentPath(context.Request.Path)
+                ? CustomerPaymentProblemDetailsFactory.Create(
+                    StatusCodes.Status403Forbidden,
+                    "customer_authorization_forbidden",
+                    language,
+                    context.HttpContext.TraceIdentifier)
+                : ConfigurationProblemDetailsFactory.Create(
+                    StatusCodes.Status403Forbidden,
+                    "customer_authorization_forbidden",
+                    language,
+                    context.HttpContext.TraceIdentifier);
+            await response.WriteAsJsonAsync(
+                problem,
+                options: null,
+                contentType: "application/problem+json",
+                cancellationToken: context.HttpContext.RequestAborted);
+        }
     };
 });
 
@@ -270,6 +389,10 @@ builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
 builder.Services.AddScoped<IBookingStatusInboxService, BookingStatusInboxService>();
+builder.Services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
+builder.Services.AddScoped<IStripePaymentIntentGateway, StripePaymentIntentGateway>();
+builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
+builder.Services.AddSingleton<IStripeWebhookParser, StripeWebhookParser>();
 builder.Services.AddScoped<
     ICustomerInternalIdempotencyCleanupService,
     CustomerInternalIdempotencyCleanupService>();
@@ -341,6 +464,14 @@ var app = builder.Build();
 var swaggerEnabled = app.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Swagger:Enabled");
 
+if (app.Environment.IsProduction())
+{
+    app.UseHsts();
+}
+
+app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<CustomerHttpPolicyMiddleware>();
+
 if (swaggerEnabled)
 {
     app.UseSwagger();
@@ -353,7 +484,6 @@ if (swaggerEnabled)
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseMiddleware<CorrelationIdMiddleware>();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments(
@@ -502,6 +632,23 @@ static bool IsBookingStatusCallbackPath(PathString path) =>
         "/api/v1/internal/bookings/status",
         StringComparison.OrdinalIgnoreCase);
 
+static bool IsCustomerPaymentPath(PathString path) =>
+    path.StartsWithSegments("/api/v1/payments", StringComparison.OrdinalIgnoreCase);
+
+static string NormalizePaymentField(string field)
+{
+    var normalized = field.Trim().TrimStart('$', '.');
+    if (normalized.Equals("bookingId", StringComparison.OrdinalIgnoreCase))
+    {
+        return "bookingId";
+    }
+    if (normalized.Equals("method", StringComparison.OrdinalIgnoreCase))
+    {
+        return "method";
+    }
+    return "request";
+}
+
 static bool IsKnownInternalBookingRouteShape(PathString remaining)
 {
     var segments = remaining.Value?
@@ -528,9 +675,13 @@ static bool IsJsonContentType(string? contentType)
 
 static async Task WriteBookingProblemAsync(HttpContext context, int statusCode, string code)
 {
-    var language = ConfigurationLanguageResolver.Resolve(
-        context.Request.Query["language"].ToString(),
-        context.Request.Headers.AcceptLanguage.ToString());
+    var language =
+        context.Items[CustomerHttpPolicyMiddleware.ResolvedLanguageItemKey] as string ??
+        ConfigurationLanguageResolver.Resolve(
+            context.Request.Query.ContainsKey("language")
+                ? context.Request.Query["language"].ToString()
+                : null,
+            context.Request.Headers.AcceptLanguage.ToString());
     var problem = BookingConfirmationProblemDetailsFactory.Create(
         statusCode,
         code,
@@ -552,7 +703,9 @@ static async Task WriteBookingStatusProblemAsync(
     string code)
 {
     var language = ConfigurationLanguageResolver.Resolve(
-        context.Request.Query["language"].ToString(),
+        context.Request.Query.ContainsKey("language")
+            ? context.Request.Query["language"].ToString()
+            : null,
         context.Request.Headers.AcceptLanguage.ToString());
     var problem = BookingStatusProblemDetailsFactory.Create(
         statusCode,

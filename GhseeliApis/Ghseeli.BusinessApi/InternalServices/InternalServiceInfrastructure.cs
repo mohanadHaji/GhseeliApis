@@ -145,16 +145,19 @@ public static class InternalServiceProblemResponseFactory
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
 
-        var response = new InternalServiceProblemResponse
+        var response = new Dictionary<string, object?>
         {
-            Type = $"https://api.ghseeli.example/errors/{code}",
-            Title = title,
-            Status = statusCode,
-            Detail = detail,
-            Code = code,
-            CorrelationId = context.GetCorrelationId(),
-            MissingHeaders = missingHeaders ?? Array.Empty<string>()
+            ["type"] = $"https://api.ghseeli.example/errors/{code}",
+            ["title"] = title,
+            ["status"] = statusCode,
+            ["detail"] = detail,
+            ["code"] = code,
+            ["correlationId"] = context.GetCorrelationId()
         };
+        if (missingHeaders?.Count > 0)
+        {
+            response["missingHeaders"] = missingHeaders;
+        }
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(response, JsonOptions));
     }
@@ -194,6 +197,10 @@ public static class BusinessAuthenticationProblemResponseFactory
         context.Response.StatusCode = statusCode;
         context.Response.ContentType = "application/problem+json";
         context.Response.Headers.CacheControl = "no-store";
+        if (statusCode == StatusCodes.Status401Unauthorized)
+        {
+            context.Response.Headers.WWWAuthenticate = "Bearer";
+        }
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(new
         {
@@ -228,8 +235,16 @@ public sealed class CorrelationIdMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        var correlationId = InternalServiceHeaderValueValidator.GetOrCreateCorrelationId(
-            context.Request.Headers[InternalServiceWireConstants.CorrelationIdHeaderName].ToString());
+        var supplied = context.Request.Headers[
+            InternalServiceWireConstants.CorrelationIdHeaderName].ToString();
+        var correlationId = InternalServiceHeaderValueValidator.GetOrCreateCorrelationId(supplied);
+        if (string.IsNullOrWhiteSpace(supplied) &&
+            context.Request.Headers.Authorization.Count == 1)
+        {
+            correlationId = Convert.ToHexString(SHA256.HashData(
+                Encoding.UTF8.GetBytes(context.Request.Headers.Authorization.ToString())))
+                .ToLowerInvariant()[..32];
+        }
 
         context.Request.Headers[InternalServiceWireConstants.CorrelationIdHeaderName] = correlationId;
         context.Items[InternalServiceHttpContextKeys.CorrelationId] = correlationId;
@@ -399,12 +414,28 @@ public sealed class InternalServiceRequestValidator
             InternalServiceWireConstants.SignatureHeaderName
         };
         var missingHeaders = requiredHeaders
-            .Where(header => !context.Request.Headers.TryGetValue(header, out var value) ||
+            .Select((header, index) => new { header, index })
+            .Where(item =>
+                !context.Request.Headers.TryGetValue(item.header, out var value) ||
                 string.IsNullOrWhiteSpace(value.ToString()))
+            .Select(item => item.index switch
+            {
+                0 => "serviceId",
+                1 => "timestamp",
+                2 => "nonce",
+                _ => "signature"
+            })
             .ToArray();
         if (missingHeaders.Length > 0)
         {
             return Reject(correlationId, InternalServiceAuthenticationFailure.ForMissingHeaders(missingHeaders));
+        }
+
+        if (requiredHeaders.Any(header =>
+                context.Request.Headers[header].Count != 1 ||
+                context.Request.Headers[header].ToString().Contains(',', StringComparison.Ordinal)))
+        {
+            return Reject(correlationId, InternalServiceAuthenticationFailure.InvalidSignature());
         }
 
         var serviceId = context.Request.Headers[InternalServiceWireConstants.ServiceIdHeaderName].ToString();

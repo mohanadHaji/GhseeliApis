@@ -23,12 +23,6 @@ public sealed class InternalBookingStatusController : ControllerBase
         BookingStatusChangedMessage? request,
         CancellationToken cancellationToken)
     {
-        var invalidLanguage = InvalidLanguageProblemResult();
-        if (invalidLanguage is not null)
-        {
-            return invalidLanguage;
-        }
-
         if (request is null)
         {
             return ProblemResult(
@@ -64,12 +58,6 @@ public sealed class InternalBookingStatusController : ControllerBase
         Guid reference,
         CancellationToken cancellationToken)
     {
-        var invalidLanguage = InvalidLanguageProblemResult();
-        if (invalidLanguage is not null)
-        {
-            return invalidLanguage;
-        }
-
         try
         {
             return Ok(await _service.ReconcileAsync(
@@ -105,12 +93,6 @@ public sealed class InternalBookingStatusController : ControllerBase
         Guid reference,
         CancellationToken cancellationToken)
     {
-        var invalidLanguage = InvalidLanguageProblemResult();
-        if (invalidLanguage is not null)
-        {
-            return invalidLanguage;
-        }
-
         var result = await _service.GetCurrentAsync(reference, cancellationToken);
         return result is null
             ? ProblemResult(404, BookingStatusErrorCodes.NotFound, "The booking reference was not found.")
@@ -118,19 +100,15 @@ public sealed class InternalBookingStatusController : ControllerBase
     }
 
     [HttpPost("{unmatched}")]
-    [ApiExplorerSettings(IgnoreApi = true)]
     public IActionResult UnknownPost(string unmatched) => NotFound();
 
     private ObjectResult ProblemResult(int status, string code, string? detail = null)
     {
         Response.Headers.CacheControl = "no-store";
-        var language = ConfigurationLanguageResolver.Resolve(
-            Request.Query["language"].ToString(),
-            Request.Headers.AcceptLanguage.ToString());
         return new(BookingStatusProblemDetailsFactory.Create(
             status,
             code,
-            language,
+            ConfigurationLanguageResolver.Arabic,
             HttpContext.TraceIdentifier,
             detail))
         {
@@ -139,27 +117,4 @@ public sealed class InternalBookingStatusController : ControllerBase
         };
     }
 
-    private ObjectResult? InvalidLanguageProblemResult()
-    {
-        if (!Request.Query.ContainsKey("language") ||
-            ConfigurationLanguageResolver.TryNormalizeOverride(
-                Request.Query["language"].ToString(),
-                out _))
-        {
-            return null;
-        }
-
-        Response.Headers.CacheControl = "no-store";
-        var language = ConfigurationLanguageResolver.ResolveFromHeader(
-            Request.Headers.AcceptLanguage.ToString());
-        return new ObjectResult(ConfigurationProblemDetailsFactory.Create(
-            StatusCodes.Status400BadRequest,
-            ConfigurationProblemCodes.LanguageInvalid,
-            language,
-            HttpContext.TraceIdentifier))
-        {
-            StatusCode = StatusCodes.Status400BadRequest,
-            ContentTypes = { "application/problem+json" }
-        };
-    }
 }

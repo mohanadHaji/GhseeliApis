@@ -1,6 +1,4 @@
 using Ghseeli.IntegrationContracts.Bookings;
-using GhseeliApis.Services.Configuration;
-
 namespace GhseeliApis.Services.Bookings;
 
 public static class BookingStatusProblemDetailsFactory
@@ -13,28 +11,30 @@ public static class BookingStatusProblemDetailsFactory
         string? detail = null) => new
         {
             type = $"https://api.ghseeli.example/errors/{code}",
-            title = language == ConfigurationLanguageResolver.Hebrew
-                ? "בקשת סטטוס ההזמנה נדחתה."
-                : "تم رفض طلب حالة الحجز.",
+            title = "Internal booking status request was rejected.",
             status,
-            detail = detail ?? LocalizeDetail(code, language),
+            detail = StableDetail(code),
             code,
             correlationId
         };
 
-    private static string LocalizeDetail(string code, string language) =>
-        (code, language) switch
+    private static string StableDetail(string code) =>
+        code switch
         {
-            (BookingStatusErrorCodes.UnsupportedMediaType, ConfigurationLanguageResolver.Hebrew) =>
-                "יש לשלוח את בקשת סטטוס ההזמנה כ-application/json.",
-            (BookingStatusErrorCodes.UnsupportedMediaType, _) =>
-                "يجب إرسال طلب حالة الحجز بصيغة application/json.",
-            (BookingStatusErrorCodes.RequestBodyTooLarge, ConfigurationLanguageResolver.Hebrew) =>
-                "גוף בקשת סטטוס ההזמנה חורג מהמגבלה המותרת של 64KB.",
-            (BookingStatusErrorCodes.RequestBodyTooLarge, _) =>
-                "يتجاوز حجم طلب حالة الحجز الحد المسموح وهو 64 كيلوبايت.",
-            (_, ConfigurationLanguageResolver.Hebrew) =>
-                "חוזה סטטוס ההזמנה אינו תקין.",
-            _ => "عقد حالة الحجز غير صالح."
+            BookingStatusErrorCodes.UnsupportedMediaType =>
+                "The booking status request must use application/json.",
+            BookingStatusErrorCodes.RequestBodyTooLarge =>
+                "The booking status request exceeds the 64KB limit.",
+            BookingStatusErrorCodes.NotFound =>
+                "The booking reference was not found.",
+            BookingStatusErrorCodes.ReferenceMismatch =>
+                "The booking references do not match.",
+            BookingStatusErrorCodes.TransitionInvalid =>
+                "The booking status transition is invalid.",
+            BookingStatusErrorCodes.TransitionConflict =>
+                "The booking status transition conflicts with current state.",
+            BookingStatusErrorCodes.EventConflict =>
+                "The booking status event conflicts with an existing event.",
+            _ => "The booking status contract is invalid."
         };
 }

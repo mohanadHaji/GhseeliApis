@@ -59,6 +59,7 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CATALOG-BUSINESSES-061")]
     public async Task GetBusinesses_WithValidDeviceToken_ReturnsLocalizedBusinessesAndNoStore()
     {
         var token = CatalogTestSupport.CreateToken(9);
@@ -98,6 +99,7 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CATALOG-CATEGORIES-060")]
     public async Task GetCategories_WithoutBusinessFilter_ReturnsOwningBusinessContext()
     {
         var token = CatalogTestSupport.CreateToken(10);
@@ -135,6 +137,7 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CATALOG-OFFERINGS-063")]
     public async Task GetBusinessOfferings_WithCrossProviderFilters_ReturnsStableMismatch()
     {
         var token = CatalogTestSupport.CreateToken(11);
@@ -180,6 +183,7 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CATALOG-OFFERING-064")]
     public async Task GetOffering_WhenUnknown_ReturnsStableNotFound()
     {
         var token = CatalogTestSupport.CreateToken(12);

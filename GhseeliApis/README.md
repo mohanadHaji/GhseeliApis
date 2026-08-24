@@ -16,6 +16,140 @@ A .NET solution for the Ghseeli vehicle-services platform.
 
 The APIs use separate identities, databases, configuration, migrations, domains, and deployments. They must not reference each other's implementation projects or query each other's databases. See [`API_BOUNDARIES.md`](API_BOUNDARIES.md).
 
+## HTTP contract (Step 15)
+
+[`STEP_15_HTTP_TEST_PLAN.md`](STEP_15_HTTP_TEST_PLAN.md) is the frozen
+localization, error, transport, and OpenAPI oracle. It applies to localized
+reads **and writes** on both independently hosted APIs, including legacy
+Customer routes where Step 15 wraps an application-generated response.
+
+### Language and Problem Details
+
+- A documented `?language=` query is authoritative when present. Exactly one
+  trimmed, nonblank `ar` or `he` value is valid, case-insensitively. Blank,
+  duplicate, comma-delimited, or unsupported values return localized
+  `400 language_invalid`; they never fall back to the header.
+- Otherwise, `Accept-Language` selects the supported range with the greatest
+  positive quality and then first wire position. `ar-*` and `he-*` normalize to
+  `ar` and `he`. Missing, malformed, unsupported, wildcard-only, or all-`q=0`
+  headers default safely to Arabic. Optional missing Hebrew content falls back
+  to required Arabic content.
+- Localized success and error responses use the same selected language, emit
+  `Content-Language: ar|he`, and merge `Vary: Accept-Language`. Language changes
+  presentation only—not auth, ownership, versions, money, persistence,
+  selection validation, or idempotency.
+- Internal HMAC and Stripe webhook diagnostics remain safe English
+  machine-to-machine contracts and omit `language` and `Content-Language`.
+  Health and Swagger are language-neutral.
+
+Application failures use `application/problem+json` with stable `type`
+(`https://api.ghseeli.example/errors/{code}`), `title`, `status`, `detail`,
+`code`, and `correlationId`. Localized problems also contain `language`.
+`fieldErrors` appears only for field failures and uses deterministic,
+ordinally ordered camelCase JSON paths and localized messages. The generic
+registry is:
+
+| Status | Stable codes |
+|---:|---|
+| 400 | `language_invalid`, `request_invalid` |
+| 401 | `customer_authentication_required`, `business_authentication_required` |
+| 403 | `customer_authorization_forbidden`, `business_authorization_forbidden` |
+| 404 | `resource_not_found` |
+| 405 | `method_not_allowed` |
+| 409 | `request_conflict` |
+| 413 | `request_body_too_large` |
+| 415 | `unsupported_media_type` |
+| 500 | `unexpected_error` |
+| 503 | `service_unavailable` |
+
+Feature registries (`device_*`, `configuration_*`, `catalog_*`, `checkout_*`,
+`pricing_*`, `booking_*`, `payment_*`, `stripe_*`, `internal_*`, and Business
+domain codes) take precedence. Existing Step 3 and Steps 5–14 mappings remain
+stable. Problems and logs never disclose exception/SQL/provider internals,
+attempted sensitive values, PII, JWT/device/HMAC/Stripe secrets, raw webhook
+bodies, idempotency keys, or internal row IDs.
+
+### Authentication and request headers
+
+| Operation family | Required security |
+|---|---|
+| Customer legacy protected routes | Customer bearer JWT |
+| Customer configuration, catalog, drafts, and pricing | `X-Device-Token` |
+| Customer booking confirmation and payment | Customer bearer JWT **and** `X-Device-Token` |
+| Business owner/staff management | Business bearer JWT plus role/assignment policy |
+| Either host's `/api/v1/internal/*` | Full HMAC quartet only |
+| Stripe webhook | `Stripe-Signature` only |
+
+The HMAC quartet is `X-Ghseeli-Service-Id`, `X-Ghseeli-Timestamp`,
+`X-Ghseeli-Nonce`, and `X-Ghseeli-Signature`; internal mutation/validation
+operations also use bounded `Idempotency-Key`. Device registration, implemented
+auth entry points, implemented OAuth initiation/callbacks, health, enabled
+Swagger, and Stripe webhook have explicit anonymous/bearer exemptions.
+Protected OAuth link/unlink operations remain Customer-JWT protected. No
+credential type substitutes for another, and Customer and Business JWTs are
+never accepted cross-host.
+
+Booking confirmation requires both auth factors, bounded
+`Idempotency-Key`, and `X-Order-Guid`; the header must match the logical draft
+order and drives the stable `booking-{orderGuid:N}` replay identity. Draft
+repricing uses `X-Order-Guid` with body `expectedVersion`. Payment intent
+creation requires bounded `Idempotency-Key`. Duplicate security, device,
+idempotency, order-GUID, HMAC, or signature headers fail closed.
+
+### Pricing, selections, and payment ownership
+
+Add-on `selectionType` is a string enum:
+`SingleChoice`, `SegmentedSingleButtonChoice`, `MultipleChoice`,
+`QuantityCounter`, or `FixedIncludedChoice`. The server enforces required,
+default, active, duplicate, min/max, and quantity rules. Item/add-on ordering
+does not change semantic replay identity, and normalized output ordering is
+deterministic.
+
+Direct repricing is stateless; draft repricing persists an immutable snapshot.
+Business remains authoritative for catalog selections, base/add-on prices,
+duration, service area, and slot. Customer applies only configured disclosed
+discount, service-fee, and tax components. The server owns normalized
+selections, catalog version, quote time, subtotals, discounts, fee, taxable
+subtotal, tax, total, currency, duration, and payment capabilities. Client
+price/currency/fee/tax/discount/total/provider/payment-state fields and unknown
+extensions cannot override them.
+
+Payment-intent JSON contains only public `bookingId` and method `Card`; it
+never accepts a Stripe PaymentMethod ID. Amount and currency come only from the
+owned immutable booking. The server creates an unconfirmed intent and returns
+client-safe confirmation data. `Wallet`, `CashOnArrival`, and `ThirdParty`
+remain unavailable with stable localized reason codes. Only a verified Stripe
+webhook may make a booking paid or reconcile a refund.
+
+### Correlation, caching, and security headers
+
+Every response has a bounded `X-Correlation-Id`; a valid caller value is echoed,
+otherwise it is safely replaced. Problems and sensitive/mutable successes are
+`Cache-Control: no-store`; problems have no validator or cookie headers. Both
+hosts add `nosniff`, `DENY`, `no-referrer`, restrictive CSP, and restrictive
+`Permissions-Policy` headers to all response paths. Swagger UI has a separate
+narrow CSP. Production HTTPS emits configured HSTS; development/plain HTTP
+does not. Internal HTTP still fails closed unless the explicit trusted local
+override is enabled.
+
+### Independent Swagger
+
+Each host exposes its own `/swagger/v1/swagger.json` and `/swagger` only in
+Development or explicit non-production configuration; Production/default is
+404. Customer Swagger contains only Customer/legacy/internal callback/Stripe
+routes, and Business Swagger only Business/internal routes. Each document
+defines per-operation (never global) Customer bearer, Business bearer, device,
+complete HMAC, Stripe signature, `Idempotency-Key`, and `X-Order-Guid`
+requirements and exemptions.
+
+Both documents include deterministic operation IDs, summaries/descriptions,
+tags, schemas, requiredness/nullability, formats, bounds, string enums,
+defaults, safe Arabic/Hebrew and machine examples, all runtime response
+statuses, `application/problem+json`, and correlation/cache/localization
+headers. Examples contain placeholders only and document language precedence,
+64 KiB limits, replay/conflict behavior, ownership masking, authoritative
+pricing, and payment capability semantics.
+
 ```shell
 # Build the complete solution
 dotnet build GhseeliApis.sln
@@ -438,7 +572,13 @@ dotnet run
 The API will be available at:
 - **HTTPS:** `https://localhost:7001`
 - **HTTP:** `http://localhost:5000`
-- **Swagger UI:** `https://localhost:7001` (Development only)
+- **Customer Swagger UI:** `<customer-base-url>/swagger`
+- **Customer OpenAPI JSON:** `<customer-base-url>/swagger/v1/swagger.json`
+- **Business Swagger UI:** `<business-base-url>/swagger`
+- **Business OpenAPI JSON:** `<business-base-url>/swagger/v1/swagger.json`
+
+Swagger is enabled in Development or by explicit non-production configuration;
+it is disabled by default in Production.
 
 ### **3. Using Cloud SQL Proxy (Recommended for Development)**
 
@@ -559,14 +699,16 @@ POST   /api/bookings/{id}/complete        - Complete service (company)
 
 ### **Payments**
 ```
-GET    /api/payments                  - Get all payments
-GET    /api/payments/{id}             - Get payment by ID
-GET    /api/payments/my-payments      - Get user's payments
-GET    /api/payments/booking/{id}     - Get payment for booking
-POST   /api/payments                  - Create payment
-PUT    /api/payments/{id}/status      - Update payment status
-POST   /api/payments/{id}/refund      - Process refund
+POST   /api/v1/payments/intents       - Create an idempotent Stripe intent from an owned booking total
+GET    /api/v1/payments/{id}          - Get an owned payment (customer JWT + device token)
+POST   /api/stripe/webhook            - Verify and durably process bounded Stripe events
 ```
+
+Payment requests never accept amount, currency, transaction, or paid/status fields.
+They also never accept a Stripe PaymentMethod ID: the server creates an unconfirmed intent
+and returns client-safe confirmation data. Unknown extension fields are ignored and cannot
+change server-owned totals. Only verified Stripe webhooks can mark a confirmed customer
+booking paid. The legacy unversioned payment mutation routes are disabled.
 
 ### **Health Check**
 ```
@@ -832,7 +974,7 @@ New versioned Customer endpoints use `X-Device-Token` as installation identity. 
 
 ### Customer app configuration
 
-`GET /api/v1/configuration` is device-token protected and supports `Accept-Language: ar|he` plus an optional `?language=ar|he` override. Invalid explicit query values return a localized `400 configuration_language_invalid`, while malformed or unsupported `Accept-Language` values safely fall back to Arabic unless a supported weighted language is present. The response returns the selected `language`, active support contact values, localized display/legal content, and maintenance state using required Arabic data with Hebrew fallback to Arabic when Hebrew content is absent.
+`GET /api/v1/configuration` is device-token protected and supports `Accept-Language: ar|he` plus an optional `?language=ar|he` override. Invalid explicit query values return a localized `400 language_invalid`, while malformed or unsupported `Accept-Language` values safely fall back to Arabic unless a supported weighted language is present. The response returns the selected `language`, active support contact values, localized display/legal content, and maintenance state using required Arabic data with Hebrew fallback to Arabic when Hebrew content is absent.
 
 A clean database is not seeded with placeholder customer configuration data. Operators must provision an active `CustomerConfiguration` record before this endpoint returns data; otherwise it returns the stable `503 configuration_unavailable` problem. Local/TestServer HTTP runs should use explicit fixtures or local-only seeded test data rather than relying on production defaults.
 

@@ -2,7 +2,7 @@ namespace GhseeliApis.Services.Bookings;
 
 public static class BookingConfirmationProblemCodes
 {
-    public const string Invalid = "booking_confirmation_invalid";
+    public const string Invalid = "booking_request_invalid";
     public const string DraftNotFound = "checkout_draft_not_found";
     public const string DraftExpired = "checkout_draft_expired";
     public const string DraftRequiresReprice = "checkout_draft_requires_reprice";

@@ -79,9 +79,9 @@ public class DeviceTokenMiddlewareTests
         AssertProblem(
             document.RootElement,
             DeviceProblemCodes.TokenMissing,
-            "he",
-            "אימות המכשיר נכשל.",
-            "נדרש אסימון מכשיר.");
+            "ar",
+            "فشل التحقق من الجهاز.",
+            "رمز الجهاز مطلوب.");
     }
 
     [Fact]

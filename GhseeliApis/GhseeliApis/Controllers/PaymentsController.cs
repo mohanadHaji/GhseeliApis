@@ -8,9 +8,7 @@ using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
-[ApiController]
-[Route("api/[controller]")]
-[Authorize]
+[NonController]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentHandler _paymentHandler;

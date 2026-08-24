@@ -387,7 +387,8 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest, content);
         content.Should().ContainEquivalentOf("latitude");
-        content.Should().ContainEquivalentOf("service area");
+        content.Should().Contain("القيمة غير صالحة.");
+        content.Should().NotContainEquivalentOf("service area");
     }
 
     [Fact]

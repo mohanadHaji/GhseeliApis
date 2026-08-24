@@ -22,9 +22,9 @@ public class ConfigurationLanguageResolverTests
 
     public static TheoryData<string?, string?, string> PathologicalInputs => new()
     {
-        { "-", "-, ;q=1, he-IL;q=0.8", ConfigurationLanguageResolver.Hebrew },
+        { "-", "-, ;q=1, he-IL;q=0.8", ConfigurationLanguageResolver.Arabic },
         { ";q=1", "-, ;q=1", ConfigurationLanguageResolver.Arabic },
-        { " \t ", "he-IL ; q=0.8, ar;q=0.7", ConfigurationLanguageResolver.Hebrew },
+        { " \t ", "he-IL ; q=0.8, ar;q=0.7", ConfigurationLanguageResolver.Arabic },
         { null, " , , ar-SA ; q=0.5 , he;q=0 ", ConfigurationLanguageResolver.Arabic },
         { "he", "-, ;q=1, ar;q=0.9", ConfigurationLanguageResolver.Hebrew }
     };

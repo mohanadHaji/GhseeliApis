@@ -26,9 +26,10 @@ public sealed class CustomerInternalIdempotencyLeaseRelationalTests
     {
         await using var database = await SqlDatabase.CreateAsync();
         var optionsValue = OptionsValue();
-        optionsValue.InProgressWaitMilliseconds = 5_000;
+        optionsValue.InProgressRecoverySeconds = 5;
+        optionsValue.InProgressWaitMilliseconds = 15_000;
         optionsValue.InProgressPollMilliseconds = 20;
-        optionsValue.InProgressLeaseRenewalFraction = 0.25;
+        optionsValue.InProgressLeaseRenewalFraction = 0.1;
         optionsValue.Services =
         [
             new CustomerInternalServiceDefinition
@@ -57,7 +58,7 @@ public sealed class CustomerInternalIdempotencyLeaseRelationalTests
         var middleware = new CustomerInternalServiceMiddleware(async context =>
         {
             Interlocked.Increment(ref executionCount);
-            await Task.Delay(TimeSpan.FromMilliseconds(2_500), context.RequestAborted);
+            await Task.Delay(TimeSpan.FromMilliseconds(8_500), context.RequestAborted);
             context.Response.StatusCode = StatusCodes.Status200OK;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsync("{\"ok\":true}", context.RequestAborted);
@@ -70,7 +71,7 @@ public sealed class CustomerInternalIdempotencyLeaseRelationalTests
             optionsValue,
             "same",
             Guid.NewGuid().ToString("N"));
-        await Task.Delay(1_200);
+        await Task.Delay(6_200);
         DateTimeOffset leaseBeforeCleanup;
         await using (var inspectionScope = provider.CreateAsyncScope())
         {

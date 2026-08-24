@@ -1,484 +1,136 @@
+using System.Text;
 using FluentAssertions;
-using GhseeliApis.Controllers;
-using GhseeliApis.Handlers.Interfaces;
 using Ghseeli.Common.Logging;
-using GhseeliApis.Models;
-using GhseeliApis.Models.Enums;
+using GhseeliApis.Controllers;
+using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Payments;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Moq;
-using Stripe;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace GhseeliApis.Tests.Controllers;
 
 /// <summary>
-/// Unit tests for StripeWebhookController
+/// Tests the bounded, verified Stripe webhook HTTP boundary.
 /// </summary>
-public class StripeWebhookControllerTests
+public sealed class StripeWebhookControllerTests
 {
-    private readonly Mock<IPaymentHandler> _mockPaymentHandler;
-    private readonly Mock<IAppLogger> _mockLogger;
-    private readonly Mock<IConfiguration> _mockConfiguration;
-    private readonly StripeWebhookController _controller;
-    private readonly string _testWebhookSecret = "whsec_test_secret";
-
-    public StripeWebhookControllerTests()
-    {
-        _mockPaymentHandler = new Mock<IPaymentHandler>();
-        _mockLogger = new Mock<IAppLogger>();
-        _mockConfiguration = new Mock<IConfiguration>();
-
-        _mockConfiguration.Setup(c => c["Stripe:WebhookSecret"]).Returns(_testWebhookSecret);
-
-        _controller = new StripeWebhookController(
-            _mockPaymentHandler.Object,
-            _mockLogger.Object,
-            _mockConfiguration.Object);
-
-        // Setup HttpContext with request body
-        _controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext()
-        };
-    }
-
-    #region Configuration Tests
+    private readonly Mock<IStripeWebhookParser> _parser = new();
+    private readonly Mock<IStripeWebhookService> _service = new();
+    private readonly Mock<IOptionsMonitor<StripeConfigurationOptions>> _options = new();
+    private readonly Mock<IAppLogger> _logger = new();
 
     [Fact]
-    public async Task HandleWebhook_ReturnsBadRequest_WhenWebhookSecretIsNotConfigured()
+    public async Task Rejects_non_json_before_signature_parsing()
     {
-        // Arrange
-        _mockConfiguration.Setup(c => c["Stripe:WebhookSecret"]).Returns((string?)null);
-        var controller = new StripeWebhookController(
-            _mockPaymentHandler.Object,
-            _mockLogger.Object,
-            _mockConfiguration.Object);
-
-        controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext()
-        };
-
-        var json = "{\"type\": \"payment_intent.succeeded\"}";
-        controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-
-        // Act
+        var controller = CreateController("text/plain", "{}");
         var result = await controller.HandleWebhook();
 
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.Value.Should().Be("Webhook secret not configured");
-        
-        _mockLogger.Verify(
-            l => l.LogError("Stripe webhook secret is not configured"),
-            Times.Once);
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(415);
+        _parser.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleWebhook_ReturnsBadRequest_WhenWebhookSecretIsEmpty()
+    public async Task Rejects_streamed_body_over_limit()
     {
-        // Arrange
-        _mockConfiguration.Setup(c => c["Stripe:WebhookSecret"]).Returns(string.Empty);
-        var controller = new StripeWebhookController(
-            _mockPaymentHandler.Object,
-            _mockLogger.Object,
-            _mockConfiguration.Object);
+        var controller = CreateController(
+            "application/json",
+            new string('x', (int)StripeWebhookController.MaxBodyBytes + 1),
+            contentLength: null);
 
-        controller.ControllerContext = new ControllerContext
-        {
-            HttpContext = new DefaultHttpContext()
-        };
-
-        var json = "{\"type\": \"payment_intent.succeeded\"}";
-        controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-
-        // Act
         var result = await controller.HandleWebhook();
 
-        // Assert
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    #endregion
-
-    #region Signature Verification Tests
-
-    [Fact]
-    public async Task HandleWebhook_ReturnsBadRequest_WhenSignatureIsInvalid()
-    {
-        // Arrange
-        var json = "{\"type\": \"payment_intent.succeeded\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] = "invalid_signature";
-
-        // Act
-        var result = await _controller.HandleWebhook();
-
-        // Assert
-        var badRequestResult = result.Should().BeOfType<BadRequestObjectResult>().Subject;
-        badRequestResult.Value.Should().Be("Invalid signature");
-        
-        _mockLogger.Verify(
-            l => l.LogError(It.Is<string>(s => s.Contains("signature verification failed"))),
-            Times.Once);
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(413);
+        _parser.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleWebhook_ReturnsBadRequest_WhenSignatureHeaderIsMissing()
+    public async Task Invalid_signature_returns_stable_problem()
     {
-        // Arrange
-        var json = "{\"type\": \"payment_intent.succeeded\"}";
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        // No Stripe-Signature header
+        _parser.Setup(value => value.Parse("{}", "bad", "whsec_test"))
+            .Throws(new CustomerPaymentException(
+                400,
+                CustomerPaymentErrorCodes.SignatureInvalid));
+        var controller = CreateController("application/json", "{}");
+        controller.Request.Headers["Stripe-Signature"] = "bad";
 
-        // Act
-        var result = await _controller.HandleWebhook();
+        var result = await controller.HandleWebhook();
 
-        // Assert
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    #endregion
-
-    #region Event Handling Tests
-
-    [Fact]
-    public async Task HandleWebhook_LogsInfo_WhenWebhookReceived()
-    {
-        // Arrange
-        const string json = "{\"id\":\"evt_test\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.succeeded\"}";
-        SetSignedRequest(json);
-
-        // Act
-        var result = await _controller.HandleWebhook();
-
-        // Assert - Will fail signature verification, but that's OK for this test
-        _mockLogger.Verify(
-            l => l.LogInfo(It.IsAny<string>()),
-            Times.AtLeastOnce);
+        var problem = result.Should().BeOfType<ObjectResult>().Subject;
+        problem.StatusCode.Should().Be(400);
+        ((ProblemDetails)problem.Value!).Extensions["code"]
+            .Should().Be(CustomerPaymentErrorCodes.SignatureInvalid);
     }
 
     [Fact]
-    public async Task HandleWebhook_ReturnsOk_OnSuccessfulProcessing()
+    public async Task Missing_signature_returns_distinct_stable_problem()
     {
-        // Arrange
-        const string json = "{\"id\":\"evt_test\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.processing\"}";
-        SetSignedRequest(json);
+        var controller = CreateController("application/json", "{}");
 
-        // Act
-        var result = await _controller.HandleWebhook();
+        var result = await controller.HandleWebhook();
 
-        // Assert
-        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-        okResult.Value.Should().NotBeNull();
+        var problem = result.Should().BeOfType<ObjectResult>().Subject;
+        problem.StatusCode.Should().Be(400);
+        ((ProblemDetails)problem.Value!).Extensions["code"]
+            .Should().Be(CustomerPaymentErrorCodes.SignatureMissing);
+        _parser.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task HandleWebhook_HandlesException_AndReturnsOk()
+    public async Task Signed_malformed_event_returns_event_invalid()
     {
-        // Arrange
-        const string json = "invalid json";
-        SetSignedRequest(json);
+        _parser.Setup(value => value.Parse("not-json", "valid", "whsec_test"))
+            .Throws(new CustomerPaymentException(
+                400,
+                CustomerPaymentErrorCodes.EventInvalid));
+        var controller = CreateController("application/json", "not-json", contentLength: 8);
+        controller.Request.Headers["Stripe-Signature"] = "valid";
 
-        // Act
-        var result = await _controller.HandleWebhook();
+        var result = await controller.HandleWebhook();
 
-        // Assert
-        result.Should().BeOfType<OkObjectResult>();
-        
-        _mockLogger.Verify(
-            l => l.LogError(It.IsAny<string>(), It.IsAny<Exception>()),
-            Times.AtLeastOnce);
+        var problem = result.Should().BeOfType<ObjectResult>().Subject;
+        problem.StatusCode.Should().Be(400);
+        ((ProblemDetails)problem.Value!).Extensions["code"]
+            .Should().Be(CustomerPaymentErrorCodes.EventInvalid);
     }
 
-    #endregion
-
-    #region Payment Intent Succeeded Tests
-
     [Fact]
-    public async Task HandleWebhook_UpdatesPaymentToCompleted_WhenPaymentIntentSucceeds()
+    public async Task Processing_failure_is_retryable_not_acknowledged()
     {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
+        var verified = new VerifiedStripeEvent(
+            "evt_1", "payment_intent.succeeded", StripePaymentEventKind.Succeeded,
+            "pi_1", "ch_1", 100, "ils", new Dictionary<string, string>());
+        _parser.Setup(value => value.Parse("{}", "valid", "whsec_test")).Returns(verified);
+        _service.Setup(value => value.ProcessAsync(verified, "{}", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+        var controller = CreateController("application/json", "{}");
+        controller.Request.Headers["Stripe-Signature"] = "valid";
+
+        var result = await controller.HandleWebhook();
+
+        result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(503);
+    }
+
+    private StripeWebhookController CreateController(
+        string contentType,
+        string body,
+        long? contentLength = 2)
+    {
+        _options.SetupGet(value => value.CurrentValue).Returns(new StripeConfigurationOptions
         {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Pending,
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        _mockPaymentHandler.Setup(h => h.UpdateStatusAsync(paymentId, PaymentStatus.Completed))
-            .ReturnsAsync(payment);
-
-        // Note: Creating a valid Stripe webhook event is complex due to signature requirements
-        // This test verifies the mock setup is correct
-        
-        // Assert
-        _mockPaymentHandler.Verify(
-            h => h.GetByBookingIdAsync(It.IsAny<Guid>()),
-            Times.Never); // Won't be called without valid signature
-    }
-
-    [Fact]
-    public async Task HandleWebhook_SkipsUpdate_WhenPaymentAlreadyCompleted()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Completed, // Already completed
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        // Assert - UpdateStatusAsync should not be called
-        _mockPaymentHandler.Verify(
-            h => h.UpdateStatusAsync(It.IsAny<Guid>(), It.IsAny<PaymentStatus>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task HandleWebhook_LogsWarning_WhenPaymentNotFound()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync((Payment?)null);
-
-        // This would happen if webhook handler is called but payment lookup fails
-        // The test verifies the setup is correct
-    }
-
-    #endregion
-
-    #region Payment Intent Failed Tests
-
-    [Fact]
-    public async Task HandleWebhook_UpdatesPaymentToFailed_WhenPaymentIntentFails()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Pending,
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        _mockPaymentHandler.Setup(h => h.UpdateStatusAsync(paymentId, PaymentStatus.Failed))
-            .ReturnsAsync(payment);
-    }
-
-    [Fact]
-    public async Task HandleWebhook_SkipsUpdate_WhenPaymentNotPending()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Completed, // Not pending
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        // Verify UpdateStatusAsync should not be called for non-pending payments
-    }
-
-    #endregion
-
-    #region Charge Refunded Tests
-
-    [Fact]
-    public async Task HandleWebhook_UpdatesPaymentToRefunded_WhenChargeRefunded()
-    {
-        // Arrange
-        var chargeId = "ch_test_1234567890";
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            TransactionId = chargeId,
-            Status = PaymentStatus.Completed,
-            Amount = 50.00m
-        };
-
-        var allPayments = new List<Payment> { payment };
-
-        _mockPaymentHandler.Setup(h => h.GetAllAsync())
-            .ReturnsAsync(allPayments);
-
-        _mockPaymentHandler.Setup(h => h.UpdateStatusAsync(paymentId, PaymentStatus.Refunded))
-            .ReturnsAsync(payment);
-    }
-
-    [Fact]
-    public async Task HandleWebhook_LogsWarning_WhenChargeNotFoundInPayments()
-    {
-        // Arrange
-        _mockPaymentHandler.Setup(h => h.GetAllAsync())
-            .ReturnsAsync(new List<Payment>());
-
-        // Webhook would log warning about payment not found
-    }
-
-    #endregion
-
-    #region Payment Intent Canceled Tests
-
-    [Fact]
-    public async Task HandleWebhook_UpdatesPaymentToFailed_WhenPaymentIntentCanceled()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Pending,
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        _mockPaymentHandler.Setup(h => h.UpdateStatusAsync(paymentId, PaymentStatus.Failed))
-            .ReturnsAsync(payment);
-    }
-
-    #endregion
-
-    #region Idempotency Tests
-
-    [Fact]
-    public void HandleWebhook_IsIdempotent_ForDuplicateSuccessEvents()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Completed, // Already completed
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        // Act - simulate receiving same event twice
-        // First call would process, second would skip due to status check
-
-        // Assert
-        // UpdateStatusAsync should only be called once (or not at all if already completed)
-    }
-
-    [Fact]
-    public void HandleWebhook_IsIdempotent_ForDuplicateFailureEvents()
-    {
-        // Arrange
-        var bookingId = Guid.NewGuid();
-        var paymentId = Guid.NewGuid();
-        
-        var payment = new Payment
-        {
-            Id = paymentId,
-            BookingId = bookingId,
-            Status = PaymentStatus.Failed, // Already failed
-            Amount = 50.00m
-        };
-
-        _mockPaymentHandler.Setup(h => h.GetByBookingIdAsync(bookingId))
-            .ReturnsAsync(payment);
-
-        // Multiple calls should not cause issues due to status checks
-    }
-
-    #endregion
-
-    #region Logging Tests
-
-    [Fact]
-    public async Task HandleWebhook_LogsError_WhenExceptionOccurs()
-    {
-        // Arrange
-        _mockPaymentHandler.Setup(h => h.GetAllAsync())
-            .ThrowsAsync(new Exception("Database error"));
-
-        const string json = "{\"id\":\"evt_refund\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"ch_test\",\"object\":\"charge\",\"amount_refunded\":5000}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"charge.refunded\"}";
-        SetSignedRequest(json);
-
-        // Act
-        var result = await _controller.HandleWebhook();
-
-        // Assert
-        result.Should().BeOfType<OkObjectResult>(); // Returns 200 even on error
-        
-        _mockLogger.Verify(
-            l => l.LogError(It.IsAny<string>(), It.IsAny<Exception>()),
-            Times.AtLeastOnce);
-    }
-
-    [Fact]
-    public async Task HandleWebhook_LogsUnhandledEventType()
-    {
-        // Arrange
-        const string json = "{\"id\":\"evt_customer\",\"object\":\"event\",\"api_version\":\"2024-06-20\",\"created\":1724000000,\"data\":{\"object\":{\"id\":\"pi_test\",\"object\":\"payment_intent\",\"amount\":1000,\"currency\":\"usd\",\"metadata\":{}}},\"livemode\":false,\"pending_webhooks\":1,\"request\":{\"id\":\"req_test\",\"idempotency_key\":null},\"type\":\"payment_intent.processing\"}";
-        SetSignedRequest(json);
-
-        // Act
-        await _controller.HandleWebhook();
-
-        _mockLogger.Verify(
-            logger => logger.LogInfo(It.Is<string>(message =>
-                message.Contains("Unhandled webhook event type"))),
-            Times.Once);
-    }
-
-    #endregion
-
-    private void SetSignedRequest(string json)
-    {
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signedPayload = $"{timestamp}.{json}";
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_testWebhookSecret));
-        var signature = Convert.ToHexString(
-            hmac.ComputeHash(Encoding.UTF8.GetBytes(signedPayload))).ToLowerInvariant();
-
-        _controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
-        _controller.HttpContext.Request.Headers["Stripe-Signature"] =
-            $"t={timestamp},v1={signature}";
+            WebhookSecret = "whsec_test"
+        });
+        var controller = new StripeWebhookController(
+            _parser.Object,
+            _service.Object,
+            _options.Object,
+            _logger.Object);
+        var context = new DefaultHttpContext();
+        context.Request.ContentType = contentType;
+        context.Request.ContentLength = contentLength;
+        context.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        controller.ControllerContext = new ControllerContext { HttpContext = context };
+        return controller;
     }
 }

@@ -41,7 +41,7 @@ public sealed class ConfigurationController : ControllerBase
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)
         {
-            var errorLanguage = ConfigurationLanguageResolver.ResolveFromHeader(acceptLanguage);
+            var errorLanguage = ConfigurationLanguageResolver.Arabic;
             _logger.LogWarning(
                 $"Configuration request validation failed with {validationResult.Errors.Count} error(s).");
             return ProblemResult(

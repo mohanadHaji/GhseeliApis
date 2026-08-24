@@ -46,6 +46,9 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-CREATE-065")]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-READ-066")]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-UPDATE-067")]
     public async Task DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully()
     {
         var token = CatalogTestSupport.CreateToken(31);
@@ -694,8 +697,10 @@ public class CheckoutDraftApiIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
-        document.RootElement.GetProperty("code").GetString().Should().Be(ConfigurationProblemCodes.LanguageInvalid);
-        document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        document.RootElement.GetProperty("code").GetString().Should().Be("language_invalid");
+        document.RootElement.GetProperty("language").GetString().Should().Be("ar");
+        document.RootElement.GetProperty("type").GetString()
+            .Should().Be("https://api.ghseeli.example/errors/language_invalid");
     }
 
     [Fact]
@@ -723,8 +728,10 @@ public class CheckoutDraftApiIntegrationTests
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
-        document.RootElement.GetProperty("code").GetString().Should().Be(ConfigurationProblemCodes.LanguageInvalid);
-        document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        document.RootElement.GetProperty("code").GetString().Should().Be("language_invalid");
+        document.RootElement.GetProperty("language").GetString().Should().Be("ar");
+        document.RootElement.GetProperty("type").GetString()
+            .Should().Be("https://api.ghseeli.example/errors/language_invalid");
     }
 
     [Fact]
@@ -875,6 +882,8 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-REPRICE-DIRECT-068")]
+    [Trait("ScenarioId", "STEP15-INVARIANT-PRICING-157")]
     public async Task PostPricingReprice_WithValidDeviceToken_ReturnsAuthoritativePricingWithoutPersistence()
     {
         var token = CatalogTestSupport.CreateToken(52);
@@ -964,6 +973,8 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-REPRICE-DRAFT-069")]
+    [Trait("ScenarioId", "STEP15-INVARIANT-CAPABILITIES-158")]
     public async Task PostCheckoutReprice_WithOrderGuid_PersistsSnapshotAndReturnsUpdatedDraft()
     {
         var token = CatalogTestSupport.CreateToken(54);
@@ -1090,6 +1101,7 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-INVARIANT-CAPABILITIES-158")]
     public async Task PostPricingReprice_IgnoresForgedTotalsAndEnablesStripeCapabilityWhenConfigured()
     {
         var token = CatalogTestSupport.CreateToken(58);
@@ -1416,12 +1428,14 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
     private readonly SqlServerCatalogDatabase _database;
     private readonly IEnumerable<CustomerDevice> _devices;
     private readonly IReadOnlyDictionary<string, string?> _settings;
+    private readonly Action<IServiceCollection>? _configureTestServices;
 
     public CheckoutDraftApiFactory(
         CatalogSnapshotResponse? snapshot = null,
         IEnumerable<CustomerDevice>? devices = null,
         DateTimeOffset? utcNow = null,
-        IReadOnlyDictionary<string, string?>? settings = null)
+        IReadOnlyDictionary<string, string?>? settings = null,
+        Action<IServiceCollection>? configureTestServices = null)
     {
         _database = SqlServerCatalogDatabase.CreateAsync().GetAwaiter().GetResult();
         Snapshot = snapshot ?? CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 10);
@@ -1429,6 +1443,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
         TimeProvider = new ManualTimeProvider(
             utcNow ?? new DateTimeOffset(2026, 8, 24, 8, 0, 0, TimeSpan.Zero));
         _settings = settings ?? new Dictionary<string, string?>(StringComparer.Ordinal);
+        _configureTestServices = configureTestServices;
         BusinessApiClient.GetCatalogSnapshotHandler = (_, _) => Task.FromResult(Snapshot);
         BusinessApiClient.ValidateAppointmentHandler = (request, _, _) =>
             Task.FromResult(CatalogTestSupport.CreateValidationResponse(Snapshot, request));
@@ -1483,6 +1498,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
                     sqlServerOptions.CommandTimeout(60);
                     sqlServerOptions.UseCompatibilityLevel(120);
                 }));
+            _configureTestServices?.Invoke(services);
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();

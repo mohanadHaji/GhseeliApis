@@ -1,6 +1,6 @@
 # Ghseeli Customer and Business API Boundaries
 
-Status: Roadmap Step 1 architecture contract
+Status: Architecture boundary and finalized Step 15 HTTP contract
 
 ## 1. Applications
 
@@ -139,6 +139,29 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Device tokens expire without sliding renewal. Rotation issues a new configured lifetime.
 - Internal service credentials are separate from both user identity systems.
 
+### Runtime authentication schemes and exemptions
+
+- `CustomerBearer` is the Customer API HTTP bearer scheme. Legacy Customer
+  operations use it according to their existing `[Authorize]` policies; modern
+  booking and payment operations require it together with `X-Device-Token`.
+- `BusinessBearer` is the Business API HTTP bearer scheme. Business management
+  operations additionally enforce the applicable Owner, Employee, Admin, and
+  company/branch-assignment policies.
+- `X-Device-Token` is an API-key-style installation credential. Modern
+  configuration, catalog, draft, and pricing operations are device-only;
+  booking confirmation and payment operations require both device and Customer
+  bearer authentication.
+- Internal routes on either host require all four HMAC credentials described in
+  section 6. HMAC credentials never satisfy a bearer or device requirement, and
+  either host's bearer token never satisfies HMAC.
+- The Stripe webhook is authenticated only by `Stripe-Signature` over the exact
+  bounded raw body. It is exempt from JWT, device, and internal HMAC.
+- Device registration, implemented Customer and Business authentication entry
+  points, implemented OAuth initiation/callback routes, health, and enabled
+  Swagger are anonymous. Protected OAuth link/unlink operations retain their
+  Customer bearer requirement. Exemptions are operation-specific; neither API
+  has a global Swagger security requirement.
+
 ## 5. API conventions
 
 ### Versioning and routes
@@ -151,18 +174,34 @@ Database IDs are private to their owning API. Integration contracts use explicit
 
 ### Language
 
-- Supported customer languages are `ar` and `he`.
-- `Accept-Language` is the primary selector.
-- A documented `language` query parameter may override it on read endpoints.
-- Arabic is the default when no supported language is supplied.
+- Supported user-facing languages on both APIs are `ar` and `he`.
+- Where an operation documents `language`, its presence is authoritative on
+  reads and writes. Exactly one trimmed, nonblank, case-insensitive `ar` or
+  `he` value is accepted. Duplicate, blank, comma-delimited, or unsupported
+  values return localized `400 language_invalid`; the header cannot rescue an
+  invalid explicit query.
+- Otherwise `Accept-Language` is parsed by positive quality and then wire order.
+  `ar-*` maps to Arabic and `he-*` maps to Hebrew. Missing, blank, malformed,
+  unsupported, wildcard-only, or all-`q=0` headers safely default to Arabic.
+- The selected success language and Problem Details language are identical.
+  Localized responses carry `Content-Language: ar|he` and merge
+  `Vary: Accept-Language`.
 - Catalog records retain both Arabic and Hebrew values.
-- Responses return the selected localized value and may include a language code.
-- Customer-facing errors use a stable code plus a localized message.
-- Internal service errors use stable codes and non-localized diagnostic detail safe for logs.
+- Missing optional Hebrew content falls back to the required Arabic value.
+- User-facing errors on either host use a stable code plus a localized message.
+- Business user-facing success and error payloads follow the same selection
+  rules, including mutations and authorization failures.
+- Internal HMAC and Stripe webhook diagnostics are deliberately English,
+  machine-oriented, and safe. They omit `language`, `Content-Language`, and
+  language negotiation. Health and Swagger are also language-neutral.
+- Language changes presentation only. It cannot change authorization,
+  ownership, persistence, money, versions, selection rules, or idempotency
+  identity.
 
 ### Standard error
 
-New endpoints use RFC 7807 `ProblemDetails` with these extensions:
+Application-generated failures use `application/problem+json` and RFC 7807
+`ProblemDetails` with these extensions:
 
 ```json
 {
@@ -182,6 +221,13 @@ New endpoints use RFC 7807 `ProblemDetails` with these extensions:
 Rules:
 
 - `code` is stable and machine-readable.
+- `type` is exactly `https://api.ghseeli.example/errors/{code}`.
+- `correlationId` exactly matches the response `X-Correlation-Id`.
+- `language` is present only on localized user-facing problems.
+- `fieldErrors` is present only for field failures. Its camelCase JSON-path
+  keys (including indexes) are ordinally ordered; values are nonempty,
+  deduplicated, deterministic localized catalog messages. Framework exception
+  names and attempted values are never returned.
 - `detail` never exposes stack traces, SQL, secrets, or provider internals.
 - Validation failures return `400`.
 - Missing authentication returns `401`.
@@ -190,6 +236,57 @@ Rules:
 - State, version, and idempotency conflicts return `409`.
 - Expired checkout drafts return `410 checkout_draft_expired`.
 - Upstream unavailability returns `503`; it must not be returned as an empty successful result.
+
+The shared generic stable-code registry is:
+
+| Status | Stable code |
+|---:|---|
+| 400 | `language_invalid`, `request_invalid` |
+| 401 | `customer_authentication_required`, `business_authentication_required` |
+| 403 | `customer_authorization_forbidden`, `business_authorization_forbidden` |
+| 404 | `resource_not_found` |
+| 405 | `method_not_allowed` |
+| 409 | `request_conflict` |
+| 413 | `request_body_too_large` |
+| 415 | `unsupported_media_type` |
+| 500 | `unexpected_error` |
+| 503 | `service_unavailable` |
+
+Feature registries take precedence over generic codes: `device_*`,
+`configuration_*`, `catalog_*`, `checkout_*`, `pricing_*`, `booking_*`,
+`payment_*`, `stripe_*`, `internal_*`, and the Business domain code registry.
+Existing code/status/detail pairs from Steps 3 and 5–14 are frozen. Exact
+Arabic/Hebrew generic strings and all scenario snapshots are normative in
+[`STEP_15_HTTP_TEST_PLAN.md`](STEP_15_HTTP_TEST_PLAN.md); adding a translation
+must not rename a stable code.
+
+Internal HMAC problems retain their English machine diagnostics and stable
+authentication, permission, HTTPS, body, media-type, idempotency, replay, and
+unavailability codes. Missing-header diagnostics may include only the
+deterministic missing header names. Stripe problems retain their English
+signature/body/content/event diagnostics. Neither diagnostic family may echo
+raw bodies, signatures, secrets, nonces, JWTs, device tokens, idempotency keys,
+PII, provider payloads, or internal row IDs.
+
+### Response headers and transport hardening
+
+- Every response carries a bounded `X-Correlation-Id`; a valid supplied value is
+  echoed, while missing, blank, comma/CRLF-bearing, or overlong values are
+  replaced before use or forwarding.
+- Every application problem and every sensitive or mutable success carries
+  `Cache-Control: no-store`. Problems carry no `ETag`, `Last-Modified`, or
+  `Set-Cookie`.
+- Both hosts emit `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, a restrictive `Permissions-Policy`, and a
+  restrictive API Content Security Policy on success, empty, redirect,
+  authentication, fallback, 404, 405, and error responses. Swagger UI uses a
+  separate narrow CSP.
+- Production HTTPS responses carry configured HSTS. Development/plain HTTP does
+  not. Internal HTTP still fails closed unless the explicit trusted local
+  development override is enabled.
+- JSON mutation bodies are bounded at 65,536 bytes unless an earlier feature
+  contract states a stricter bound. Unsupported content types and charsets fail
+  as Problem Details rather than framework HTML.
 
 ### Correlation and idempotency
 
@@ -342,6 +439,32 @@ Business internal routes accept only HMAC-authenticated internal service calls a
 | GET | `/api/v1/internal/bookings/{reference}` | Reconcile customer booking state |
 | POST | `/api/v1/internal/bookings/{reference}/reconcile` | Query authoritative Business state and repair a missed callback |
 
+### Independent Swagger documents
+
+Each host owns `/swagger/v1/swagger.json` and `/swagger`. Swagger is enabled in
+Development or by explicit non-production configuration and is disabled by
+default in Production. Each UI reads its own document and "Try it" targets only
+that host.
+
+The Customer document contains Customer modern and legacy routes, Customer
+internal callbacks, health, OAuth, and Stripe webhook only. The Business
+document contains Business owner/staff and Business internal routes only.
+Neither document requires the other implementation or database.
+
+Both OpenAPI 3 documents provide deterministic unique operation IDs, summaries,
+descriptions, tags, request/response schemas, JSON formats, requiredness,
+nullability, bounds, string enum values, defaults, safe examples, and all
+runtime statuses with `application/problem+json`. They document reusable
+Problem Details/`fieldErrors`, `X-Correlation-Id`, `Cache-Control`,
+`Content-Language`, and localization precedence where applicable.
+
+Security is attached per operation rather than globally. The documents define
+Customer bearer, Business bearer, device token, the complete HMAC quartet,
+`Idempotency-Key`, `X-Order-Guid`, and Stripe signature only where applicable.
+Anonymous, OAuth, health, and webhook exemptions are explicit. Examples use
+placeholders and contain no credential, signature, secret, token, PII,
+production host, provider payload, or internal database ID.
+
 ## 8. Booking status authority and delivery
 
 - Business is authoritative for operational booking status. Customer callback payloads contain only immutable public references, status, sequence, event ID, and occurrence time; identity, ownership, catalog snapshots, and money are never accepted from callbacks.
@@ -440,6 +563,40 @@ Operational rules:
 - `configuredCapacity` reports the configured schedule or override capacity only. Reservation occupancy, work-order consumption, and live capacity depletion remain deferred to a later step.
 
 The Customer API may add its own disclosed customer-side tax, discount, or platform-fee components. It must not override Business API prices.
+
+The add-on selection type is a string enum with exactly:
+
+- `SingleChoice`: at most one active choice;
+- `SegmentedSingleButtonChoice`: the same single-choice invariant with a
+  segmented-button presentation hint;
+- `MultipleChoice`: multiple active choices up to configured limits;
+- `QuantityCounter`: per-choice and aggregate quantity constraints apply;
+- `FixedIncludedChoice`: exactly one active included default that cannot add
+  price or duration.
+
+Required/default/minimum/maximum/quantity, active-state, duplicate-choice, and
+cross-group rules are server validated. Item and add-on wire order does not
+change semantic replay identity; normalized response ordering is deterministic.
+Selection types are serialized as strings and integer enum values are rejected.
+
+### Authoritative customer pricing
+
+- Direct repricing accepts the checkout intent but is stateless. Draft repricing
+  requires device ownership, body `expectedVersion`, and `X-Order-Guid`.
+- Business validates source business, branch, catalog version, offering,
+  add-on, quantity, slot, duration, and service area. Customer then applies only
+  its configured disclosed service fee, tax, and discount components.
+- Client-provided subtotal, add-on subtotal, fee, tax, discount, total,
+  currency, provider result, duration, capability, transaction, paid, or status
+  fields are never authoritative. Unknown JSON extension fields cannot change
+  canonical pricing or idempotency identity.
+- The response owns normalized selections, catalog version, quote timestamp,
+  item/base and add-on subtotals, discounts, service fee, taxable subtotal, tax,
+  grand total, currency, duration, and payment capabilities. Decimal rounding
+  and response ordering are deterministic.
+- `Card`/`CreditCard` is available only with valid configured Stripe publishable
+  and secret keys. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable
+  with stable localized reason codes until their server flows exist.
 
 ### Reservation
 
@@ -621,10 +778,63 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 
 ### Payment
 
-- Payment amount and currency come only from the confirmed booking.
-- Modified client amounts cannot affect Stripe requests.
-- Repeated intent requests and webhooks do not duplicate charges or payment records.
-- Only verified Stripe events change paid state.
+- `POST /api/v1/payments/intents` requires `UserPolicy`, the existing device token, and a
+  bounded `Idempotency-Key` (1-128 non-control characters). Its JSON contract contains only
+  public `CustomerBooking.PublicReference` as `bookingId` and method `Card`. It never accepts
+  a Stripe PaymentMethod ID. Unknown extension
+  fields, including client-authoritative money, currency, transaction, paid, or status
+  values, are ignored and cannot affect the canonical request.
+- Payment amount and currency come only from the immutable `CustomerBooking.GrandTotal` and
+  `CustomerBooking.Currency`. Supported two-decimal currencies are `ILS`, `USD`, and `EUR`;
+  conversion to Stripe minor units is exact and checked.
+- Intent creation is eligible only while the canonical booking status is `Pending` or
+  `Confirmed`. `InProgress`, terminal, already-paid, refunded, or previously associated
+  bookings cannot create another server payment.
+- Card is available only under the same valid `pk_` plus `sk_` capability semantics exposed
+  during repricing. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable with stable
+  localized error/reason codes.
+- Customer payment ownership and every idempotency replay require both the authenticated customer ID and issuing device
+  ID. Missing and wrong-owner reads/creates return the same localized `404`.
+- A server payment ID and derived Stripe idempotency key are committed before Stripe I/O.
+  No SQL transaction spans the network call. A random, expiring database lease grants one
+  API instance ownership of intent creation; acquisition, completion, and release are
+  owner-conditional, expired leases are reclaimable, and stale owners cannot overwrite the
+  winner. The unique booking association, device-scoped idempotency records, and Stripe
+  `RequestOptions.IdempotencyKey` prevent duplicate records/intents. Same-key/same-request
+  retries recover ambiguous outcomes; changed canonical requests conflict. A different key
+  for the same owned booking is durably associated with and replays the existing logical
+  payment.
+- Stripe PaymentIntents are created unconfirmed (`Confirm=false`) without a PaymentMethod;
+  the response returns client-safe confirmation data for the mobile SDK. Stripe PaymentMethod
+  IDs are neither accepted, persisted, nor returned. Client secrets and sensitive Stripe
+  material are never logged. Intent creation/replay returns `200`; only a verified webhook
+  changes paid state.
+- `POST /api/stripe/webhook` accepts bounded JSON only, verifies the configured `whsec_`
+  signature against the exact raw body, and stores the Stripe event ID plus SHA-256 body
+  hash. Identical events no-op; reused IDs with changed bodies conflict; incomplete internal
+  processing returns retryable `5xx` rather than an acknowledgement.
+- Webhook mutations match the persisted PaymentIntent ID and verify server payment ID,
+  booking ID/reference, amount, currency, and (for refunds) charge ID. Safe transitions are
+  `Pending -> Completed|Failed`, `Failed -> Completed`, and `Completed -> Refunded`.
+  Failure/cancel after completion and success after refund are no-ops.
+- Verified events with an unknown intent or invariant mismatch are durably quarantined with
+  a safe reason and acknowledged without payment mutation; only true persistence/transient
+  failures remain retryable.
+- A verified full refund received before success is stored as a deferred durable receipt.
+  Once matching success establishes the charge, reconciliation atomically converges the
+  payment to `Refunded` and the booking to unpaid, including concurrent cross-instance event
+  ordering; duplicate receipts remain idempotent.
+- Intent request bodies are limited to exactly 65,536 bytes for both known content lengths
+  and chunked bodies and return localized `payment_request_too_large` Problem Details.
+- Intent validation uses the frozen mobile error contract: malformed requests and unknown
+  methods return `payment_request_invalid`; wrong media types return
+  `payment_unsupported_media_type`; missing keys return `idempotency_key_required`, while
+  empty or malformed keys return `idempotency_key_invalid`. Disabled known methods return
+  `payment_method_not_yet_supported`. Booking totals must be positive exact two-decimal
+  values (`booking_not_payable`), and currency must be canonical uppercase `ILS`, `USD`, or
+  `EUR` (`booking_currency_not_supported`); both booking failures return HTTP 409. Missing,
+  unknown, and wrong-owner booking creation uses `booking_not_found`.
+- The legacy unversioned payment create/refund/admin-status controller is non-routable.
 
 ## 12. Step 1 completion rules
 

@@ -17,7 +17,8 @@ public interface IBookingStatusService
         Guid workOrderId,
         string targetStatus,
         string correlationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        string? idempotencyKey = null);
 
     Task<AuthoritativeBookingStatusResponse?> GetAuthoritativeAsync(
         Guid bookingReference,
@@ -48,16 +49,12 @@ public sealed class BookingStatusService : IBookingStatusService
         Guid workOrderId,
         string targetStatus,
         string correlationId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? idempotencyKey = null)
     {
-        if (!BookingStatuses.All.Contains(targetStatus))
-        {
-            throw new BookingStatusRejectedException(
-                BookingStatusErrorCodes.Invalid,
-                "The requested status is invalid.");
-        }
-
-        var eventId = Guid.NewGuid();
+        var eventId = string.IsNullOrWhiteSpace(idempotencyKey)
+            ? Guid.NewGuid()
+            : CreateStableEventId(workOrderId, idempotencyKey);
         var occurredAtUtc = _clock.UtcNow;
         var stableCorrelationId =
             InternalServiceHeaderValueValidator.GetOrCreateCorrelationId(correlationId);
@@ -76,10 +73,18 @@ public sealed class BookingStatusService : IBookingStatusService
                 return null;
             }
 
+            if (!BookingStatuses.All.Contains(targetStatus))
+            {
+                throw new BookingStatusRejectedException(
+                    BookingStatusErrorCodes.Invalid,
+                    "The requested status is invalid.");
+            }
+
             var existingEvent = workOrder.AppointmentReservation.StatusOutboxMessages
                 .SingleOrDefault(value => value.Id == eventId);
             if (existingEvent is not null)
             {
+                expectedSequence ??= existingEvent.Sequence;
                 return IsExactTransition(existingEvent, workOrderId, targetStatus, expectedSequence)
                     ? Map(workOrder.AppointmentReservation, eventId)
                     : throw new DbUpdateException("The transition identity conflicts with persisted state.");
@@ -185,6 +190,14 @@ public sealed class BookingStatusService : IBookingStatusService
                 .SingleAsync(value => value.WorkOrder.PublicId == workOrderId, cancellationToken);
             return Map(reservation, eventId);
         }
+    }
+
+    private static Guid CreateStableEventId(Guid workOrderId, string idempotencyKey)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(
+                $"work-order-transition:{workOrderId:D}:{idempotencyKey}"));
+        return new Guid(bytes.AsSpan(0, 16));
     }
 
     private async Task<bool> IsAuthorizedAsync(

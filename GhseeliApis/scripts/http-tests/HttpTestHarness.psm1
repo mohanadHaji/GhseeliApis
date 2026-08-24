@@ -171,6 +171,20 @@ function Resolve-OutputPath {
     return Join-Path -Path (Get-Location).Path -ChildPath $Path
 }
 
+function ConvertFrom-JsonDocument {
+    param([Parameter(Mandatory = $true)][string]$Json)
+    try {
+        $convertCommand = Get-Command ConvertFrom-Json
+        if ($convertCommand.Parameters.ContainsKey('DateKind')) {
+            return $Json | ConvertFrom-Json -DateKind String -ErrorAction Stop
+        }
+        return $Json | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw
+    }
+}
+
 function Read-JsonDocument {
     param(
         [Parameter(Mandatory = $true)]
@@ -178,20 +192,14 @@ function Read-JsonDocument {
     )
 
     try {
-        $rawContent = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        $rawContent = Get-Content -LiteralPath $Path -Raw -Encoding UTF8 -ErrorAction Stop
     }
     catch {
         throw "Failed to read JSON file '$Path': $($_.Exception.Message)"
     }
 
     try {
-        $convertCommand = Get-Command ConvertFrom-Json
-        if ($convertCommand.Parameters.ContainsKey('DateKind')) {
-            $parsed = $rawContent | ConvertFrom-Json -DateKind String -ErrorAction Stop
-        }
-        else {
-            $parsed = $rawContent | ConvertFrom-Json -ErrorAction Stop
-        }
+        $parsed = ConvertFrom-JsonDocument -Json $rawContent
     }
     catch {
         throw "Invalid JSON in '$Path': $($_.Exception.Message)"
@@ -572,6 +580,30 @@ function Compute-HmacSha256Hex {
     }
 }
 
+function Compute-HmacSha256HexBytes {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Secret,
+
+        [byte[]]$ValueBytes
+    )
+
+    if ($null -eq $ValueBytes) {
+        $ValueBytes = New-Object byte[] 0
+    }
+
+    $secretBytes = [System.Text.Encoding]::UTF8.GetBytes($Secret)
+    $hmac = New-Object System.Security.Cryptography.HMACSHA256 -ArgumentList (, $secretBytes)
+    try {
+        return [System.BitConverter]::ToString($hmac.ComputeHash($ValueBytes)).
+            Replace('-', '').
+            ToLowerInvariant()
+    }
+    finally {
+        $hmac.Dispose()
+    }
+}
+
 function Get-UriQueryParameters {
     param(
         [Parameter(Mandatory = $true)]
@@ -800,6 +832,57 @@ function Apply-InternalAuthHeaders {
             -Secret $secret `
             -Value $canonicalRequest
     }
+}
+
+function Apply-StripeSignatureHeader {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Scenario,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ResolvedHeaders,
+        [string]$BodyContent,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Variables
+    )
+
+    $configuration = Get-ObjectPropertyValue -Object $Scenario -Name 'stripeSignature'
+    if ($null -eq $configuration) {
+        return
+    }
+
+    $resolved = Resolve-TemplatedValue -Value $configuration -Variables $Variables
+    $secretVariable = [string](Get-ObjectPropertyValue -Object $resolved -Name 'secretVariable' -Required)
+    if (-not $Variables.ContainsKey($secretVariable) -or
+        [string]::IsNullOrWhiteSpace([string]$Variables[$secretVariable])) {
+        throw "Stripe signature variable '$secretVariable' is not set."
+    }
+
+    $timestampValue = Get-ObjectPropertyValue -Object $resolved -Name 'timestamp'
+    $timestamp = if ($null -eq $timestampValue) {
+        [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    }
+    else {
+        [long]$timestampValue
+    }
+    $signBody = Get-ObjectPropertyValue -Object $resolved -Name 'signBody'
+    $body = if ($null -ne $signBody) {
+        [string]$signBody
+    }
+    elseif ($null -eq $BodyContent) {
+        ''
+    }
+    else {
+        $BodyContent
+    }
+    $prefixBytes = [System.Text.Encoding]::ASCII.GetBytes("$timestamp.")
+    $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+    $signedBytes = New-Object byte[] ($prefixBytes.Length + $bodyBytes.Length)
+    [Array]::Copy($prefixBytes, 0, $signedBytes, 0, $prefixBytes.Length)
+    [Array]::Copy($bodyBytes, 0, $signedBytes, $prefixBytes.Length, $bodyBytes.Length)
+    $signature = Compute-HmacSha256HexBytes `
+        -Secret ([string]$Variables[$secretVariable]) `
+        -ValueBytes $signedBytes
+    $ResolvedHeaders['Stripe-Signature'] = "t=$timestamp,v1=$signature"
 }
 
 function Test-IsLocalBaseUrl {
@@ -1251,7 +1334,7 @@ function Convert-BodyPreview {
 
     if (Test-IsJsonContent -Body $Body -ContentType $ContentType) {
         try {
-            $parsed = $Body | ConvertFrom-Json -ErrorAction Stop
+            $parsed = ConvertFrom-JsonDocument -Json $Body
             $plainValue = ConvertTo-PlainValue -Value $parsed
             return Protect-SensitiveData -Value $plainValue -SensitiveFields $SensitiveFields
         }
@@ -1339,19 +1422,26 @@ function Build-RequestBody {
             Content     = ($resolvedBody | ConvertTo-Json -Depth 100 -Compress)
             ContentType = 'application/json'
             ForceChunked = $false
+            ExpectContinue = $false
         }
     }
 
     if ($null -ne $bodyFile) {
         $resolvedBodyFile = Resolve-ExistingPath -Path ([string]$bodyFile) -BaseDirectories @($ManifestDirectory)
         try {
-            $rawBody = Get-Content -LiteralPath $resolvedBodyFile -Raw -ErrorAction Stop
+            $rawBody = Get-Content -LiteralPath $resolvedBodyFile -Raw -Encoding UTF8 -ErrorAction Stop
+            if ($null -eq $rawBody) {
+                $rawBody = ''
+            }
         }
         catch {
             throw "Failed to read body file '$resolvedBodyFile': $($_.Exception.Message)"
         }
 
         $resolvedBody = Resolve-TemplateString -Template $rawBody -Variables $Variables
+        if ($null -eq $resolvedBody) {
+            $resolvedBody = ''
+        }
         $defaultContentType = $null
         if ([System.IO.Path]::GetExtension($resolvedBodyFile) -ieq '.json') {
             $defaultContentType = 'application/json'
@@ -1361,6 +1451,7 @@ function Build-RequestBody {
             Content     = $resolvedBody
             ContentType = $defaultContentType
             ForceChunked = $false
+            ExpectContinue = $false
         }
     }
 
@@ -1376,6 +1467,7 @@ function Build-RequestBody {
             Content     = ($text * $count)
             ContentType = [string](Get-ObjectPropertyValue -Object $repeatBody -Name 'contentType')
             ForceChunked = if ($null -eq $configuredForceChunked) { $true } else { [bool]$configuredForceChunked }
+            ExpectContinue = $null -ne $configuredForceChunked -and -not [bool]$configuredForceChunked
         }
     }
 
@@ -1383,6 +1475,7 @@ function Build-RequestBody {
         Content     = $null
         ContentType = $null
         ForceChunked = $false
+        ExpectContinue = $false
     }
 }
 
@@ -1521,6 +1614,27 @@ function Test-ScenarioExpectations {
         }
     }
 
+    $headerJsonComparisons = Get-ObjectPropertyValue -Object $expect -Name 'headerEqualsJsonPath'
+    if ($null -ne $headerJsonComparisons) {
+        if (-not ($ResponseJson -is [System.Collections.IDictionary])) {
+            Add-Failure -Failures $failures -Message 'Expected a JSON object response for headerEqualsJsonPath.'
+        }
+        foreach ($comparison in Get-ObjectEntries -Object $headerJsonComparisons) {
+            $actualValues = $null
+            $path = [string]$comparison.Value
+            $pathResult = Get-JsonPathResult -InputObject $ResponseJson -Path $path
+            if (-not (Try-GetHeaderValues -HeaderMap $ResponseHeaders -Name $comparison.Name -Values ([ref]$actualValues))) {
+                Add-Failure -Failures $failures -Message ("Expected header '{0}' for JSON comparison, but it was missing." -f $comparison.Name)
+            }
+            elseif (-not $pathResult.Found) {
+                Add-Failure -Failures $failures -Message ("Expected JSON path '{0}' for header comparison, but it was missing." -f $path)
+            }
+            elseif (-not [string]::Equals([string]$actualValues[0], [string]$pathResult.Value, [System.StringComparison]::Ordinal)) {
+                Add-Failure -Failures $failures -Message ("Expected header '{0}' to equal JSON path '{1}'." -f $comparison.Name, $path)
+            }
+        }
+    }
+
     $jsonAssertions = @(Get-NormalizedArray -Value (Get-ObjectPropertyValue -Object $expect -Name 'json'))
     if ($jsonAssertions.Count -gt 0) {
         if ($null -eq $ResponseJson) {
@@ -1567,7 +1681,66 @@ function Test-ScenarioExpectations {
                         Add-Failure -Failures $failures -Message ("Expected JSON path '{0}' to match regex '{1}', but received '{2}'." -f $path, $pattern, $actualText)
                     }
                 }
+
+                if (Test-ObjectProperty -Object $jsonAssertion -Name 'propertyNamesEqual') {
+                    $expectedNames = @(
+                        Get-StringArray -Value (
+                            Get-ObjectPropertyValue -Object $jsonAssertion -Name 'propertyNamesEqual' -Required)
+                    )
+                    if (-not ($pathResult.Value -is [System.Collections.IDictionary])) {
+                        Add-Failure -Failures $failures -Message (
+                            "Expected JSON path '{0}' to be an object for propertyNamesEqual." -f $path)
+                    }
+                    else {
+                        $actualNames = @(Get-ObjectEntries -Object $pathResult.Value |
+                            ForEach-Object { [string]$_.Name })
+                        $missingNames = @($expectedNames | Where-Object { $_ -cnotin $actualNames })
+                        $unexpectedNames = @($actualNames | Where-Object { $_ -cnotin $expectedNames })
+                        if ($missingNames.Count -gt 0 -or $unexpectedNames.Count -gt 0) {
+                            Add-Failure -Failures $failures -Message (
+                                "Expected JSON path '{0}' properties to equal [{1}], but missing [{2}] and found unexpected [{3}]." -f
+                                $path,
+                                ($expectedNames -join ', '),
+                                ($missingNames -join ', '),
+                                ($unexpectedNames -join ', '))
+                        }
+                    }
+                }
             }
+        }
+    }
+
+    $expectedPropertyCount = Get-ObjectPropertyValue -Object $expect -Name 'jsonPropertyCount'
+    if ($null -ne $expectedPropertyCount) {
+        if (-not ($ResponseJson -is [System.Collections.IDictionary])) {
+            Add-Failure -Failures $failures -Message 'Expected a JSON object response for jsonPropertyCount.'
+        }
+        elseif ($ResponseJson.Count -ne [int]$expectedPropertyCount) {
+            Add-Failure -Failures $failures -Message ("Expected JSON object to contain {0} properties, but found {1}." -f $expectedPropertyCount, $ResponseJson.Count)
+        }
+    }
+
+    $expectedBody = Get-ObjectPropertyValue -Object $expect -Name 'bodyEquals'
+    if ($null -ne $expectedBody) {
+        $resolvedBody = [string](Resolve-TemplatedValue -Value $expectedBody -Variables $Variables)
+        if (-not [string]::Equals($ResponseBody, $resolvedBody, [System.StringComparison]::Ordinal)) {
+            Add-Failure -Failures $failures -Message 'Response body did not exactly match bodyEquals.'
+        }
+    }
+
+    foreach ($requiredText in @(Get-StringArray -Value (Get-ObjectPropertyValue -Object $expect -Name 'bodyContains'))) {
+        $resolvedRequiredText = [string](Resolve-TemplatedValue -Value $requiredText -Variables $Variables)
+        if ([string]::IsNullOrEmpty($resolvedRequiredText) -or
+            $ResponseBody.IndexOf($resolvedRequiredText, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            Add-Failure -Failures $failures -Message ("Response body did not contain required text '{0}'." -f $resolvedRequiredText)
+        }
+    }
+
+    foreach ($forbiddenText in @(Get-StringArray -Value (Get-ObjectPropertyValue -Object $expect -Name 'bodyNotContains'))) {
+        $resolvedForbiddenText = [string](Resolve-TemplatedValue -Value $forbiddenText -Variables $Variables)
+        if (-not [string]::IsNullOrEmpty($resolvedForbiddenText) -and
+            $ResponseBody.IndexOf($resolvedForbiddenText, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+            Add-Failure -Failures $failures -Message ("Response body unexpectedly contained forbidden text '{0}'." -f $resolvedForbiddenText)
         }
     }
 
@@ -1814,6 +1987,14 @@ function Assert-Manifest {
 
             [void](Get-ObjectPropertyValue -Object $internalAuth -Name 'secretEnv' -Required)
         }
+
+        $stripeSignature = Get-ObjectPropertyValue -Object $scenario -Name 'stripeSignature'
+        if ($null -ne $stripeSignature) {
+            if (-not ($stripeSignature -is [System.Collections.IDictionary])) {
+                throw "Scenario '$scenarioId' must define 'stripeSignature' as an object."
+            }
+            [void](Get-ObjectPropertyValue -Object $stripeSignature -Name 'secretVariable' -Required)
+        }
     }
 }
 
@@ -1860,7 +2041,9 @@ function Invoke-HttpScenario {
         [Parameter(Mandatory = $true)]
         [string]$ManifestDirectory,
 
-        [string[]]$SensitiveFields = @()
+        [string[]]$SensitiveFields = @(),
+
+        [switch]$AllowNonLocal
     )
 
     $scenarioId = [string](Get-ObjectPropertyValue -Object $Scenario -Name 'id' -Required)
@@ -1899,11 +2082,21 @@ function Invoke-HttpScenario {
 
         $resolvedRelativeUrl = [string](Resolve-TemplatedValue -Value (Get-ObjectPropertyValue -Object $Scenario -Name 'url' -Required) -Variables $Variables)
         $requestUri = [System.Uri]::new($BaseUri, $resolvedRelativeUrl)
+        Assert-LocalBaseUrl -BaseUri $requestUri -AllowNonLocal:$AllowNonLocal
         $result.requestUrl = $requestUri.AbsoluteUri
 
         $resolvedHeaders = @{}
         foreach ($headerEntry in Get-ObjectEntries -Object (Get-ObjectPropertyValue -Object $Scenario -Name 'headers')) {
-            $resolvedHeaders[$headerEntry.Name] = [string](Resolve-TemplatedValue -Value $headerEntry.Value -Variables $Variables)
+            $resolvedValue = Resolve-TemplatedValue -Value $headerEntry.Value -Variables $Variables
+            if ($resolvedValue -is [System.Collections.IEnumerable] -and
+                -not ($resolvedValue -is [string]) -and
+                -not ($resolvedValue -is [System.Collections.IDictionary])) {
+                $resolvedHeaders[$headerEntry.Name] = @(
+                    $resolvedValue | ForEach-Object { [string]$_ })
+            }
+            else {
+                $resolvedHeaders[$headerEntry.Name] = [string]$resolvedValue
+            }
         }
 
         $body = Build-RequestBody -Scenario $Scenario -Variables $Variables -ManifestDirectory $ManifestDirectory
@@ -1913,6 +2106,11 @@ function Invoke-HttpScenario {
             -ResolvedHeaders $resolvedHeaders `
             -RequestUri $requestUri `
             -Method $method `
+            -BodyContent $body.Content `
+            -Variables $Variables
+        Apply-StripeSignatureHeader `
+            -Scenario $Scenario `
+            -ResolvedHeaders $resolvedHeaders `
             -BodyContent $body.Content `
             -Variables $Variables
 
@@ -1926,18 +2124,35 @@ function Invoke-HttpScenario {
                 continue
             }
 
-            if (-not $request.Headers.TryAddWithoutValidation([string]$headerName, [string]$resolvedHeaders[$headerName])) {
+            $headerValues = [Collections.Generic.List[string]]::new()
+            foreach ($headerValue in @($resolvedHeaders[$headerName])) {
+                $headerValues.Add([string]$headerValue)
+            }
+            if (-not $request.Headers.TryAddWithoutValidation(
+                    [string]$headerName, $headerValues)) {
                 throw "Header '$headerName' could not be added to scenario '$scenarioId'."
             }
         }
 
-        if ($null -ne $body.Content) {
+        $hasExplicitBody =
+            $null -ne (Get-ObjectPropertyValue -Object $Scenario -Name 'jsonBody') -or
+            $null -ne (Get-ObjectPropertyValue -Object $Scenario -Name 'bodyFile') -or
+            $null -ne (Get-ObjectPropertyValue -Object $Scenario -Name 'repeatBody')
+        $bodyBytes = $null
+        if ($null -eq $body.Content -and $hasExplicitBody) {
+            $bodyBytes = [byte[]]::new(0)
+        }
+        elseif ($null -ne $body.Content) {
+            $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body.Content)
+        }
+
+        if ($null -ne $bodyBytes) {
             $finalContentType = if ([string]::IsNullOrWhiteSpace($contentTypeHeader)) { $body.ContentType } else { $contentTypeHeader }
             if ([string]::IsNullOrWhiteSpace($finalContentType)) {
                 $finalContentType = 'application/json'
             }
 
-            $request.Content = New-Object System.Net.Http.StringContent -ArgumentList $body.Content
+            $request.Content = New-Object System.Net.Http.ByteArrayContent -ArgumentList (, $bodyBytes)
             [void]$request.Content.Headers.Remove('Content-Type')
             if (-not $request.Content.Headers.TryAddWithoutValidation('Content-Type', $finalContentType)) {
                 throw "Content-Type could not be added to scenario '$scenarioId'."
@@ -1945,6 +2160,9 @@ function Invoke-HttpScenario {
             if ($body.ForceChunked) {
                 $request.Headers.TransferEncodingChunked = $true
                 $request.Content.Headers.ContentLength = $null
+            }
+            elseif ($body.ExpectContinue) {
+                $request.Headers.ExpectContinue = $true
             }
             $resolvedHeaders['Content-Type'] = $finalContentType
         }
@@ -1954,7 +2172,7 @@ function Invoke-HttpScenario {
 
         $requestPreview = [ordered]@{
             headers    = Protect-Headers -Headers $resolvedHeaders -SensitiveFields $SensitiveFields
-            bodyLength = if ($null -eq $body.Content) { 0 } else { $body.Content.Length }
+            bodyLength = if ($null -eq $bodyBytes) { 0 } else { $bodyBytes.Length }
             body       = if ($null -eq $body.Content) { $null } else { Convert-BodyPreview -Body $body.Content -ContentType $resolvedHeaders['Content-Type'] -SensitiveFields $SensitiveFields }
         }
 
@@ -1969,7 +2187,8 @@ function Invoke-HttpScenario {
 
         if (Test-IsJsonContent -Body $responseBody -ContentType $responseContentType) {
             try {
-                $responseJson = ConvertTo-PlainValue -Value ($responseBody | ConvertFrom-Json -ErrorAction Stop)
+                $responseJson = ConvertTo-PlainValue -Value (
+                    ConvertFrom-JsonDocument -Json $responseBody)
             }
             catch {
                 $responseJson = $null
@@ -2157,7 +2376,8 @@ function Invoke-HttpTestHarness {
                 -Variables $variableBag `
                 -HttpClient $httpClient `
                 -ManifestDirectory $manifestDirectory `
-                -SensitiveFields $sensitiveFields
+                -SensitiveFields $sensitiveFields `
+                -AllowNonLocal:$AllowNonLocal
 
             [void]$scenarioResults.Add($scenarioResult)
         }
@@ -2491,6 +2711,15 @@ function Invoke-HttpTestHarnessSelfTest {
         }
     }
 
+    Add-SelfTestResult -Name 'JSON parsing preserves ISO timestamps as strings' -Action {
+        $parsed = ConvertTo-PlainValue -Value (
+            ConvertFrom-JsonDocument -Json '{"timestamp":"2026-08-24T01:02:03.0000000Z"}')
+        if ($parsed.timestamp -isnot [string] -or
+            $parsed.timestamp -ne '2026-08-24T01:02:03.0000000Z') {
+            throw 'ISO timestamp was converted into a culture-sensitive date value.'
+        }
+    }
+
     Add-SelfTestResult -Name 'Expectation helper enforces 204 empty body' -Action {
         $scenario = [ordered]@{
             id     = 'no-content'
@@ -2730,8 +2959,486 @@ function Invoke-HttpTestHarnessSelfTest {
             -Variables @{} `
             -ManifestDirectory $PSScriptRoot
 
-        if ($fixedLengthBody.Content.Length -ne 65536 -or $fixedLengthBody.ForceChunked) {
+        if ($fixedLengthBody.Content.Length -ne 65536 -or
+            $fixedLengthBody.ForceChunked -or
+            -not $fixedLengthBody.ExpectContinue) {
             throw 'Fixed-length repeated request body generation failed.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Stripe signature signs exact body bytes' -Action {
+        $variables = @{ webhookSecret = 'whsec_local_self_test' }
+        $headers = @{}
+        $scenario = [ordered]@{
+            stripeSignature = [ordered]@{
+                secretVariable = 'webhookSecret'
+                timestamp = 1700000000
+            }
+        }
+        Apply-StripeSignatureHeader `
+            -Scenario $scenario `
+            -ResolvedHeaders $headers `
+            -BodyContent '{"received":true}' `
+            -Variables $variables
+        $expected = Compute-HmacSha256Hex `
+            -Secret $variables.webhookSecret `
+            -Value '1700000000.{"received":true}'
+        if ($headers['Stripe-Signature'] -ne "t=1700000000,v1=$expected") {
+            throw 'Stripe signature did not cover the exact timestamp and body.'
+        }
+
+        $scenario.stripeSignature.signBody = '{}'
+        Apply-StripeSignatureHeader `
+            -Scenario $scenario `
+            -ResolvedHeaders $headers `
+            -BodyContent '{"tampered":true}' `
+            -Variables $variables
+        $tamperedExpected = Compute-HmacSha256Hex `
+            -Secret $variables.webhookSecret `
+            -Value '1700000000.{}'
+        if ($headers['Stripe-Signature'] -ne "t=1700000000,v1=$tamperedExpected") {
+            throw 'Stripe signBody override did not preserve the originally signed bytes.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Stripe signature validates secret, timestamp, templates, and overrides' -Action {
+        foreach ($invalidVariables in @(
+            @{},
+            @{ webhookSecret = '' },
+            @{ webhookSecret = '   ' }
+        )) {
+            $threw = $false
+            try {
+                Apply-StripeSignatureHeader `
+                    -Scenario ([ordered]@{
+                        stripeSignature = [ordered]@{
+                            secretVariable = 'webhookSecret'
+                        }
+                    }) `
+                    -ResolvedHeaders @{} `
+                    -BodyContent '{}' `
+                    -Variables $invalidVariables
+            }
+            catch {
+                $threw = $true
+            }
+            if (-not $threw) {
+                throw 'A missing or blank Stripe signing secret was accepted.'
+            }
+        }
+
+        $variables = @{
+            webhookSecret = 'whsec_template_self_test'
+            signedBody = '{"localized":"שלום مرحبا"}'
+        }
+        $headers = @{ 'Stripe-Signature' = 'caller-supplied' }
+        $scenario = [ordered]@{
+            stripeSignature = [ordered]@{
+                secretVariable = 'webhookSecret'
+                timestamp = 1
+                signBody = '{{var:signedBody}}'
+            }
+        }
+        Apply-StripeSignatureHeader `
+            -Scenario $scenario `
+            -ResolvedHeaders $headers `
+            -BodyContent '{"different":true}' `
+            -Variables $variables
+        $expected = Compute-HmacSha256HexBytes `
+            -Secret $variables.webhookSecret `
+            -ValueBytes ([Text.Encoding]::UTF8.GetBytes("1.$($variables.signedBody)"))
+        if ($headers['Stripe-Signature'] -ne "t=1,v1=$expected") {
+            throw 'Templated signBody did not override the transmitted body and caller header.'
+        }
+        if ($headers['Stripe-Signature'] -notmatch '^t=1,') {
+            throw 'The stale timestamp was not preserved for receiver rejection testing.'
+        }
+
+        $generatedHeaders = @{}
+        $generatedScenario = [ordered]@{
+            stripeSignature = [ordered]@{
+                secretVariable = 'webhookSecret'
+            }
+        }
+        $before = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        Apply-StripeSignatureHeader `
+            -Scenario $generatedScenario `
+            -ResolvedHeaders $generatedHeaders `
+            -BodyContent '{}' `
+            -Variables $variables
+        $after = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+        $generatedTimestamp = [long](
+            [regex]::Match($generatedHeaders['Stripe-Signature'], '^t=(\d+),').Groups[1].Value)
+        if ($generatedTimestamp -lt $before -or $generatedTimestamp -gt $after) {
+            throw 'Stripe signature did not generate a current Unix timestamp.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Exact shape assertions reject every representative corruption' -Action {
+        $scenario = [ordered]@{
+            id = 'negative-exact-shape'
+            method = 'GET'
+            url = '/api/test'
+            expect = [ordered]@{
+                status = 200
+                jsonPropertyCount = 1
+                bodyNotContains = @('forbidden')
+                headerEqualsJsonPath = [ordered]@{
+                    'X-Correlation-Id' = '$.correlationId'
+                }
+            }
+        }
+        $cases = @(
+            @{
+                Name = 'wrong header'
+                Body = '{"correlationId":"expected"}'
+                Headers = @{ 'X-Correlation-Id' = @('wrong') }
+                Json = [ordered]@{ correlationId = 'expected' }
+            },
+            @{
+                Name = 'missing header'
+                Body = '{"correlationId":"expected"}'
+                Headers = @{}
+                Json = [ordered]@{ correlationId = 'expected' }
+            },
+            @{
+                Name = 'missing JSON path'
+                Body = '{"other":"expected"}'
+                Headers = @{ 'X-Correlation-Id' = @('expected') }
+                Json = [ordered]@{ other = 'expected' }
+            },
+            @{
+                Name = 'non-object JSON'
+                Body = '["expected"]'
+                Headers = @{ 'X-Correlation-Id' = @('expected') }
+                Json = @('expected')
+            },
+            @{
+                Name = 'wrong property count'
+                Body = '{"correlationId":"expected","extra":true}'
+                Headers = @{ 'X-Correlation-Id' = @('expected') }
+                Json = [ordered]@{ correlationId = 'expected'; extra = $true }
+            },
+            @{
+                Name = 'forbidden body data'
+                Body = '{"correlationId":"expected","detail":"FORBIDDEN"}'
+                Headers = @{ 'X-Correlation-Id' = @('expected') }
+                Json = [ordered]@{ correlationId = 'expected' }
+            }
+        )
+        foreach ($case in $cases) {
+            $failures = @(Test-ScenarioExpectations `
+                -Scenario $scenario `
+                -Variables @{} `
+                -StatusCode 200 `
+                -ResponseContentType 'application/json' `
+                -ResponseBody $case.Body `
+                -ResponseHeaders $case.Headers `
+                -ResponseJson $case.Json)
+            if ($failures.Count -eq 0) {
+                throw "Exact shape assertions accepted $($case.Name)."
+            }
+        }
+    }
+
+    Add-SelfTestResult -Name 'Required body text assertions are enforced' -Action {
+        $scenario = [ordered]@{
+            id = 'body-contains'
+            method = 'GET'
+            url = '/swagger/index.html'
+            expect = [ordered]@{
+                status = 200
+                bodyContains = @('swagger', '/swagger/v1/swagger.json')
+            }
+        }
+        $passing = @(Test-ScenarioExpectations `
+            -Scenario $scenario -Variables @{} -StatusCode 200 `
+            -ResponseContentType 'text/html' `
+            -ResponseBody '<html>Swagger /swagger/v1/swagger.json</html>' `
+            -ResponseHeaders @{} -ResponseJson $null)
+        if ($passing.Count -ne 0) {
+            throw 'bodyContains rejected a response containing every required value.'
+        }
+        $failing = @(Test-ScenarioExpectations `
+            -Scenario $scenario -Variables @{} -StatusCode 200 `
+            -ResponseContentType 'text/html' `
+            -ResponseBody '<html>Swagger</html>' `
+            -ResponseHeaders @{} -ResponseJson $null)
+        if ($failing.Count -eq 0) {
+            throw 'bodyContains accepted a response missing required text.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Nested JSON object property names are exact' -Action {
+        $scenario = [ordered]@{
+            id = 'nested-object-shape'
+            method = 'GET'
+            url = '/swagger/v1/swagger.json'
+            expect = [ordered]@{
+                status = 200
+                json = @(
+                    [ordered]@{
+                        path = '$.paths'
+                        propertyNamesEqual = @('/api/one', '/api/two')
+                    }
+                )
+            }
+        }
+        $passingJson = [ordered]@{
+            paths = [ordered]@{ '/api/two' = @{}; '/api/one' = @{} }
+        }
+        $passing = @(Test-ScenarioExpectations `
+            -Scenario $scenario -Variables @{} -StatusCode 200 `
+            -ResponseContentType 'application/json' -ResponseBody '{}' `
+            -ResponseHeaders @{} -ResponseJson $passingJson)
+        if ($passing.Count -ne 0) {
+            throw 'propertyNamesEqual rejected an exact object with different ordering.'
+        }
+
+        foreach ($badPaths in @(
+            [ordered]@{ '/api/one' = @{} },
+            [ordered]@{ '/api/one' = @{}; '/api/two' = @{}; '/api/extra' = @{} }
+        )) {
+            $failures = @(Test-ScenarioExpectations `
+                -Scenario $scenario -Variables @{} -StatusCode 200 `
+                -ResponseContentType 'application/json' -ResponseBody '{}' `
+                -ResponseHeaders @{} -ResponseJson ([ordered]@{ paths = $badPaths }))
+            if ($failures.Count -eq 0) {
+                throw 'propertyNamesEqual accepted missing or unexpected object properties.'
+            }
+        }
+    }
+
+    Add-SelfTestResult -Name 'Scenario transport preserves UTF-8 bytes and framing headers' -Action {
+        if ($null -eq ('HttpHarnessCaptureHandler' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
+public sealed class HttpHarnessCaptureHandler : HttpMessageHandler
+{
+    public static byte[] Body;
+    public static long? ContentLength;
+    public static bool TransferEncodingChunked;
+    public static string StripeSignature;
+    public static string[] DuplicateHeaderValues;
+    public static bool RejectStale;
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        Body = request.Content == null
+            ? new byte[0]
+            : await request.Content.ReadAsByteArrayAsync();
+        ContentLength = request.Content == null
+            ? null
+            : request.Content.Headers.ContentLength;
+        TransferEncodingChunked = request.Headers.TransferEncodingChunked == true;
+        IEnumerable<string> values;
+        StripeSignature = request.Headers.TryGetValues("Stripe-Signature", out values)
+            ? values.Single()
+            : null;
+        DuplicateHeaderValues = request.Headers.TryGetValues("X-Duplicate-Proof", out values)
+            ? values.ToArray()
+            : new string[0];
+        var status = HttpStatusCode.OK;
+        if (RejectStale && StripeSignature != null)
+        {
+            var timestampText = StripeSignature.Split(',')[0].Substring(2);
+            long timestamp;
+            if (long.TryParse(timestampText, out timestamp) &&
+                timestamp < DateTimeOffset.UtcNow.ToUnixTimeSeconds() - 300)
+            {
+                status = HttpStatusCode.BadRequest;
+            }
+        }
+        return new HttpResponseMessage(status)
+        {
+            Content = new StringContent("{}")
+        };
+    }
+}
+'@
+        }
+
+        $variables = @{ webhookSecret = 'whsec_transport_self_test' }
+        $handler = [HttpHarnessCaptureHandler]::new()
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        try {
+            $unicodeBody = [ordered]@{
+                message = ([string][char]0x05E9 + [string][char]0x0645)
+            }
+            $scenario = [ordered]@{
+                id = 'utf8-transport'
+                method = 'POST'
+                url = '/receiver'
+                jsonBody = $unicodeBody
+                stripeSignature = [ordered]@{
+                    secretVariable = 'webhookSecret'
+                    timestamp = 1700000000
+                }
+                expect = [ordered]@{ status = 200 }
+            }
+            $result = Invoke-HttpScenario `
+                -Scenario $scenario `
+                -BaseUri ([uri]'http://localhost/') `
+                -Variables $variables `
+                -HttpClient $client `
+                -ManifestDirectory $PSScriptRoot
+            if (-not $result.passed) {
+                throw "UTF-8 transport scenario failed: $($result.assertionFailures -join '; ')"
+            }
+            $expectedText = ($unicodeBody | ConvertTo-Json -Compress)
+            $expectedBytes = [Text.Encoding]::UTF8.GetBytes($expectedText)
+            if ((Compute-Sha256Hex $expectedBytes) -ne
+                (Compute-Sha256Hex ([HttpHarnessCaptureHandler]::Body))) {
+                throw 'Transmitted UTF-8 bytes differed from the bytes used by the scenario.'
+            }
+            if ([HttpHarnessCaptureHandler]::ContentLength -ne $expectedBytes.Length -or
+                [HttpHarnessCaptureHandler]::TransferEncodingChunked) {
+                throw 'Fixed-length UTF-8 transport headers were incorrect.'
+            }
+            $expectedSignature = Compute-HmacSha256HexBytes `
+                -Secret $variables.webhookSecret `
+                -ValueBytes ([Text.Encoding]::UTF8.GetBytes("1700000000.$expectedText"))
+            if ([HttpHarnessCaptureHandler]::StripeSignature -ne
+                "t=1700000000,v1=$expectedSignature") {
+                throw 'The transmitted Stripe signature did not cover the transmitted UTF-8 bytes.'
+            }
+
+            $duplicateScenario = [ordered]@{
+                id = 'duplicate-header-values'
+                method = 'GET'
+                url = '/receiver'
+                headers = [ordered]@{
+                    'X-Duplicate-Proof' = @('first', 'second')
+                }
+                expect = [ordered]@{ status = 200 }
+            }
+            $duplicateResult = Invoke-HttpScenario `
+                -Scenario $duplicateScenario `
+                -BaseUri ([uri]'http://localhost/') `
+                -Variables @{} `
+                -HttpClient $client `
+                -ManifestDirectory $PSScriptRoot
+            if (-not $duplicateResult.passed -or
+                [HttpHarnessCaptureHandler]::DuplicateHeaderValues.Count -ne 2 -or
+                [HttpHarnessCaptureHandler]::DuplicateHeaderValues[0] -cne 'first' -or
+                [HttpHarnessCaptureHandler]::DuplicateHeaderValues[1] -cne 'second') {
+                throw 'The harness did not transmit actual separate duplicate header values.'
+            }
+
+            $chunkedScenario = [ordered]@{
+                id = 'chunked-transport'
+                method = 'POST'
+                url = '/receiver'
+                repeatBody = [ordered]@{
+                    text = [string][char]0x00E9
+                    count = 40000
+                    contentType = 'application/json'
+                    forceChunked = $true
+                }
+                expect = [ordered]@{ status = 200 }
+            }
+            $chunkedResult = Invoke-HttpScenario `
+                -Scenario $chunkedScenario `
+                -BaseUri ([uri]'http://localhost/') `
+                -Variables @{} `
+                -HttpClient $client `
+                -ManifestDirectory $PSScriptRoot
+            if (-not $chunkedResult.passed -or
+                [HttpHarnessCaptureHandler]::Body.Length -ne 80000 -or
+                $null -ne [HttpHarnessCaptureHandler]::ContentLength -or
+                -not [HttpHarnessCaptureHandler]::TransferEncodingChunked) {
+                throw ("Chunked repeat-body byte length or framing headers were incorrect " +
+                    "(length={0}, contentLength={1}, chunked={2})." -f
+                    [HttpHarnessCaptureHandler]::Body.Length,
+                    [HttpHarnessCaptureHandler]::ContentLength,
+                    [HttpHarnessCaptureHandler]::TransferEncodingChunked)
+            }
+
+            [HttpHarnessCaptureHandler]::RejectStale = $true
+            $staleScenario = [ordered]@{
+                id = 'stale-signature-transport'
+                method = 'POST'
+                url = '/receiver'
+                jsonBody = [ordered]@{ id = 'evt_stale' }
+                stripeSignature = [ordered]@{
+                    secretVariable = 'webhookSecret'
+                    timestamp = 1
+                }
+                expect = [ordered]@{ status = 400 }
+            }
+            $staleResult = Invoke-HttpScenario `
+                -Scenario $staleScenario `
+                -BaseUri ([uri]'http://localhost/') `
+                -Variables $variables `
+                -HttpClient $client `
+                -ManifestDirectory $PSScriptRoot
+            if (-not $staleResult.passed) {
+                throw 'A receiver did not reject the transmitted stale timestamp.'
+            }
+        }
+        finally {
+            [HttpHarnessCaptureHandler]::RejectStale = $false
+            $client.Dispose()
+            $handler.Dispose()
+        }
+    }
+
+    Add-SelfTestResult -Name 'Exact shape and leakage assertions are enforced' -Action {
+        $scenario = [ordered]@{
+            id = 'exact-shape'
+            method = 'GET'
+            url = '/api/test'
+            expect = [ordered]@{
+                status = 200
+                jsonPropertyCount = 1
+                bodyNotContains = @('clientSecret', 'paymentIntentId')
+                headerEqualsJsonPath = [ordered]@{
+                    'X-Correlation-Id' = '$.received'
+                }
+            }
+        }
+        $failures = @(Test-ScenarioExpectations `
+            -Scenario $scenario `
+            -Variables @{} `
+            -StatusCode 200 `
+            -ResponseContentType 'application/json' `
+            -ResponseBody '{"received":true}' `
+            -ResponseHeaders @{ 'X-Correlation-Id' = @('True') } `
+            -ResponseJson ([ordered]@{ received = $true }))
+        if ($failures.Count -ne 0) {
+            throw ('Expected exact shape/leakage assertions to pass: {0}' -f ($failures -join '; '))
+        }
+    }
+
+    Add-SelfTestResult -Name 'Exact body assertion detects byte differences' -Action {
+        $scenario = [ordered]@{
+            id = 'exact-body'
+            method = 'GET'
+            url = '/api/test'
+            expect = [ordered]@{
+                status = 200
+                bodyEquals = '{"received":true}'
+            }
+        }
+        $failures = @(Test-ScenarioExpectations `
+            -Scenario $scenario `
+            -Variables @{} `
+            -StatusCode 200 `
+            -ResponseContentType 'application/json' `
+            -ResponseBody '{ "received": true }' `
+            -ResponseHeaders @{} `
+            -ResponseJson ([ordered]@{ received = $true }))
+        if ($failures.Count -eq 0) {
+            throw 'Expected bodyEquals to detect formatting differences.'
         }
     }
 
@@ -2739,6 +3446,44 @@ function Invoke-HttpTestHarnessSelfTest {
         $sampleManifestPath = Join-Path -Path $PSScriptRoot -ChildPath 'sample.manifest.json'
         $manifest = Read-JsonDocument -Path $sampleManifestPath
         Assert-Manifest -Manifest $manifest
+    }
+
+    Add-SelfTestResult -Name 'UTF-8 JSON preserves localized text without a BOM' -Action {
+        $artifactDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts'
+        [IO.Directory]::CreateDirectory($artifactDirectory) | Out-Null
+        $path = Join-Path -Path $artifactDirectory -ChildPath 'harness-utf8-self-test.local.json'
+        try {
+            [IO.File]::WriteAllText(
+                $path,
+                '{"message":"تعذر إكمال طلب الدفع."}',
+                [Text.UTF8Encoding]::new($false))
+            $document = Read-JsonDocument -Path $path
+            if ($document.message -ne 'تعذر إكمال طلب الدفع.') {
+                throw 'UTF-8 localized text was not preserved.'
+            }
+
+            Add-SelfTestResult -Name 'Explicit empty body files remain zero-byte request bodies' -Action {
+                $artifactDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts'
+                [IO.Directory]::CreateDirectory($artifactDirectory) | Out-Null
+                $path = Join-Path -Path $artifactDirectory -ChildPath 'harness-empty-body-self-test.local.txt'
+                try {
+                    [IO.File]::WriteAllBytes($path, [byte[]]::new(0))
+                    $body = Build-RequestBody `
+                        -Scenario ([ordered]@{ id = 'empty'; bodyFile = $path }) `
+                        -Variables @{} `
+                        -ManifestDirectory $artifactDirectory
+                    if ($null -eq $body.Content -or [string]$body.Content -ne '') {
+                        throw 'Empty body file was confused with an absent request body.'
+                    }
+                }
+                finally {
+                    Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+        }
     }
 
     $resultArray = $results.ToArray()

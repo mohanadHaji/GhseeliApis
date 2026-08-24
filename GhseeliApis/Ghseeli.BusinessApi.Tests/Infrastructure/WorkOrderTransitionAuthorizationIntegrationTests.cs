@@ -26,6 +26,7 @@ public sealed class WorkOrderTransitionAuthorizationIntegrationTests :
     {
         var workOrderId = SeedPendingWorkOrder();
         using var client = _factory.CreateSecureClient();
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "step13-anonymous");
         client.DefaultRequestHeaders.Add("X-Correlation-Id", "step13-anonymous-transition");
 
         var response = await client.PostAsJsonAsync(
@@ -54,6 +55,7 @@ public sealed class WorkOrderTransitionAuthorizationIntegrationTests :
         using var client = _factory.CreateExpiredAuthenticatedClient(
             _factory.OwnerUserId,
             BusinessRoles.Owner);
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "step13-expired");
 
         var response = await client.PostAsJsonAsync(
             Route(workOrderId),
@@ -72,6 +74,7 @@ public sealed class WorkOrderTransitionAuthorizationIntegrationTests :
     {
         var workOrderId = SeedPendingWorkOrder();
         using var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, "User");
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "step13-wrong-role-key");
         client.DefaultRequestHeaders.Add("X-Correlation-Id", "step13-wrong-role");
 
         var response = await client.PostAsJsonAsync(
@@ -97,6 +100,7 @@ public sealed class WorkOrderTransitionAuthorizationIntegrationTests :
         using var client = _factory.CreateAuthenticatedClient(
             _factory.OtherOwnerUserId,
             BusinessRoles.Owner);
+        client.DefaultRequestHeaders.Add("Idempotency-Key", "step13-foreign");
 
         var response = await client.PostAsJsonAsync(
             Route(workOrderId),

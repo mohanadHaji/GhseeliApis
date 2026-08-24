@@ -65,6 +65,27 @@ public sealed class BookingStatusServiceTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-BUSINESS-WORKORDER-TRANSITION-108")]
+    public async Task TransitionAsync_SameIdempotencyKeyAndBody_ReturnsOriginalResultExactlyOnce()
+    {
+        var fixture = CreateFixture(BookingStatuses.Pending);
+
+        var first = await fixture.Service.TransitionAsync(
+            Guid.NewGuid(), true, fixture.WorkOrderPublicId,
+            BookingStatuses.Confirmed, "corr-first", CancellationToken.None,
+            "stable-transition-key");
+        var replay = await fixture.Service.TransitionAsync(
+            Guid.NewGuid(), true, fixture.WorkOrderPublicId,
+            BookingStatuses.Confirmed, "corr-replay", CancellationToken.None,
+            "stable-transition-key");
+
+        replay.Should().BeEquivalentTo(first);
+        (await fixture.Context.BookingStatusOutboxMessages.CountAsync()).Should().Be(1);
+        (await fixture.Context.AppointmentReservations.SingleAsync())
+            .StatusSequence.Should().Be(1);
+    }
+
+    [Fact]
     public async Task TransitionAsync_SelfTransition_IsRejectedWithoutAnotherOutboxMessage()
     {
         var fixture = CreateFixture(BookingStatuses.Pending);

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using GhseeliApis.Services.Checkout;
 using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.Services.Payments;
 
 namespace GhseeliApis.Filters;
 
@@ -53,18 +54,38 @@ public sealed class EnforceRequestBodySizeLimitAttribute : Attribute, IAsyncReso
     {
         if (_problemCode is null)
         {
-            return new ContentResult
+            var genericLanguage = ConfigurationLanguageResolver.Resolve(
+                context.Request.Query.ContainsKey("language")
+                    ? context.Request.Query["language"].ToString()
+                    : null,
+                context.Request.Headers.AcceptLanguage.ToString());
+            return new ObjectResult(ConfigurationProblemDetailsFactory.Create(
+                StatusCodes.Status413PayloadTooLarge,
+                "request_body_too_large",
+                genericLanguage,
+                context.TraceIdentifier))
             {
                 StatusCode = StatusCodes.Status413PayloadTooLarge,
-                ContentType = "text/plain; charset=utf-8",
-                Content = $"Request body too large. The maximum allowed size is {_maxBytes} bytes."
+                ContentTypes = { "application/problem+json" }
             };
         }
 
         var language = ConfigurationLanguageResolver.Resolve(
-            context.Request.Query["language"].ToString(),
+            context.Request.Query.ContainsKey("language")
+                ? context.Request.Query["language"].ToString()
+                : null,
             context.Request.Headers.AcceptLanguage.ToString());
-        var problem = context.Request.Path.StartsWithSegments("/api/v1/bookings")
+        if (context.Request.Path.StartsWithSegments("/api/v1/payments"))
+        {
+            context.Response.Headers.CacheControl = "no-store";
+        }
+        object problem = context.Request.Path.StartsWithSegments("/api/v1/payments")
+            ? CustomerPaymentProblemDetailsFactory.Create(
+                StatusCodes.Status413PayloadTooLarge,
+                CustomerPaymentErrorCodes.RequestTooLarge,
+                language,
+                context.TraceIdentifier)
+            : context.Request.Path.StartsWithSegments("/api/v1/bookings")
             ? BookingConfirmationProblemDetailsFactory.Create(
                 StatusCodes.Status413PayloadTooLarge,
                 _problemCode,

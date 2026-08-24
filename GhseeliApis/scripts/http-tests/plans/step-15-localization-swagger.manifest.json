@@ -1,0 +1,7036 @@
+{
+  "name": "Step 15 localization, Swagger, transport, and host isolation",
+  "description": "90 stable live-local entries covering 42 frozen live mappings plus safe representative variants. Run only against isolated non-production Customer and Business hosts initialized by Initialize-Step15Fixtures.ps1.",
+  "sensitiveFields": [
+    "authorization",
+    "token",
+    "x-device-token",
+    "x-ghseeli-signature",
+    "x-ghseeli-nonce",
+    "idempotency-key",
+    "stripe-signature",
+    "secret",
+    "password",
+    "email"
+  ],
+  "setupVariables": {
+    "correlationId": "step15-{{gen:timestamp:yyyyMMddHHmmssfff}}",
+    "installationId": "{{gen:guid}}",
+    "unknownOrderGuid": "{{gen:guid}}",
+    "overlongCorrelationId": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "maxLanguageHeader": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "scenarios": [
+    {
+      "id": "STEP15-LANG-QUERY-AR-001",
+      "planScenarioId": "STEP15-LANG-QUERY-AR-001",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=ar",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "غسيلي المحلي"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "إشعار محلي آمن"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-LANG-QUERY-HE-002",
+      "planScenarioId": "STEP15-LANG-QUERY-HE-002",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "ע׳סילי מקומי"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "הודעה מקומית בטוחה"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-LANG-QUERY-UNSUPPORTED-004",
+      "planScenarioId": "STEP15-LANG-QUERY-UNSUPPORTED-004",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=en",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "language_invalid",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/language_invalid"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 400
+          },
+          {
+            "path": "$.detail",
+            "equals": "اللغة المطلوبة غير مدعومة."
+          },
+          {
+            "path": "$.code",
+            "equals": "language_invalid"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-LANG-HEADER-MALFORMED-013",
+      "planScenarioId": "STEP15-LANG-HEADER-MALFORMED-013",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "he;q=wat, ar;q="
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "غسيلي المحلي"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "إشعار محلي آمن"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-LANG-HEADER-OVERSIZE-014",
+      "planScenarioId": "STEP15-LANG-HEADER-OVERSIZE-014",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "{{var:oversizedLanguageHeader}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "غسيلي المحلي"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "إشعار محلي آمن"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-LANG-DEFAULT-015",
+      "planScenarioId": "STEP15-LANG-DEFAULT-015",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": ""
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "غسيلي المحلي"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "إشعار محلي آمن"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-LANG-HEALTH-SWAGGER-EXEMPT-019",
+      "planScenarioId": "STEP15-LANG-HEALTH-SWAGGER-EXEMPT-019",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          }
+        },
+        "json": [
+          {
+            "path": "$.openapi",
+            "matches": "^3\\."
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Bearer ",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-WRONG-CONTENT-TYPE-022",
+      "planScenarioId": "STEP15-PROBLEM-WRONG-CONTENT-TYPE-022",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Content-Type": "text/plain",
+        "Accept": "application/problem+json"
+      },
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "unsupported_media_type",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/unsupported_media_type"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 415
+          },
+          {
+            "path": "$.detail",
+            "equals": "نوع محتوى الطلب غير مدعوم."
+          },
+          {
+            "path": "$.code",
+            "equals": "unsupported_media_type"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "android",
+        "appVersion": "step15"
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-BODY-BOUNDARY-024",
+      "planScenarioId": "STEP15-PROBLEM-BODY-BOUNDARY-024",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 413,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "request_body_too_large",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/request_body_too_large"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 413
+          },
+          {
+            "path": "$.detail",
+            "equals": "حجم نص الطلب يتجاوز الحد المسموح."
+          },
+          {
+            "path": "$.code",
+            "equals": "request_body_too_large"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65537,
+        "contentType": "application/json",
+        "forceChunked": true
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-WRONG-METHOD-025",
+      "planScenarioId": "STEP15-PROBLEM-WRONG-METHOD-025",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "PUT",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/problem+json"
+      },
+      "expect": {
+        "status": 405,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          },
+          "Allow": {
+            "equals": "POST"
+          }
+        },
+        "errorCode": "method_not_allowed",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/method_not_allowed"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 405
+          },
+          {
+            "path": "$.detail",
+            "equals": "طريقة HTTP غير مسموحة لهذا المسار."
+          },
+          {
+            "path": "$.code",
+            "equals": "method_not_allowed"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-UNKNOWN-ROUTE-026",
+      "planScenarioId": "STEP15-PROBLEM-UNKNOWN-ROUTE-026",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/step15-not-found",
+      "headers": {
+        "Accept": "application/problem+json"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-CORRELATION-ECHO-029",
+      "planScenarioId": "STEP15-PROBLEM-CORRELATION-ECHO-029",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/step15-not-found",
+      "headers": {
+        "X-Correlation-Id": "{{var:correlationId}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "equals": "{{var:correlationId}}"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$.correlationId",
+            "equals": "{{var:correlationId}}"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-CORRELATION-REPLACE-030",
+      "planScenarioId": "STEP15-PROBLEM-CORRELATION-REPLACE-030",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/step15-not-found",
+      "headers": {
+        "X-Correlation-Id": "{{var:overlongCorrelationId}}"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-CACHE-031",
+      "planScenarioId": "STEP15-PROBLEM-CACHE-031",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/step15-not-found",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          },
+          "ETag": {
+            "exists": false
+          },
+          "Last-Modified": {
+            "exists": false
+          },
+          "Set-Cookie": {
+            "exists": false
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-AUTH-CUSTOMER-MISSING-035",
+      "planScenarioId": "STEP15-AUTH-CUSTOMER-MISSING-035",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/bookings/from-draft",
+      "headers": {
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          },
+          "WWW-Authenticate": {
+            "matches": "^Bearer"
+          }
+        },
+        "errorCode": "customer_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/customer_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "مطلوب تسجيل دخول العميل."
+          },
+          {
+            "path": "$.code",
+            "equals": "customer_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "orderGuid": "{{var:unknownOrderGuid}}",
+        "expectedVersion": 1
+      }
+    },
+    {
+      "id": "STEP15-AUTH-BUSINESS-MISSING-038",
+      "planScenarioId": "STEP15-AUTH-BUSINESS-MISSING-038",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company",
+      "headers": {
+        "Accept": "application/problem+json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          },
+          "WWW-Authenticate": {
+            "matches": "^Bearer"
+          }
+        },
+        "errorCode": "business_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/business_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "مطلوب تسجيل دخول حساب العمل."
+          },
+          {
+            "path": "$.code",
+            "equals": "business_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-AUTH-CROSS-CUSTOMER-TO-BUSINESS-042",
+      "planScenarioId": "STEP15-AUTH-CROSS-CUSTOMER-TO-BUSINESS-042",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company",
+      "headers": {
+        "Authorization": "Bearer {{var:customerJwt}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "business_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/business_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "مطلوب تسجيل دخول حساب العمل."
+          },
+          {
+            "path": "$.code",
+            "equals": "business_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-AUTH-CROSS-BUSINESS-TO-CUSTOMER-043",
+      "planScenarioId": "STEP15-AUTH-CROSS-BUSINESS-TO-CUSTOMER-043",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/bookings/from-draft",
+      "headers": {
+        "Authorization": "Bearer {{var:businessJwt}}",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "customer_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/customer_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "مطلوب تسجيل دخول العميل."
+          },
+          {
+            "path": "$.code",
+            "equals": "customer_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "orderGuid": "{{var:unknownOrderGuid}}",
+        "expectedVersion": 1
+      }
+    },
+    {
+      "id": "STEP15-AUTH-DEVICE-MISSING-044",
+      "planScenarioId": "STEP15-AUTH-DEVICE-MISSING-044",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {},
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "device_token_missing",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/device_token_missing"
+          },
+          {
+            "path": "$.title",
+            "equals": "فشل التحقق من الجهاز."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "رمز الجهاز مطلوب."
+          },
+          {
+            "path": "$.code",
+            "equals": "device_token_missing"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-AUTH-HMAC-MISSING-049",
+      "planScenarioId": "STEP15-AUTH-HMAC-MISSING-049",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "internal_auth_missing_header",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/internal_auth_missing_header"
+          },
+          {
+            "path": "$.title",
+            "equals": "Internal authentication headers are missing."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "One or more required internal authentication headers were not supplied."
+          },
+          {
+            "path": "$.code",
+            "equals": "internal_auth_missing_header"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "exists": false
+          },
+          {
+            "path": "$.missingHeaders",
+            "exists": true
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-AUTH-HMAC-HTTPS-054",
+      "planScenarioId": "STEP15-AUTH-HMAC-HTTPS-054",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessHttp"
+      ],
+      "method": "GET",
+      "url": "{{var:businessHttpBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "X-Ghseeli-Service-Id": "step15-live",
+        "X-Ghseeli-Timestamp": "2026-08-24T00:00:00Z",
+        "X-Ghseeli-Nonce": "step15-live-https-proof",
+        "X-Ghseeli-Signature": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "status": 403,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "https_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/https_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "HTTPS is required."
+          },
+          {
+            "path": "$.status",
+            "equals": 403
+          },
+          {
+            "path": "$.detail",
+            "equals": "Internal service requests must use HTTPS."
+          },
+          {
+            "path": "$.code",
+            "equals": "https_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "exists": false
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 6
+      }
+    },
+    {
+      "id": "STEP15-AUTH-JWT-ON-INTERNAL-055",
+      "planScenarioId": "STEP15-AUTH-JWT-ON-INTERNAL-055",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "Authorization": "Bearer {{var:businessJwt}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "internal_auth_missing_header",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/internal_auth_missing_header"
+          },
+          {
+            "path": "$.title",
+            "equals": "Internal authentication headers are missing."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "One or more required internal authentication headers were not supplied."
+          },
+          {
+            "path": "$.code",
+            "equals": "internal_auth_missing_header"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "exists": false
+          },
+          {
+            "path": "$.missingHeaders",
+            "exists": true
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-CUSTOMER-DEVICE-REGISTER-058",
+      "planScenarioId": "STEP15-CUSTOMER-DEVICE-REGISTER-058",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "request_invalid",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/request_invalid"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 400
+          },
+          {
+            "path": "$.detail",
+            "equals": "الطلب غير صالح."
+          },
+          {
+            "path": "$.code",
+            "equals": "request_invalid"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "installationId": "00000000-0000-0000-0000-000000000000",
+        "platform": "",
+        "appVersion": ""
+      }
+    },
+    {
+      "id": "STEP15-CUSTOMER-CONFIGURATION-059",
+      "planScenarioId": "STEP15-CUSTOMER-CONFIGURATION-059",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "ע׳סילי מקומי"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "הודעה מקומית בטוחה"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-BUSINESS-AUTH-REGISTER-078",
+      "planScenarioId": "STEP15-BUSINESS-AUTH-REGISTER-078",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/register-owner",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "request_invalid",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/request_invalid"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 400
+          },
+          {
+            "path": "$.detail",
+            "equals": "الطلب غير صالح."
+          },
+          {
+            "path": "$.code",
+            "equals": "request_invalid"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 8
+      },
+      "jsonBody": {
+        "email": "invalid",
+        "password": "x",
+        "companyNameAr": "",
+        "companyNameHe": null
+      }
+    },
+    {
+      "id": "STEP15-BUSINESS-AUTH-LOGIN-079",
+      "planScenarioId": "STEP15-BUSINESS-AUTH-LOGIN-079",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/login",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "business_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/business_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "לא ניתן להשלים את הבקשה."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "נדרש אימות לחשבון העסקי."
+          },
+          {
+            "path": "$.code",
+            "equals": "business_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "email": "nobody@example.invalid",
+        "password": "not-a-real-password"
+      }
+    },
+    {
+      "id": "STEP15-LEGACY-HEALTH-123",
+      "planScenarioId": "STEP15-LEGACY-HEALTH-123",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/Health",
+      "headers": {
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "language",
+          "connectionString",
+          "databaseName"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-HEAD-OPTIONS-124",
+      "planScenarioId": "STEP15-TRANSPORT-HEAD-OPTIONS-124",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "HEAD",
+      "url": "{{var:customerBaseUrl}}/api/Health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "bodyEquals": "",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-TRAILING-SLASH-125",
+      "planScenarioId": "STEP15-TRANSPORT-TRAILING-SLASH-125",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/Health/",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "language",
+          "connectionString",
+          "databaseName"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-ACCEPT-126",
+      "planScenarioId": "STEP15-TRANSPORT-ACCEPT-126",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/step15-not-found",
+      "headers": {
+        "Accept": "text/html"
+      },
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-CHARSET-127",
+      "planScenarioId": "STEP15-TRANSPORT-CHARSET-127",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/login",
+      "headers": {
+        "Content-Type": "application/json; charset=iso-8859-1"
+      },
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "unsupported_media_type",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/unsupported_media_type"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 415
+          },
+          {
+            "path": "$.detail",
+            "equals": "نوع محتوى الطلب غير مدعوم."
+          },
+          {
+            "path": "$.code",
+            "equals": "unsupported_media_type"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "email": "nobody@example.invalid",
+        "password": "كلمة-مرور"
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "X-Device-Token": "{{var:customerDeviceToken}}, {{var:foreignDeviceToken}}"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "device_token_invalid",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/device_token_invalid"
+          },
+          {
+            "path": "$.title",
+            "equals": "فشل التحقق من الجهاز."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "رمز الجهاز غير صالح."
+          },
+          {
+            "path": "$.code",
+            "equals": "device_token_invalid"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-CUSTOMER-ROUTES-130",
+      "planScenarioId": "STEP15-SWAGGER-CUSTOMER-ROUTES-130",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.openapi",
+            "matches": "^3\\."
+          },
+          {
+            "path": "$.components.schemas.ProblemDetails",
+            "exists": true
+          },
+          {
+            "path": "$.paths",
+            "propertyNamesEqual": [
+              "/api/v1/devices/register",
+              "/api/v1/configuration",
+              "/api/v1/catalog/categories",
+              "/api/v1/catalog/businesses",
+              "/api/v1/catalog/businesses/{id}",
+              "/api/v1/catalog/businesses/{id}/offerings",
+              "/api/v1/catalog/offerings/{id}",
+              "/api/v1/checkout/drafts",
+              "/api/v1/checkout/drafts/{orderGuid}",
+              "/api/v1/pricing/reprice",
+              "/api/v1/checkout/reprice",
+              "/api/v1/bookings/from-draft",
+              "/api/v1/payments/intents",
+              "/api/v1/payments/{id}",
+              "/api/v1/internal/bookings/status",
+              "/api/v1/internal/bookings/{reference}/reconcile",
+              "/api/v1/internal/bookings/{reference}",
+              "/api/v1/internal/bookings/{unmatched}",
+              "/api/stripe/webhook",
+              "/api/Auth/register",
+              "/api/Auth/login",
+              "/api/Auth/validate",
+              "/api/Auth/me",
+              "/api/Auth/external-login",
+              "/api/Auth/external-login-callback",
+              "/api/Auth/link-external-login",
+              "/api/Auth/link-external-login-callback",
+              "/api/Auth/external-login/{provider}",
+              "/api/Auth/external-logins",
+              "/api/Users",
+              "/api/Users/{id}",
+              "/api/Users/me",
+              "/api/Users/me/reactivate",
+              "/api/Users/me/password",
+              "/api/Users/me/email/request-confirmation",
+              "/api/Users/me/email/confirm",
+              "/api/Addresses/my-addresses",
+              "/api/Addresses/{id}",
+              "/api/Addresses",
+              "/api/Addresses/{id}/set-primary",
+              "/api/Vehicles/my-vehicles",
+              "/api/Vehicles/{id}",
+              "/api/Vehicles",
+              "/api/Bookings/my-bookings",
+              "/api/Bookings/my-bookings/upcoming",
+              "/api/Bookings/my-bookings/history",
+              "/api/Bookings/company/{companyId}",
+              "/api/Bookings/{id}",
+              "/api/Bookings",
+              "/api/Bookings/{id}/cancel",
+              "/api/Bookings/{id}/confirm",
+              "/api/Bookings/{id}/start",
+              "/api/Bookings/{id}/complete",
+              "/api/Bookings/check-availability",
+              "/api/Companies",
+              "/api/Companies/{id}",
+              "/api/Companies/area/{area}",
+              "/api/Companies/create",
+              "/api/Services",
+              "/api/Services/{id}",
+              "/api/Services/{id}/with-options",
+              "/api/ServiceOptions",
+              "/api/ServiceOptions/{id}",
+              "/api/ServiceOptions/service/{serviceId}",
+              "/api/ServiceOptions/company/{companyId}",
+              "/api/Health",
+              "/api/Health/db"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/devices/register']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/configuration']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/categories']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{id}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{id}/offerings']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/offerings/{id}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/checkout/drafts']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/checkout/drafts/{orderGuid}']",
+            "propertyNamesEqual": [
+              "get",
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/checkout/reprice']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/bookings/from-draft']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/payments/intents']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/payments/{id}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/status']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/{reference}/reconcile']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/{reference}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/bookings/{unmatched}']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/stripe/webhook']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/register']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/login']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/validate']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/me']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/external-login']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/external-login-callback']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/link-external-login']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/link-external-login-callback']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/external-login/{provider}']",
+            "propertyNamesEqual": [
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/external-logins']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/me']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/me/reactivate']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/me/password']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/me/email/request-confirmation']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Users/me/email/confirm']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Addresses/my-addresses']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Addresses/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Addresses']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Addresses/{id}/set-primary']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Vehicles/my-vehicles']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Vehicles/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Vehicles']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/my-bookings']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/my-bookings/upcoming']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/my-bookings/history']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/company/{companyId}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/{id}/cancel']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/{id}/confirm']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/{id}/start']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/{id}/complete']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Bookings/check-availability']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Companies']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Companies/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Companies/area/{area}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Companies/create']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Services']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Services/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Services/{id}/with-options']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/ServiceOptions']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/ServiceOptions/{id}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/ServiceOptions/service/{serviceId}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/ServiceOptions/company/{companyId}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Health']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Health/db']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Bearer ",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "bodyContains": [
+          "Idempotency-Key",
+          "X-Order-Guid",
+          "orderGuid",
+          "grandTotal",
+          "paymentCapabilities",
+          "same-body replay",
+          "server-authoritative",
+          "Stripe-Signature",
+          "<service-id>"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-BUSINESS-ROUTES-131",
+      "planScenarioId": "STEP15-SWAGGER-BUSINESS-ROUTES-131",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.openapi",
+            "matches": "^3\\."
+          },
+          {
+            "path": "$.components.schemas.ProblemDetails",
+            "exists": true
+          },
+          {
+            "path": "$.paths",
+            "propertyNamesEqual": [
+              "/api/v1/business/auth/register-owner",
+              "/api/v1/business/auth/login",
+              "/api/v1/business/company",
+              "/api/v1/business/company/branches",
+              "/api/v1/business/company/branches/{branchId}",
+              "/api/v1/business/catalog/categories",
+              "/api/v1/business/catalog/categories/{categoryId}",
+              "/api/v1/business/catalog/offerings",
+              "/api/v1/business/catalog/offerings/{offeringId}",
+              "/api/v1/business/catalog/offerings/{offeringId}/addon-groups",
+              "/api/v1/business/catalog/addon-groups/{addonGroupId}",
+              "/api/v1/business/catalog/addon-groups/{addonGroupId}/choices",
+              "/api/v1/business/catalog/addon-choices/{addonChoiceId}",
+              "/api/v1/business/availability/branches/{branchId}/settings",
+              "/api/v1/business/availability/branches/{branchId}/recurring-schedules",
+              "/api/v1/business/availability/recurring-schedules/{scheduleId}",
+              "/api/v1/business/availability/branches/{branchId}/date-overrides",
+              "/api/v1/business/availability/date-overrides/{overrideId}",
+              "/api/v1/business/availability/branches/{branchId}/service-area",
+              "/api/v1/business/work-orders/{id}/transitions",
+              "/api/v1/business/admin/booking-status-outbox/{eventId}/requeue",
+              "/api/v1/internal/catalog/snapshot",
+              "/api/v1/internal/appointments/validate",
+              "/api/v1/internal/reservations",
+              "/api/v1/internal/reservations/{reference}",
+              "/api/health"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/auth/register-owner']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/auth/login']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/company']",
+            "propertyNamesEqual": [
+              "get",
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/company/branches']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/company/branches/{branchId}']",
+            "propertyNamesEqual": [
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/categories']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/categories/{categoryId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/offerings']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/offerings/{offeringId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/offerings/{offeringId}/addon-groups']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/addon-groups/{addonGroupId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/addon-groups/{addonGroupId}/choices']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/catalog/addon-choices/{addonChoiceId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/branches/{branchId}/settings']",
+            "propertyNamesEqual": [
+              "get",
+              "put"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/branches/{branchId}/recurring-schedules']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/recurring-schedules/{scheduleId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/branches/{branchId}/date-overrides']",
+            "propertyNamesEqual": [
+              "get",
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/date-overrides/{overrideId}']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/availability/branches/{branchId}/service-area']",
+            "propertyNamesEqual": [
+              "get",
+              "put",
+              "delete"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/work-orders/{id}/transitions']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/business/admin/booking-status-outbox/{eventId}/requeue']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/catalog/snapshot']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/validate']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/reservations']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/reservations/{reference}']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          },
+          {
+            "path": "$.paths['/api/health']",
+            "propertyNamesEqual": [
+              "get"
+            ]
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "bodyContains": [
+          "\"openapi\"",
+          "X-Ghseeli-Signature",
+          "BusinessProblemDetails"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-ENVIRONMENT-152",
+      "planScenarioId": "STEP15-SWAGGER-ENVIRONMENT-152",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:customerProductionBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/swagger-initializer.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/javascript",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          }
+        },
+        "bodyContains": [
+          "SwaggerUIBundle"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "businessBaseUrl"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-LOCALIZED-VARY-165",
+      "planScenarioId": "STEP15-HEADERS-LOCALIZED-VARY-165",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company",
+      "headers": {
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "business_authentication_required",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/business_authentication_required"
+          },
+          {
+            "path": "$.title",
+            "equals": "לא ניתן להשלים את הבקשה."
+          },
+          {
+            "path": "$.status",
+            "equals": 401
+          },
+          {
+            "path": "$.detail",
+            "equals": "נדרש אימות לחשבון העסקי."
+          },
+          {
+            "path": "$.code",
+            "equals": "business_authentication_required"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "he"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SECURITY-API-167",
+      "planScenarioId": "STEP15-HEADERS-SECURITY-API-167",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/step15-not-found",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          },
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "errorCode": "resource_not_found",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/resource_not_found"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 404
+          },
+          {
+            "path": "$.detail",
+            "equals": "المورد المطلوب غير موجود."
+          },
+          {
+            "path": "$.code",
+            "equals": "resource_not_found"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "planScenarioId": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:customerProductionBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Strict-Transport-Security": {
+            "matches": "(?i)max-age=\\d+"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-DEVELOPMENT-169",
+      "planScenarioId": "STEP15-HEADERS-HSTS-DEVELOPMENT-169",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/Health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "exists": false
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/swagger-initializer.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/javascript",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          "SwaggerUIBundle"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HEALTH-172",
+      "planScenarioId": "STEP15-HEADERS-HEALTH-172",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/Health/db",
+      "headers": {
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "language",
+          "connectionString",
+          "databaseName"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "database",
+              "timestamp",
+              "responseTime"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.database",
+            "equals": "SQL Server"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.responseTime",
+            "matches": "^\\d+\\.\\d{2}ms$"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-LANG-HEADER-OVERSIZE-014--max-8192",
+      "planScenarioId": "STEP15-LANG-HEADER-OVERSIZE-014",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "{{var:maxLanguageHeader}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "ar"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "غسيلي المحلي"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "إشعار محلي آمن"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-BODY-BOUNDARY-024--fixed-65536",
+      "planScenarioId": "STEP15-PROBLEM-BODY-BOUNDARY-024",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65536,
+        "contentType": "application/json",
+        "forceChunked": false
+      }
+    },
+    {
+      "id": "STEP15-PROBLEM-BODY-BOUNDARY-024--fixed-65537",
+      "planScenarioId": "STEP15-PROBLEM-BODY-BOUNDARY-024",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 413,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "request_body_too_large",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/request_body_too_large"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 413
+          },
+          {
+            "path": "$.detail",
+            "equals": "حجم نص الطلب يتجاوز الحد المسموح."
+          },
+          {
+            "path": "$.code",
+            "equals": "request_body_too_large"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 65537,
+        "contentType": "application/json",
+        "forceChunked": false
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-HEAD-OPTIONS-124--business-head",
+      "planScenarioId": "STEP15-TRANSPORT-HEAD-OPTIONS-124",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "HEAD",
+      "url": "{{var:businessBaseUrl}}/api/health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          }
+        },
+        "bodyEquals": "",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-HEAD-OPTIONS-124--customer-options-mutation",
+      "planScenarioId": "STEP15-TRANSPORT-HEAD-OPTIONS-124",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "OPTIONS",
+      "url": "{{var:customerBaseUrl}}/api/v1/devices/register",
+      "headers": {},
+      "expect": {
+        "status": 405,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-HEAD-OPTIONS-124--business-options-mutation",
+      "planScenarioId": "STEP15-TRANSPORT-HEAD-OPTIONS-124",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "OPTIONS",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/login",
+      "headers": {},
+      "expect": {
+        "status": 405,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-TRAILING-SLASH-125--customer-config",
+      "planScenarioId": "STEP15-TRANSPORT-TRAILING-SLASH-125",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration/",
+      "headers": {
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept": "application/json",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "ע׳סילי מקומי"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "הודעה מקומית בטוחה"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-TRAILING-SLASH-125--business-health",
+      "planScenarioId": "STEP15-TRANSPORT-TRAILING-SLASH-125",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/health/",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli Business API"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-TRAILING-SLASH-125--business-company",
+      "planScenarioId": "STEP15-TRANSPORT-TRAILING-SLASH-125",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company/",
+      "headers": {
+        "Authorization": "Bearer {{var:businessJwt}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-ACCEPT-126--customer-real-route",
+      "planScenarioId": "STEP15-TRANSPORT-ACCEPT-126",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept": "text/html",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "ע׳סילי מקומי"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "הודעה מקומית בטוחה"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-ACCEPT-126--business-real-route",
+      "planScenarioId": "STEP15-TRANSPORT-ACCEPT-126",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company",
+      "headers": {
+        "Authorization": "Bearer {{var:businessJwt}}",
+        "Accept": "text/html"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-CHARSET-127--utf8-arabic",
+      "planScenarioId": "STEP15-TRANSPORT-CHARSET-127",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/login",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "email": "nobody@example.invalid",
+        "password": "كلمة-مرور-آمنة"
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-CHARSET-127--utf8-hebrew",
+      "planScenarioId": "STEP15-TRANSPORT-CHARSET-127",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/auth/login",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Accept-Language": "he"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "email": "nobody@example.invalid",
+        "password": "סיסמה-בטוחה"
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--device-values",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
+      "headers": {
+        "X-Device-Token": [
+          "{{var:customerDeviceToken}}",
+          "{{var:foreignDeviceToken}}"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--customer-authorization-values",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/bookings/from-draft",
+      "headers": {
+        "Authorization": [
+          "Bearer {{var:customerJwt}}",
+          "Bearer {{var:businessJwt}}"
+        ],
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "orderGuid": "{{var:unknownOrderGuid}}",
+        "expectedVersion": 1
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--business-authorization-values",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/business/company",
+      "headers": {
+        "Authorization": [
+          "Bearer {{var:businessJwt}}",
+          "Bearer {{var:customerJwt}}"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--idempotency-values",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "Bearer {{var:customerJwt}}",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Idempotency-Key": [
+          "step15-a",
+          "step15-b"
+        ],
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      },
+      "jsonBody": {
+        "bookingId": "{{var:unknownOrderGuid}}"
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--order-guid-values",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/checkout/reprice",
+      "headers": {
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "X-Order-Guid": [
+          "{{var:unknownOrderGuid}}",
+          "{{gen:guid}}"
+        ],
+        "Content-Type": "application/json"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 8
+      },
+      "jsonBody": {
+        "expectedVersion": 1
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--hmac-service-id",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "X-Ghseeli-Service-Id": [
+          "first",
+          "second"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--hmac-timestamp",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "X-Ghseeli-Timestamp": [
+          "first",
+          "second"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--hmac-nonce",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "X-Ghseeli-Nonce": [
+          "first",
+          "second"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128--hmac-signature",
+      "planScenarioId": "STEP15-TRANSPORT-DUPLICATE-HEADERS-128",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/catalog/snapshot",
+      "headers": {
+        "X-Ghseeli-Signature": [
+          "first",
+          "second"
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-QUERY-ENCODING-129--percent-case",
+      "planScenarioId": "STEP15-TRANSPORT-QUERY-ENCODING-129",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=%68%65",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Content-Language": {
+            "equals": "he"
+          },
+          "Vary": {
+            "matches": "(?i)Accept-Language"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "language",
+              "support",
+              "display",
+              "legal",
+              "maintenance"
+            ]
+          },
+          {
+            "path": "$.support",
+            "propertyNamesEqual": [
+              "email",
+              "phone"
+            ]
+          },
+          {
+            "path": "$.support.email",
+            "equals": "support@step15.example.invalid"
+          },
+          {
+            "path": "$.support.phone",
+            "equals": "+970000000000"
+          },
+          {
+            "path": "$.display",
+            "propertyNamesEqual": [
+              "name"
+            ]
+          },
+          {
+            "path": "$.display.name",
+            "equals": "ע׳סילי מקומי"
+          },
+          {
+            "path": "$.legal",
+            "propertyNamesEqual": [
+              "notice",
+              "privacyPolicyUrl",
+              "termsOfServiceUrl"
+            ]
+          },
+          {
+            "path": "$.legal.notice",
+            "equals": "הודעה מקומית בטוחה"
+          },
+          {
+            "path": "$.legal.privacyPolicyUrl",
+            "equals": "https://step15.example.invalid/privacy"
+          },
+          {
+            "path": "$.legal.termsOfServiceUrl",
+            "equals": "https://step15.example.invalid/terms"
+          },
+          {
+            "path": "$.maintenance",
+            "propertyNamesEqual": [
+              "isEnabled",
+              "message"
+            ]
+          },
+          {
+            "path": "$.maintenance.isEnabled",
+            "equals": false
+          },
+          {
+            "path": "$.maintenance.message",
+            "equals": null
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 5
+      }
+    },
+    {
+      "id": "STEP15-TRANSPORT-QUERY-ENCODING-129--duplicate-language",
+      "planScenarioId": "STEP15-TRANSPORT-QUERY-ENCODING-129",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=ar&language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:customerDeviceToken}}",
+        "Accept-Language": "ar"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          },
+          "Content-Language": {
+            "equals": "ar"
+          },
+          "Vary": {
+            "matches": "(?i)(^|,\\s*)Accept-Language(\\s*,|$)"
+          }
+        },
+        "errorCode": "language_invalid",
+        "headerEqualsJsonPath": {
+          "X-Correlation-Id": "$.correlationId"
+        },
+        "json": [
+          {
+            "path": "$.type",
+            "equals": "https://api.ghseeli.example/errors/language_invalid"
+          },
+          {
+            "path": "$.title",
+            "equals": "تعذر إكمال الطلب."
+          },
+          {
+            "path": "$.status",
+            "equals": 400
+          },
+          {
+            "path": "$.detail",
+            "equals": "اللغة المطلوبة غير مدعومة."
+          },
+          {
+            "path": "$.code",
+            "equals": "language_invalid"
+          },
+          {
+            "path": "$.correlationId",
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          {
+            "path": "$.language",
+            "equals": "ar"
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "jsonPropertyCount": 7
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-ENVIRONMENT-152--business-production-disabled",
+      "planScenarioId": "STEP15-SWAGGER-ENVIRONMENT-152",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:businessProductionBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Correlation-Id": {
+            "matches": "^[A-Za-z0-9._:-]{1,128}$"
+          },
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-ENVIRONMENT-152--customer-production-api",
+      "planScenarioId": "STEP15-SWAGGER-ENVIRONMENT-152",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:customerProductionBaseUrl}}/api/Health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-ENVIRONMENT-152--business-production-api",
+      "planScenarioId": "STEP15-SWAGGER-ENVIRONMENT-152",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:businessProductionBaseUrl}}/api/health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli Business API"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--customer-index",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/index.html",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/html",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--customer-css",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/swagger-ui.css",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/css",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--customer-bundle",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/swagger-ui-bundle.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/javascript",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--customer-initializer-target",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/index.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/javascript",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          }
+        },
+        "bodyContains": [
+          "SwaggerUIBundle",
+          "/swagger/v1/swagger.json"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "businessBaseUrl"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--business-index",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/index.html",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/html",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--business-css",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/swagger-ui.css",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/css",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--business-bundle",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/swagger-ui-bundle.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/javascript",
+        "headers": {
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-SWAGGER-UI-153--business-initializer-target",
+      "planScenarioId": "STEP15-SWAGGER-UI-153",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/index.js",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/javascript",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          }
+        },
+        "bodyContains": [
+          "SwaggerUIBundle",
+          "/swagger/v1/swagger.json"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com",
+          "businessBaseUrl"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-PRODUCTION-168--customer-api",
+      "planScenarioId": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:customerProductionBaseUrl}}/api/Health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "matches": "(?i)max-age=\\d+"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-PRODUCTION-168--customer-error",
+      "planScenarioId": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:customerProductionBaseUrl}}/api/v1/step15-not-found",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "matches": "(?i)max-age=\\d+"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-PRODUCTION-168--business-api",
+      "planScenarioId": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:businessProductionBaseUrl}}/api/health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "matches": "(?i)max-age=\\d+"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-PRODUCTION-168--business-error",
+      "planScenarioId": "STEP15-HEADERS-HSTS-PRODUCTION-168",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessProduction"
+      ],
+      "method": "GET",
+      "url": "{{var:businessProductionBaseUrl}}/api/v1/step15-not-found",
+      "headers": {},
+      "expect": {
+        "status": 404,
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "matches": "(?i)max-age=\\d+"
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-DEVELOPMENT-169--business",
+      "planScenarioId": "STEP15-HEADERS-HSTS-DEVELOPMENT-169",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "exists": false
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli Business API"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-DEVELOPMENT-169--customer-http",
+      "planScenarioId": "STEP15-HEADERS-HSTS-DEVELOPMENT-169",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customerHttp"
+      ],
+      "method": "GET",
+      "url": "{{var:customerHttpBaseUrl}}/api/Health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "exists": false
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli APIs"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-HSTS-DEVELOPMENT-169--business-http",
+      "planScenarioId": "STEP15-HEADERS-HSTS-DEVELOPMENT-169",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "businessHttp"
+      ],
+      "method": "GET",
+      "url": "{{var:businessHttpBaseUrl}}/api/health",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=(), payment=()"
+          },
+          "Strict-Transport-Security": {
+            "exists": false
+          }
+        },
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ],
+        "json": [
+          {
+            "path": "$",
+            "propertyNamesEqual": [
+              "status",
+              "service",
+              "timestamp",
+              "version"
+            ]
+          },
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli Business API"
+          },
+          {
+            "path": "$.timestamp",
+            "matches": "^\\d{4}-\\d{2}-\\d{2}T"
+          },
+          {
+            "path": "$.version",
+            "equals": "v1"
+          }
+        ],
+        "jsonPropertyCount": 4
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--customer-index",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/index.html",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/html",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          "swagger-ui-bundle.js"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--customer-css",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/swagger-ui.css",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/css",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          ".swagger-ui{"
+        ],
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--customer-json",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          "\"openapi\""
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "ActiveSecret",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--business-index",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/index.html",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/html",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          "swagger-ui-bundle.js"
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "Password",
+          "Bearer ",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--business-css",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/swagger-ui.css",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "text/css",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          ".swagger-ui{"
+        ],
+        "bodyNotContains": [
+          "SqlException",
+          "ConnectionString",
+          "X-Device-Token",
+          "X-Ghseeli-Signature",
+          "ActiveSecret",
+          "Stripe-Signature",
+          "sk_live_",
+          "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-HEADERS-SWAGGER-CSP-170--business-json",
+      "planScenarioId": "STEP15-HEADERS-SWAGGER-CSP-170",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "business"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {},
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Content-Type-Options": {
+            "equals": "nosniff"
+          },
+          "X-Frame-Options": {
+            "equals": "DENY"
+          },
+          "Referrer-Policy": {
+            "equals": "no-referrer"
+          },
+          "Permissions-Policy": {
+            "equals": "camera=(), microphone=(), geolocation=()"
+          },
+          "Content-Security-Policy": {
+            "matches": "(?i)default-src.*frame-ancestors"
+          }
+        },
+        "bodyContains": [
+          "\"openapi\""
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "ActiveSecret",
+          "sk_live_",
+          "whsec_",
+          "client_secret",
+          "@example.com"
+        ]
+      }
+    }
+  ]
+}

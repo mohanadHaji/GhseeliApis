@@ -60,7 +60,7 @@ public sealed class CheckoutPaymentCapabilitiesService : ICheckoutPaymentCapabil
             ReasonCode = reasonCode
         };
 
-    private static bool IsStripeConfigured(StripeConfigurationOptions options) =>
+    public static bool IsStripeConfigured(StripeConfigurationOptions options) =>
         IsConfiguredKey(options.PublishableKey, "pk_") &&
         IsConfiguredKey(options.SecretKey, "sk_");
 

@@ -46,6 +46,8 @@ public sealed class CustomerBooking
     public bool TaxAppliesToServiceFee { get; set; }
     public decimal Tax { get; set; }
     public decimal GrandTotal { get; set; }
+    public bool IsPaid { get; set; }
+    public string PaymentState { get; set; } = "Unpaid";
     public int TotalDurationMinutes { get; set; }
     public DateTimeOffset QuotedAtUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
@@ -53,6 +55,7 @@ public sealed class CustomerBooking
     public ICollection<CustomerBookingItem> Items { get; set; } = new List<CustomerBookingItem>();
     public ICollection<ProcessedBookingStatusMessage> ProcessedStatusMessages { get; set; } =
         new List<ProcessedBookingStatusMessage>();
+    public CustomerPayment? Payment { get; set; }
 }
 
 public sealed class BookingConfirmationAttempt

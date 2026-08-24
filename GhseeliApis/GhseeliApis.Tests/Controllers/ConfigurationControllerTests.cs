@@ -66,11 +66,11 @@ public class ConfigurationControllerTests
         badRequest.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         var problem = badRequest.Value.Should().BeOfType<ProblemDetails>().Subject;
         problem.Extensions["code"].Should().Be(ConfigurationProblemCodes.LanguageInvalid);
-        problem.Extensions["language"].Should().Be(ConfigurationLanguageResolver.Hebrew);
+        problem.Extensions["language"].Should().Be(ConfigurationLanguageResolver.Arabic);
         problem.Extensions["correlationId"].Should().Be("corr-step8-controller");
         var fieldErrors = problem.Extensions["fieldErrors"]
             .Should()
-            .BeOfType<Dictionary<string, string[]>>()
+            .BeAssignableTo<IDictionary<string, string[]>>()
             .Subject;
         fieldErrors.Should().ContainKey("language");
         _service.VerifyNoOtherCalls();
@@ -87,7 +87,7 @@ public class ConfigurationControllerTests
         badRequest.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
         var problem = badRequest.Value.Should().BeOfType<ProblemDetails>().Subject;
         problem.Extensions["code"].Should().Be(ConfigurationProblemCodes.LanguageInvalid);
-        problem.Extensions["language"].Should().Be(ConfigurationLanguageResolver.Hebrew);
+        problem.Extensions["language"].Should().Be(ConfigurationLanguageResolver.Arabic);
         _service.VerifyNoOtherCalls();
     }
 

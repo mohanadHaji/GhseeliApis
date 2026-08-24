@@ -47,7 +47,7 @@ public class CompanyProfileController : ControllerBase
     public Task<IActionResult> CreateBranch(CreateBranchRequest request)
     {
         return ExecuteAsync(async () => JsonResponse(
-            StatusCodes.Status200OK,
+            StatusCodes.Status201Created,
             await _companyService.CreateBranchAsync(GetUserId(), request)));
     }
 

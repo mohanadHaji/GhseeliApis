@@ -2,6 +2,7 @@ using Ghseeli.Common.Logging;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace GhseeliApis.Middleware;
@@ -33,7 +34,10 @@ public static class DeviceHttpContextExtensions
 public sealed class DeviceTokenMiddleware
 {
     private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
+        new(JsonSerializerDefaults.Web)
+        {
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
     private readonly RequestDelegate _next;
     private readonly IAppLogger _logger;
 
@@ -106,14 +110,23 @@ public sealed class DeviceTokenMiddleware
 
         var endpoint = context.GetEndpoint();
         return endpoint is not null &&
+               !string.Equals(
+                   endpoint.DisplayName,
+                   "405 HTTP Method Not Supported",
+                   StringComparison.Ordinal) &&
                endpoint.Metadata.GetMetadata<AllowWithoutDeviceTokenAttribute>() is null;
     }
 
     private static Task WriteProblemAsync(HttpContext context, string code)
     {
-        var language = ConfigurationLanguageResolver.Resolve(
-            context.Request.Query["language"].ToString(),
-            context.Request.Headers["Accept-Language"].ToString());
+        var explicitLanguage = context.Request.Query.ContainsKey("language")
+            ? context.Request.Query["language"].ToString()
+            : null;
+        var language = explicitLanguage is not null
+            ? ConfigurationLanguageResolver.Resolve(explicitLanguage, null)
+            : ConfigurationLanguageResolver.Resolve(
+                null,
+                context.Request.Headers.AcceptLanguage.ToString());
         var payload = DeviceProblemDetailsFactory.Create(
             StatusCodes.Status401Unauthorized,
             code,
@@ -121,7 +134,8 @@ public sealed class DeviceTokenMiddleware
             context.TraceIdentifier);
 
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-        context.Response.ContentType = "application/problem+json";
+        context.Response.ContentType = "application/problem+json; charset=utf-8";
+        context.Response.Headers.CacheControl = "no-store";
         return context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions));
     }
 }

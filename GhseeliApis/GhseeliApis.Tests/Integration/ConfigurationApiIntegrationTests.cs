@@ -169,6 +169,7 @@ public class ConfigurationApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CONFIGURATION-059")]
     public async Task GetConfiguration_WithValidDeviceToken_ReturnsLocalizedConfiguration()
     {
         var validToken = Token(5);
@@ -215,11 +216,11 @@ public class ConfigurationApiIntegrationTests
         AssertProblem(
             document.RootElement,
             HttpStatusCode.BadRequest,
-            ConfigurationProblemCodes.LanguageInvalid,
-            ConfigurationLanguageResolver.Hebrew);
+            "language_invalid",
+            ConfigurationLanguageResolver.Arabic);
         document.RootElement.GetProperty("detail").GetString()
             .Should()
-            .Be("שפת הבקשה אינה נתמכת. השתמש ב-ar או ב-he.");
+            .Be("اللغة المطلوبة غير مدعومة.");
     }
 
     [Fact]

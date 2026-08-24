@@ -92,10 +92,10 @@ public class StripePaymentServiceTests
         // Assert
         _mockLogger.Verify(
             l => l.LogInfo(It.Is<string>(s =>
-                s.Contains("Processing Stripe payment") &&
+                s.Contains("Processing legacy Stripe payment") &&
                 s.Contains(amount.ToString()) &&
                 s.Contains(currency) &&
-                s.Contains(paymentMethodId))),
+                !s.Contains(paymentMethodId))),
             Times.Once);
     }
 

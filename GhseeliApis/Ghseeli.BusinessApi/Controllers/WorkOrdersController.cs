@@ -48,6 +48,17 @@ public sealed class WorkOrdersController : ControllerBase
                 BookingStatusErrorCodes.Invalid,
                 "The transition request is invalid.");
         }
+        var idempotencyValues = Request.Headers[
+            InternalServiceWireConstants.IdempotencyKeyHeaderName];
+        var idempotencyKey = idempotencyValues.ToString();
+        if (idempotencyValues.Count != 1 ||
+            !InternalServiceHeaderValueValidator.IsValidIdempotencyKey(idempotencyKey))
+        {
+            return ProblemResult(
+                StatusCodes.Status400BadRequest,
+                BookingStatusErrorCodes.Invalid,
+                "A valid Idempotency-Key header is required.");
+        }
         try
         {
             var response = await _service.TransitionAsync(
@@ -56,7 +67,8 @@ public sealed class WorkOrdersController : ControllerBase
                 id,
                 request.Status,
                 HttpContext.TraceIdentifier,
-                cancellationToken);
+                cancellationToken,
+                idempotencyKey);
             return response is null
                 ? ProblemResult(
                     StatusCodes.Status404NotFound,
@@ -79,6 +91,13 @@ public sealed class WorkOrdersController : ControllerBase
                 StatusCodes.Status409Conflict,
                 BookingStatusErrorCodes.TransitionConflict,
                 "The work order changed concurrently. Refresh it and retry the transition.");
+        }
+        catch (DbUpdateException)
+        {
+            return ProblemResult(
+                StatusCodes.Status409Conflict,
+                BookingStatusErrorCodes.TransitionConflict,
+                "The idempotency key conflicts with a different transition request.");
         }
     }
 

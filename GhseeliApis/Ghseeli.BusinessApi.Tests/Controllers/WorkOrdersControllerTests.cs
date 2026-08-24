@@ -48,7 +48,8 @@ public sealed class WorkOrdersControllerTests
         var service = new Mock<IBookingStatusService>();
         service.Setup(value => value.TransitionAsync(
                 It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<Guid>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(),
+                It.IsAny<string?>()))
             .ThrowsAsync(new DbUpdateConcurrencyException("database detail"));
         var controller = new WorkOrdersController(service.Object)
         {
@@ -65,6 +66,7 @@ public sealed class WorkOrdersControllerTests
             new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.Role, BusinessRoles.Owner)
         ], "Test"));
+        controller.Request.Headers["Idempotency-Key"] = "transition-race-key";
 
         var result = await controller.Transition(
             Guid.NewGuid(),

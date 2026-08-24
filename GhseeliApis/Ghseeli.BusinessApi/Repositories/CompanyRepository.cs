@@ -19,9 +19,15 @@ public class CompanyRepository : BusinessMutationRepositoryBase, ICompanyReposit
         Company company,
         BusinessUserAssignment assignment)
     {
-        await using var transaction = await Context.Database.BeginTransactionAsync();
         Context.Companies.Add(company);
         Context.BusinessUserAssignments.Add(assignment);
+        if (!Context.Database.IsRelational())
+        {
+            await Context.SaveChangesAsync();
+            return;
+        }
+
+        await using var transaction = await Context.Database.BeginTransactionAsync();
         await Context.SaveChangesAsync();
         await transaction.CommitAsync();
     }

@@ -717,7 +717,8 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         AssertSingleJsonObject(payload);
         payload.Should().Contain(expectedCode);
         payload.Should().Contain("corr-step13");
-        payload.Should().Contain("בקשת");
+        payload.Should().Contain("Internal booking status request was rejected.");
+        payload.Should().NotContainAny("בקשת", "הזמנה", "الحجز");
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         (await context.ProcessedBookingStatusMessages.CountAsync()).Should().Be(0);
@@ -798,6 +799,7 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         string expectedCode,
         HttpStatusCode expectedStatus)
     {
+        _ = scenarioId;
         using var factory = new BookingStatusCallbackFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -839,7 +841,9 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         using var request = CreateSignedRequest(
             client,
             message,
-            Guid.NewGuid().ToString("N"));
+            Guid.NewGuid().ToString("N"),
+            language: "he");
+        request.Headers.AcceptLanguage.ParseAdd("he");
 
         using var response = await client.SendAsync(request);
         var payload = await response.Content.ReadAsStringAsync();
@@ -851,7 +855,12 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         using var document = JsonDocument.Parse(payload);
         document.RootElement.GetProperty("code").GetString().Should().Be(expectedCode);
         document.RootElement.GetProperty("correlationId").GetString().Should().Be("corr-step13");
-        scenarioId.Should().StartWith("STEP13-");
+        document.RootElement.GetProperty("title").GetString()
+            .Should().Be("Internal booking status request was rejected.");
+        document.RootElement.GetProperty("detail").GetString()
+            .Should().NotContainAny("בקשת", "הזמנה", "الحجز");
+        document.RootElement.TryGetProperty("language", out _).Should().BeFalse();
+        response.Content.Headers.ContentLanguage.Should().BeEmpty();
     }
 
     [Fact]
@@ -974,7 +983,7 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
 
     [Fact]
     [Trait("ScenarioId", "STEP13-LOCALIZATION-MALFORMED-078B")]
-    public async Task Read_UnsupportedExplicitLanguage_ReturnsLocalized400BeforeLookup()
+    public async Task Read_UnsupportedExplicitLanguage_IsIgnoredByMachineContract()
     {
         using var factory = new BookingStatusCallbackFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -990,24 +999,25 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         using var response = await client.SendAsync(request);
         var payload = await response.Content.ReadAsStringAsync();
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
         response.Headers.CacheControl!.NoStore.Should().BeTrue();
         AssertSingleJsonObject(payload);
         using var document = JsonDocument.Parse(payload);
         document.RootElement.GetProperty("code").GetString()
-            .Should().Be("configuration_language_invalid");
-        document.RootElement.GetProperty("title").GetString().Should().Contain("אימות");
+            .Should().Be(BookingStatusErrorCodes.NotFound);
+        document.RootElement.GetProperty("title").GetString()
+            .Should().Be("Internal booking status request was rejected.");
+        document.RootElement.TryGetProperty("language", out _).Should().BeFalse();
         document.RootElement.GetProperty("correlationId").GetString().Should().Be("corr-step13");
     }
 
     [Theory]
-    [InlineData("he", "ar", "בקשת")]
-    [InlineData(null, "-, ;q=1", "تم رفض")]
-    public async Task Read_LanguageSelection_LocalizesNotFoundSafely(
+    [InlineData("he", "ar")]
+    [InlineData(null, "-, ;q=1")]
+    public async Task Read_LanguageInputs_DoNotLocalizeMachineContract(
         string? queryLanguage,
-        string acceptLanguage,
-        string expectedTitleFragment)
+        string acceptLanguage)
     {
         using var factory = new BookingStatusCallbackFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
@@ -1027,14 +1037,17 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         AssertSingleJsonObject(payload);
         using var document = JsonDocument.Parse(payload);
         document.RootElement.GetProperty("title").GetString()
-            .Should().Contain(expectedTitleFragment);
+            .Should().Be("Internal booking status request was rejected.");
+        document.RootElement.TryGetProperty("language", out _).Should().BeFalse();
+        response.Content.Headers.ContentLanguage.Should().BeEmpty();
     }
 
     private static HttpRequestMessage CreateSignedRequest(
         HttpClient client,
         BookingStatusChangedMessage message,
         string nonce,
-        string secret = BookingStatusCallbackFactory.Secret)
+        string secret = BookingStatusCallbackFactory.Secret,
+        string? language = null)
     {
         var json = JsonSerializer.Serialize(
             message,
@@ -1044,7 +1057,8 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
             Encoding.UTF8.GetBytes(json),
             nonce,
             $"transport-{Guid.NewGuid():N}",
-            secret);
+            secret,
+            language: language);
     }
 
     private static HttpRequestMessage CreateSignedRequest(
@@ -1054,15 +1068,24 @@ public sealed class BookingStatusCallbackSecurityIntegrationTests
         string idempotencyKey,
         string secret = BookingStatusCallbackFactory.Secret,
         string contentType = "application/json",
-        DateTimeOffset? timestamp = null)
+        DateTimeOffset? timestamp = null,
+        string? language = null)
     {
         var timestampText = (timestamp ?? DateTimeOffset.UtcNow).ToString("O");
-        var uri = new Uri(client.BaseAddress!, "/api/v1/internal/bookings/status");
+        var query = language is null
+            ? string.Empty
+            : $"?language={Uri.EscapeDataString(language)}";
+        var uri = new Uri(
+            client.BaseAddress!,
+            $"/api/v1/internal/bookings/status{query}");
+        var queryPairs = language is null
+            ? Array.Empty<KeyValuePair<string, string?>>()
+            : [new KeyValuePair<string, string?>("language", language)];
         var canonical = InternalServiceCanonicalRequest.Build(
             BookingStatusCallbackFactory.ServiceId,
             "POST",
             uri.AbsolutePath,
-            Array.Empty<KeyValuePair<string, string?>>(),
+            queryPairs,
             timestampText,
             nonce,
             idempotencyKey,

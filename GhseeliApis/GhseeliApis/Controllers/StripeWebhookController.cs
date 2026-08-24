@@ -1,255 +1,136 @@
-using GhseeliApis.Handlers.Interfaces;
+using System.Text;
 using Ghseeli.Common.Logging;
-using GhseeliApis.Models.Enums;
+using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Payments;
 using Microsoft.AspNetCore.Mvc;
-using Stripe;
+using Microsoft.Extensions.Options;
 
 namespace GhseeliApis.Controllers;
 
-/// <summary>
-/// Controller for handling Stripe webhook events
-/// </summary>
 [ApiController]
 [Route("api/stripe")]
-public class StripeWebhookController : ControllerBase
+public sealed class StripeWebhookController : ControllerBase
 {
-    private readonly IPaymentHandler _paymentHandler;
+    public const long MaxBodyBytes = 65_536;
+    private readonly IStripeWebhookParser _parser;
+    private readonly IStripeWebhookService _service;
+    private readonly IOptionsMonitor<StripeConfigurationOptions> _options;
     private readonly IAppLogger _logger;
-    private readonly IConfiguration _configuration;
 
     public StripeWebhookController(
-        IPaymentHandler paymentHandler,
-        IAppLogger logger,
-        IConfiguration configuration)
+        IStripeWebhookParser parser,
+        IStripeWebhookService service,
+        IOptionsMonitor<StripeConfigurationOptions> options,
+        IAppLogger logger)
     {
-        _paymentHandler = paymentHandler;
+        _parser = parser;
+        _service = service;
+        _options = options;
         _logger = logger;
-        _configuration = configuration;
     }
 
-    /// <summary>
-    /// Webhook endpoint for Stripe events
-    /// </summary>
     [HttpPost("webhook")]
-    public async Task<IActionResult> HandleWebhook()
+    [RequestSizeLimit(MaxBodyBytes)]
+    public async Task<IActionResult> HandleWebhook(CancellationToken cancellationToken = default)
     {
-        var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
-        
+        Response.Headers.CacheControl = "no-store";
+        if (Request.ContentType is null ||
+            !Request.ContentType.StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProblemResult(415, CustomerPaymentErrorCodes.WebhookUnsupportedMediaType);
+        }
+
+        if (Request.ContentLength > MaxBodyBytes)
+        {
+            return ProblemResult(413, CustomerPaymentErrorCodes.WebhookTooLarge);
+        }
+
+        var secret = _options.CurrentValue.WebhookSecret?.Trim();
+        if (string.IsNullOrWhiteSpace(secret) ||
+            !secret.StartsWith("whsec_", StringComparison.Ordinal))
+        {
+            _logger.LogError("Stripe webhook configuration is invalid.");
+            return ProblemResult(503, CustomerPaymentErrorCodes.WebhookConfiguration);
+        }
+
+        string rawBody;
         try
         {
-            var webhookSecret = _configuration["Stripe:WebhookSecret"];
-            
-            if (string.IsNullOrEmpty(webhookSecret))
-            {
-                _logger.LogError("Stripe webhook secret is not configured");
-                return BadRequest("Webhook secret not configured");
-            }
-
-            // Verify webhook signature
-            var stripeSignature = Request.Headers["Stripe-Signature"].ToString();
-            
-            Event stripeEvent;
-            try
-            {
-                stripeEvent = EventUtility.ConstructEvent(
-                    json,
-                    stripeSignature,
-                    webhookSecret
-                );
-            }
-            catch (StripeException ex)
-            {
-                _logger.LogError($"Stripe webhook signature verification failed: {ex.Message}");
-                return BadRequest("Invalid signature");
-            }
-
-            _logger.LogInfo($"Stripe webhook received: {stripeEvent.Type}, ID: {stripeEvent.Id}");
-
-            // Handle different event types
-            switch (stripeEvent.Type)
-            {
-                case Events.PaymentIntentSucceeded:
-                    await HandlePaymentIntentSucceeded(stripeEvent);
-                    break;
-
-                case Events.PaymentIntentPaymentFailed:
-                    await HandlePaymentIntentFailed(stripeEvent);
-                    break;
-
-                case Events.ChargeRefunded:
-                    await HandleChargeRefunded(stripeEvent);
-                    break;
-
-                case Events.PaymentIntentCanceled:
-                    await HandlePaymentIntentCanceled(stripeEvent);
-                    break;
-
-                default:
-                    _logger.LogInfo($"Unhandled webhook event type: {stripeEvent.Type}");
-                    break;
-            }
-
-            return Ok(new { received = true });
+            rawBody = await ReadBoundedBodyAsync(Request.Body, cancellationToken);
         }
-        catch (Exception ex)
+        catch (CustomerPaymentException exception)
         {
-            _logger.LogError($"Error processing Stripe webhook: {ex.Message}", ex);
-            
-            // Return 200 to prevent Stripe from retrying (we've logged the error)
-            // In production, you might want to return 500 for transient errors
-            return Ok(new { received = true, error = "Internal error occurred" });
+            return ProblemResult(exception.StatusCode, exception.Code);
         }
+
+        var signature = Request.Headers["Stripe-Signature"].ToString();
+        if (string.IsNullOrWhiteSpace(signature))
+        {
+            return ProblemResult(400, CustomerPaymentErrorCodes.SignatureMissing);
+        }
+
+        VerifiedStripeEvent stripeEvent;
+        try
+        {
+            stripeEvent = _parser.Parse(
+                rawBody,
+                signature,
+                secret);
+            await _service.ProcessAsync(stripeEvent, rawBody, cancellationToken);
+        }
+        catch (CustomerPaymentException exception)
+        {
+            return ProblemResult(exception.StatusCode, exception.Code);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                $"Verified Stripe webhook processing did not complete durably: {exception.GetType().Name}.");
+            return ProblemResult(503, CustomerPaymentErrorCodes.GatewayAmbiguous);
+        }
+
+        return Ok(new { received = true });
     }
 
-    private async Task HandlePaymentIntentSucceeded(Event stripeEvent)
+    private static async Task<string> ReadBoundedBodyAsync(
+        Stream body,
+        CancellationToken cancellationToken)
     {
-        var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-        if (paymentIntent == null)
+        using var buffer = new MemoryStream();
+        var bytes = new byte[8192];
+        while (true)
         {
-            _logger.LogWarning("PaymentIntent object is null in payment_intent.succeeded event");
-            return;
-        }
-
-        _logger.LogInfo($"Payment intent succeeded: {paymentIntent.Id}, Amount: {paymentIntent.Amount}");
-
-        // Extract booking ID from metadata
-        if (paymentIntent.Metadata.TryGetValue("booking_id", out var bookingIdStr) &&
-            Guid.TryParse(bookingIdStr, out var bookingId))
-        {
-            // Find payment by booking ID
-            var payment = await _paymentHandler.GetByBookingIdAsync(bookingId);
-            
-            if (payment == null)
+            var read = await body.ReadAsync(bytes.AsMemory(0, bytes.Length), cancellationToken);
+            if (read == 0)
             {
-                _logger.LogWarning($"Payment not found for booking {bookingId}");
-                return;
+                break;
             }
 
-            // Update payment status if not already completed
-            if (payment.Status != PaymentStatus.Completed)
+            if (buffer.Length + read > MaxBodyBytes)
             {
-                _logger.LogInfo($"Updating payment {payment.Id} to Completed via webhook");
-                await _paymentHandler.UpdateStatusAsync(payment.Id, PaymentStatus.Completed);
+                throw new CustomerPaymentException(413, CustomerPaymentErrorCodes.WebhookTooLarge);
             }
-            else
-            {
-                _logger.LogInfo($"Payment {payment.Id} already completed, skipping update");
-            }
+            await buffer.WriteAsync(bytes.AsMemory(0, read), cancellationToken);
         }
-        else
-        {
-            _logger.LogWarning($"No valid booking_id in PaymentIntent metadata: {paymentIntent.Id}");
-        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
     }
 
-    private async Task HandlePaymentIntentFailed(Event stripeEvent)
-    {
-        var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-        if (paymentIntent == null)
+    private ObjectResult ProblemResult(int status, string code) =>
+        new(new ProblemDetails
         {
-            _logger.LogWarning("PaymentIntent object is null in payment_intent.payment_failed event");
-            return;
-        }
-
-        _logger.LogWarning($"Payment intent failed: {paymentIntent.Id}, Reason: {paymentIntent.LastPaymentError?.Message}");
-
-        // Extract booking ID from metadata
-        if (paymentIntent.Metadata.TryGetValue("booking_id", out var bookingIdStr) &&
-            Guid.TryParse(bookingIdStr, out var bookingId))
-        {
-            // Find payment by booking ID
-            var payment = await _paymentHandler.GetByBookingIdAsync(bookingId);
-            
-            if (payment == null)
+            Type = $"https://api.ghseeli.example/errors/{code}",
+            Status = status,
+            Title = "Stripe webhook request could not be processed.",
+            Detail = "Stripe webhook request could not be processed.",
+            Extensions =
             {
-                _logger.LogWarning($"Payment not found for booking {bookingId}");
-                return;
+                ["code"] = code,
+                ["correlationId"] = HttpContext.TraceIdentifier
             }
-
-            // Update payment status to Failed
-            if (payment.Status == PaymentStatus.Pending)
-            {
-                _logger.LogInfo($"Updating payment {payment.Id} to Failed via webhook");
-                await _paymentHandler.UpdateStatusAsync(payment.Id, PaymentStatus.Failed);
-            }
-            else
-            {
-                _logger.LogInfo($"Payment {payment.Id} status is {payment.Status}, skipping update");
-            }
-        }
-        else
+        })
         {
-            _logger.LogWarning($"No valid booking_id in PaymentIntent metadata: {paymentIntent.Id}");
-        }
-    }
-
-    private async Task HandleChargeRefunded(Event stripeEvent)
-    {
-        var charge = stripeEvent.Data.Object as Charge;
-        if (charge == null)
-        {
-            _logger.LogWarning("Charge object is null in charge.refunded event");
-            return;
-        }
-
-        _logger.LogInfo($"Charge refunded: {charge.Id}, Amount: {charge.AmountRefunded}");
-
-        // Find payment by transaction ID (charge ID)
-        var allPayments = await _paymentHandler.GetAllAsync();
-        var payment = allPayments.FirstOrDefault(p => p.TransactionId == charge.Id);
-
-        if (payment == null)
-        {
-            _logger.LogWarning($"Payment not found for charge {charge.Id}");
-            return;
-        }
-
-        // Update payment status to Refunded if not already
-        if (payment.Status != PaymentStatus.Refunded)
-        {
-            _logger.LogInfo($"Updating payment {payment.Id} to Refunded via webhook");
-            await _paymentHandler.UpdateStatusAsync(payment.Id, PaymentStatus.Refunded);
-        }
-        else
-        {
-            _logger.LogInfo($"Payment {payment.Id} already refunded, skipping update");
-        }
-    }
-
-    private async Task HandlePaymentIntentCanceled(Event stripeEvent)
-    {
-        var paymentIntent = stripeEvent.Data.Object as PaymentIntent;
-        if (paymentIntent == null)
-        {
-            _logger.LogWarning("PaymentIntent object is null in payment_intent.canceled event");
-            return;
-        }
-
-        _logger.LogInfo($"Payment intent canceled: {paymentIntent.Id}");
-
-        // Extract booking ID from metadata
-        if (paymentIntent.Metadata.TryGetValue("booking_id", out var bookingIdStr) &&
-            Guid.TryParse(bookingIdStr, out var bookingId))
-        {
-            // Find payment by booking ID
-            var payment = await _paymentHandler.GetByBookingIdAsync(bookingId);
-            
-            if (payment == null)
-            {
-                _logger.LogWarning($"Payment not found for booking {bookingId}");
-                return;
-            }
-
-            // Update payment status to Failed (treat cancellation as failure)
-            if (payment.Status == PaymentStatus.Pending)
-            {
-                _logger.LogInfo($"Updating payment {payment.Id} to Failed (canceled) via webhook");
-                await _paymentHandler.UpdateStatusAsync(payment.Id, PaymentStatus.Failed);
-            }
-        }
-        else
-        {
-            _logger.LogWarning($"No valid booking_id in PaymentIntent metadata: {paymentIntent.Id}");
-        }
-    }
+            StatusCode = status,
+            ContentTypes = { "application/problem+json" }
+        };
 }

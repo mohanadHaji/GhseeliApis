@@ -43,6 +43,7 @@ public sealed class BookingStatusOutboxAdminApiIntegrationTests :
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-BUSINESS-OUTBOX-REQUEUE-109")]
     public async Task Requeue_AdminDeadLetter_RequeuesAndRepeatIsIdempotent()
     {
         var eventId = await AddEventAsync(BookingStatusOutboxStates.DeadLetter);
@@ -63,6 +64,7 @@ public sealed class BookingStatusOutboxAdminApiIntegrationTests :
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-BUSINESS-OUTBOX-REQUEUE-109")]
     public async Task Requeue_AdminUnknownId_ReturnsSafeNonEnumeratingNotFound()
     {
         var admin = _factory.CreateAuthenticatedClient(
@@ -79,6 +81,7 @@ public sealed class BookingStatusOutboxAdminApiIntegrationTests :
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP15-BUSINESS-OUTBOX-REQUEUE-109")]
     public async Task Requeue_AdminLeasedEvent_ReturnsConflictWithoutMutation()
     {
         var eventId = await AddEventAsync(BookingStatusOutboxStates.Leased);

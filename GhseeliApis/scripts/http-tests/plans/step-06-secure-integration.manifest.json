@@ -51,17 +51,27 @@
       "method": "GET",
       "url": "/api/health",
       "headers": {
-        "Accept": "text/plain"
+        "Accept": "application/json"
       },
       "expect": {
         "status": 200,
-        "contentType": "text/plain",
+        "contentType": "application/json",
         "headers": {
           "X-Correlation-Id": {
             "exists": true,
             "matches": "^[0-9a-f]{32}$"
           }
-        }
+        },
+        "json": [
+          {
+            "path": "$.status",
+            "equals": "Healthy"
+          },
+          {
+            "path": "$.service",
+            "equals": "Ghseeli Business API"
+          }
+        ]
       }
     },
     {
@@ -154,7 +164,7 @@
         "longitude": 46.6753
       },
       "expect": {
-        "status": 200,
+        "status": 201,
         "contentType": "application/json",
         "json": [
           {
@@ -629,11 +639,11 @@
           },
           {
             "path": "$.missingHeaders[0]",
-            "equals": "X-Ghseeli-Service-Id"
+            "equals": "serviceId"
           },
           {
             "path": "$.missingHeaders[3]",
-            "equals": "X-Ghseeli-Signature"
+            "equals": "signature"
           }
         ],
         "errorCode": {
@@ -1238,7 +1248,7 @@
         "json": [
           {
             "path": "$.missingHeaders[0]",
-            "equals": "X-Ghseeli-Service-Id"
+            "equals": "serviceId"
           },
           {
             "path": "$.detail",

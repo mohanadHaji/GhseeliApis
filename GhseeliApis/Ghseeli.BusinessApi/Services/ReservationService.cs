@@ -397,7 +397,8 @@ public sealed class ReservationService : IReservationService
         {
             throw new ReservationRejectedException(
                 ReservationErrorCodes.Invalid,
-                "The order identifier is already associated with another reservation request.");
+                "The order identifier is already associated with another reservation request.",
+                isStateConflict: true);
         }
 
     }

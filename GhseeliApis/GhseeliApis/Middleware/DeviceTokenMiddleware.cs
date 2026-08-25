@@ -70,25 +70,29 @@ public sealed class DeviceTokenMiddleware
             return;
         }
 
-        var result = await deviceService.AuthenticateAsync(token, context.RequestAborted);
-        if (!result.IsAuthenticated)
+        if (context.GetDeviceId() is not Guid deviceId)
         {
-            await WriteProblemAsync(
-                context,
-                result.Code ?? DeviceProblemCodes.TokenInvalid);
-            return;
-        }
+            var result = await deviceService.AuthenticateAsync(token, context.RequestAborted);
+            if (!result.IsAuthenticated)
+            {
+                await WriteProblemAsync(
+                    context,
+                    result.Code ?? DeviceProblemCodes.TokenInvalid);
+                return;
+            }
 
-        context.SetDeviceIdentity(result.DeviceId!.Value, result.InstallationId!.Value);
+            deviceId = result.DeviceId!.Value;
+            context.SetDeviceIdentity(deviceId, result.InstallationId!.Value);
+        }
 
         try
         {
-            await deviceService.UpdateLastSeenAsync(result.DeviceId.Value, context.RequestAborted);
+            await deviceService.UpdateLastSeenAsync(deviceId, context.RequestAborted);
         }
         catch (DbUpdateException exception)
         {
             _logger.LogWarning(
-                $"Unable to update last-seen metadata for device {result.DeviceId.Value}: {exception.GetType().Name}");
+                $"Unable to update last-seen metadata for device {deviceId}: {exception.GetType().Name}");
         }
 
         await _next(context);

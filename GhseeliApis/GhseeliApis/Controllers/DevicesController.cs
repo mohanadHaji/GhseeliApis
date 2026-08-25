@@ -1,9 +1,11 @@
 using Ghseeli.Common.Logging;
 using GhseeliApis.DTOs.Devices;
 using GhseeliApis.Middleware;
+using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace GhseeliApis.Controllers;
 
@@ -25,6 +27,7 @@ public sealed class DevicesController : ControllerBase
 
     [HttpPost("register")]
     [AllowWithoutDeviceToken]
+    [EnableRateLimiting(CustomerRateLimitPolicyNames.DeviceRegistration)]
     [ProducesResponseType<RegisterDeviceResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -55,6 +58,8 @@ public sealed class DevicesController : ControllerBase
             };
             problem.Extensions["code"] = exception.Code;
             problem.Extensions["correlationId"] = HttpContext.TraceIdentifier;
+            problem.Extensions["language"] = ConfigurationLanguageResolver.ResolveFromHeader(
+                Request.Headers.AcceptLanguage.ToString());
             return new ObjectResult(problem)
             {
                 StatusCode = exception.StatusCode,

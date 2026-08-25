@@ -52,6 +52,26 @@ Self-tests:
 powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1
 ```
 
+## Step 17 release gate
+
+Static validation is side-effect free:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-Step17LiveLocal.ps1 `
+  -Phase Validate
+```
+
+The Step 17 runner reuses the Step 16 disposable-database initializer,
+invariant verifier, and guarded cleanup. When `-Execute` is supplied, it
+generates test-only passwords, JWT/HMAC keys, service IDs, and the deterministic
+fake-payment opt-in in `artifacts\step-17.runtime.local.json`. Existing valid
+configuration is reused across phase-by-phase runs and cleanup removes it.
+Fixture IDs are derived from the disposable databases rather than supplied in
+chat or committed. The runner refuses Production, never selects
+`STEP14-INTENT-REAL-STRIPE-057`, and keeps generated bodies, filtered inherited
+manifests, state, and raw results directly under the gitignored `artifacts\`
+directory.
+
 ## Base URL and variables
 
 Base URL can come from:

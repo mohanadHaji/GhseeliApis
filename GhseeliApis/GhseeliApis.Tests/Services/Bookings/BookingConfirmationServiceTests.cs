@@ -379,7 +379,7 @@ public class BookingConfirmationServiceTests
         firstItem.Selections.Single().DisplayOrder = 1;
         var secondChoiceId = Guid.NewGuid();
         var secondGroupId = Guid.NewGuid();
-        firstItem.Selections.Add(new CheckoutDraftPricingSelectionSnapshot
+        var secondSelection = new CheckoutDraftPricingSelectionSnapshot
         {
             AddonGroupSourceId = secondGroupId,
             AddonChoiceSourceId = secondChoiceId,
@@ -390,7 +390,8 @@ public class BookingConfirmationServiceTests
             UnitDurationAdjustmentMinutes = 2,
             TotalDurationAdjustmentMinutes = 4,
             DisplayOrder = 0
-        });
+        };
+        firstItem.Selections.Add(secondSelection);
         firstItem.AddonSubtotal = 16m;
         firstItem.ItemSubtotal = 116m;
         firstItem.TotalDurationMinutes = 49;
@@ -398,7 +399,7 @@ public class BookingConfirmationServiceTests
         var otherOfferingId = Guid.NewGuid();
         var otherGroupId = Guid.NewGuid();
         var otherChoiceId = Guid.NewGuid();
-        pricing.Items.Add(new CheckoutDraftPricingItemSnapshot
+        var secondItem = new CheckoutDraftPricingItemSnapshot
         {
             OfferingSourceId = otherOfferingId,
             DisplayOrder = 0,
@@ -421,7 +422,8 @@ public class BookingConfirmationServiceTests
                     DisplayOrder = 0
                 }
             ]
-        });
+        };
+        pricing.Items.Add(secondItem);
         pricing.BaseSubtotal = 150m;
         pricing.AddonSubtotal = 21m;
         pricing.ItemSubtotal = 171m;
@@ -467,7 +469,8 @@ public class BookingConfirmationServiceTests
                 }
             ]
         });
-        fixture.Context.ChangeTracker.AcceptAllChanges();
+        fixture.Context.AddRange(secondSelection, secondItem);
+        await fixture.Context.SaveChangesAsync();
         return fixture;
     }
 

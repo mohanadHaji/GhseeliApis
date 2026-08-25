@@ -38,7 +38,8 @@ public sealed class InternalReservationsController : ControllerBase
         }
         catch (ReservationRejectedException exception)
         {
-            var statusCode = exception.Code == ReservationErrorCodes.Invalid
+            var statusCode = exception.Code == ReservationErrorCodes.Invalid &&
+                !exception.IsStateConflict
                 ? StatusCodes.Status400BadRequest
                 : StatusCodes.Status409Conflict;
             var result = new ObjectResult(new InternalServiceProblemResponse

@@ -28,7 +28,6 @@ public sealed class CustomerPaymentsController : ControllerBase
 
     [HttpPost("intents")]
     [EnforceJsonRequestContentType]
-    [RequestSizeLimit(MaxIntentRequestBodyBytes)]
     [EnforceRequestBodySizeLimit(
         MaxIntentRequestBodyBytes,
         CustomerPaymentErrorCodes.RequestTooLarge)]

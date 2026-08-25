@@ -8,7 +8,11 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$BusinessDatabase,
     [string]$VariablesPath = '.\scripts\http-tests\step-13.variables.local.json',
-    [int]$FixtureCount = 12
+    [int]$FixtureCount = 12,
+    [switch]$SkipDatabaseCopy,
+    [string]$CapacityBranchId,
+    [string]$CapacityOfferingId,
+    [string]$CapacityStartDate
 )
 
 $ErrorActionPreference = 'Stop'
@@ -118,20 +122,36 @@ ORDER BY column_id
     return "INSERT INTO dbo.[$table] ($($columns.ForEach({"[$_]"} ) -join ',')) SELECT $($select -join ',') FROM dbo.[$table] WHERE $where;"
 }
 
-Copy-Database $SourceCustomerDatabase $CustomerDatabase
-Copy-Database $SourceBusinessDatabase $BusinessDatabase
+if (-not $SkipDatabaseCopy) {
+    Copy-Database $SourceCustomerDatabase $CustomerDatabase
+    Copy-Database $SourceBusinessDatabase $BusinessDatabase
 
-$env:ConnectionStrings__RemoteTest = "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
-& dotnet ef database update --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --configuration Release --no-build
-if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
-$env:ConnectionStrings__BusinessConnection = "Server=$server;Database=$BusinessDatabase;Integrated Security=true;TrustServerCertificate=true"
-& dotnet ef database update --project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --startup-project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --configuration Release --no-build
-if ($LASTEXITCODE -ne 0) { throw 'Business migration failed.' }
-Remove-Item Env:\ConnectionStrings__BusinessConnection
+    $env:ConnectionStrings__RemoteTest = "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
+    & dotnet ef database update --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --configuration Release --no-build
+    if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
+    $env:ConnectionStrings__BusinessConnection = "Server=$server;Database=$BusinessDatabase;Integrated Security=true;TrustServerCertificate=true"
+    & dotnet ef database update --project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --startup-project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --configuration Release --no-build
+    if ($LASTEXITCODE -ne 0) { throw 'Business migration failed.' }
+    Remove-Item Env:\ConnectionStrings__BusinessConnection
+}
 
-$sourceReference = [guid](Invoke-Scalar $CustomerDatabase "SELECT TOP (1) PublicReference FROM CustomerBookings ORDER BY CreatedAtUtc")
+$sourceReference = [guid](Invoke-Scalar $CustomerDatabase @"
+SELECT TOP (1) booking.PublicReference
+FROM CustomerBookings booking
+JOIN [$BusinessDatabase].dbo.AppointmentReservations reservation
+  ON reservation.CustomerBookingReference=booking.PublicReference
+JOIN [$BusinessDatabase].dbo.WorkOrders workOrder
+  ON workOrder.AppointmentReservationId=reservation.Id
+WHERE EXISTS (
+    SELECT 1
+    FROM [$BusinessDatabase].dbo.WorkOrderItems item
+    WHERE item.WorkOrderId=workOrder.Id)
+ORDER BY booking.CreatedAtUtc;
+"@)
 $sourceReservationId = [guid](Invoke-Scalar $BusinessDatabase "SELECT Id FROM AppointmentReservations WHERE CustomerBookingReference='$sourceReference'")
 $sourceWorkOrderId = [guid](Invoke-Scalar $BusinessDatabase "SELECT Id FROM WorkOrders WHERE AppointmentReservationId='$sourceReservationId'")
+$sourceBranchId = [guid](Invoke-Scalar $BusinessDatabase "SELECT BranchId FROM AppointmentReservations WHERE Id='$sourceReservationId'")
+$sourceOfferingId = [guid](Invoke-Scalar $BusinessDatabase "SELECT TOP (1) OfferingId FROM WorkOrderItems WHERE WorkOrderId='$sourceWorkOrderId' ORDER BY DisplayOrder")
 $fixtureOwnerId = [guid]'88888888-8888-4888-8888-888888888888'
 $fixtureAssignmentId = [guid]'99999999-9999-4999-8999-999999999999'
 $fixtureCompanyId = [guid](Invoke-Scalar $BusinessDatabase "SELECT b.CompanyId FROM AppointmentReservations r JOIN Branches b ON b.Id=r.BranchId WHERE r.Id='$sourceReservationId'")
@@ -226,18 +246,65 @@ VALUES
 $variables['recoveryOutboxEventId'] = $recoveryEventId.ToString('D')
 
 $capacityStatuses = @(
-    [pscustomobject]@{ Name = 'Pending'; Status = 'Pending'; Day = 21; Occupies = $true },
-    [pscustomobject]@{ Name = 'Reserved'; Status = 'Reserved'; Day = 22; Occupies = $true },
-    [pscustomobject]@{ Name = 'Confirmed'; Status = 'Confirmed'; Day = 23; Occupies = $true },
-    [pscustomobject]@{ Name = 'InProgress'; Status = 'InProgress'; Day = 24; Occupies = $true },
-    [pscustomobject]@{ Name = 'Completed'; Status = 'Completed'; Day = 25; Occupies = $false },
-    [pscustomobject]@{ Name = 'Cancelled'; Status = 'Cancelled'; Day = 26; Occupies = $false },
-    [pscustomobject]@{ Name = 'NoShow'; Status = 'NoShow'; Day = 27; Occupies = $false }
+    [pscustomobject]@{ Name = 'Pending'; Status = 'Pending'; Offset = 0; Occupies = $true },
+    [pscustomobject]@{ Name = 'Reserved'; Status = 'Reserved'; Offset = 1; Occupies = $true },
+    [pscustomobject]@{ Name = 'Confirmed'; Status = 'Confirmed'; Offset = 2; Occupies = $true },
+    [pscustomobject]@{ Name = 'InProgress'; Status = 'InProgress'; Offset = 3; Occupies = $true },
+    [pscustomobject]@{ Name = 'Completed'; Status = 'Completed'; Offset = 4; Occupies = $false },
+    [pscustomobject]@{ Name = 'Cancelled'; Status = 'Cancelled'; Offset = 5; Occupies = $false },
+    [pscustomobject]@{ Name = 'NoShow'; Status = 'NoShow'; Offset = 6; Occupies = $false }
 )
+$capacityBranch = if ([string]::IsNullOrWhiteSpace($CapacityBranchId)) {
+    $sourceBranchId
+} else {
+    [guid]$CapacityBranchId
+}
+$capacityOffering = if ([string]::IsNullOrWhiteSpace($CapacityOfferingId)) {
+    $sourceOfferingId
+} else {
+    [guid]$CapacityOfferingId
+}
+$capacityStart = if ([string]::IsNullOrWhiteSpace($CapacityStartDate)) {
+    [DateTime]::UtcNow.Date.AddDays(7)
+} else {
+    [DateTime]::ParseExact(
+        $CapacityStartDate,
+        'yyyy-MM-dd',
+        [Globalization.CultureInfo]::InvariantCulture)
+}
+if ($SkipDatabaseCopy) {
+    $capacityEnd = $capacityStart.AddDays(7)
+    Invoke-Sql $BusinessDatabase @"
+UPDATE AppointmentReservations
+SET Status=N'Cancelled',StatusChangedAtUtc=SYSUTCDATETIME()
+WHERE BranchId='$capacityBranch'
+  AND RequestedSlotStartUtc >= '$($capacityStart.ToString('yyyy-MM-dd'))T00:00:00+00:00'
+  AND RequestedSlotStartUtc < '$($capacityEnd.ToString('yyyy-MM-dd'))T00:00:00+00:00';
+"@
+}
 foreach ($capacityCase in $capacityStatuses) {
-    $capacityDay = $capacityCase.Day - 20
-    $slotStart = "2026-09-$($capacityDay.ToString('00'))T12:00:00+00:00"
-    $slotEnd = "2026-09-$($capacityDay.ToString('00'))T12:30:00+00:00"
+    $capacityDate = $capacityStart.AddDays($capacityCase.Offset)
+    $capacityDateText = $capacityDate.ToString('yyyy-MM-dd')
+    $slotStart = "$capacityDateText" + 'T12:00:00+00:00'
+    $slotEnd = "$capacityDateText" + 'T12:30:00+00:00'
+    $overrideId = [guid]::NewGuid()
+    Invoke-Sql $BusinessDatabase @"
+MERGE BranchAvailabilityOverrides AS target
+USING (SELECT CAST('$capacityBranch' AS uniqueidentifier) AS BranchId,
+              CAST('$capacityDateText' AS date) AS OverrideDate) AS source
+ON target.BranchId=source.BranchId AND target.OverrideDate=source.OverrideDate
+WHEN MATCHED THEN UPDATE SET
+    IsClosed=0,StartLocalTime=CAST('09:00:00' AS time),
+    EndLocalTime=CAST('18:00:00' AS time),SlotDurationMinutes=15,
+    Capacity=4,IsActive=1,UpdatedAt=GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT
+    (Id,BranchId,OverrideDate,IsClosed,StartLocalTime,EndLocalTime,
+     SlotDurationMinutes,Capacity,IsActive,CreatedAt,UpdatedAt)
+VALUES
+    ('$overrideId','$capacityBranch','$capacityDateText',0,
+     CAST('09:00:00' AS time),CAST('18:00:00' AS time),15,4,1,
+     GETUTCDATE(),NULL);
+"@
     for ($occupiedIndex = 1; $occupiedIndex -le 4; $occupiedIndex++) {
         $reservationId = [guid]::NewGuid()
         $reservationPublicId = [guid]::NewGuid()
@@ -265,8 +332,8 @@ foreach ($capacityCase in $capacityStatuses) {
     $variables["capacity$($capacityCase.Name)OrderGuid"] = $requestOrderGuid.ToString('D')
 }
 
-$variables['capacityBranchId'] = '22222222-2222-4222-8222-222222222222'
-$variables['capacityOfferingId'] = '44444444-4444-4444-8444-444444444444'
+$variables['capacityBranchId'] = $capacityBranch.ToString('D')
+$variables['capacityOfferingId'] = $capacityOffering.ToString('D')
 
 $resolvedVariablesPath = if ([IO.Path]::IsPathRooted($VariablesPath)) {
     $VariablesPath

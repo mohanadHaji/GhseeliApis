@@ -49,6 +49,27 @@ public class CompanyProfileControllerTests
     }
 
     [Fact]
+    public async Task CreateBranch_WhenSuccessful_ReturnsLocationForCreatedBranch()
+    {
+        var branch = new BranchResponse
+        {
+            Id = Guid.NewGuid(),
+            NameAr = "فرع الاختبار"
+        };
+        _service.Setup(service => service.CreateBranchAsync(
+                _userId,
+                It.IsAny<CreateBranchRequest>()))
+            .ReturnsAsync(branch);
+
+        var result = await _controller.CreateBranch(new CreateBranchRequest());
+
+        var contentResult = result.Should().BeOfType<ContentResult>().Subject;
+        contentResult.StatusCode.Should().Be(StatusCodes.Status201Created);
+        _controller.Response.Headers.Location.ToString().Should().Be(
+            $"/api/v1/business/company/branches/{branch.Id:D}");
+    }
+
+    [Fact]
     public async Task CreateBranch_WhenValidationFails_ReturnsBadRequest()
     {
         _service.Setup(service => service.CreateBranchAsync(

@@ -315,7 +315,9 @@ public class AuthServiceTests
 
         // Assert
         result.Should().BeNull();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("Invalid password"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("invalid password", StringComparison.Ordinal) &&
+            !s.Contains(request.Email, StringComparison.OrdinalIgnoreCase))), Times.Once);
     }
 
     [Fact]
@@ -495,14 +497,22 @@ public class AuthServiceTests
     public async Task ValidateTokenAsync_WithInvalidToken_ShouldReturnFalse()
     {
         // Arrange
-        var invalidToken = "invalid.token.here";
+        var invalidToken = "token-pii-sentinel.invalid.payload";
 
         // Act
         var result = await _authService.ValidateTokenAsync(invalidToken);
 
         // Assert
         result.Should().BeFalse();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("Token validation failed"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.StartsWith("Token validation failed: exceptionType=") &&
+            s.Contains(", exceptionCode=0x") &&
+            !s.Contains(invalidToken) &&
+            !s.Contains("IDX", StringComparison.Ordinal) &&
+            !s.Contains(" at ", StringComparison.Ordinal))), Times.Once);
+        _loggerMock.Verify(
+            logger => logger.LogError(It.IsAny<string>(), It.IsAny<Exception>()),
+            Times.Never);
     }
 
     [Fact]

@@ -40,13 +40,15 @@ public sealed class Step16CustomerSchemaMigrationTests
     ];
 
     [Fact]
-    public void Customer_migration_assembly_has_exactly_one_clean_initial_and_current_model()
+    public void Customer_migration_assembly_retains_clean_initial_and_current_model()
     {
         using var context = CreateContext();
         var migrations = context.GetService<IMigrationsAssembly>().Migrations;
+        var migrationNames = migrations.Values.Select(migration => migration.Name);
 
-        migrations.Should().ContainSingle();
-        migrations.Single().Value.Name.Should().Be("InitialCustomerDatabase");
+        migrationNames.Should().StartWith("InitialCustomerDatabase");
+        migrationNames.Should().Contain("AddCustomerDeviceActiveState");
+        migrations.Keys.Should().BeInAscendingOrder();
         context.Database.HasPendingModelChanges().Should().BeFalse();
     }
 
@@ -95,7 +97,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().ContainSingle();
+            firstHistory.Should().HaveCount(2);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")

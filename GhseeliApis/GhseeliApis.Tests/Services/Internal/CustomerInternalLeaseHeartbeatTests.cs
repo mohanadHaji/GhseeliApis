@@ -45,7 +45,7 @@ public sealed class CustomerInternalLeaseHeartbeatTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             Guid.NewGuid(),
             Guid.NewGuid(),
-            DateTimeOffset.UtcNow.AddMilliseconds(500),
+            DateTimeOffset.UtcNow.AddSeconds(1),
             options,
             TimeProvider.System,
             Mock.Of<IAppLogger>());
@@ -55,7 +55,7 @@ public sealed class CustomerInternalLeaseHeartbeatTests
 
         await FluentActions.Awaiting(() => downstream)
             .Should().ThrowAsync<OperationCanceledException>();
-        lease.RenewCalls.Should().BeInRange(2, 10);
+        lease.RenewCalls.Should().BeInRange(2, 20);
         lease.MinimumCallSpacing.Should()
             .BeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(35));
     }

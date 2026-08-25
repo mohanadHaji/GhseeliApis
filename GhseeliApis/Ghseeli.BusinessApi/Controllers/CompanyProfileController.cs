@@ -46,9 +46,15 @@ public class CompanyProfileController : ControllerBase
     [Authorize(Policy = BusinessPolicies.OwnerOrAdmin)]
     public Task<IActionResult> CreateBranch(CreateBranchRequest request)
     {
-        return ExecuteAsync(async () => JsonResponse(
-            StatusCodes.Status201Created,
-            await _companyService.CreateBranchAsync(GetUserId(), request)));
+        return ExecuteAsync(async () =>
+        {
+            var branch = await _companyService.CreateBranchAsync(
+                GetUserId(),
+                request);
+            Response.Headers.Location =
+                $"/api/v1/business/company/branches/{branch.Id:D}";
+            return JsonResponse(StatusCodes.Status201Created, branch);
+        });
     }
 
     [HttpPut("branches/{branchId:guid}")]

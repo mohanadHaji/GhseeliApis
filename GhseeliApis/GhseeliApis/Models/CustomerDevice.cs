@@ -11,5 +11,6 @@ public sealed class CustomerDevice
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? LastSeenAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
+    public bool IsActive { get; set; } = true;
     public byte[] RowVersion { get; set; } = [];
 }

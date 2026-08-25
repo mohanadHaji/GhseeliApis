@@ -16,6 +16,7 @@ public static class DeviceProblemCodes
     public const string TokenMissing = "device_token_missing";
     public const string TokenInvalid = "device_token_invalid";
     public const string TokenExpired = "device_token_expired";
+    public const string TokenInactive = "device_token_inactive";
     public const string RegistrationConflict = "device_registration_conflict";
     public const string RotationUnauthorized = "device_rotation_unauthorized";
     public const string ConcurrencyConflict = "device_registration_concurrency_conflict";

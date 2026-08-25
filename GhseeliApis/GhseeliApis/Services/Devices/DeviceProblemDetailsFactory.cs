@@ -34,10 +34,14 @@ internal static class DeviceProblemDetailsFactory
                 "אסימון המכשיר אינו תקין.",
             (DeviceProblemCodes.TokenExpired, ConfigurationLanguageResolver.Hebrew) =>
                 "פג תוקף אסימון המכשיר.",
+            (DeviceProblemCodes.TokenInactive, ConfigurationLanguageResolver.Hebrew) =>
+                "המכשיר אינו פעיל.",
             (DeviceProblemCodes.TokenMissing, _) =>
                 "رمز الجهاز مطلوب.",
             (DeviceProblemCodes.TokenExpired, _) =>
                 "انتهت صلاحية رمز الجهاز.",
+            (DeviceProblemCodes.TokenInactive, _) =>
+                "الجهاز غير نشط.",
             _ =>
                 "رمز الجهاز غير صالح."
         };

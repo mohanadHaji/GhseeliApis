@@ -84,6 +84,7 @@ public class DevicesControllerTests
         var problem = conflict.Value.Should().BeOfType<ProblemDetails>().Subject;
         problem.Extensions["code"].Should().Be(DeviceProblemCodes.RegistrationConflict);
         problem.Extensions["correlationId"].Should().Be("corr-step7-controller");
+        problem.Extensions["language"].Should().Be("ar");
     }
 
     private DevicesController CreateController()

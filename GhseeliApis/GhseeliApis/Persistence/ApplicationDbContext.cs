@@ -101,6 +101,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
             entity.Property(device => device.UpdatedAt).IsRequired();
             entity.Property(device => device.LastSeenAt);
             entity.Property(device => device.ExpiresAt).IsRequired();
+            entity.Property(device => device.IsActive)
+                .HasDefaultValue(true)
+                .IsRequired();
             entity.Property(device => device.RowVersion)
                 .IsRowVersion()
                 .IsConcurrencyToken();

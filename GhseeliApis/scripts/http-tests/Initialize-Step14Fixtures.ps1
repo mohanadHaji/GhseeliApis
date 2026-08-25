@@ -4,7 +4,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$CustomerDatabase,
     [string]$VariablesPath =
-        '.\scripts\http-tests\artifacts\step-14.variables.local.json'
+        '.\scripts\http-tests\artifacts\step-14.variables.local.json',
+    [switch]$SkipDatabaseCopy,
+    [string]$JwtSecret,
+    [string]$WebhookSecret
 )
 
 $ErrorActionPreference = 'Stop'
@@ -17,7 +20,7 @@ foreach ($name in @($SourceCustomerDatabase, $CustomerDatabase)) {
         throw 'Unsafe database name.'
     }
 }
-if ([string]::Equals(
+if (-not $SkipDatabaseCopy -and [string]::Equals(
     $SourceCustomerDatabase,
     $CustomerDatabase,
     [StringComparison]::OrdinalIgnoreCase)) {
@@ -187,18 +190,20 @@ function New-Jwt(
     return "$unsigned.$signature"
 }
 
-Copy-Database $SourceCustomerDatabase $CustomerDatabase
+if (-not $SkipDatabaseCopy) {
+    Copy-Database $SourceCustomerDatabase $CustomerDatabase
 
-$env:ConnectionStrings__RemoteTest =
-    "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
-try {
-    & dotnet ef database update `
-        --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
-        --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
-        --configuration Release --no-build
-    if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
+    $env:ConnectionStrings__RemoteTest =
+        "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
+    try {
+        & dotnet ef database update `
+            --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+            --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+            --configuration Release --no-build
+        if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
+    }
+    finally { Remove-Item Env:\ConnectionStrings__RemoteTest -ErrorAction SilentlyContinue }
 }
-finally { Remove-Item Env:\ConnectionStrings__RemoteTest -ErrorAction SilentlyContinue }
 
 $baselineCustomerPaymentCount = [int](Invoke-Scalar $CustomerDatabase `
     'SELECT COUNT(*) FROM CustomerPayments')
@@ -434,10 +439,18 @@ SELECT CONVERT(varchar(64), HASHBYTES('SHA2_256', (
 )), 2)
 "@)
 
-$jwtSecret = New-Base64Url (Get-RandomBytes 64)
+$jwtSecret = if ([string]::IsNullOrWhiteSpace($JwtSecret)) {
+    New-Base64Url (Get-RandomBytes 64)
+} else {
+    $JwtSecret
+}
 $issuer = 'GhseeliApis'
 $audience = 'GhseeliApis'
-$webhookSecret = "whsec_$(New-Base64Url (Get-RandomBytes 48))"
+$webhookSecret = if ([string]::IsNullOrWhiteSpace($WebhookSecret)) {
+    "whsec_$(New-Base64Url (Get-RandomBytes 48))"
+} else {
+    $WebhookSecret
+}
 $fixtureRunStamp = $now.ToString('yyyyMMddHHmmssfff')
 $unknownBookingId = [guid]::NewGuid()
 $unknownPaymentId = [guid]::NewGuid()
@@ -720,8 +733,9 @@ function Resolve-FixtureManifestValue([object]$value) {
 $runtimeDocument = $runtimeManifest | ConvertFrom-Json
 $expectedWebhookReceipts = @()
 foreach ($scenario in @($runtimeDocument.scenarios | Where-Object {
-    $null -ne $_.stripeSignature -and
-    $null -ne $_.jsonBody -and
+    $null -ne $_.PSObject.Properties['stripeSignature'] -and
+    $null -ne $_.PSObject.Properties['jsonBody'] -and
+    $null -ne $_.PSObject.Properties['expect'] -and
     [int]$_.expect.status -in @(200, 409)
 })) {
     $body = Resolve-FixtureManifestValue $scenario.jsonBody

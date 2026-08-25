@@ -1,0 +1,1297 @@
+{
+  "scenarios": [
+    {
+      "id": "STEP17-E2E-DEVICE-001",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DEVICE_001_FirstRegistrationIssuesToken",
+      "existingCoverage": [
+        "DevicesControllerTests.Register_FirstIssuance_ReturnsOkResponse",
+        "DeviceRegistrationServiceTests.RegisterAsync_FirstRegistration_StoresOnlyHashAndReturnsToken",
+        "STEP7-ISSUE-005",
+        "STEP7-NEW-TOKEN-VALID-010"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DEVICE-002",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DEVICE_002_DuplicateWithoutTokenIsStableConflict",
+      "existingCoverage": [
+        "DevicesControllerTests.Register_ServiceConflict_ReturnsStableProblemDetails",
+        "DeviceRegistrationServiceTests.RegisterAsync_ExistingInstallationWithoutToken_ThrowsConflict",
+        "STEP7-DUPLICATE-WITHOUT-TOKEN-006"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DEVICE-003",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DEVICE_003_RotationInvalidatesOldToken",
+      "existingCoverage": [
+        "DevicesControllerTests.Register_Rotation_ForwardsCurrentDeviceToken",
+        "DeviceRegistrationServiceTests.RegisterAsync_ValidCurrentToken_RotatesAndInvalidatesOldHash",
+        "STEP7-ROTATE-008",
+        "STEP7-OLD-TOKEN-INVALID-009"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CONFIG-004",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CONFIG_004_ArabicConfigurationIsReturned",
+      "existingCoverage": [
+        "ConfigurationApiIntegrationTests.GetConfiguration_WithValidDeviceToken_ReturnsLocalizedConfiguration",
+        "STEP8-OVERRIDE-AR-008"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CATALOG-005",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CATALOG_005_HebrewCategoriesContainSeededCategory",
+      "existingCoverage": [
+        "CatalogApiIntegrationTests.GetCategories_WithoutBusinessFilter_ReturnsOwningBusinessContext",
+        "STEP9-CATEGORIES-BUSINESS-HE-011"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CATALOG-006",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CATALOG_006_HebrewBusinessListReturnsSeededProvider",
+      "existingCoverage": [
+        "CatalogApiIntegrationTests.GetBusinesses_WithValidDeviceToken_ReturnsLocalizedBusinessesAndNoStore",
+        "STEP9-BUSINESSES-HE-008"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CATALOG-007",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CATALOG_007_BusinessDetailUsesHebrewFallback",
+      "existingCoverage": [
+        "CatalogReadModelServiceTests.GetBusinessesAsync_WhenHebrewIsRequested_FallsBackToArabicForMissingLocalizedValues",
+        "STEP9-BUSINESS-DETAIL-OVERRIDE-HE-012"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CATALOG-008",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CATALOG_008_BusinessOfferingsFiltersEligibleGraph",
+      "existingCoverage": [
+        "CatalogReadModelServiceTests.GetBusinessOfferingsAsync_WhenBranchAndCategoryBelongToDifferentProviders_ThrowsMismatch",
+        "STEP9-BUSINESS-OFFERINGS-HE-014"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CATALOG-009",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CATALOG_009_OfferingDetailReturnsAuthoritativeRules",
+      "existingCoverage": [
+        "CatalogApiIntegrationTests.GetOffering_WhenUnknown_ReturnsStableNotFound",
+        "STEP9-OFFERING-DETAIL-OVERRIDE-AR-016"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DRAFT-010",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DRAFT_010_CreateDraftPersistsUnpricedVersionOne",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully",
+        "CheckoutDraftServiceTests.CreateAsync_PersistsNormalizedDraftAndCapturesCatalogVersion",
+        "STEP10-CREATE-DEFAULT-005"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DRAFT-011",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DRAFT_011_ReadDraftReturnsHebrewIntent",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully",
+        "STEP10-READ-HE-010"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DRAFT-012",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DRAFT_012_UpdateDraftIncrementsAndInvalidatesPricing",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully",
+        "CheckoutDraftServiceTests.UpdateAsync_WhenExpectedVersionMatches_SucceedsAndIncrementsExactlyOnce",
+        "STEP10-UPDATE-AR-011"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-PRICE-013",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_PRICE_013_DirectRepriceIsAuthoritativeAndStateless",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostPricingReprice_WithValidDeviceToken_ReturnsAuthoritativePricingWithoutPersistence",
+        "CheckoutPricingServiceTests.RepriceAsync_WhenValidMultipleItems_ComputesTotalsAndDoesNotPersist",
+        "STEP11-DIRECT-AUTHORITATIVE-014"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-PRICE-014",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_PRICE_014_DraftRepriceMatchesDirectQuote",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostCheckoutReprice_WithOrderGuid_PersistsSnapshotAndReturnsUpdatedDraft",
+        "CheckoutPricingServiceTests.RepriceDraftAsync_WhenSuccessful_PersistsSnapshotAndClearsRequiresReprice",
+        "STEP11-DRAFT-REPRICE-018"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-PRICE-015",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_PRICE_015_RepeatedDirectQuoteEqualsPersistedQuote",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostPricingReprice_WithValidDeviceToken_ReturnsAuthoritativePricingWithoutPersistence",
+        "CheckoutDraftApiIntegrationTests.PostCheckoutReprice_WithOrderGuid_PersistsSnapshotAndReturnsUpdatedDraft",
+        "STEP11-DIRECT-STATELESS-015",
+        "STEP11-DRAFT-REPRICE-018"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-AUTH-016",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_AUTH_016_RegistrationIgnoresAdminRoleAndRedactsLogs",
+      "existingCoverage": [
+        "AuthControllerTests.Register_WithValidRequest_ShouldReturnOkWithAuthResponse",
+        "AuthServiceTests.RegisterAsync_WithValidData_ShouldCreateUserAndReturnAuthResponse",
+        "STEP12-USER-REGISTER-005"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-AUTH-017",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_AUTH_017_LoginIssuesCustomerOnlyJwtWithoutLogLeakage",
+      "existingCoverage": [
+        "AuthControllerTests.Login_WithValidCredentials_ShouldReturnOkWithAuthResponse",
+        "AuthServiceTests.LoginAsync_WithValidCredentials_ShouldReturnAuthResponse",
+        "AuthServiceTests.GenerateJwtTokenAsync_ShouldIncludeCorrectIssuerAndAudience"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-BOOKING-018",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_BOOKING_018_ConfirmationCreatesMatchingCrossSystemRecords",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WithPricedOwnedDraft_PersistsImmutableSnapshotsAndReplays",
+        "ReservationServiceTests.CreateAsync_WithMatchingProof_PersistsOneReservationAndReplays",
+        "STEP12-CREATE-HAPPY-021",
+        "STEP12-HAPPY-026"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-DRAFT-019",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_DRAFT_019_ConfirmedDraftIsReadableAndNoneditable",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WithPricedOwnedDraft_PersistsImmutableSnapshotsAndReplays",
+        "STEP12-DRAFT-POSTCONFIRM-GET-029"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-STATUS-020",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_STATUS_020_BusinessTransitionCreatesSequenceOneOutbox",
+      "existingCoverage": [
+        "BookingStatusServiceTests.TransitionAsync_AllowedTransition_AtomicallyUpdatesAndCreatesStableOutboxMessage",
+        "STEP13-BUSINESS-TRANSITION-067"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-STATUS-021",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_STATUS_021_CallbackAppliesConfirmedSequenceOne",
+      "existingCoverage": [
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_WithValidSignature_AppliesAndEchoesCorrelation",
+        "BookingStatusInboxServiceTests.ApplyAsync_ValidEvent_UpdatesBookingAndInboxTogether",
+        "STEP13-CALLBACK-APPLY-050"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-STATUS-022",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_STATUS_022_InProgressTransitionConvergesAcrossHosts",
+      "existingCoverage": [
+        "BookingStatusServiceTests.TransitionAsync_AllowedTransition_AtomicallyUpdatesAndCreatesStableOutboxMessage",
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_WithValidSignature_AppliesAndEchoesCorrelation",
+        "STEP13-BUSINESS-TRANSITION-067",
+        "STEP13-OUTBOX-LIVE-DELIVER-069"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-STATUS-023",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_STATUS_023_CompletedTransitionConvergesAndReleasesCapacityOnce",
+      "existingCoverage": [
+        "BookingStatusServiceTests.TransitionMatrix_OnlyAllowsForwardDomainTransitions",
+        "BookingStatusInboxServiceTests.ApplyAsync_TransitionMatrix_EnforcesAllThirtySixEdges",
+        "STEP13-CAPACITY-COMPLETED-086"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECONCILE-024",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECONCILE_024_CustomerInternalReadReturnsCompletedStateOnly",
+      "existingCoverage": [
+        "BookingStatusInboxServiceTests.GetCurrentAsync_ReturnsOnlyStableReferencesAndOperationalState",
+        "STEP13-RECONCILE-CUSTOMER-READ-071"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECONCILE-025",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECONCILE_025_ReconcileCompletedBookingIsNoOp",
+      "existingCoverage": [
+        "BookingStatusInboxServiceTests.ReconcileAsync_AlreadyCurrent_IsNoOpWithoutSyntheticInboxEvent",
+        "STEP13-RECONCILE-THEN-REAL-080A"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-PAYMENT-026",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_PAYMENT_026_FakeGatewayCreatesOnePendingPayment",
+      "existingCoverage": [
+        "CustomerPaymentsControllerTests.Create_and_replay_success_return_200",
+        "CustomerPaymentServiceTests.Uses_booking_money_and_does_not_mark_booking_paid"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-PAYMENT-027",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_PAYMENT_027_ReadOwnedPendingPaymentIsClientSafe",
+      "existingCoverage": [
+        "CustomerPaymentApiIntegrationTests.GetOwnedPayment_SerializesLifecycleSafeConfirmation",
+        "STEP14-READ-OWNED-062"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-WEBHOOK-028",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_WEBHOOK_028_SucceededWebhookCompletesPaymentAndBooking",
+      "existingCoverage": [
+        "CustomerPaymentWebhookApiIntegrationTests.Webhook_SuccessIsAnonymousAndReturnsExactSafeAcknowledgement",
+        "StripeWebhookServiceTests.Verified_success_completes_payment_and_marks_booking_paid",
+        "STEP14-WEBHOOK-SUCCESS-079"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-WEBHOOK-029",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_WEBHOOK_029_ExactWebhookReplayIsNoOp",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Identical_event_replays_and_changed_body_conflicts",
+        "STEP14-WEBHOOK-DUPLICATE-SAME-084"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-WEBHOOK-030",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_WEBHOOK_030_FailedWebhookFailsOnlyTargetPayment",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Failure_after_completion_and_success_after_refund_are_no_ops",
+        "STEP14-WEBHOOK-FAILURE-080"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-WEBHOOK-031",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_WEBHOOK_031_RefundWebhookClearsPaidStateOnce",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Refund_requires_persisted_charge_match",
+        "StripeWebhookServiceTests.Full_refund_before_success_is_deferred_then_converges_to_refunded",
+        "STEP14-WEBHOOK-REFUND-082"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-CROSSDB-032",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_CROSSDB_032_CrossDatabaseReferencesAgreeAndPrincipalsAreDenied",
+      "existingCoverage": [
+        "Step16CustomerSchemaModelTests.Customer_model_contains_exact_owned_table_allowlist",
+        "Step16BusinessSchemaModelTests.Model_HasExactBusinessOwnedEntityAndTableAllowlist"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-033",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_033_BusinessOutageSeparatesCatalogFromPricing",
+      "existingCoverage": [
+        "CatalogApiIntegrationTests.GetBusinesses_WhenBusinessApiClientConfigIsBlankAndRefreshIsRequired_ReturnsLocalizedUnavailableProblem",
+        "CatalogReadModelServiceTests.GetBusinessesAsync_WhenRefreshFailsAndCacheIsBeyondMaxStale_ThrowsUnavailable",
+        "STEP16-INTEGRATION-OPPOSITE-DOWN-141--integration-fails-closed"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-034",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_034_BusinessRestartRestoresReprice",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceAsync_WhenValidMultipleItems_ComputesTotalsAndDoesNotPersist",
+        "STEP16-START-STOP-BUSINESS-049--business-restarted"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-035",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_035_CustomerOutageRetriesOneDurableOutboxEvent",
+      "existingCoverage": [
+        "BookingStatusOutboxDispatcherTests.DeliverNextAsync_TransientFailure_RetriesWithStableIdentity",
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_ClientCancellationAfterDomainCommit_CompletesAndRetryReplaysOnce",
+        "STEP13-OUTBOX-LIVE-DELIVER-069",
+        "STEP16-INTEGRATION-CUSTOMER-DOWN-142--business-health"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-036",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_036_MissingConfigurationFailsClosed",
+      "existingCoverage": [
+        "ConfigurationApiIntegrationTests.GetConfiguration_WhenNoActiveConfigurationExists_ReturnsServiceUnavailableProblem",
+        "CustomerConfigurationServiceTests.GetActiveAsync_WhenConfigurationIsMissing_ThrowsStableUnavailableError"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-037",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_037_RestoredConfigurationRecoversExactlyOnce",
+      "existingCoverage": [
+        "ConfigurationApiIntegrationTests.GetConfiguration_WithValidDeviceToken_ReturnsLocalizedConfiguration",
+        "ConfigurationApiIntegrationTests.GetConfiguration_WhenNoActiveConfigurationExists_ReturnsServiceUnavailableProblem",
+        "STEP8-GET-AR-005"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-038",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_038_RemovedReadModelDoesNotQueryBusiness",
+      "existingCoverage": [
+        "CatalogApiIntegrationTests.GetOffering_WhenUnknown_ReturnsStableNotFound",
+        "STEP9-BUSINESS-NOTFOUND-013"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-E2E-RECOVERY-039",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17ChainedLiveLocalJourneyTests.STEP17_E2E_RECOVERY_039_RestoreGraphAndTeardownLeaveNoArtifacts",
+      "existingCoverage": [
+        "CatalogReadModelServiceTests.GetBusinessesAsync_WhenSameVersionAndSameHashAreVerified_UpdatesFreshnessWithoutChangingPublicIds",
+        "CatalogReadModelServiceTests.GetBusinessesAsync_WhenSameVersionHasDifferentHash_ReappliesSnapshotWithoutChangingIds",
+        "STEP9-BUSINESSES-INITIAL-REFRESH-020",
+        "STEP9-BUSINESSES-FORCE-REFRESH-UNCHANGED-021",
+        "STEP9-BUSINESSES-FORCE-REFRESH-VERSION-019"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-DET-DEVICE-001",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDeviceHttpTests.STEP17_DET_DEVICE_001_ExpiredDeviceCannotReachConfiguration",
+      "existingCoverage": [
+        "ConfigurationApiIntegrationTests.GetConfiguration_WithExpiredDeviceToken_ReturnsLocalizedExpiredProblem",
+        "DeviceRegistrationServiceTests.AuthenticateAsync_ExpiredToken_ReturnsStableFailure"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DEVICE-002",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.InactiveDevice_CannotReachConfiguration",
+      "existingCoverage": [
+        "Step17HostSecurityContractTests.CustomerDevice_DefinesPersistentActiveState"
+      ],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DEVICE-003",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDeviceHttpTests.STEP17_DET_DEVICE_003_RotatedTokenBlocksConfirmationBeforeBusiness",
+      "existingCoverage": [
+        "Step15CustomerRouteFamilyHttpTests.STEP15_AUTH_DEVICE_ROTATED_047_OldTokenFailsWhileCurrentTokenSucceeds",
+        "STEP12-DEVICE-ROTATED-OLD-009D"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-AUTH-004",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicAuthorizationHttpTests.STEP17_DET_AUTH_004_CrossDeviceConfirmationIsMaskedNotFound",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_FromDifferentDevice_DoesNotCallBusiness",
+        "STEP12-OWNERSHIP-024"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-AUTH-005",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicAuthorizationHttpTests.STEP17_DET_AUTH_005_WrongUserPaymentIsMaskedNotFound",
+      "existingCoverage": [
+        "CustomerPaymentServiceTests.Wrong_user_or_device_is_indistinguishable_not_found",
+        "STEP14-OWNERSHIP-WRONG-USER-015"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-AUTH-006",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicAuthorizationHttpTests.STEP17_DET_AUTH_006_ForeignCompanyWorkOrderIsMaskedNotFound",
+      "existingCoverage": [
+        "WorkOrderTransitionAuthorizationIntegrationTests.Transition_WhenOwnerBelongsToAnotherCompany_ReturnsNotFoundWithoutMutation"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-AUTH-007",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicAuthorizationHttpTests.STEP17_DET_AUTH_007_CustomerJwtIsRejectedByBusinessTransition",
+      "existingCoverage": [
+        "Step15BusinessAuthenticationInternalHttpTests.InvalidOrCustomerJwt_IsRejectedWithoutTokenEcho",
+        "STEP15-AUTH-CROSS-CUSTOMER-TO-BUSINESS-042"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-AUTH-008",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicAuthorizationHttpTests.STEP17_DET_AUTH_008_BusinessJwtIsRejectedByCustomerPayment",
+      "existingCoverage": [
+        "Step15CustomerRouteFamilyHttpTests.STEP15_AUTH_CROSS_BUSINESS_TO_CUSTOMER_043_WrongIssuerTokenIsNeverAccepted",
+        "STEP15-AUTH-CROSS-BUSINESS-TO-CUSTOMER-043"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-009",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_009_GetAtExpiryReturnsGone",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.GetDraft_WhenExpired_ReturnsGoneWithoutExtendingLifetime",
+        "CheckoutDraftServiceTests.GetAsync_WhenExpired_ThrowsGoneAndDoesNotReviveDraft"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-010",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_010_UpdateExpiredDraftReturnsGone",
+      "existingCoverage": [
+        "CheckoutDraftServiceTests.UpdateAsync_WhenExpiredAtBoundary_CannotReviveDraft"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-011",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_011_RepriceAlreadyExpiredDraftSkipsBusiness",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceDraftAsync_WhenDraftExpiresDuringBusinessPricing_ReturnsGoneAndPersistsNothing"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-012",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_012_ConfirmExpiredDraftReturnsGoneBeforeClaim",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WithInvalidDraftState_FailsClosed"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-013",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_013_StalePutLeavesDraftUnchanged",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PutDraft_WithStaleExpectedVersion_ReturnsStableConflict",
+        "CheckoutDraftServiceTests.UpdateAsync_WhenExpectedVersionIsStale_ThrowsConflict",
+        "STEP10-CONFLICT-012"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-DRAFT-014",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicDraftHttpTests.STEP17_DET_DRAFT_014_StaleRepriceSkipsBusiness",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostCheckoutReprice_WithStaleExpectedVersion_ReturnsStableConflict",
+        "PricingControllerTests.DraftReprice_WhenServiceReturnsVersionConflict_MapsStableProblem",
+        "STEP11-DRAFT-STALE-VERSION-020"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PRICE-015",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPricingHttpTests.STEP17_DET_PRICE_015_DirectRepriceUsesUpdatedBusinessPrice",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceAsync_WhenValidMultipleItems_ComputesTotalsAndDoesNotPersist",
+        "ReservationServiceTests.CreateAsync_WhenAuthoritativePriceChanged_RejectsWithoutPersistence",
+        "STEP11-DIRECT-AUTHORITATIVE-014"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PRICE-016",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPricingHttpTests.STEP17_DET_PRICE_016_RepeatedStaleMapsToUnavailable",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceAsync_WhenBusinessRemainsStale_RefreshesOnlyOnceAndFailsUnavailable"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PRICE-017",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPricingHttpTests.STEP17_DET_PRICE_017_DirectRepriceUnavailableIsStable",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceAsync_WhenBusinessTransportOrContractFails_MapsStableUnavailableWithoutAdditionalRetries"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PRICE-018",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPricingHttpTests.STEP17_DET_PRICE_018_DraftRepriceUnavailablePreservesState",
+      "existingCoverage": [
+        "CheckoutPricingServiceTests.RepriceAsync_WhenBusinessTransportOrContractFails_MapsStableUnavailableWithoutAdditionalRetries"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-019",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_019_StaleConfirmationVersionCreatesNothing",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WithInvalidDraftState_FailsClosed",
+        "STEP12-VERSION-025"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-020",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_020_MissingPolicyAcknowledgementIsRejected",
+      "existingCoverage": [
+        "STEP12-BODY-POLICY-018"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-021",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_021_SlotUnavailableMapsToReservationRejected",
+      "existingCoverage": [
+        "ReservationServiceTests.CreateAsync_WhenCapacityIsConsumed_RejectsWithoutDuplicateWorkOrder",
+        "STEP12-BUSINESS-SLOT-036"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-022",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_022_PriceChangedUsesResolvedCustomerContract",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WhenBusinessRejectsPriceProof_InvalidatesPricingAndPreservesCode",
+        "STEP12-BUSINESS-PRICE-035B"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-023",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_023_ConcurrentIdenticalConfirmationsReplayOneBooking",
+      "existingCoverage": [],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-024",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_024_AcceptedBusinessReservationSurvivesCustomerCommitFailure",
+      "existingCoverage": [],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-025",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_025_RetryAfterAmbiguousAcceptConvergesExactlyOnce",
+      "existingCoverage": [
+        "BookingConfirmationServiceTests.ConfirmAsync_WhenRetryReceivesReorderedAcceptedResponse_RecoversClaimAndPersistsBooking",
+        "STEP12-REPLAY-027"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-026",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_026_ConcurrentReservationCapacityOneHasSingleWinner",
+      "existingCoverage": [
+        "ReservationServiceTests.CreateAsync_WhenCapacityOneIsRequestedConcurrently_OnlyOneAtomicWorkOrderIsCreated",
+        "STEP13-CAPACITY-PENDING-082"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-027",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_027_ReorderedReservationReplayIsCanonical",
+      "existingCoverage": [
+        "ReservationServiceTests.CreateAsync_WithReorderedSelections_ReplaysSameReservation",
+        "STEP12-BUSINESS-CANONICAL-CREATE-037",
+        "STEP12-BUSINESS-CANONICAL-REPLAY-038"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-BOOK-028",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingConfirmationHttpTests.STEP17_DET_BOOK_028_ChangedSemanticOrderConflicts",
+      "existingCoverage": [
+        "ReservationServiceTests.CreateAsync_WhenOrderGuidIsReusedWithDifferentContent_Rejects",
+        "STEP12-BUSINESS-ORDER-CONFLICT-039"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-029",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_029_CallbackTransportReplayExecutesOnce",
+      "existingCoverage": [
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_SameTransportKeyAndExactBody_ReplaysStoredResponse",
+        "BookingStatusInboxServiceTests.ApplyAsync_DuplicateEventAndHash_ReplaysWithoutSecondMutation",
+        "STEP13-CALLBACK-SAME-EVENT-REPLAY-051"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-030",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_030_ChangedEventBodyConflicts",
+      "existingCoverage": [
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_ReusedEventWithDifferentContent_WritesExactlyOneConflictDocument",
+        "BookingStatusInboxServiceTests.ApplyAsync_DuplicateEventWithDifferentHash_RejectsConflict",
+        "STEP13-CALLBACK-EVENT-CONFLICT-055"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-031",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_031_OlderSequenceIsRecordedAsStale",
+      "existingCoverage": [
+        "BookingStatusInboxServiceTests.ApplyAsync_OlderSequence_IsRecordedButCannotMoveStateBackward"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-032",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_032_TerminalBookingRejectsNewTransition",
+      "existingCoverage": [
+        "BookingStatusServiceTests.TransitionMatrix_OnlyAllowsForwardDomainTransitions",
+        "BookingStatusInboxServiceTests.ApplyAsync_SkippedImpossibleTransition_RejectsWithoutInboxOrMutation"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-033",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_033_AllowedSequenceGapApplies",
+      "existingCoverage": [
+        "BookingStatusInboxServiceTests.ApplyAsync_AllowedEdgeWithSequenceGap_AppliesAuthoritativeSequence",
+        "STEP13-CALLBACK-SEQUENCE-GAP-059"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-034",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_034_DisallowedSequenceGapIsRejected",
+      "existingCoverage": [
+        "BookingStatusInboxServiceTests.ApplyAsync_SkippedImpossibleTransition_RejectsWithoutInboxOrMutation"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-035",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_035_ResponseAbortAfterCommitReplaysExactlyOnce",
+      "existingCoverage": [
+        "CustomerBookingRelationalIntegrationTests.StatusInbox_PostCommitAcknowledgementFailure_VerifiesStableEventWithoutDuplicate",
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_ClientCancellationAfterDomainCommit_CompletesAndRetryReplaysOnce"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-036",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_036_ClientCancellationDoesNotDuplicateCallback",
+      "existingCoverage": [
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_ClientCancellationAfterDomainCommit_CompletesAndRetryReplaysOnce",
+        "CustomerInternalIdempotencyLeaseRelationalTests.EndpointCancellationAfterExecutionBegins_PreservesOwnedClaim"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-037",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_037_TransientRenewalFailureRecoversAtHttpLayer",
+      "existingCoverage": [
+        "CustomerInternalLeaseHeartbeatTests.TransientRenewalFailure_RetriesThenRecoversBeforeDeadline"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-038",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_038_StaleLeaseOwnerGetsUnavailableAndCannotOverwrite",
+      "existingCoverage": [
+        "CustomerInternalIdempotencyLeaseRelationalTests.ForcedReclaim_RejectsStaleCompletionAndOnlyNewOwnerCanComplete",
+        "CustomerInternalLeaseHeartbeatTests.OwnershipChanged_StopsImmediatelyAndSignalsLeaseLoss"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-039",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_039_ReconcileAndCallbackRaceConverges",
+      "existingCoverage": [
+        "CustomerBookingRelationalIntegrationTests.StatusInbox_SimultaneousReconciliationAndRealCallback_RecordsRealIdentityOnce",
+        "STEP13-RECONCILE-THEN-REAL-080A",
+        "STEP13-RECONCILE-THEN-REAL-080B"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-040",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_040_DeadLetterHeadBlocksLaterCallback",
+      "existingCoverage": [
+        "BookingStatusOutboxDispatcherTests.DeliverNextAsync_DeadLetterBlocksLaterUntilRequeuedThenDeliversInSequence",
+        "BookingStatusInboxServiceTests.GetCurrentAsync_ReturnsOnlyStableReferencesAndOperationalState"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-041",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_041_AdminRequeueIsIdempotentAtGenerationOne",
+      "existingCoverage": [
+        "BookingStatusOutboxAdminApiIntegrationTests.Requeue_AdminDeadLetter_RequeuesAndRepeatIsIdempotent",
+        "STEP13-BUSINESS-ADMIN-REQUEUE-GENERATION-011E",
+        "STEP13-BUSINESS-ADMIN-REQUEUE-REPEAT-011F"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-STATUS-042",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicBookingStatusHttpTests.STEP17_DET_STATUS_042_PendingOutboxEventCannotBeRequeued",
+      "existingCoverage": [
+        "BookingStatusDeadLetterServiceTests.RequeueAsync_NeverRequeuedPendingOrDeliveredEvent_ReturnsConflict",
+        "BookingStatusOutboxAdminApiIntegrationTests.Requeue_DeliveredOrLeasedEvent_ReturnsConflict"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-043",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_043_UnconfiguredProviderFailsClosed",
+      "existingCoverage": [
+        "CustomerPaymentApiIntegrationTests.PostIntent_ServiceFailuresMapToSafeExactHttpProblems",
+        "CustomerPaymentServiceTests.Unknown_booking_is_not_disclosed_by_provider_configuration",
+        "STEP14-PROVIDER-UNCONFIGURED-056"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-044",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_044_GatewayTimeoutIsRetrySafeAmbiguous",
+      "existingCoverage": [
+        "CustomerPaymentServiceTests.Ambiguous_transport_failure_maps_stably_and_releases_lease",
+        "CustomerPaymentServiceTests.Ambiguous_gateway_failure_persists_stable_payment_for_same_key_retry"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-045",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_045_GatewayMoneyMismatchReturnsBadGateway",
+      "existingCoverage": [
+        "CustomerPaymentServiceTests.Gateway_money_mismatch_is_stable_releases_lease_and_preserves_retry_identity"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-046",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_046_AmountMismatchIsDurableIgnoredAcknowledgement",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Intent_amount_or_currency_mismatch_is_durably_quarantined_without_mutation",
+        "STEP14-WEBHOOK-AMOUNT-MISMATCH-093"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-047",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_047_CurrencyMismatchIsDurableIgnoredAcknowledgement",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Intent_amount_or_currency_mismatch_is_durably_quarantined_without_mutation",
+        "STEP14-WEBHOOK-CURRENCY-MISMATCH-094"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-DET-PAY-048",
+      "automation": "automated-relational",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17DeterministicPaymentHttpTests.STEP17_DET_PAY_048_FailureAfterCompletionIsRecognizedNoOp",
+      "existingCoverage": [
+        "StripeWebhookServiceTests.Failure_after_completion_and_success_after_refund_are_no_ops",
+        "STEP14-WEBHOOK-OUT-OF-ORDER-087"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-CORS-001",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Configuration_DoesNotOptIntoCors",
+      "existingCoverage": [
+        "Theory case STEP17-SEC-CORS-001"
+      ],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-CORS-002",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Configuration_DoesNotOptIntoCors",
+      "existingCoverage": [
+        "Theory case STEP17-SEC-CORS-002"
+      ],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-CORS-003",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Configuration_DoesNotOptIntoCors",
+      "existingCoverage": [
+        "Theory case STEP17-SEC-CORS-003"
+      ],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-CORS-004",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.PaymentPreflight_UsesNormalMethodContractWithoutCors",
+      "existingCoverage": [
+        "Step15CustomerGlobalHttpTests.HeadAndOptionsHaveExactBodyAndAllowContracts",
+        "STEP15-TRANSPORT-HEAD-OPTIONS-124--customer-options-mutation"
+      ],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-CORS-005",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "Ghseeli.BusinessApi.Tests.Integration.Step17CorsContractTests.InternalPreflightUsesResolvedContract",
+      "existingCoverage": [],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-CORS-006",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.SwaggerUi_UsesSelfHostedContentSecurityPolicyWithoutCors",
+      "existingCoverage": [
+        "Step15SwaggerCustomerContractTests.Customer_swagger_json_is_language_neutral_no_store_and_hardened",
+        "Step15SwaggerBusinessContractTests.SwaggerResources_UseNarrowSelfHostedUiCsp",
+        "STEP15-SWAGGER-UI-153--customer-index",
+        "STEP15-HEADERS-SWAGGER-CSP-170--customer-index"
+      ],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-RATE-007",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.DeviceRegistration_UsesIndependentInstallationBucketsBehindOnePeer",
+      "existingCoverage": [
+        "Step17HostSecurityContractTests.RateLimitOptions_NonpositiveValuesFailValidation"
+      ],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-008",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Login_FourthRequestForAccountIsRateLimited",
+      "existingCoverage": [],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-009",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Login_SeventhAccountFromPeerIsRateLimitedByAggregate",
+      "existingCoverage": [],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-010",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.PaymentIntent_ThirdAttemptIsRateLimitedBeforeSideEffects",
+      "existingCoverage": [
+        "CustomerPaymentServiceTests.Same_key_and_request_replays_without_second_intent"
+      ],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-011",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.StripeWebhook_FourthInvalidSignatureIsMachineRateLimited",
+      "existingCoverage": [],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-RATE-012",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.StripeWebhook_ValidDeliveryIsIndependentOfExhaustedInvalidBucket",
+      "existingCoverage": [],
+      "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-013",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "Ghseeli.BusinessApi.Tests.Infrastructure.BusinessInternalRateLimitingIntegrationTests.Step17SecRate013_InvalidHmacAttempts_AreLimitedByPeerWithoutSideEffects",
+      "existingCoverage": [],
+      "evidence": "dotnet test Ghseeli.BusinessApi.Tests --filter FullyQualifiedName~BusinessInternalRateLimitingIntegrationTests: 6/6 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-014",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "Ghseeli.BusinessApi.Tests.Infrastructure.BusinessInternalRateLimitingIntegrationTests.Step17SecRate014_ValidIdempotentRetries_DoNotConsumeInvalidHmacBucket",
+      "existingCoverage": [
+        "Internal idempotent retry tests"
+      ],
+      "evidence": "dotnet test Ghseeli.BusinessApi.Tests --filter FullyQualifiedName~BusinessInternalRateLimitingIntegrationTests: 6/6 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-RATE-015",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.Login_ForgedForwardedForDoesNotChangeSocketPeerPartition",
+      "existingCoverage": [],
+      "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
+    },
+    {
+      "id": "STEP17-SEC-BOUND-016",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_016_DeviceBodyAtExactLimitReachesValidation",
+      "existingCoverage": [
+        "Step15CustomerGlobalHttpTests.OversizedKnownLengthAndChunkedBodies_ReturnExact413",
+        "STEP15-PROBLEM-BODY-BOUNDARY-024--fixed-65536"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-017",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_017_DeviceBodyOverLimitStopsAtMaxPlusOne",
+      "existingCoverage": [
+        "Step15CustomerGlobalHttpTests.OversizedKnownLengthAndChunkedBodies_ReturnExact413",
+        "EnforceRequestBodySizeLimitAttributeTests.OnResourceExecutionAsync_WhenBufferedBodyExceedsLimit_ReturnsLocalizedProblemDetails",
+        "STEP15-PROBLEM-BODY-BOUNDARY-024--fixed-65537"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-018",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_018_DraftBodyAtExactLimitSucceeds",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully",
+        "CheckoutDraftApiIntegrationTests.PostDraft_WhenPayloadExceedsEndpointRequestLimit_ReturnsPayloadTooLarge",
+        "STEP10-CREATE-DEFAULT-005"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-019",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_019_DraftBodyOverLimitCreatesNothing",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostDraft_WhenPayloadExceedsEndpointRequestLimit_ReturnsPayloadTooLarge"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-020",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_020_DirectRepriceOverLimitSkipsBusiness",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostPricingReprice_WhenPayloadExceedsEndpointRequestLimit_ReturnsPayloadTooLarge",
+        "STEP11-DIRECT-SIZE-012"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-021",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_021_DraftRepriceOverLimitPreservesSnapshot",
+      "existingCoverage": [
+        "CheckoutDraftApiIntegrationTests.PostCheckoutReprice_WhenPayloadExceedsEndpointRequestLimit_ReturnsPayloadTooLarge",
+        "STEP11-DRAFT-SIZE-013"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-022",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_022_ConfirmationOverLimitSkipsBusiness",
+      "existingCoverage": [
+        "STEP12-SIZE-014",
+        "STEP12-SIZE-BOUNDARY-014B"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-023",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_023_PaymentBodyOverLimitHasNoSideEffects",
+      "existingCoverage": [
+        "CustomerPaymentApiIntegrationTests.PostIntent_Over65536Bytes_ReturnsLocalizedPaymentProblem",
+        "STEP14-BODY-OVERSIZE-LENGTH-023",
+        "STEP14-BODY-OVERSIZE-CHUNKED-024"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-024",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_024_SignedWebhookOverLimitCreatesNoReceipt",
+      "existingCoverage": [
+        "CustomerPaymentWebhookApiIntegrationTests.Webhook_Over65536BytesStopsBeforeParser",
+        "StripeWebhookControllerTests.Rejects_streamed_body_over_limit",
+        "STEP14-WEBHOOK-BODY-OVERSIZE-076",
+        "STEP14-WEBHOOK-BODY-OVERSIZE-CHUNKED-135"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-BOUND-025",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "GhseeliApis.Tests.Integration.Step17RequestBoundaryHttpTests.STEP17_SEC_BOUND_025_ChunkedCallbackStopsAtMaximumPlusOne",
+      "existingCoverage": [
+        "BookingStatusCallbackSecurityIntegrationTests.ReadBodyAsync_ChunkedBodyOverLimit_StopsAfterMaximumPlusOne",
+        "BookingStatusCallbackSecurityIntegrationTests.Callback_BodyOverSixtyFourKilobytes_IsRejectedBeforeBinding",
+        "STEP13-BODY-OVERSIZE-CHUNKED-042"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-PROXY-026",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "Ghseeli.BusinessApi.Tests.Integration.Step17ProxyTransportLiveTests.STEP17_SEC_PROXY_026_TrustedProxyProtoAllowsInternalRead",
+      "existingCoverage": [],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-PROXY-027",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "Ghseeli.BusinessApi.Tests.Integration.Step17ProxyTransportLiveTests.STEP17_SEC_PROXY_027_DirectHttpReservationReadIsForbidden",
+      "existingCoverage": [
+        "InternalServiceSecurityIntegrationTests.CatalogSnapshot_WhenSignedRequestIsSentOverHttpWithoutExplicitDevelopmentOverride_ReturnsForbidden",
+        "Step15BusinessAuthenticationInternalHttpTests.InternalRoute_InsecureHttpReturnsExactHttpsRequiredProblem",
+        "STEP16-INTEGRATION-HTTP-146"
+      ],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-PROXY-028",
+      "automation": "automated-live",
+      "status": "red",
+      "testReference": "Ghseeli.BusinessApi.Tests.Integration.Step17ProxyTransportLiveTests.STEP17_SEC_PROXY_028_UntrustedForwardedProtoCannotBypassHttps",
+      "existingCoverage": [],
+      "evidence": ""
+    },
+    {
+      "id": "STEP17-SEC-HEADERS-029",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17SecurityHeadersLoggingTests.STEP17_SEC_HEADERS_029_ConfigurationFailureEmitsSingleSecurityHeaders",
+      "existingCoverage": [
+        "Step15CustomerRouteFamilyHttpTests.STEP15_PROBLEM_UNHANDLED_027_LegacyExceptionIsNormalizedAndRedacted",
+        "Step15SharedBehaviorTests.CorrelationMiddleware_ReplacesUnsafeValuesWithBoundedSafeId"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-LOG-030",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17SecurityHeadersLoggingTests.STEP17_SEC_LOG_030_InvalidStripeSignatureRedactsAllSentinels",
+      "existingCoverage": [
+        "CustomerPaymentWebhookApiIntegrationTests.Webhook_VerificationAndConflictFailuresUseSafeExactProblems",
+        "CustomerPaymentWebhookApiIntegrationTests.Webhook_PersistenceFailureIsRetryableAndNeverAcknowledged"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    },
+    {
+      "id": "STEP17-SEC-LOG-031",
+      "automation": "automated-testserver",
+      "status": "passed",
+      "testReference": "GhseeliApis.Tests.Integration.Step17SecurityHeadersLoggingTests.STEP17_SEC_LOG_031_OverlongHeadersAreReplacedAndRedactedTogether",
+      "existingCoverage": [
+        "Step15CustomerGlobalHttpTests.AcceptLanguageExactBoundaryHasOneFrozenResponse",
+        "Step15SharedBehaviorTests.CorrelationMiddleware_ReplacesUnsafeValuesWithBoundedSafeId",
+        "STEP15-LANG-HEADER-OVERSIZE-014",
+        "STEP14-CORRELATION-REPLACE-102-OVERLONG"
+      ],
+      "evidence": "dotnet test --filter FullyQualifiedName~Step17: Customer 107/107 and Business 3/3 passed (2026-08-25)"
+    }
+  ]
+}

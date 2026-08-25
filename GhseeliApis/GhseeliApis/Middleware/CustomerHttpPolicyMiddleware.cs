@@ -3,6 +3,7 @@ using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Bookings;
+using Microsoft.AspNetCore.Http.Features;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Encodings.Web;
@@ -111,7 +112,7 @@ public sealed class CustomerHttpPolicyMiddleware
         {
             try
             {
-                await _next(context);
+                await InvokeNextWithBufferedResponseAsync(context, buffer);
             }
             catch (HttpRequestException) when (
                 !context.RequestAborted.IsCancellationRequested &&
@@ -218,6 +219,34 @@ public sealed class CustomerHttpPolicyMiddleware
         }
     }
 
+    private async Task InvokeNextWithBufferedResponseAsync(
+        HttpContext context,
+        MemoryStream buffer)
+    {
+        var originalFeature = context.Features.Get<IHttpResponseFeature>();
+        if (originalFeature is null)
+        {
+            await _next(context);
+            return;
+        }
+
+        var bufferedFeature = new BufferedResponseFeature(originalFeature, buffer);
+        context.Features.Set<IHttpResponseFeature>(bufferedFeature);
+        try
+        {
+            await _next(context);
+        }
+        finally
+        {
+            if (ReferenceEquals(
+                    context.Features.Get<IHttpResponseFeature>(),
+                    bufferedFeature))
+            {
+                context.Features.Set(originalFeature);
+            }
+        }
+    }
+
     private static void ApplyResponseHeaders(HttpContext context)
     {
         context.Response.OnStarting(() =>
@@ -230,7 +259,13 @@ public sealed class CustomerHttpPolicyMiddleware
             headers["X-Frame-Options"] = "DENY";
             headers["Referrer-Policy"] = "no-referrer";
             headers["Content-Security-Policy"] =
-                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
+                context.Request.Path.StartsWithSegments(
+                    "/swagger", StringComparison.OrdinalIgnoreCase)
+                    ? "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+                      "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+                      "font-src 'self'; connect-src 'self'; object-src 'none'; " +
+                      "frame-ancestors 'none'; base-uri 'self'; form-action 'none'"
+                    : "default-src 'none'; frame-ancestors 'none'; base-uri 'none'";
             headers["Permissions-Policy"] = context.Request.Path.StartsWithSegments(
                 "/swagger", StringComparison.OrdinalIgnoreCase)
                 ? "camera=(), microphone=(), geolocation=()"
@@ -510,5 +545,44 @@ public sealed class CustomerHttpPolicyMiddleware
             root,
             JsonOptions,
             cancellationToken);
+    }
+
+    private sealed class BufferedResponseFeature(
+        IHttpResponseFeature inner,
+        MemoryStream buffer) : IHttpResponseFeature
+    {
+        public int StatusCode
+        {
+            get => inner.StatusCode;
+            set => inner.StatusCode = value;
+        }
+
+        public string? ReasonPhrase
+        {
+            get => inner.ReasonPhrase;
+            set => inner.ReasonPhrase = value;
+        }
+
+        public IHeaderDictionary Headers
+        {
+            get => inner.Headers;
+            set => inner.Headers = value;
+        }
+
+#pragma warning disable CS0618
+        public Stream Body
+        {
+            get => inner.Body;
+            set => inner.Body = value;
+        }
+#pragma warning restore CS0618
+
+        public bool HasStarted => inner.HasStarted || buffer.Length > 0;
+
+        public void OnStarting(Func<object, Task> callback, object state) =>
+            inner.OnStarting(callback, state);
+
+        public void OnCompleted(Func<object, Task> callback, object state) =>
+            inner.OnCompleted(callback, state);
     }
 }

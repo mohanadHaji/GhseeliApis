@@ -121,6 +121,9 @@ public class AuthServiceOAuthTests
 
         _userManagerMock.Verify(x => x.AddToRoleAsync(It.IsAny<User>(), AppRoles.User), Times.Once);
         _userManagerMock.Verify(x => x.AddLoginAsync(It.IsAny<User>(), externalLoginInfo), Times.Once);
+        GetLoggedMessages().Should().OnlyContain(message =>
+            !message.Contains(email, StringComparison.Ordinal) &&
+            !message.Contains(provider, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -192,7 +195,8 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeNull();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("No email claim found"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(
+            It.Is<string>(s => s.Contains("email claim is missing"))), Times.Once);
         _userManagerMock.Verify(x => x.CreateAsync(It.IsAny<User>()), Times.Never);
     }
 
@@ -208,7 +212,13 @@ public class AuthServiceOAuthTests
         _userManagerMock.Setup(x => x.FindByEmailAsync(email))
             .ReturnsAsync((User?)null);
 
-        var identityError = new IdentityError { Description = "User creation failed" };
+        const string sensitiveDescription =
+            "identity-description-sentinel test@gmail.com Google";
+        var identityError = new IdentityError
+        {
+            Code = "DuplicateUserName",
+            Description = sensitiveDescription
+        };
         _userManagerMock.Setup(x => x.CreateAsync(It.IsAny<User>()))
             .ReturnsAsync(IdentityResult.Failed(identityError));
 
@@ -217,7 +227,12 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeNull();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("Failed to create user"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("External login user creation failed") &&
+            s.Contains("DuplicateUserName") &&
+            !s.Contains(sensitiveDescription) &&
+            !s.Contains(email) &&
+            !s.Contains(provider))), Times.Once);
     }
 
     [Fact]
@@ -335,7 +350,8 @@ public class AuthServiceOAuthTests
         // Assert
         result.Should().BeTrue();
         _userManagerMock.Verify(x => x.AddLoginAsync(user, externalLoginInfo), Times.Once);
-        _loggerMock.Verify(x => x.LogInfo(It.Is<string>(s => s.Contains("Successfully linked"))), Times.Once);
+        _loggerMock.Verify(x => x.LogInfo(
+            It.Is<string>(s => s.Contains("External login linked"))), Times.Once);
     }
 
     [Fact]
@@ -382,7 +398,8 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeFalse();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("already linked to another user"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("provider identity is already linked"))), Times.Once);
         _userManagerMock.Verify(x => x.AddLoginAsync(It.IsAny<User>(), It.IsAny<ExternalLoginInfo>()), Times.Never);
     }
 
@@ -438,7 +455,8 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeFalse();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("Failed to link"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("External login link failed"))), Times.Once);
     }
 
     #endregion
@@ -471,7 +489,8 @@ public class AuthServiceOAuthTests
         // Assert
         result.Should().BeTrue();
         _userManagerMock.Verify(x => x.RemoveLoginAsync(user, provider, providerKey), Times.Once);
-        _loggerMock.Verify(x => x.LogInfo(It.Is<string>(s => s.Contains("Successfully removed"))), Times.Once);
+        _loggerMock.Verify(x => x.LogInfo(It.Is<string>(s =>
+            s.Contains("External login removed"))), Times.Once);
     }
 
     [Fact]
@@ -513,7 +532,8 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeFalse();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("not found for user"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("provider identity not found"))), Times.Once);
         _userManagerMock.Verify(x => x.RemoveLoginAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -543,7 +563,8 @@ public class AuthServiceOAuthTests
 
         // Assert
         result.Should().BeFalse();
-        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s => s.Contains("Failed to remove"))), Times.Once);
+        _loggerMock.Verify(x => x.LogWarning(It.Is<string>(s =>
+            s.Contains("External login removal failed"))), Times.Once);
     }
 
     #endregion
@@ -621,4 +642,38 @@ public class AuthServiceOAuthTests
     }
 
     #endregion
+
+    [Fact]
+    public async Task ExternalLoginCallbackAsync_WhenDependencyThrows_ShouldLogOnlySanitizedContext()
+    {
+        const string email = "oauth-email-sentinel@example.com";
+        const string provider = "OAuthProviderSentinel";
+        const string exceptionMessage = "oauth-exception-message-sentinel";
+        var externalLoginInfo = CreateExternalLoginInfo(provider, email, "Test User");
+
+        _userManagerMock.Setup(x => x.FindByEmailAsync(email))
+            .ThrowsAsync(new InvalidOperationException(exceptionMessage));
+
+        var act = () => _authService.ExternalLoginCallbackAsync(externalLoginInfo);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        var messages = GetLoggedMessages();
+        messages.Should().ContainSingle(message =>
+            message.Contains("Auth external-login callback failed") &&
+            message.Contains("InvalidOperationException") &&
+            message.Contains("exceptionCode=0x"));
+        messages.Should().OnlyContain(message =>
+            !message.Contains(email, StringComparison.Ordinal) &&
+            !message.Contains(provider, StringComparison.Ordinal) &&
+            !message.Contains(exceptionMessage, StringComparison.Ordinal) &&
+            !message.Contains(" at ", StringComparison.Ordinal));
+        _loggerMock.Verify(
+            logger => logger.LogError(It.IsAny<string>(), It.IsAny<Exception>()),
+            Times.Never);
+    }
+
+    private IReadOnlyList<string> GetLoggedMessages() =>
+        _loggerMock.Invocations
+            .SelectMany(invocation => invocation.Arguments.OfType<string>())
+            .ToList();
 }

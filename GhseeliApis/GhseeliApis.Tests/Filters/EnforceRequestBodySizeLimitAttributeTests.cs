@@ -35,7 +35,7 @@ public class EnforceRequestBodySizeLimitAttributeTests
     [Fact]
     public async Task OnResourceExecutionAsync_WhenBufferedBodyExceedsLimit_ReturnsLocalizedProblemDetails()
     {
-        var context = CreateContext(new string('x', 65_538), acceptLanguage: "he");
+        var context = CreateContext(new string('x', 65_537), acceptLanguage: "he");
         var filter = new EnforceRequestBodySizeLimitAttribute(
             65_536,
             CheckoutPricingProblemCodes.RequestBodyTooLarge);

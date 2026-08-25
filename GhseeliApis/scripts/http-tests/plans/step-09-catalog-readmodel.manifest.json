@@ -9,6 +9,7 @@
   ],
   "setupVariables": {
     "runStamp": "{{gen:timestamp:yyyyMMddHHmmss}}",
+    "dataStamp": "{{gen:timestamp:yyyyMMddHHmmssfff}}",
     "installationId": "{{gen:guid}}",
     "unknownDeviceToken": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
     "malformedDeviceToken": "short-token",

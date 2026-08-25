@@ -158,6 +158,52 @@ public class DeviceRegistrationServiceTests
         result.Code.Should().Be(DeviceProblemCodes.TokenExpired);
     }
 
+    [Fact]
+    public async Task AuthenticateAsync_InactiveDevice_ReturnsStableFailure()
+    {
+        var token = Token(9);
+        var device = CreateDevice(DeviceTokenHasher.Hash(token));
+        device.IsActive = false;
+        _repository.Setup(repository => repository.GetByTokenHashAsync(
+                It.IsAny<byte[]>(),
+                default))
+            .ReturnsAsync(device);
+        var service = CreateService();
+
+        var result = await service.AuthenticateAsync(token, default);
+
+        result.IsAuthenticated.Should().BeFalse();
+        result.Code.Should().Be(DeviceProblemCodes.TokenInactive);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_InactiveDevice_DoesNotRotateToken()
+    {
+        var token = Token(10);
+        var device = CreateDevice(DeviceTokenHasher.Hash(token));
+        device.IsActive = false;
+        _repository.Setup(repository => repository.GetByInstallationIdAsync(
+                device.InstallationId,
+                default))
+            .ReturnsAsync(device);
+        var service = CreateService();
+
+        var action = () => service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            token,
+            default);
+
+        await action.Should().ThrowAsync<DeviceRegistrationException>()
+            .Where(exception => exception.Code == DeviceProblemCodes.TokenInactive);
+        _repository.Verify(
+            repository => repository.SaveChangesAsync(It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
     private DeviceRegistrationService CreateService() =>
         new(
             _repository.Object,

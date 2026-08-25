@@ -16,7 +16,10 @@ public sealed record DeadLetterRequeueResponse(
     Guid EventId,
     string Outcome,
     string DeliveryState,
-    int Generation);
+    int Generation)
+{
+    public string Result => Outcome;
+}
 
 public sealed class DeadLetterRequeueConflictException : Exception
 {

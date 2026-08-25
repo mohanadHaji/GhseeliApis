@@ -12,7 +12,7 @@
       "feature": "step7",
       "tags": ["step7", "exemption", "smoke"],
       "method": "GET",
-      "url": "/api/health",
+      "url": "/api/Health",
       "headers": { "Accept": "application/json" },
       "expect": {
         "status": 200,

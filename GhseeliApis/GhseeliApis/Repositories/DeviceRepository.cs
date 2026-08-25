@@ -34,6 +34,9 @@ public sealed class DeviceRepository : IDeviceRepository
     public Task AddAsync(CustomerDevice device, CancellationToken cancellationToken) =>
         _context.CustomerDevices.AddAsync(device, cancellationToken).AsTask();
 
+    public void Detach(CustomerDevice device) =>
+        _context.Entry(device).State = EntityState.Detached;
+
     public Task SaveChangesAsync(CancellationToken cancellationToken) =>
         _context.SaveChangesAsync(cancellationToken);
 }

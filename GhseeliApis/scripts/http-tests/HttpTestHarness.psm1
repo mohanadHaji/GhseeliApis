@@ -1300,7 +1300,9 @@ function Protect-Headers {
 
     $result = [ordered]@{}
     foreach ($key in $Headers.Keys) {
-        if (Test-IsSensitiveHeaderName -Name ([string]$key)) {
+        if ((Test-IsSensitiveHeaderName -Name ([string]$key)) -or
+            (Test-IsSensitiveFieldName -Name ([string]$key) `
+                -SensitiveFields $SensitiveFields)) {
             $result[[string]$key] = '[REDACTED]'
             continue
         }
@@ -1410,6 +1412,8 @@ function Build-RequestBody {
     $jsonBody = Get-ObjectPropertyValue -Object $Scenario -Name 'jsonBody'
     $bodyFile = Get-ObjectPropertyValue -Object $Scenario -Name 'bodyFile'
     $repeatBody = Get-ObjectPropertyValue -Object $Scenario -Name 'repeatBody'
+    $scenarioForceChunked =
+        Get-ObjectPropertyValue -Object $Scenario -Name 'forceChunked'
 
     $bodySourceCount = @($jsonBody, $bodyFile, $repeatBody | Where-Object { $null -ne $_ }).Count
     if ($bodySourceCount -gt 1) {
@@ -1421,7 +1425,8 @@ function Build-RequestBody {
         return [pscustomobject]@{
             Content     = ($resolvedBody | ConvertTo-Json -Depth 100 -Compress)
             ContentType = 'application/json'
-            ForceChunked = $false
+            ForceChunked = $null -ne $scenarioForceChunked -and
+                [bool]$scenarioForceChunked
             ExpectContinue = $false
         }
     }
@@ -1450,7 +1455,8 @@ function Build-RequestBody {
         return [pscustomobject]@{
             Content     = $resolvedBody
             ContentType = $defaultContentType
-            ForceChunked = $false
+            ForceChunked = $null -ne $scenarioForceChunked -and
+                [bool]$scenarioForceChunked
             ExpectContinue = $false
         }
     }
@@ -1556,6 +1562,18 @@ function Test-ScenarioExpectations {
                 $requiredPresence = [bool](Resolve-TemplatedValue -Value (Get-ObjectPropertyValue -Object $headerSpecification -Name 'exists' -Required) -Variables $Variables)
                 if ($requiredPresence -ne $hasHeader) {
                     Add-Failure -Failures $failures -Message ("Expected header '{0}' presence to be '{1}', but actual presence was '{2}'." -f $headerExpectation.Name, $requiredPresence, $hasHeader)
+                }
+            }
+
+            if (Test-ObjectProperty -Object $headerSpecification -Name 'count') {
+                $expectedCount = [int](Resolve-TemplatedValue -Value (
+                        Get-ObjectPropertyValue -Object $headerSpecification `
+                            -Name 'count' -Required) -Variables $Variables)
+                $actualCount = if ($hasHeader) { @($actualValues).Count } else { 0 }
+                if ($actualCount -ne $expectedCount) {
+                    Add-Failure -Failures $failures -Message (
+                        "Expected header '{0}' value count to equal {1}, but received {2}." -f
+                        $headerExpectation.Name, $expectedCount, $actualCount)
                 }
             }
 
@@ -2817,10 +2835,16 @@ function Invoke-HttpTestHarnessSelfTest {
         $headers = Protect-Headers -Headers @{
             Authorization = @('Bearer secret-value')
             Accept        = @('application/json')
-        }
+            'X-Ghseeli-Nonce' = @('nonce-sentinel')
+            'Idempotency-Key' = @('idempotency-sentinel')
+        } -SensitiveFields @('x-ghseeli-nonce', 'idempotency-key')
 
         if ($headers.Authorization -ne '[REDACTED]') {
             throw 'Authorization header was not redacted.'
+        }
+        if ($headers.'X-Ghseeli-Nonce' -ne '[REDACTED]' -or
+            $headers.'Idempotency-Key' -ne '[REDACTED]') {
+            throw 'Manifest-declared sensitive headers were not redacted.'
         }
 
         $bodyPreview = Convert-BodyPreview -Body '{"token":"abc","profile":{"password":"secret","name":"ok"}}' -ContentType 'application/json' -SensitiveFields @()
@@ -2881,6 +2905,7 @@ function Invoke-HttpTestHarnessSelfTest {
                 headers = [ordered]@{
                     'X-Correlation-Id' = [ordered]@{
                         equals = 'corr-123'
+                        count = 1
                     }
                     'Location'         = [ordered]@{
                         exists = $true
@@ -2982,6 +3007,32 @@ function Invoke-HttpTestHarnessSelfTest {
             $fixedLengthBody.ForceChunked -or
             -not $fixedLengthBody.ExpectContinue) {
             throw 'Fixed-length repeated request body generation failed.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Body files support explicit chunked framing' -Action {
+        $artifactDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts'
+        [IO.Directory]::CreateDirectory($artifactDirectory) | Out-Null
+        $path = Join-Path $artifactDirectory `
+            'harness-chunked-body-file-self-test.local.json'
+        try {
+            [IO.File]::WriteAllText(
+                $path, '{"value":"ok"}', [Text.UTF8Encoding]::new($false))
+            $body = Build-RequestBody `
+                -Scenario ([ordered]@{
+                    id = 'chunked-body-file'
+                    bodyFile = $path
+                    forceChunked = $true
+                }) `
+                -Variables @{} `
+                -ManifestDirectory $artifactDirectory
+            if (-not $body.ForceChunked -or
+                $body.Content -cne '{"value":"ok"}') {
+                throw 'bodyFile did not preserve content with chunked framing.'
+            }
+        }
+        finally {
+            Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
         }
     }
 

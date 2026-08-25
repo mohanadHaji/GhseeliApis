@@ -24,12 +24,14 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Text;
 using System.Net;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 var validationJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -147,10 +149,15 @@ if (builder.Configuration
 {
     internalAuthenticationOptions.ValidateOnStart();
 }
+var useForwardedHeaders =
+    builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").GetChildren().Any() ||
+    builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").GetChildren().Any();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     options.ForwardLimit = 1;
+    options.KnownProxies.Clear();
+    options.KnownNetworks.Clear();
 
     foreach (var knownProxy in builder.Configuration
                  .GetSection("ForwardedHeaders:KnownProxies")
@@ -174,6 +181,22 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
             options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(prefix, prefixLength));
         }
     }
+});
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<BusinessRateLimitingOptions>,
+    BusinessRateLimitingOptionsValidator>();
+builder.Services
+    .AddOptions<BusinessRateLimitingOptions>()
+    .Bind(builder.Configuration.GetSection(BusinessRateLimitingOptions.SectionName))
+    .ValidateOnStart();
+builder.Services.AddRateLimiter(options =>
+{
+    options.GlobalLimiter = PartitionedRateLimiter.CreateChained(
+        PartitionedRateLimiter.Create<HttpContext, string>(
+            BusinessRateLimitPartitioner.GetPrimaryPartition),
+        PartitionedRateLimiter.Create<HttpContext, string>(
+            BusinessRateLimitPartitioner.GetAuthenticationAggregatePartition));
+    options.OnRejected = BusinessRateLimitingResponse.WriteAsync;
 });
 
 var businessConnection = builder.Configuration.GetConnectionString("BusinessConnection");
@@ -376,7 +399,10 @@ var app = builder.Build();
 var swaggerEnabled = app.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Swagger:Enabled");
 
-app.UseForwardedHeaders();
+if (useForwardedHeaders)
+{
+    app.UseForwardedHeaders();
+}
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
@@ -399,6 +425,8 @@ app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase),
     branch => branch.UseHttpsRedirection());
 app.UseAuthentication();
+app.UseMiddleware<BusinessRateLimitPartitionMiddleware>();
+app.UseRateLimiter();
 app.UseMiddleware<InternalRequestIdempotencyMiddleware>();
 app.UseAuthorization();
 

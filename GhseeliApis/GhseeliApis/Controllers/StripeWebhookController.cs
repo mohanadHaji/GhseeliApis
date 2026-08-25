@@ -30,7 +30,6 @@ public sealed class StripeWebhookController : ControllerBase
     }
 
     [HttpPost("webhook")]
-    [RequestSizeLimit(MaxBodyBytes)]
     public async Task<IActionResult> HandleWebhook(CancellationToken cancellationToken = default)
     {
         Response.Headers.CacheControl = "no-store";

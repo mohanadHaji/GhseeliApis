@@ -39,7 +39,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            _logger.LogInfo($"POST /api/auth/register - Registering user {request.Email}");
+            _logger.LogInfo("POST /api/auth/register - Registration attempt");
 
             if (!ModelState.IsValid)
             {
@@ -52,12 +52,12 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "Registration failed. Email may already be in use or password doesn't meet requirements." });
             }
 
-            _logger.LogInfo($"User registered successfully: {request.Email}");
+            _logger.LogInfo($"User registered successfully: userId={result.UserId}");
             return Ok(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error during user registration", ex);
+            LogSanitizedError("registration request", ex);
             return StatusCode(500, new { Message = "An error occurred during registration" });
         }
     }
@@ -70,7 +70,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            _logger.LogInfo($"POST /api/auth/login - Login attempt for {request.Email}");
+            _logger.LogInfo("POST /api/auth/login - Login attempt");
 
             if (!ModelState.IsValid)
             {
@@ -83,12 +83,12 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { Message = "Invalid email or password" });
             }
 
-            _logger.LogInfo($"User logged in successfully: {request.Email}");
+            _logger.LogInfo($"User logged in successfully: userId={result.UserId}");
             return Ok(result);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error during user login", ex);
+            LogSanitizedError("login request", ex);
             return StatusCode(500, new { Message = "An error occurred during login" });
         }
     }
@@ -118,7 +118,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error during token validation", ex);
+            LogSanitizedError("token validation", ex);
             return StatusCode(500, new { Message = "An error occurred during token validation" });
         }
     }
@@ -152,7 +152,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error getting current user", ex);
+            LogSanitizedError("current-user lookup", ex);
             return StatusCode(500, new { Message = "An error occurred" });
         }
     }
@@ -167,7 +167,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            _logger.LogInfo($"GET /api/auth/external-login - Initiating {provider} login");
+            _logger.LogInfo("GET /api/auth/external-login - Initiating external login");
 
             if (string.IsNullOrEmpty(provider))
             {
@@ -179,12 +179,12 @@ public class AuthController : ControllerBase
             
             var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
             
-            _logger.LogInfo($"Redirecting to {provider} for authentication");
+            _logger.LogInfo("Redirecting to external authentication");
             return Challenge(properties, provider);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error initiating external login with {provider}", ex);
+            LogSanitizedError("external-login initiation", ex);
             return StatusCode(500, new { Message = "An error occurred during external login" });
         }
     }
@@ -207,7 +207,7 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "External login information not found" });
             }
 
-            _logger.LogInfo($"Processing external login callback from {info.LoginProvider}");
+            _logger.LogInfo("Processing external login callback");
 
             // Process the external login
             var result = await _authService.ExternalLoginCallbackAsync(info);
@@ -216,7 +216,8 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "External login failed. Please ensure your account has an email address." });
             }
 
-            _logger.LogInfo($"External login successful for {result.Email} via {info.LoginProvider}");
+            _logger.LogInfo(
+                $"External login successful: userId={result.UserId}");
 
             // If returnUrl is provided, redirect to it (for frontend integration)
             if (!string.IsNullOrEmpty(returnUrl))
@@ -228,7 +229,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error during external login callback", ex);
+            LogSanitizedError("external-login callback", ex);
             return StatusCode(500, new { Message = "An error occurred during external login" });
         }
     }
@@ -243,7 +244,8 @@ public class AuthController : ControllerBase
         try
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            _logger.LogInfo($"POST /api/auth/link-external-login - User {userId} linking {request.Provider}");
+            _logger.LogInfo(
+                $"POST /api/auth/link-external-login - User {userId} linking external login");
 
             if (!ModelState.IsValid)
             {
@@ -261,12 +263,13 @@ public class AuthController : ControllerBase
             var properties = _signInManager.ConfigureExternalAuthenticationProperties(request.Provider, redirectUrl);
             properties.Items["UserId"] = userId; // Store userId for callback
             
-            _logger.LogInfo($"Redirecting user {userId} to {request.Provider} for linking");
+            _logger.LogInfo(
+                $"Redirecting user {userId} for external login linking");
             return Challenge(properties, request.Provider);
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error initiating link external login", ex);
+            LogSanitizedError("external-login link initiation", ex);
             return StatusCode(500, new { Message = "An error occurred" });
         }
     }
@@ -303,7 +306,7 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "Failed to link external login. It may already be linked to another account." });
             }
 
-            _logger.LogInfo($"Successfully linked {info.LoginProvider} to user {userId}");
+            _logger.LogInfo($"Successfully linked external login to user {userId}");
 
             // If returnUrl is provided, redirect to it
             if (!string.IsNullOrEmpty(returnUrl))
@@ -315,7 +318,7 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error during link external login callback", ex);
+            LogSanitizedError("external-login link callback", ex);
             return StatusCode(500, new { Message = "An error occurred" });
         }
     }
@@ -330,7 +333,8 @@ public class AuthController : ControllerBase
         try
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            _logger.LogInfo($"DELETE /api/auth/external-login/{provider} - User {userId} removing {provider}");
+            _logger.LogInfo(
+                $"DELETE /api/auth/external-login - User {userId} removing external login");
 
             if (string.IsNullOrEmpty(userId))
             {
@@ -348,12 +352,12 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = $"Failed to remove {provider}. It may not be linked to your account." });
             }
 
-            _logger.LogInfo($"Successfully removed {provider} from user {userId}");
+            _logger.LogInfo($"Successfully removed external login from user {userId}");
             return Ok(new { Message = $"{provider} removed successfully" });
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error removing external login {provider}", ex);
+            LogSanitizedError("external-login removal", ex);
             return StatusCode(500, new { Message = "An error occurred" });
         }
     }
@@ -382,10 +386,17 @@ public class AuthController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error getting external logins", ex);
+            LogSanitizedError("external-login listing", ex);
             return StatusCode(500, new { Message = "An error occurred" });
         }
     }
 
     #endregion
+
+    private void LogSanitizedError(string operation, Exception exception)
+    {
+        _logger.LogError(
+            $"Auth {operation} failed: exceptionType={exception.GetType().Name}, " +
+            $"exceptionCode=0x{exception.HResult:X8}");
+    }
 }

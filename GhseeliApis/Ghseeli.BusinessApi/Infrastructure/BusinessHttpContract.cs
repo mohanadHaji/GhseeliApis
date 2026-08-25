@@ -117,6 +117,7 @@ internal static class BusinessProblemCatalog
             ["booking_status_event_not_requeueable"] = ("لا يمكن إعادة الحدث في حالته الحالية.", "לא ניתן להחזיר את האירוע במצבו הנוכחי."),
             ["booking_status_requeue_idempotency_key_invalid"] = ("مفتاح طلب إعادة الإرسال مطلوب ويجب ألا يتجاوز 128 حرفاً.", "נדרש מפתח בקשת החזרה שאורכו אינו עולה על 128 תווים."),
             ["request_body_too_large"] = ("حجم نص الطلب يتجاوز الحد المسموح.", "גוף הבקשה חורג מהמגבלה המותרת."),
+            ["rate_limit_exceeded"] = ("تم تجاوز حد الطلبات. حاول مرة أخرى لاحقًا.", "חרגת ממגבלת הבקשות. נסה שוב מאוחר יותר."),
             ["unsupported_media_type"] = ("نوع محتوى الطلب غير مدعوم.", "סוג התוכן של הבקשה אינו נתמך."),
             ["unexpected_error"] = ("حدث خطأ غير متوقع.", "אירעה שגיאה בלתי צפויה."),
             ["service_unavailable"] = ("الخدمة غير متاحة مؤقتًا.", "השירות אינו זמין זמנית.")
@@ -149,6 +150,7 @@ internal static class BusinessProblemCatalog
 
         var allow = context.Response.Headers.Allow.ToString();
         var wwwAuthenticate = context.Response.Headers.WWWAuthenticate.ToString();
+        var retryAfter = context.Response.Headers.RetryAfter.ToString();
         context.Response.Clear();
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
@@ -169,6 +171,10 @@ internal static class BusinessProblemCatalog
         if (!string.IsNullOrWhiteSpace(wwwAuthenticate))
         {
             context.Response.Headers.WWWAuthenticate = wwwAuthenticate;
+        }
+        if (!string.IsNullOrWhiteSpace(retryAfter))
+        {
+            context.Response.Headers.RetryAfter = retryAfter;
         }
         await context.Response.WriteAsync(JsonSerializer.Serialize(payload, JsonOptions));
     }
@@ -265,6 +271,17 @@ public sealed class BusinessHttpContractMiddleware
                     "Internal service request failed.",
                     "The internal service request could not be completed.",
                     "internal_unexpected_error");
+            }
+            if (isInternal &&
+                context.Response.StatusCode == StatusCodes.Status405MethodNotAllowed &&
+                !context.Response.HasStarted)
+            {
+                await InternalServiceProblemResponseFactory.WriteAsync(
+                    context,
+                    StatusCodes.Status405MethodNotAllowed,
+                    "Method not allowed.",
+                    "The HTTP method is not allowed for the requested resource.",
+                    "method_not_allowed");
             }
             return;
         }

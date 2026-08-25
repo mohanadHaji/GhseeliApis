@@ -84,6 +84,7 @@ public class AuthControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(authResponse);
         _authServiceMock.Verify(x => x.RegisterAsync(request, It.IsAny<string>()), Times.Once);
+        AssertLogsDoNotContain(request.Email, request.PhoneNumber!, authResponse.Token);
     }
 
     [Fact]
@@ -153,7 +154,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     #endregion
@@ -189,6 +190,20 @@ public class AuthControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(authResponse);
         _authServiceMock.Verify(x => x.LoginAsync(request), Times.Once);
+        AssertLogsDoNotContain(request.Email, request.Password, authResponse.Token);
+    }
+
+    private void AssertLogsDoNotContain(params string[] sensitiveValues)
+    {
+        var messages = _loggerMock.Invocations
+            .SelectMany(invocation => invocation.Arguments.OfType<string>())
+            .ToArray();
+
+        foreach (var sensitiveValue in sensitiveValues)
+        {
+            messages.Should().NotContain(message =>
+                message.Contains(sensitiveValue, StringComparison.OrdinalIgnoreCase));
+        }
     }
 
     [Fact]
@@ -252,7 +267,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     #endregion
@@ -322,7 +337,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     #endregion
@@ -397,7 +412,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     #endregion
@@ -440,7 +455,8 @@ public class AuthControllerTests
         // In unit test environment without full OAuth infrastructure, expect 500 error
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
+        AssertLogsDoNotContain(provider);
     }
 
     [Fact]
@@ -497,6 +513,7 @@ public class AuthControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().Be(callbackResponse);
         _authServiceMock.Verify(x => x.ExternalLoginCallbackAsync(externalLoginInfo), Times.Once);
+        AssertLogsDoNotContain(provider, email, callbackResponse.Token);
     }
 
     [Fact]
@@ -559,7 +576,8 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
+        AssertLogsDoNotContain(provider);
     }
 
     [Fact]
@@ -586,7 +604,8 @@ public class AuthControllerTests
         // In unit test environment without full OAuth infrastructure, expect 500 error
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
+        AssertLogsDoNotContain(request.Provider);
     }
 
     [Fact]
@@ -632,6 +651,7 @@ public class AuthControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         _authServiceMock.Verify(x => x.LinkExternalLoginAsync(userId, externalLoginInfo), Times.Once);
+        AssertLogsDoNotContain(provider, "test@gmail.com");
     }
 
     [Fact]
@@ -696,6 +716,7 @@ public class AuthControllerTests
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
         _authServiceMock.Verify(x => x.RemoveExternalLoginAsync(userId, provider), Times.Once);
+        AssertLogsDoNotContain(provider);
     }
 
     [Fact]
@@ -749,7 +770,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
@@ -813,7 +834,7 @@ public class AuthControllerTests
         // Assert
         var statusCodeResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusCodeResult.StatusCode.Should().Be(500);
-        _loggerMock.Verify(x => x.LogError(It.IsAny<string>(), It.IsAny<Exception>()), Times.Once);
+        _loggerMock.Verify(x => x.LogError(It.IsAny<string>()), Times.Once);
     }
 
     #endregion

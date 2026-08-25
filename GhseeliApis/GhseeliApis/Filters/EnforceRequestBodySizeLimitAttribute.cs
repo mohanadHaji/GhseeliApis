@@ -39,6 +39,11 @@ public sealed class EnforceRequestBodySizeLimitAttribute : Attribute, IAsyncReso
         try
         {
             await request.Body.CopyToAsync(Stream.Null, context.HttpContext.RequestAborted);
+            if (request.Body.Position > _maxBytes)
+            {
+                context.Result = CreatePayloadTooLargeResult(context.HttpContext);
+                return;
+            }
             request.Body.Position = 0;
         }
         catch (IOException)

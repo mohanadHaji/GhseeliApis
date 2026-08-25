@@ -143,6 +143,14 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
                 "The current device token has expired.");
         }
 
+        if (!existing.IsActive)
+        {
+            throw new DeviceRegistrationException(
+                DeviceProblemCodes.TokenInactive,
+                StatusCodes.Status401Unauthorized,
+                "The device is inactive.");
+        }
+
         if (!DeviceTokenHasher.Matches(existing.TokenHash, currentToken))
         {
             throw new DeviceRegistrationException(
@@ -195,6 +203,11 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
             return DeviceAuthenticationResult.Failure(DeviceProblemCodes.TokenExpired);
         }
 
+        if (!device.IsActive)
+        {
+            return DeviceAuthenticationResult.Failure(DeviceProblemCodes.TokenInactive);
+        }
+
         return DeviceAuthenticationResult.Success(device.Id, device.InstallationId);
     }
 
@@ -210,7 +223,15 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
         }
 
         device.LastSeenAt = _timeProvider.GetUtcNow();
-        await _repository.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _repository.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _repository.Detach(device);
+            throw;
+        }
     }
 
     private static string NormalizePlatform(string platform) =>

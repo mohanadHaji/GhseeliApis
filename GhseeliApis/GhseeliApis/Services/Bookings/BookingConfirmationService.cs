@@ -292,7 +292,19 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
         if (existing is not null)
         {
             EnsureAttemptOwnership(existing, draft, deviceId, userId);
-            EnsureDraftClaimMatches(draft, existing);
+            if (_context.Database.IsRelational())
+            {
+                var persistenceState =
+                    await _draftRepository.GetPersistenceStateForUpdateAsync(
+                        draft.Id,
+                        cancellationToken);
+                EnsurePersistenceClaimMatches(persistenceState, existing);
+            }
+            else
+            {
+                EnsureDraftClaimMatches(draft, existing);
+            }
+
             return DeserializeAttempt(existing);
         }
 
@@ -369,11 +381,10 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
         catch (DbUpdateException)
         {
             _context.Entry(attempt).State = EntityState.Detached;
-            existing = await _context.BookingConfirmationAttempts
-                .AsNoTracking()
-                .SingleOrDefaultAsync(
-                    value => value.OrderGuid == draft.OrderGuid,
-                    cancellationToken);
+            _context.Entry(draft).State = EntityState.Detached;
+            existing = await WaitForConcurrentAttemptAsync(
+                draft.OrderGuid,
+                cancellationToken);
             if (existing is null)
             {
                 throw new BookingConfirmationException(
@@ -383,8 +394,40 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             }
 
             EnsureAttemptOwnership(existing, draft, deviceId, userId);
+            var persistenceState =
+                await _draftRepository.GetPersistenceStateForUpdateAsync(
+                    draft.Id,
+                    cancellationToken);
+            EnsurePersistenceClaimMatches(persistenceState, existing);
             return DeserializeAttempt(existing);
         }
+    }
+
+    private async Task<BookingConfirmationAttempt?> WaitForConcurrentAttemptAsync(
+        Guid orderGuid,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var existing = await _context.BookingConfirmationAttempts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    value => value.OrderGuid == orderGuid,
+                    cancellationToken);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            if (attempt < 9)
+            {
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(50),
+                    cancellationToken);
+            }
+        }
+
+        return null;
     }
 
     private void ClaimDraft(CheckoutDraft draft, BookingConfirmationAttempt attempt)

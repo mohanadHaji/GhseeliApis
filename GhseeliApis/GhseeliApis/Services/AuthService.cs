@@ -38,7 +38,7 @@ public class AuthService : IAuthService
             var existingUser = await _userManager.FindByEmailAsync(request.Email);
             if (existingUser != null)
             {
-                _logger.LogWarning($"Registration failed: Email {request.Email} already exists");
+                _logger.LogWarning("Registration failed: account already exists");
                 return null;
             }
 
@@ -63,8 +63,8 @@ public class AuthService : IAuthService
             var result = await _userManager.CreateAsync(user, request.Password);
             if (!result.Succeeded)
             {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                _logger.LogWarning($"Registration failed for {request.Email}: {errors}");
+                var errorCodes = string.Join(",", result.Errors.Select(e => e.Code));
+                _logger.LogWarning($"Registration failed: identityErrors={errorCodes}");
                 return null;
             }
 
@@ -72,14 +72,16 @@ public class AuthService : IAuthService
             var roleResult = await _userManager.AddToRoleAsync(user, role);
             if (!roleResult.Succeeded)
             {
-                var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-                _logger.LogWarning($"Failed to assign role '{role}' to {request.Email}: {errors}");
+                var errorCodes = string.Join(",", roleResult.Errors.Select(e => e.Code));
+                _logger.LogWarning(
+                    $"Failed to assign role '{role}': identityErrors={errorCodes}");
                 // Delete user if role assignment fails
                 await _userManager.DeleteAsync(user);
                 return null;
             }
 
-            _logger.LogInfo($"User registered successfully: {user.Email} with role '{role}'");
+            _logger.LogInfo(
+                $"User registered successfully: userId={user.Id}, role='{role}'");
 
             // Generate JWT token
             var token = await GenerateJwtTokenAsync(user.Id, user.Email!, user.FullName);
@@ -96,7 +98,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error during registration for {request.Email}", ex);
+            _logger.LogError(
+                $"Auth registration failed: exceptionType={ex.GetType().Name}, " +
+                $"exceptionCode=0x{ex.HResult:X8}");
             throw;
         }
     }
@@ -109,14 +113,14 @@ public class AuthService : IAuthService
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
-                _logger.LogWarning($"Login failed: User {request.Email} not found");
+                _logger.LogWarning("Login failed: account not found");
                 return null;
             }
 
             // Check if user is active
             if (!user.IsActive)
             {
-                _logger.LogWarning($"Login failed: User {request.Email} is inactive");
+                _logger.LogWarning($"Login failed: userId={user.Id} is inactive");
                 return null;
             }
 
@@ -126,16 +130,16 @@ public class AuthService : IAuthService
             {
                 if (result.IsLockedOut)
                 {
-                    _logger.LogWarning($"Login failed: User {request.Email} is locked out");
+                    _logger.LogWarning($"Login failed: userId={user.Id} is locked out");
                 }
                 else
                 {
-                    _logger.LogWarning($"Login failed: Invalid password for {request.Email}");
+                    _logger.LogWarning($"Login failed: invalid password for userId={user.Id}");
                 }
                 return null;
             }
 
-            _logger.LogInfo($"User logged in successfully: {user.Email}");
+            _logger.LogInfo($"User logged in successfully: userId={user.Id}");
 
             // Generate JWT token
             var token = await GenerateJwtTokenAsync(user.Id, user.Email!, user.FullName);
@@ -152,7 +156,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error during login for {request.Email}", ex);
+            _logger.LogError(
+                $"Auth login failed: exceptionType={ex.GetType().Name}, " +
+                $"exceptionCode=0x{ex.HResult:X8}");
             throw;
         }
     }
@@ -225,7 +231,9 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning($"Token validation failed: {ex.Message}");
+            _logger.LogWarning(
+                $"Token validation failed: exceptionType={ex.GetType().Name}, " +
+                $"exceptionCode=0x{ex.HResult:X8}");
             return false;
         }
     }
@@ -240,7 +248,7 @@ public class AuthService : IAuthService
             var email = info.Principal.FindFirstValue(ClaimTypes.Email);
             if (string.IsNullOrEmpty(email))
             {
-                _logger.LogWarning($"External login failed: No email claim found for provider {info.LoginProvider}");
+                _logger.LogWarning("External login failed: email claim is missing");
                 return null;
             }
 
@@ -269,8 +277,9 @@ public class AuthService : IAuthService
                 var createResult = await _userManager.CreateAsync(user);
                 if (!createResult.Succeeded)
                 {
-                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-                    _logger.LogWarning($"Failed to create user from external login {email}: {errors}");
+                    LogIdentityWarning(
+                        "External login user creation failed",
+                        createResult.Errors);
                     return null;
                 }
 
@@ -278,12 +287,14 @@ public class AuthService : IAuthService
                 var roleResult = await _userManager.AddToRoleAsync(user, AppRoles.User);
                 if (!roleResult.Succeeded)
                 {
-                    var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-                    _logger.LogWarning($"Failed to assign role to external user {email}: {errors}");
+                    LogIdentityWarning(
+                        $"External login role assignment failed: userId={user.Id}",
+                        roleResult.Errors);
                 }
 
                 isNewUser = true;
-                _logger.LogInfo($"New user created from external login: {email} via {info.LoginProvider}");
+                _logger.LogInfo(
+                    $"New user created from external login: userId={user.Id}");
             }
 
             // Check if external login is already linked
@@ -294,11 +305,13 @@ public class AuthService : IAuthService
                 var addLoginResult = await _userManager.AddLoginAsync(user, info);
                 if (!addLoginResult.Succeeded)
                 {
-                    var errors = string.Join(", ", addLoginResult.Errors.Select(e => e.Description));
-                    _logger.LogWarning($"Failed to link external login for {email}: {errors}");
+                    LogIdentityWarning(
+                        $"External login link failed: userId={user.Id}",
+                        addLoginResult.Errors);
                     return null;
                 }
-                _logger.LogInfo($"External login linked: {email} with {info.LoginProvider}");
+                _logger.LogInfo(
+                    $"External login linked: userId={user.Id}");
             }
 
             // Generate JWT token
@@ -318,7 +331,7 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error during external login callback for provider {info.LoginProvider}", ex);
+            LogSanitizedError("external-login callback", ex);
             throw;
         }
     }
@@ -339,14 +352,16 @@ public class AuthService : IAuthService
             var existingUser = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
             if (existingUser != null && existingUser.Id != userId)
             {
-                _logger.LogWarning($"Link external login failed: {info.LoginProvider} already linked to another user");
+                _logger.LogWarning(
+                    "Link external login failed: provider identity is already linked");
                 return false;
             }
 
             // Check if already linked to this user
             if (existingUser != null && existingUser.Id == userId)
             {
-                _logger.LogInfo($"External login {info.LoginProvider} already linked to user {userId}");
+                _logger.LogInfo(
+                    $"External login already linked: userId={userId}");
                 return true; // Already linked, treat as success
             }
 
@@ -354,17 +369,18 @@ public class AuthService : IAuthService
             var result = await _userManager.AddLoginAsync(user, info);
             if (!result.Succeeded)
             {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                _logger.LogWarning($"Failed to link external login {info.LoginProvider} to user {userId}: {errors}");
+                LogIdentityWarning(
+                    $"External login link failed: userId={userId}",
+                    result.Errors);
                 return false;
             }
 
-            _logger.LogInfo($"Successfully linked {info.LoginProvider} to user {userId}");
+            _logger.LogInfo($"External login linked: userId={userId}");
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error linking external login for user {userId}", ex);
+            LogSanitizedError("external-login link", ex, userId);
             throw;
         }
     }
@@ -387,7 +403,8 @@ public class AuthService : IAuthService
 
             if (loginToRemove == null)
             {
-                _logger.LogWarning($"Remove external login failed: {loginProvider} not found for user {userId}");
+                _logger.LogWarning(
+                    $"Remove external login failed: provider identity not found; userId={userId}");
                 return false;
             }
 
@@ -395,17 +412,18 @@ public class AuthService : IAuthService
             var result = await _userManager.RemoveLoginAsync(user, loginProvider, loginToRemove.ProviderKey);
             if (!result.Succeeded)
             {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                _logger.LogWarning($"Failed to remove external login {loginProvider} from user {userId}: {errors}");
+                LogIdentityWarning(
+                    $"External login removal failed: userId={userId}",
+                    result.Errors);
                 return false;
             }
 
-            _logger.LogInfo($"Successfully removed {loginProvider} from user {userId}");
+            _logger.LogInfo($"External login removed: userId={userId}");
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error removing external login for user {userId}", ex);
+            LogSanitizedError("external-login removal", ex, userId);
             throw;
         }
     }
@@ -438,10 +456,31 @@ public class AuthService : IAuthService
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Error getting external logins for user {userId}", ex);
+            LogSanitizedError("external-login listing", ex, userId);
             throw;
         }
     }
 
     #endregion
+
+    private void LogIdentityWarning(
+        string operation,
+        IEnumerable<IdentityError> errors)
+    {
+        var errorCodes = string.Join(",", errors.Select(error => error.Code));
+        _logger.LogWarning($"{operation}: identityErrors={errorCodes}");
+    }
+
+    private void LogSanitizedError(
+        string operation,
+        Exception exception,
+        Guid? userId = null)
+    {
+        var userContext = userId.HasValue
+            ? $", userId={userId.Value}"
+            : string.Empty;
+        _logger.LogError(
+            $"Auth {operation} failed: exceptionType={exception.GetType().Name}, " +
+            $"exceptionCode=0x{exception.HResult:X8}{userContext}");
+    }
 }

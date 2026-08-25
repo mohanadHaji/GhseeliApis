@@ -8,5 +8,6 @@ public interface IDeviceRepository
     Task<CustomerDevice?> GetByInstallationIdAsync(Guid installationId, CancellationToken cancellationToken);
     Task<CustomerDevice?> GetByTokenHashAsync(byte[] tokenHash, CancellationToken cancellationToken);
     Task AddAsync(CustomerDevice device, CancellationToken cancellationToken);
+    void Detach(CustomerDevice device);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }

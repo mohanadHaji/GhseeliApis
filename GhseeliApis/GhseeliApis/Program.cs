@@ -21,11 +21,13 @@ using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Net;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -124,6 +126,46 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddCustomerRateLimiting(builder.Configuration);
+var useForwardedHeaders =
+    builder.Configuration.GetSection("ForwardedHeaders:KnownProxies").GetChildren().Any() ||
+    builder.Configuration.GetSection("ForwardedHeaders:KnownNetworks").GetChildren().Any();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders =
+        ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = 1;
+    options.KnownProxies.Clear();
+    options.KnownNetworks.Clear();
+
+    foreach (var knownProxy in builder.Configuration
+                 .GetSection("ForwardedHeaders:KnownProxies")
+                 .Get<string[]>() ?? [])
+    {
+        if (IPAddress.TryParse(knownProxy, out var address))
+        {
+            options.KnownProxies.Add(address);
+        }
+    }
+
+    foreach (var knownNetwork in builder.Configuration
+                 .GetSection("ForwardedHeaders:KnownNetworks")
+                 .Get<string[]>() ?? [])
+    {
+        var parts = knownNetwork.Split(
+            '/',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length == 2 &&
+            IPAddress.TryParse(parts[0], out var prefix) &&
+            int.TryParse(parts[1], out var prefixLength))
+        {
+            options.KnownNetworks.Add(
+                new Microsoft.AspNetCore.HttpOverrides.IPNetwork(
+                    prefix,
+                    prefixLength));
+        }
+    }
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -372,7 +414,37 @@ builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
 builder.Services.AddScoped<IBookingStatusInboxService, BookingStatusInboxService>();
 builder.Services.AddScoped<ICustomerPaymentService, CustomerPaymentService>();
-builder.Services.AddScoped<IStripePaymentIntentGateway, StripePaymentIntentGateway>();
+var step17TestFixtures = builder.Configuration
+    .GetSection(Step17TestFixturesOptions.SectionName)
+    .Get<Step17TestFixturesOptions>() ?? new Step17TestFixturesOptions();
+if (step17TestFixtures.Enabled && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Step17TestFixtures can be enabled only in Development.");
+}
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<Step17TestFixturesOptions>,
+    Step17TestFixturesOptionsValidator>();
+builder.Services.AddOptions<Step17TestFixturesOptions>()
+    .Bind(builder.Configuration.GetSection(
+        Step17TestFixturesOptions.SectionName))
+    .ValidateOnStart();
+if (step17TestFixtures.Enabled &&
+    string.Equals(
+        step17TestFixtures.PaymentGateway?.Trim(),
+        Step17PaymentGatewayNames.DeterministicFake,
+        StringComparison.Ordinal))
+{
+    builder.Services.AddScoped<
+        IStripePaymentIntentGateway,
+        Step17DeterministicPaymentIntentGateway>();
+}
+else
+{
+    builder.Services.AddScoped<
+        IStripePaymentIntentGateway,
+        StripePaymentIntentGateway>();
+}
 builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
 builder.Services.AddSingleton<IStripeWebhookParser, StripeWebhookParser>();
 builder.Services.AddScoped<
@@ -470,14 +542,21 @@ var app = builder.Build();
 var swaggerEnabled = app.Environment.IsDevelopment()
     || builder.Configuration.GetValue<bool>("Swagger:Enabled");
 
+if (useForwardedHeaders)
+{
+    app.UseForwardedHeaders();
+}
 if (app.Environment.IsProduction())
 {
     app.UseHsts();
 }
-
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<CustomerHttpPolicyMiddleware>();
 
+app.UseHttpsRedirection();
+app.UseRouting();
+app.UseMiddleware<CustomerRateLimitPartitionMiddleware>();
+app.UseRateLimiter();
 if (swaggerEnabled)
 {
     app.UseSwagger();
@@ -487,9 +566,6 @@ if (swaggerEnabled)
         options.RoutePrefix = "swagger";
     });
 }
-
-app.UseHttpsRedirection();
-app.UseRouting();
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments(

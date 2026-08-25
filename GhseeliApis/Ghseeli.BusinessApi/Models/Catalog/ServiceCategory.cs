@@ -4,6 +4,7 @@ public class ServiceCategory
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid CompanyId { get; set; }
+    public Guid BusinessVerticalId { get; set; } = BusinessVerticalDefaults.CarWashId;
     public string NameAr { get; set; } = string.Empty;
     public string? NameHe { get; set; }
     public string? DescriptionAr { get; set; }
@@ -15,6 +16,8 @@ public class ServiceCategory
     public DateTime? UpdatedAt { get; set; }
 
     public Company Company { get; set; } = null!;
+    public CompanyBusinessVertical CompanyBusinessVertical { get; set; } = null!;
+    public BusinessVertical BusinessVertical { get; set; } = null!;
     public ICollection<ServiceOffering> Offerings { get; set; } =
         new List<ServiceOffering>();
 }

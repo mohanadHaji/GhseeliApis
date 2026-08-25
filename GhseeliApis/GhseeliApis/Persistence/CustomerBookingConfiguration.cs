@@ -28,6 +28,10 @@ internal static class CustomerBookingConfiguration
             entity.HasKey(booking => booking.Id);
             entity.Property(booking => booking.PublicReference).IsRequired();
             entity.Property(booking => booking.OrderGuid).IsRequired();
+            entity.Property(booking => booking.BusinessVerticalCode)
+                .HasMaxLength(64)
+                .HasDefaultValue(BusinessVerticalSnapshotDefaults.CarWashCode)
+                .IsRequired();
             entity.Property(booking => booking.Status).HasMaxLength(32).IsRequired();
             entity.Property(booking => booking.BusinessStatusSequence).IsRequired();
             entity.Property(booking => booking.StatusChangedAtUtc).IsRequired();

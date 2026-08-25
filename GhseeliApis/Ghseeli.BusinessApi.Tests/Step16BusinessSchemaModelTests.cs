@@ -32,12 +32,15 @@ public class Step16BusinessSchemaModelTests
         "BranchAvailabilitySettings",
         "BranchRecurringSchedules",
         "BranchServiceAreas",
+        "BusinessVerticals",
         "BusinessUserAssignments",
+        "CompanyBusinessVerticals",
         "Companies",
         "InternalServiceIdempotencyRecords",
         "InternalServiceNonces",
         "ServiceCategories",
         "ServiceOfferings",
+        "VehicleWorkOrderDetails",
         "WorkOrderItems",
         "WorkOrders",
         "WorkOrderSelections"
@@ -73,7 +76,9 @@ public class Step16BusinessSchemaModelTests
                 typeof(BranchServiceArea),
                 typeof(BusinessUser),
                 typeof(BusinessUserAssignment),
+                typeof(BusinessVertical),
                 typeof(Company),
+                typeof(CompanyBusinessVertical),
                 typeof(IdentityRole<Guid>),
                 typeof(IdentityRoleClaim<Guid>),
                 typeof(IdentityUserClaim<Guid>),
@@ -84,6 +89,7 @@ public class Step16BusinessSchemaModelTests
                 typeof(InternalServiceNonce),
                 typeof(ServiceCategory),
                 typeof(ServiceOffering),
+                typeof(VehicleWorkOrderDetails),
                 typeof(WorkOrder),
                 typeof(WorkOrderItem),
                 typeof(WorkOrderSelection)
@@ -112,7 +118,6 @@ public class Step16BusinessSchemaModelTests
             "CustomerProfile",
             "Device",
             "Profile",
-            "Vehicle",
             "UserAddress",
             "Address",
             "Draft",
@@ -141,6 +146,11 @@ public class Step16BusinessSchemaModelTests
                 name => name.Contains(forbidden, StringComparison.OrdinalIgnoreCase),
                 $"the Business database must not own the Customer {forbidden} concern");
         }
+
+        ownedNames.Should().NotContain(name =>
+            string.Equals(name, "Vehicle", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(name, "Vehicles", StringComparison.OrdinalIgnoreCase),
+            "vehicle snapshots are allowed, but the Business database must not own customer vehicles");
     }
 
     [Fact]
@@ -200,6 +210,7 @@ public class Step16BusinessSchemaModelTests
             "AddonChoice|AddonGroupId,IsActive|False",
             "AddonGroup|ServiceOfferingId,DisplayOrder|False",
             "AddonGroup|ServiceOfferingId,IsActive|False",
+            "AppointmentReservation|BusinessVerticalId|False",
             "AppointmentReservation|BranchId,RequestedSlotStartUtc,RequestedSlotEndUtc,Status|False",
             "AppointmentReservation|CustomerBookingReference|True",
             "AppointmentReservation|OrderGuid|True",
@@ -218,16 +229,22 @@ public class Step16BusinessSchemaModelTests
             "BusinessUserAssignment|UserId,CompanyId,BranchId|True",
             "BusinessUser|NormalizedEmail|False",
             "BusinessUser|NormalizedUserName|True",
+            "BusinessVertical|Code|True",
+            "CompanyBusinessVertical|BusinessVerticalId,IsActive|False",
+            "CompanyBusinessVertical|CompanyId|True",
             "InternalServiceIdempotencyRecord|ExpiresAtUtc|False",
             "InternalServiceIdempotencyRecord|ServiceId,Operation,IdempotencyKey|True",
             "InternalServiceNonce|ExpiresAtUtc|False",
             "InternalServiceNonce|ServiceId,Nonce|True",
             "ServiceCategory|CompanyId,DisplayOrder|False",
             "ServiceCategory|CompanyId,IsActive|False",
+            "ServiceCategory|BusinessVerticalId,IsActive|False",
+            "ServiceCategory|CompanyId,BusinessVerticalId|False",
             "ServiceOffering|BranchId,IsActive|False",
             "ServiceOffering|CategoryId,DisplayOrder|False",
             "ServiceOffering|CategoryId,IsActive|False",
             "WorkOrder|AppointmentReservationId|True",
+            "WorkOrder|BusinessVerticalId|False",
             "WorkOrder|PublicId|True",
             "WorkOrderItem|WorkOrderId,DisplayOrder|False",
             "WorkOrderItem|WorkOrderId,OfferingId|True",
@@ -250,6 +267,7 @@ public class Step16BusinessSchemaModelTests
         [
             "AddonChoice(AddonGroupId)->AddonGroup(Id)|Cascade",
             "AddonGroup(ServiceOfferingId)->ServiceOffering(Id)|Cascade",
+            "AppointmentReservation(BusinessVerticalId)->BusinessVertical(Id)|Restrict",
             "BookingStatusOutboxMessage(AppointmentReservationId)->AppointmentReservation(Id)|Cascade",
             "BookingStatusRequeueHistory(BookingStatusOutboxMessageId)->BookingStatusOutboxMessage(Id)|Cascade",
             "Branch(CompanyId)->Company(Id)|Cascade",
@@ -260,6 +278,8 @@ public class Step16BusinessSchemaModelTests
             "BusinessUserAssignment(BranchId)->Branch(Id)|NoAction",
             "BusinessUserAssignment(CompanyId)->Company(Id)|Cascade",
             "BusinessUserAssignment(UserId)->BusinessUser(Id)|Restrict",
+            "CompanyBusinessVertical(BusinessVerticalId)->BusinessVertical(Id)|Restrict",
+            "CompanyBusinessVertical(CompanyId)->Company(Id)|Cascade",
             "IdentityRoleClaim`1(RoleId)->IdentityRole`1(Id)|Cascade",
             "IdentityUserClaim`1(UserId)->BusinessUser(Id)|Cascade",
             "IdentityUserLogin`1(UserId)->BusinessUser(Id)|Cascade",
@@ -267,9 +287,13 @@ public class Step16BusinessSchemaModelTests
             "IdentityUserRole`1(UserId)->BusinessUser(Id)|Cascade",
             "IdentityUserToken`1(UserId)->BusinessUser(Id)|Cascade",
             "ServiceCategory(CompanyId)->Company(Id)|Cascade",
+            "ServiceCategory(BusinessVerticalId)->BusinessVertical(Id)|Restrict",
+            "ServiceCategory(CompanyId,BusinessVerticalId)->CompanyBusinessVertical(CompanyId,BusinessVerticalId)|Restrict",
             "ServiceOffering(BranchId)->Branch(Id)|Restrict",
             "ServiceOffering(CategoryId)->ServiceCategory(Id)|Cascade",
             "WorkOrder(AppointmentReservationId)->AppointmentReservation(Id)|Cascade",
+            "WorkOrder(BusinessVerticalId)->BusinessVertical(Id)|Restrict",
+            "VehicleWorkOrderDetails(WorkOrderId)->WorkOrder(Id)|Cascade",
             "WorkOrderItem(WorkOrderId)->WorkOrder(Id)|Cascade",
             "WorkOrderSelection(WorkOrderItemId)->WorkOrderItem(Id)|Cascade"
         ]);
@@ -311,6 +335,7 @@ public class Step16BusinessSchemaModelTests
                 "BranchRecurringSchedule.RowVersion|OnAddOrUpdate",
                 "BranchServiceArea.RowVersion|OnAddOrUpdate",
                 "BusinessUser.ConcurrencyStamp|Never",
+                "BusinessVertical.RowVersion|OnAddOrUpdate",
                 "Company.RowVersion|OnAddOrUpdate",
                 "IdentityRole`1.ConcurrencyStamp|Never",
                 "ServiceCategory.RowVersion|OnAddOrUpdate",

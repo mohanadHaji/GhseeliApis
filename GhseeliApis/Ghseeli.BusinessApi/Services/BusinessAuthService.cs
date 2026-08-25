@@ -95,7 +95,17 @@ public class BusinessAuthService : IBusinessAuthService
             NameAr = BusinessTextNormalizer.NormalizeRequired(request.CompanyNameAr),
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.CompanyNameHe),
             Phone = BusinessTextNormalizer.NormalizeOptional(request.PhoneNumber),
-            CreatedAt = utcNow
+            CreatedAt = utcNow,
+            BusinessVerticals =
+            [
+                new CompanyBusinessVertical
+                {
+                    BusinessVerticalId = BusinessVerticalDefaults.CarWashId,
+                    IsPrimary = true,
+                    IsActive = true,
+                    CreatedAtUtc = utcNow
+                }
+            ]
         };
         var assignment = new BusinessUserAssignment
         {

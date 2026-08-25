@@ -24,7 +24,11 @@ public class CatalogRepository : BusinessMutationRepositoryBase, ICatalogReposit
     {
         return await Context.ServiceCategories
             .AsNoTracking()
-            .Where(category => category.CompanyId == companyId)
+            .Where(category =>
+                category.CompanyId == companyId &&
+                category.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                category.CompanyBusinessVertical.IsActive &&
+                category.BusinessVertical.IsActive)
             .OrderBy(category => category.DisplayOrder)
             .ThenBy(category => category.NameAr)
             .ToArrayAsync();
@@ -38,7 +42,11 @@ public class CatalogRepository : BusinessMutationRepositoryBase, ICatalogReposit
             .Include(category => category.Offerings)
                 .ThenInclude(offering => offering.AddonGroups)
             .Include(category => category.Company)
-            .SingleOrDefaultAsync(category => category.Id == categoryId);
+            .SingleOrDefaultAsync(category =>
+                category.Id == categoryId &&
+                category.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                category.CompanyBusinessVertical.IsActive &&
+                category.BusinessVertical.IsActive);
     }
 
     public async Task<ServiceCategory> AddCategoryAsync(ServiceCategory category)
@@ -88,7 +96,11 @@ public class CatalogRepository : BusinessMutationRepositoryBase, ICatalogReposit
             .AsNoTracking()
             .Include(offering => offering.Category)
             .Include(offering => offering.Branch)
-            .Where(offering => offering.Category.CompanyId == companyId);
+            .Where(offering =>
+                offering.Category.CompanyId == companyId &&
+                offering.Category.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                offering.Category.CompanyBusinessVertical.IsActive &&
+                offering.Category.BusinessVertical.IsActive);
 
         if (categoryId.HasValue)
         {
@@ -114,7 +126,11 @@ public class CatalogRepository : BusinessMutationRepositoryBase, ICatalogReposit
             .Include(offering => offering.Category)
                 .ThenInclude(category => category.Company)
             .Include(offering => offering.Branch)
-            .SingleOrDefaultAsync(offering => offering.Id == offeringId);
+            .SingleOrDefaultAsync(offering =>
+                offering.Id == offeringId &&
+                offering.Category.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                offering.Category.CompanyBusinessVertical.IsActive &&
+                offering.Category.BusinessVertical.IsActive);
     }
 
     public async Task<ServiceOffering> AddOfferingAsync(ServiceOffering offering)

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace Ghseeli.BusinessApi.Models;
 
 public sealed class WorkOrder
@@ -7,15 +9,44 @@ public sealed class WorkOrder
     public Guid AppointmentReservationId { get; set; }
     public AppointmentReservation AppointmentReservation { get; set; } = null!;
     public string Status { get; set; } = string.Empty;
+    public Guid BusinessVerticalId { get; set; } = BusinessVerticalDefaults.CarWashId;
+    public string BusinessVerticalCode { get; set; } = BusinessVerticalDefaults.CarWashCode;
+    public BusinessVertical BusinessVertical { get; set; } = null!;
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
     public string CustomerName { get; set; } = string.Empty;
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }
-    public string VehicleType { get; set; } = string.Empty;
-    public string? LicensePlate { get; set; }
-    public string? VehicleMake { get; set; }
-    public string? VehicleModel { get; set; }
-    public string? VehicleColor { get; set; }
+    public VehicleWorkOrderDetails VehicleDetails { get; set; } = new();
+    [NotMapped]
+    public string VehicleType
+    {
+        get => VehicleDetails.VehicleType;
+        set => VehicleDetails.VehicleType = value;
+    }
+    [NotMapped]
+    public string? LicensePlate
+    {
+        get => VehicleDetails.LicensePlate;
+        set => VehicleDetails.LicensePlate = value;
+    }
+    [NotMapped]
+    public string? VehicleMake
+    {
+        get => VehicleDetails.VehicleMake;
+        set => VehicleDetails.VehicleMake = value;
+    }
+    [NotMapped]
+    public string? VehicleModel
+    {
+        get => VehicleDetails.VehicleModel;
+        set => VehicleDetails.VehicleModel = value;
+    }
+    [NotMapped]
+    public string? VehicleColor
+    {
+        get => VehicleDetails.VehicleColor;
+        set => VehicleDetails.VehicleColor = value;
+    }
     public string AddressLine { get; set; } = string.Empty;
     public string? City { get; set; }
     public string? Area { get; set; }
@@ -23,6 +54,17 @@ public sealed class WorkOrder
     public decimal Longitude { get; set; }
     public DateTime CreatedAtUtc { get; set; }
     public ICollection<WorkOrderItem> Items { get; set; } = new List<WorkOrderItem>();
+}
+
+public sealed class VehicleWorkOrderDetails
+{
+    public Guid WorkOrderId { get; set; }
+    public WorkOrder WorkOrder { get; set; } = null!;
+    public string VehicleType { get; set; } = string.Empty;
+    public string? LicensePlate { get; set; }
+    public string? VehicleMake { get; set; }
+    public string? VehicleModel { get; set; }
+    public string? VehicleColor { get; set; }
 }
 
 public sealed class WorkOrderItem

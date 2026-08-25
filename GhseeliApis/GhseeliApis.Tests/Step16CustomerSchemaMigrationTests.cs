@@ -1,4 +1,5 @@
 using FluentAssertions;
+using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -97,7 +98,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(2);
+            firstHistory.Should().HaveCount(3);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")
@@ -114,6 +115,79 @@ public sealed class Step16CustomerSchemaMigrationTests
 
             secondHistory.Should().Equal(firstHistory);
             secondCatalog.Should().Equal(firstCatalog);
+        }
+        finally
+        {
+            await DropDatabaseAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Customer_vertical_snapshot_migration_backfills_populated_database()
+    {
+        await DropDatabaseAsync();
+        try
+        {
+            await using var context = CreateContext();
+            var migrator = context.GetService<IMigrator>();
+            await migrator.MigrateAsync("20260824230024_AddCustomerDeviceActiveState");
+            var providerId = Guid.NewGuid();
+            var userId = Guid.NewGuid();
+            var bookingId = Guid.NewGuid();
+            var now = new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero);
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [dbo].[AspNetUsers]
+                    ([Id], [FullName], [Email], [IsActive], [EmailConfirmed], [PhoneNumberConfirmed],
+                     [TwoFactorEnabled], [LockoutEnabled], [AccessFailedCount], [CreatedAt])
+                VALUES
+                    ({userId}, {"Customer"}, {"customer@example.test"}, {true}, {false}, {false},
+                     {false}, {false}, {0}, {now.UtcDateTime});
+
+                INSERT INTO [dbo].[CatalogProviders]
+                    ([Id], [SourceCompanyId], [IsEnabled], [DisplayOrder], [NameAr],
+                     [CatalogVersion])
+                VALUES
+                    ({providerId}, {Guid.NewGuid()}, {true}, {0}, {"مغسلة"}, {7L});
+
+                INSERT INTO [dbo].[CustomerBookings]
+                    ([Id], [PublicReference], [OrderGuid], [UserId], [OwnerDeviceId],
+                     [BusinessReservationId], [BusinessWorkOrderId], [BusinessSourceId],
+                     [BranchSourceId], [CatalogVersion], [ConfirmedDraftVersion], [Status],
+                     [BusinessStatusSequence], [StatusChangedAtUtc], [RequestedSlotStartUtc],
+                     [RequestedSlotEndUtc], [ProviderNameAr], [BranchNameAr], [VehicleType],
+                     [AddressLine], [Latitude], [Longitude], [Currency], [BaseSubtotal],
+                     [AddonSubtotal], [ItemSubtotal], [ServiceFee], [ServiceFeeMode],
+                     [ServiceFeeFlatAmount], [ServiceFeePercentageRate], [TaxableSubtotal],
+                     [TaxRatePercent], [TaxAppliesToServiceFee], [Tax], [GrandTotal],
+                     [IsPaid], [PaymentState], [TotalDurationMinutes], [QuotedAtUtc],
+                     [CreatedAtUtc])
+                VALUES
+                    ({bookingId}, {Guid.NewGuid()}, {Guid.NewGuid()}, {userId}, {Guid.NewGuid()},
+                     {Guid.NewGuid()}, {Guid.NewGuid()}, {Guid.NewGuid()}, {Guid.NewGuid()},
+                     {7L}, {1}, {"Pending"}, {0L}, {now}, {now.AddHours(1)},
+                     {now.AddHours(2)}, {"مغسلة"}, {"فرع"}, {"SUV"}, {"Street"},
+                     {32.1m}, {34.8m}, {"ILS"}, {100m}, {10m}, {110m}, {5m},
+                     {"Flat"}, {5m}, {0m}, {115m}, {0m}, {false}, {0m}, {115m},
+                     {false}, {"Unpaid"}, {45}, {now}, {now});
+                """);
+
+            await context.Database.MigrateAsync();
+
+            var values = await ReadStringsAsync(
+                context,
+                """
+                SELECT 'B:' + LOWER(CONVERT(varchar(36), [Id])) + ':' + [BusinessVerticalCode]
+                FROM [dbo].[CustomerBookings]
+                UNION ALL
+                SELECT 'P:' + LOWER(CONVERT(varchar(36), [Id])) + ':' + [BusinessVerticalCode]
+                FROM [dbo].[CatalogProviders]
+                ORDER BY 1
+                """);
+            values.Should().Equal(
+                $"B:{bookingId:D}:{BusinessVerticalSnapshotDefaults.CarWashCode}",
+                $"P:{providerId:D}:{BusinessVerticalSnapshotDefaults.CarWashCode}");
+            await context.Database.MigrateAsync();
+            (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
         }
         finally
         {

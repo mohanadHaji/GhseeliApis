@@ -19,6 +19,17 @@ public class CompanyRepository : BusinessMutationRepositoryBase, ICompanyReposit
         Company company,
         BusinessUserAssignment assignment)
     {
+        var carWashRegistrationEnabled = await Context.BusinessVerticals.AnyAsync(vertical =>
+            vertical.Id == BusinessVerticalDefaults.CarWashId &&
+            vertical.Code == BusinessVerticalDefaults.CarWashCode &&
+            vertical.IsActive &&
+            vertical.RegistrationEnabled);
+        if (!carWashRegistrationEnabled)
+        {
+            throw new InvalidOperationException(
+                "Car-wash business registration is disabled.");
+        }
+
         Context.Companies.Add(company);
         Context.BusinessUserAssignments.Add(assignment);
         if (!Context.Database.IsRelational())
@@ -42,6 +53,8 @@ public class CompanyRepository : BusinessMutationRepositoryBase, ICompanyReposit
     public Task<Company?> GetPublicationByIdAsync(Guid companyId)
     {
         return Context.Companies
+            .Include(company => company.BusinessVerticals)
+                .ThenInclude(assignment => assignment.BusinessVertical)
             .Include(company => company.Branches)
                 .ThenInclude(branch => branch.ServiceArea)
             .Include(company => company.Branches)
@@ -57,7 +70,13 @@ public class CompanyRepository : BusinessMutationRepositoryBase, ICompanyReposit
                 .ThenInclude(category => category.Offerings)
                     .ThenInclude(offering => offering.AddonGroups)
                         .ThenInclude(group => group.Choices)
-            .SingleOrDefaultAsync(company => company.Id == companyId);
+            .SingleOrDefaultAsync(company =>
+                company.Id == companyId &&
+                company.BusinessVerticals.Any(assignment =>
+                    assignment.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                    assignment.IsActive &&
+                    assignment.BusinessVertical.IsActive &&
+                    assignment.BusinessVertical.Code == BusinessVerticalDefaults.CarWashCode));
     }
 
     public async Task<Company?> GetForUserAsync(Guid userId)

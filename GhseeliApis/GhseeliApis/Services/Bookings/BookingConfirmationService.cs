@@ -777,6 +777,7 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             BusinessReservationId = reservation.ReservationId,
             BusinessWorkOrderId = reservation.WorkOrderId,
             BusinessSourceId = draft.BusinessSourceId,
+            BusinessVerticalCode = provider.BusinessVerticalCode,
             BranchSourceId = draft.BranchSourceId,
             CatalogVersion = pricing.CatalogVersion,
             ConfirmedDraftVersion = draft.PublicVersion,

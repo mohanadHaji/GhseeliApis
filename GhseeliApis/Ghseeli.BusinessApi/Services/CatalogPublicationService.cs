@@ -24,7 +24,9 @@ public class CatalogPublicationService : ICatalogPublicationService
             .ToArray();
 
         var activeCategories = company.Categories
-            .Where(category => category.IsActive)
+            .Where(category =>
+                category.IsActive &&
+                category.BusinessVerticalId == Models.BusinessVerticalDefaults.CarWashId)
             .OrderBy(category => category.DisplayOrder)
             .ThenBy(category => category.NameAr)
             .ToArray();

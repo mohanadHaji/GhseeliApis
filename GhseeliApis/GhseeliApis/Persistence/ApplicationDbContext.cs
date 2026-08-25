@@ -46,6 +46,47 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<ProcessedBookingStatusMessage> ProcessedBookingStatusMessages =>
         Set<ProcessedBookingStatusMessage>();
 
+    public override int SaveChanges()
+    {
+        ValidateBusinessVerticalSnapshots();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ValidateBusinessVerticalSnapshots();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBusinessVerticalSnapshots();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBusinessVerticalSnapshots();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void ValidateBusinessVerticalSnapshots()
+    {
+        ChangeTracker.DetectChanges();
+        foreach (var entry in ChangeTracker.Entries<CustomerBooking>()
+                     .Where(entry => entry.State == EntityState.Modified))
+        {
+            if (entry.Property(booking => booking.BusinessVerticalCode).IsModified)
+            {
+                throw new InvalidOperationException(
+                    "Customer booking business vertical snapshots are immutable.");
+            }
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // IMPORTANT: Call base.OnModelCreating() first to configure Identity tables

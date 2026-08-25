@@ -30,6 +30,14 @@ public class ReservationServiceTests
         (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(1);
         (await fixture.Context.WorkOrders.CountAsync()).Should().Be(1);
         (await fixture.Context.WorkOrderItems.CountAsync()).Should().Be(1);
+        var reservation = await fixture.Context.AppointmentReservations
+            .Include(value => value.WorkOrder)
+            .SingleAsync();
+        reservation.BusinessVerticalId.Should().Be(BusinessVerticalDefaults.CarWashId);
+        reservation.BusinessVerticalCode.Should().Be(BusinessVerticalDefaults.CarWashCode);
+        reservation.WorkOrder.BusinessVerticalId.Should().Be(reservation.BusinessVerticalId);
+        reservation.WorkOrder.BusinessVerticalCode.Should().Be(reservation.BusinessVerticalCode);
+        reservation.WorkOrder.VehicleType.Should().Be(fixture.Request.Vehicle.VehicleType);
         fixture.ValidationService.Verify(
             service => service.ValidateAsync(It.IsAny<ValidateAppointmentRequest>()),
             Times.Once);

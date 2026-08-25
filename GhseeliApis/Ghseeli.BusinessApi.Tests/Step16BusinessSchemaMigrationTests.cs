@@ -1,9 +1,11 @@
 using FluentAssertions;
+using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Ghseeli.BusinessApi.Tests;
@@ -32,7 +34,9 @@ public class Step16BusinessSchemaMigrationTests
         "BranchAvailabilitySettings",
         "BranchRecurringSchedules",
         "BranchServiceAreas",
+        "BusinessVerticals",
         "BusinessUserAssignments",
+        "CompanyBusinessVerticals",
         "Companies",
         "InternalServiceIdempotencyRecords",
         "InternalServiceNonces",
@@ -40,16 +44,18 @@ public class Step16BusinessSchemaMigrationTests
         "ServiceOfferings",
         "WorkOrderItems",
         "WorkOrders",
-        "WorkOrderSelections"
+        "WorkOrderSelections",
+        "VehicleWorkOrderDetails"
     ];
 
     [Fact]
-    public void MigrationAssembly_ContainsExactlyOneCleanBusinessInitialMigration()
+    public void MigrationAssembly_ContainsCleanInitialAndVerticalReadinessMigration()
     {
         using var context = CreateContext("Step16BusinessMigrationMetadata");
 
-        context.Database.GetMigrations().Should().ContainSingle()
-            .Which.Should().EndWith("_InitialBusinessDatabase");
+        context.Database.GetMigrations().Should().HaveCount(2);
+        context.Database.GetMigrations().First().Should().EndWith("_InitialBusinessDatabase");
+        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessVerticalReadiness");
     }
 
     [Fact]
@@ -61,11 +67,11 @@ public class Step16BusinessSchemaMigrationTests
         try
         {
             await context.Database.EnsureDeletedAsync();
-            (await context.Database.GetPendingMigrationsAsync()).Should().ContainSingle();
+            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(2);
 
             await context.Database.MigrateAsync();
 
-            (await context.Database.GetAppliedMigrationsAsync()).Should().ContainSingle();
+            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(2);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
             context.Database.HasPendingModelChanges().Should().BeFalse();
 
@@ -176,6 +182,85 @@ public class Step16BusinessSchemaMigrationTests
                 await context.Database.ExecuteSqlRawAsync("REVERT;");
             }
             await context.Database.CloseConnectionAsync();
+            await context.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
+    public async Task VerticalReadinessMigration_BackfillsExistingCompaniesCategoriesAndVehicleOrders()
+    {
+        var databaseName = $"GhseeliBusinessVerticalUpgrade_{Guid.NewGuid():N}";
+        await using var context = CreateContext(databaseName);
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+
+        try
+        {
+            await context.Database.EnsureDeletedAsync();
+            var initialMigration = context.Database.GetMigrations().First();
+            await context.GetService<IMigrator>().MigrateAsync(initialMigration);
+
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                    INSERT INTO [dbo].[Companies]
+                        ([Id], [NameAr], [IsActive], [CatalogVersion], [CreatedAt])
+                    VALUES
+                        ({companyId}, N'Existing car wash', 1, 1, SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[ServiceCategories]
+                        ([Id], [CompanyId], [NameAr], [DisplayOrder], [IsActive], [CreatedAt])
+                    VALUES
+                        ({categoryId}, {companyId}, N'Existing category', 0, 1, SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[AppointmentReservations]
+                        ([Id], [PublicId], [CustomerBookingReference], [OrderGuid], [RequestHash],
+                         [BranchId], [CatalogVersion], [Currency], [ItemSubtotal],
+                         [TotalDurationMinutes], [RequestedSlotStartUtc], [RequestedSlotEndUtc],
+                         [Status], [StatusSequence], [StatusChangedAtUtc], [CreatedAtUtc])
+                    VALUES
+                        ({reservationId}, {Guid.NewGuid()}, {Guid.NewGuid()}, {Guid.NewGuid()},
+                         {new string('a', 64)}, {Guid.NewGuid()}, 1, 'ILS', 50, 30,
+                         SYSUTCDATETIME(), DATEADD(minute, 30, SYSUTCDATETIME()),
+                         'Pending', 0, SYSUTCDATETIME(), SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[WorkOrders]
+                        ([Id], [PublicId], [AppointmentReservationId], [Status], [CustomerName],
+                         [VehicleType], [LicensePlate], [VehicleMake], [VehicleModel], [VehicleColor],
+                         [AddressLine], [Latitude], [Longitude], [CreatedAtUtc])
+                    VALUES
+                        ({workOrderId}, {Guid.NewGuid()}, {reservationId}, 'Pending', N'Existing customer',
+                         'SUV', '12-345-67', 'Toyota', 'RAV4', 'Blue',
+                         N'Existing address', 32.085300, 34.781800, SYSUTCDATETIME());
+                    """);
+
+            await context.Database.MigrateAsync();
+            context.ChangeTracker.Clear();
+
+            (await context.BusinessVerticals.SingleAsync()).Code
+                .Should().Be(BusinessVerticalDefaults.CarWashCode);
+            (await context.CompanyBusinessVerticals.SingleAsync()).Should().Match<CompanyBusinessVertical>(
+                assignment =>
+                    assignment.CompanyId == companyId &&
+                    assignment.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+                    assignment.IsPrimary &&
+                    assignment.IsActive);
+            (await context.ServiceCategories.SingleAsync()).BusinessVerticalId
+                .Should().Be(BusinessVerticalDefaults.CarWashId);
+            (await context.AppointmentReservations.SingleAsync()).BusinessVerticalCode
+                .Should().Be(BusinessVerticalDefaults.CarWashCode);
+
+            var workOrder = await context.WorkOrders.SingleAsync();
+            workOrder.BusinessVerticalCode.Should().Be(BusinessVerticalDefaults.CarWashCode);
+            workOrder.VehicleType.Should().Be("SUV");
+            workOrder.LicensePlate.Should().Be("12-345-67");
+            workOrder.VehicleMake.Should().Be("Toyota");
+            workOrder.VehicleModel.Should().Be("RAV4");
+            workOrder.VehicleColor.Should().Be("Blue");
+        }
+        finally
+        {
             await context.Database.EnsureDeletedAsync();
         }
     }

@@ -11,6 +11,8 @@ public sealed class CustomerBooking
     public Guid BusinessReservationId { get; set; }
     public Guid BusinessWorkOrderId { get; set; }
     public Guid BusinessSourceId { get; set; }
+    public string BusinessVerticalCode { get; set; } =
+        BusinessVerticalSnapshotDefaults.CarWashCode;
     public Guid BranchSourceId { get; set; }
     public long CatalogVersion { get; set; }
     public int ConfirmedDraftVersion { get; set; }

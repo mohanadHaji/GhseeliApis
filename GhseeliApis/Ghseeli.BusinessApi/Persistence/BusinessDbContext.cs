@@ -13,6 +13,9 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     }
 
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<BusinessVertical> BusinessVerticals => Set<BusinessVertical>();
+    public DbSet<CompanyBusinessVertical> CompanyBusinessVerticals =>
+        Set<CompanyBusinessVertical>();
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
     public DbSet<ServiceOffering> ServiceOfferings => Set<ServiceOffering>();
@@ -32,12 +35,133 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
         Set<InternalServiceIdempotencyRecord>();
     public DbSet<AppointmentReservation> AppointmentReservations => Set<AppointmentReservation>();
     public DbSet<WorkOrder> WorkOrders => Set<WorkOrder>();
+    public DbSet<VehicleWorkOrderDetails> VehicleWorkOrderDetails =>
+        Set<VehicleWorkOrderDetails>();
     public DbSet<WorkOrderItem> WorkOrderItems => Set<WorkOrderItem>();
     public DbSet<WorkOrderSelection> WorkOrderSelections => Set<WorkOrderSelection>();
     public DbSet<BookingStatusOutboxMessage> BookingStatusOutboxMessages =>
         Set<BookingStatusOutboxMessage>();
     public DbSet<BookingStatusRequeueHistory> BookingStatusRequeueHistory =>
         Set<BookingStatusRequeueHistory>();
+
+    public override int SaveChanges()
+    {
+        ApplyBusinessVerticalInvariants();
+        return base.SaveChanges();
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyBusinessVerticalInvariants();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ApplyBusinessVerticalInvariants();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override Task<int> SaveChangesAsync(
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken = default)
+    {
+        ApplyBusinessVerticalInvariants();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void ApplyBusinessVerticalInvariants()
+    {
+        ChangeTracker.DetectChanges();
+        BusinessVertical? inMemoryCarWash = null;
+        if (!Database.IsRelational())
+        {
+            inMemoryCarWash = BusinessVerticals.Local.FirstOrDefault(vertical =>
+                    vertical.Id == BusinessVerticalDefaults.CarWashId)
+                ?? BusinessVerticals.FirstOrDefault(vertical =>
+                    vertical.Id == BusinessVerticalDefaults.CarWashId);
+            if (inMemoryCarWash is null)
+            {
+                inMemoryCarWash = new BusinessVertical
+                {
+                    Id = BusinessVerticalDefaults.CarWashId,
+                    Code = BusinessVerticalDefaults.CarWashCode,
+                    NameAr = "\u063a\u0633\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+                    NameHe = "\u05e9\u05d8\u05d9\u05e4\u05ea \u05e8\u05db\u05d1",
+                    IsActive = true,
+                    RegistrationEnabled = true,
+                    CreatedAtUtc = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc)
+                };
+                BusinessVerticals.Add(inMemoryCarWash);
+            }
+        }
+
+        foreach (var companyEntry in ChangeTracker.Entries<Company>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            if (companyEntry.Entity.BusinessVerticals.Count == 0)
+            {
+                companyEntry.Entity.BusinessVerticals.Add(new CompanyBusinessVertical
+                {
+                    BusinessVerticalId = BusinessVerticalDefaults.CarWashId,
+                    BusinessVertical = inMemoryCarWash!,
+                    IsPrimary = true,
+                    IsActive = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                });
+            }
+
+            if (companyEntry.Entity.BusinessVerticals.Count(assignment =>
+                    assignment.IsPrimary && assignment.IsActive) != 1)
+            {
+                throw new InvalidOperationException(
+                    "A new company must have exactly one active primary business vertical.");
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<AppointmentReservation>()
+                     .Where(entry => entry.State == EntityState.Modified))
+        {
+            if (entry.Property(reservation => reservation.BusinessVerticalId).IsModified ||
+                entry.Property(reservation => reservation.BusinessVerticalCode).IsModified)
+            {
+                throw new InvalidOperationException(
+                    "Reservation business vertical snapshots are immutable.");
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<WorkOrder>()
+                     .Where(entry => entry.State == EntityState.Modified))
+        {
+            if (entry.Property(workOrder => workOrder.BusinessVerticalId).IsModified ||
+                entry.Property(workOrder => workOrder.BusinessVerticalCode).IsModified)
+            {
+                throw new InvalidOperationException(
+                    "Work-order business vertical snapshots are immutable.");
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<AppointmentReservation>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            if (entry.Entity.BusinessVerticalId != BusinessVerticalDefaults.CarWashId ||
+                !string.Equals(
+                    entry.Entity.BusinessVerticalCode,
+                    BusinessVerticalDefaults.CarWashCode,
+                    StringComparison.Ordinal) ||
+                    entry.Entity.WorkOrder is not null &&
+                    (entry.Entity.WorkOrder.BusinessVerticalId != entry.Entity.BusinessVerticalId ||
+                     !string.Equals(
+                         entry.Entity.WorkOrder.BusinessVerticalCode,
+                         entry.Entity.BusinessVerticalCode,
+                         StringComparison.Ordinal)))
+            {
+                throw new InvalidOperationException(
+                    "Reservation and work-order business vertical snapshots must identify car wash consistently.");
+            }
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -67,6 +191,60 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .IsRowVersion();
             entity.Property(company => company.CreatedAt)
                 .HasDefaultValueSql("GETUTCDATE()");
+        });
+
+        builder.Entity<BusinessVertical>(entity =>
+        {
+            entity.ToTable("BusinessVerticals");
+            entity.HasKey(vertical => vertical.Id);
+            entity.Property(vertical => vertical.Code).HasMaxLength(64).IsRequired();
+            entity.Property(vertical => vertical.NameAr).HasMaxLength(200).IsRequired();
+            entity.Property(vertical => vertical.NameHe).HasMaxLength(200);
+            entity.Property(vertical => vertical.RowVersion).IsRowVersion();
+            entity.HasIndex(vertical => vertical.Code).IsUnique();
+            if (Database.IsRelational())
+            {
+                entity.HasData(new
+                {
+                    Id = BusinessVerticalDefaults.CarWashId,
+                    Code = BusinessVerticalDefaults.CarWashCode,
+                    NameAr = "\u063a\u0633\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
+                    NameHe = "\u05e9\u05d8\u05d9\u05e4\u05ea \u05e8\u05db\u05d1",
+                    IsActive = true,
+                    RegistrationEnabled = true,
+                    CreatedAtUtc = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc)
+                });
+            }
+        });
+
+        builder.Entity<CompanyBusinessVertical>(entity =>
+        {
+            entity.ToTable(
+                "CompanyBusinessVerticals",
+                table => table.HasCheckConstraint(
+                    "CK_CompanyBusinessVerticals_PrimaryActive",
+                    "[IsPrimary] = 0 OR [IsActive] = 1"));
+            entity.HasKey(assignment => new
+            {
+                assignment.CompanyId,
+                assignment.BusinessVerticalId
+            });
+            entity.HasOne(assignment => assignment.Company)
+                .WithMany(company => company.BusinessVerticals)
+                .HasForeignKey(assignment => assignment.CompanyId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(assignment => assignment.BusinessVertical)
+                .WithMany(vertical => vertical.Companies)
+                .HasForeignKey(assignment => assignment.BusinessVerticalId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(assignment => assignment.CompanyId)
+                .IsUnique()
+                .HasFilter("[IsPrimary] = 1 AND [IsActive] = 1");
+            entity.HasIndex(assignment => new
+            {
+                assignment.BusinessVerticalId,
+                assignment.IsActive
+            });
         });
 
         builder.Entity<Branch>(entity =>
@@ -169,6 +347,9 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
 
         builder.Entity<ServiceCategory>(entity =>
         {
+            entity.Property(category => category.BusinessVerticalId)
+                .HasDefaultValue(BusinessVerticalDefaults.CarWashId)
+                .IsRequired();
             entity.Property(category => category.NameAr)
                 .HasMaxLength(200)
                 .IsRequired();
@@ -186,8 +367,25 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .WithMany(company => company.Categories)
                 .HasForeignKey(category => category.CompanyId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(category => category.CompanyBusinessVertical)
+                .WithMany()
+                .HasForeignKey(category => new
+                {
+                    category.CompanyId,
+                    category.BusinessVerticalId
+                })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(category => category.BusinessVertical)
+                .WithMany(vertical => vertical.Categories)
+                .HasForeignKey(category => category.BusinessVerticalId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(category => new { category.CompanyId, category.DisplayOrder });
             entity.HasIndex(category => new { category.CompanyId, category.IsActive });
+            entity.HasIndex(category => new
+            {
+                category.BusinessVerticalId,
+                category.IsActive
+            });
         });
 
         builder.Entity<ServiceOffering>(entity =>
@@ -350,6 +548,13 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.Property(reservation => reservation.OrderGuid).IsRequired();
             entity.Property(reservation => reservation.RequestHash).HasMaxLength(64).IsRequired();
             entity.Property(reservation => reservation.BranchId).IsRequired();
+            entity.Property(reservation => reservation.BusinessVerticalId)
+                .HasDefaultValue(BusinessVerticalDefaults.CarWashId)
+                .IsRequired();
+            entity.Property(reservation => reservation.BusinessVerticalCode)
+                .HasMaxLength(64)
+                .HasDefaultValue(BusinessVerticalDefaults.CarWashCode)
+                .IsRequired();
             entity.Property(reservation => reservation.Currency).HasMaxLength(10).IsRequired();
             entity.Property(reservation => reservation.ItemSubtotal).HasPrecision(18, 2);
             entity.Property(reservation => reservation.Status).HasMaxLength(32).IsRequired();
@@ -359,6 +564,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.HasIndex(reservation => reservation.PublicId).IsUnique();
             entity.HasIndex(reservation => reservation.CustomerBookingReference).IsUnique();
             entity.HasIndex(reservation => reservation.OrderGuid).IsUnique();
+            entity.HasOne(reservation => reservation.BusinessVertical)
+                .WithMany()
+                .HasForeignKey(reservation => reservation.BusinessVerticalId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(reservation => new
             {
                 reservation.BranchId,
@@ -374,15 +583,17 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.HasKey(workOrder => workOrder.Id);
             entity.Property(workOrder => workOrder.PublicId).IsRequired();
             entity.Property(workOrder => workOrder.Status).HasMaxLength(32).IsRequired();
+            entity.Property(workOrder => workOrder.BusinessVerticalId)
+                .HasDefaultValue(BusinessVerticalDefaults.CarWashId)
+                .IsRequired();
+            entity.Property(workOrder => workOrder.BusinessVerticalCode)
+                .HasMaxLength(64)
+                .HasDefaultValue(BusinessVerticalDefaults.CarWashCode)
+                .IsRequired();
             entity.Property(workOrder => workOrder.RowVersion).IsRowVersion();
             entity.Property(workOrder => workOrder.CustomerName).HasMaxLength(150).IsRequired();
             entity.Property(workOrder => workOrder.CustomerEmail).HasMaxLength(254);
             entity.Property(workOrder => workOrder.CustomerPhone).HasMaxLength(32);
-            entity.Property(workOrder => workOrder.VehicleType).HasMaxLength(50).IsRequired();
-            entity.Property(workOrder => workOrder.LicensePlate).HasMaxLength(50);
-            entity.Property(workOrder => workOrder.VehicleMake).HasMaxLength(150);
-            entity.Property(workOrder => workOrder.VehicleModel).HasMaxLength(150);
-            entity.Property(workOrder => workOrder.VehicleColor).HasMaxLength(50);
             entity.Property(workOrder => workOrder.AddressLine).HasMaxLength(300).IsRequired();
             entity.Property(workOrder => workOrder.City).HasMaxLength(120);
             entity.Property(workOrder => workOrder.Area).HasMaxLength(120);
@@ -392,8 +603,29 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .WithOne(reservation => reservation.WorkOrder)
                 .HasForeignKey<WorkOrder>(workOrder => workOrder.AppointmentReservationId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(workOrder => workOrder.BusinessVertical)
+                .WithMany()
+                .HasForeignKey(workOrder => workOrder.BusinessVerticalId)
+                .OnDelete(DeleteBehavior.Restrict);
             entity.HasIndex(workOrder => workOrder.PublicId).IsUnique();
             entity.HasIndex(workOrder => workOrder.AppointmentReservationId).IsUnique();
+            entity.HasIndex(workOrder => workOrder.BusinessVerticalId);
+            entity.Navigation(workOrder => workOrder.VehicleDetails).AutoInclude();
+        });
+
+        builder.Entity<VehicleWorkOrderDetails>(entity =>
+        {
+            entity.ToTable("VehicleWorkOrderDetails");
+            entity.HasKey(details => details.WorkOrderId);
+            entity.Property(details => details.VehicleType).HasMaxLength(50).IsRequired();
+            entity.Property(details => details.LicensePlate).HasMaxLength(50);
+            entity.Property(details => details.VehicleMake).HasMaxLength(150);
+            entity.Property(details => details.VehicleModel).HasMaxLength(150);
+            entity.Property(details => details.VehicleColor).HasMaxLength(50);
+            entity.HasOne(details => details.WorkOrder)
+                .WithOne(workOrder => workOrder.VehicleDetails)
+                .HasForeignKey<VehicleWorkOrderDetails>(details => details.WorkOrderId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         builder.Entity<BookingStatusOutboxMessage>(entity =>

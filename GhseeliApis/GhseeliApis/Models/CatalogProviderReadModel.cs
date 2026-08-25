@@ -4,6 +4,8 @@ public sealed class CatalogProviderReadModel
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid SourceCompanyId { get; set; }
+    public string BusinessVerticalCode { get; set; } =
+        BusinessVerticalSnapshotDefaults.CarWashCode;
     public bool IsEnabled { get; set; }
     public int DisplayOrder { get; set; }
     public string NameAr { get; set; } = string.Empty;

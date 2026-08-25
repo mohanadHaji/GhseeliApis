@@ -369,6 +369,31 @@ public class CatalogRefreshRelationalIntegrationTests
         interceptor.TaggedReaderExecutions.Should().Be(1);
     }
 
+    [Fact]
+    public async Task EnabledCatalogReads_ExcludeNonCarWashProviders()
+    {
+        await using var database = await SqlServerCatalogDatabase.CreateAsync();
+        var carWash = CreateSeedProvider(Guid.NewGuid());
+        var future = CreateSeedProvider(Guid.NewGuid());
+        future.BusinessVerticalCode = "mechanics";
+        await database.ExecuteAsync(context =>
+        {
+            context.CatalogProviders.AddRange(carWash, future);
+        });
+
+        await using var context = database.CreateContext();
+        var repository = new CatalogReadModelRepository(context);
+
+        var summaries = await repository.ListEnabledProviderSummariesAsync(
+            CancellationToken.None);
+        var graph = await repository.GetEnabledProvidersWithGraphAsync(
+            null,
+            CancellationToken.None);
+
+        summaries.Should().ContainSingle(provider => provider.Id == carWash.Id);
+        graph.Should().ContainSingle(provider => provider.Id == carWash.Id);
+    }
+
     private static CatalogProviderReadModel CreateSeedProvider(Guid sourceCompanyId)
     {
         var provider = new CatalogProviderReadModel

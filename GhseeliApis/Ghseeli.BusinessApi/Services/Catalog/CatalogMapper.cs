@@ -15,6 +15,7 @@ internal static class CatalogMapper
         {
             CompanyId = company.Id,
             Company = company,
+            BusinessVerticalId = BusinessVerticalDefaults.CarWashId,
             NameAr = BusinessTextNormalizer.NormalizeRequired(request.NameAr),
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe),
             DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr),

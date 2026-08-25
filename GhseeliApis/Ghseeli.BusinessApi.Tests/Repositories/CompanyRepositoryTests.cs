@@ -19,6 +19,14 @@ public class CompanyRepositoryTests
             .Options;
 
         await using var context = new BusinessDbContext(options);
+        context.BusinessVerticals.Add(new BusinessVertical
+        {
+            Id = BusinessVerticalDefaults.CarWashId,
+            Code = BusinessVerticalDefaults.CarWashCode,
+            NameAr = "غسيل السيارات",
+            IsActive = true,
+            RegistrationEnabled = true
+        });
         var company = new Company { NameAr = "شركة" };
         var branch = new Branch
         {
@@ -66,6 +74,39 @@ public class CompanyRepositoryTests
         publishedBranch.AvailabilitySettings.Should().NotBeNull();
         publishedBranch.RecurringSchedules.Should().ContainSingle();
         publishedBranch.AvailabilityOverrides.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetPublicationByIdAsync_WhenCompanyHasNoActiveCarWashAssignment_ReturnsNull()
+    {
+        var options = new DbContextOptionsBuilder<BusinessDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        await using var context = new BusinessDbContext(options);
+        var futureVertical = new BusinessVertical
+        {
+            Id = Guid.NewGuid(),
+            Code = "mechanics",
+            NameAr = "ميكانيكا",
+            IsActive = true
+        };
+        var company = new Company { NameAr = "شركة" };
+        company.BusinessVerticals.Add(new CompanyBusinessVertical
+        {
+            BusinessVertical = futureVertical,
+            BusinessVerticalId = futureVertical.Id,
+            IsPrimary = true,
+            IsActive = true
+        });
+        context.Add(company);
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var result = await new CompanyRepository(context)
+            .GetPublicationByIdAsync(company.Id);
+
+        result.Should().BeNull();
     }
 
     [Fact]
@@ -117,5 +158,43 @@ public class CompanyRepositoryTests
 
         result.Should().NotBeNull();
         result!.Branches.Should().ContainSingle(item => item.Id == branch.Id);
+    }
+
+    [Fact]
+    public async Task CreateForOwnerAsync_WhenCarWashRegistrationIsDisabled_RejectsCompany()
+    {
+        var options = new DbContextOptionsBuilder<BusinessDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var context = new BusinessDbContext(options);
+        context.BusinessVerticals.Add(new BusinessVertical
+        {
+            Id = BusinessVerticalDefaults.CarWashId,
+            Code = BusinessVerticalDefaults.CarWashCode,
+            NameAr = "غسيل السيارات",
+            IsActive = true,
+            RegistrationEnabled = false
+        });
+        await context.SaveChangesAsync();
+        var company = new Company { NameAr = "شركة" };
+        company.BusinessVerticals.Add(new CompanyBusinessVertical
+        {
+            BusinessVerticalId = BusinessVerticalDefaults.CarWashId,
+            IsPrimary = true,
+            IsActive = true
+        });
+
+        var action = () => new CompanyRepository(context).CreateForOwnerAsync(
+            company,
+            new BusinessUserAssignment
+            {
+                UserId = Guid.NewGuid(),
+                CompanyId = company.Id,
+                Role = BusinessMembershipRole.Owner
+            });
+
+        await action.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*registration*disabled*");
+        context.Companies.Should().BeEmpty();
     }
 }

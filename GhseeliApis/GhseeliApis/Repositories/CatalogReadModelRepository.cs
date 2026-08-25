@@ -107,7 +107,9 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
     {
         return await _context.CatalogProviders
             .AsNoTracking()
-            .Where(provider => provider.IsEnabled)
+            .Where(provider =>
+                provider.IsEnabled &&
+                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode)
             .OrderBy(provider => provider.DisplayOrder)
             .ThenBy(provider => provider.NameAr)
             .ToListAsync(cancellationToken);
@@ -119,7 +121,10 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
         _context.CatalogProviders
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                provider => provider.Id == providerId && provider.IsEnabled,
+                provider =>
+                    provider.Id == providerId &&
+                    provider.IsEnabled &&
+                    provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode,
                 cancellationToken);
 
     public Task<CatalogProviderReadModel?> GetEnabledProviderBySourceCompanyIdWithGraphAsync(
@@ -128,7 +133,10 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
         _context.CatalogProviders
             .AsNoTracking()
             .AsSingleQuery()
-            .Where(provider => provider.IsEnabled && provider.SourceCompanyId == sourceCompanyId)
+            .Where(provider =>
+                provider.IsEnabled &&
+                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode &&
+                provider.SourceCompanyId == sourceCompanyId)
             .Include(provider => provider.Branches)
             .Include(provider => provider.Categories)
                 .ThenInclude(category => category.Offerings)
@@ -145,7 +153,11 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
         _context.CatalogBranches
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                branch => branch.Id == branchId && branch.Provider.IsEnabled,
+                branch =>
+                    branch.Id == branchId &&
+                    branch.Provider.IsEnabled &&
+                    branch.Provider.BusinessVerticalCode ==
+                        BusinessVerticalSnapshotDefaults.CarWashCode,
                 cancellationToken);
 
     public Task<CatalogCategoryReadModel?> GetEnabledCategorySummaryAsync(
@@ -154,7 +166,11 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
         _context.CatalogCategories
             .AsNoTracking()
             .SingleOrDefaultAsync(
-                category => category.Id == categoryId && category.Provider.IsEnabled,
+                category =>
+                    category.Id == categoryId &&
+                    category.Provider.IsEnabled &&
+                    category.Provider.BusinessVerticalCode ==
+                        BusinessVerticalSnapshotDefaults.CarWashCode,
                 cancellationToken);
 
     public Task<CatalogOfferingReadModel?> GetEnabledOfferingSummaryAsync(
@@ -164,7 +180,11 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .AsNoTracking()
             .Include(offering => offering.Category)
             .SingleOrDefaultAsync(
-                offering => offering.Id == offeringId && offering.Category.Provider.IsEnabled,
+                offering =>
+                    offering.Id == offeringId &&
+                    offering.Category.Provider.IsEnabled &&
+                    offering.Category.Provider.BusinessVerticalCode ==
+                        BusinessVerticalSnapshotDefaults.CarWashCode,
                 cancellationToken);
 
     public async Task<IReadOnlyList<CatalogProviderReadModel>> GetEnabledProvidersWithGraphAsync(
@@ -180,7 +200,9 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .AsNoTracking()
             .AsSingleQuery()
             .TagWith(GraphQueryTag)
-            .Where(provider => provider.IsEnabled);
+            .Where(provider =>
+                provider.IsEnabled &&
+                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode);
 
         if (providerIds is not null)
         {

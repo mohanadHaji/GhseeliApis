@@ -11,6 +11,10 @@ internal static class CatalogReadModelConfiguration
         {
             entity.ToTable("CatalogProviders");
             entity.HasKey(provider => provider.Id);
+            entity.Property(provider => provider.BusinessVerticalCode)
+                .HasMaxLength(64)
+                .HasDefaultValue(BusinessVerticalSnapshotDefaults.CarWashCode)
+                .IsRequired();
             entity.Property(provider => provider.NameAr)
                 .HasMaxLength(200);
             entity.Property(provider => provider.NameHe)

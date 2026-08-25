@@ -103,6 +103,10 @@ public class BusinessAuthServiceTests
         result.CompanyId.Should().Be(capturedCompany!.Id);
         capturedCompany.NameAr.Should().Be(request.CompanyNameAr);
         capturedCompany.NameHe.Should().BeNull();
+        capturedCompany.BusinessVerticals.Should().ContainSingle(vertical =>
+            vertical.BusinessVerticalId == BusinessVerticalDefaults.CarWashId &&
+            vertical.IsPrimary &&
+            vertical.IsActive);
         capturedAssignment!.Role.Should().Be(BusinessMembershipRole.Owner);
 
         var token = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);

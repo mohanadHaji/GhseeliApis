@@ -15,6 +15,63 @@ namespace Ghseeli.BusinessApi.Tests.Repositories;
 public class BusinessRelationalRepositoryTests
 {
     [Fact]
+    public async Task WorkOrderVehicleDetails_PersistReloadAndCascadeThroughRelationalMapping()
+    {
+        await using var database = await SqlServerBusinessDatabase.CreateAsync();
+        var workOrderId = Guid.NewGuid();
+        await database.ExecuteAsync(context =>
+        {
+            context.AppointmentReservations.Add(new AppointmentReservation
+            {
+                Id = Guid.NewGuid(),
+                PublicId = Guid.NewGuid(),
+                CustomerBookingReference = Guid.NewGuid(),
+                OrderGuid = Guid.NewGuid(),
+                RequestHash = "vehicle-details",
+                BranchId = Guid.NewGuid(),
+                CatalogVersion = 1,
+                Currency = "ILS",
+                Status = "Pending",
+                StatusChangedAtUtc = DateTimeOffset.UtcNow,
+                CreatedAtUtc = DateTime.UtcNow,
+                WorkOrder = new WorkOrder
+                {
+                    Id = workOrderId,
+                    PublicId = Guid.NewGuid(),
+                    Status = "Pending",
+                    CustomerName = "Customer",
+                    VehicleType = "SUV",
+                    LicensePlate = "12-345-67",
+                    VehicleMake = "Toyota",
+                    VehicleModel = "RAV4",
+                    VehicleColor = "Blue",
+                    AddressLine = "Street",
+                    CreatedAtUtc = DateTime.UtcNow
+                }
+            });
+        });
+
+        await using (var verificationContext = database.CreateContext())
+        {
+            var workOrder = await verificationContext.WorkOrders
+                .SingleAsync(value => value.Id == workOrderId);
+            workOrder.VehicleType.Should().Be("SUV");
+            workOrder.LicensePlate.Should().Be("12-345-67");
+            workOrder.VehicleMake.Should().Be("Toyota");
+            workOrder.VehicleModel.Should().Be("RAV4");
+            workOrder.VehicleColor.Should().Be("Blue");
+            await verificationContext.WorkOrders
+                .Where(value => value.Id == workOrderId)
+                .ExecuteDeleteAsync();
+        }
+
+        await using var finalContext = database.CreateContext();
+        (await finalContext.VehicleWorkOrderDetails
+            .CountAsync(value => value.WorkOrderId == workOrderId))
+            .Should().Be(0);
+    }
+
+    [Fact]
     public async Task AddCategoryAsync_WhenTwoWritersStartFromSameAggregateVersion_PreservesBothVersionIncrements()
     {
         await using var database = await SqlServerBusinessDatabase.CreateAsync();

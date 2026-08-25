@@ -19,6 +19,8 @@ public class Company
     public ICollection<Branch> Branches { get; set; } = new List<Branch>();
     public ICollection<ServiceCategory> Categories { get; set; } =
         new List<ServiceCategory>();
+    public ICollection<CompanyBusinessVertical> BusinessVerticals { get; set; } =
+        new List<CompanyBusinessVertical>();
     public ICollection<BusinessUserAssignment> Assignments { get; set; } =
         new List<BusinessUserAssignment>();
 }

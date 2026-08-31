@@ -77,6 +77,19 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     {
         ChangeTracker.DetectChanges();
         foreach (var entry in ChangeTracker.Entries<CustomerBooking>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            if (!string.Equals(
+                    entry.Entity.BusinessVerticalCode,
+                    BusinessVerticalSnapshotDefaults.CarWashCode,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Customer booking business vertical snapshots must identify car wash.");
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<CustomerBooking>()
                      .Where(entry => entry.State == EntityState.Modified))
         {
             if (entry.Property(booking => booking.BusinessVerticalCode).IsModified)

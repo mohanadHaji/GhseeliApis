@@ -417,6 +417,8 @@ foreach ($required in @(
         'New-BoundaryBodies',
         'New-Step17Jwt',
         'Start-Proxy',
+        'INSERT INTO CompanyBusinessVerticals',
+        "'A842F536-17B7-4BE6-A18D-1BDC6245094C'",
         "Authorization='Bearer {{env:STEP17_BUSINESS_JWT}}'",
         'Invoke-Inherited')) {
     if (-not $runnerText.Contains($required)) {

@@ -142,6 +142,20 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             }
         }
 
+        foreach (var entry in ChangeTracker.Entries<WorkOrder>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            if (entry.Entity.BusinessVerticalId != BusinessVerticalDefaults.CarWashId ||
+                !string.Equals(
+                    entry.Entity.BusinessVerticalCode,
+                    BusinessVerticalDefaults.CarWashCode,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Work-order business vertical snapshots must identify car wash consistently.");
+            }
+        }
+
         foreach (var entry in ChangeTracker.Entries<AppointmentReservation>()
                      .Where(entry => entry.State == EntityState.Added))
         {

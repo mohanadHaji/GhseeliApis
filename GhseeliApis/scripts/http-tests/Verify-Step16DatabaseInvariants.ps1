@@ -48,8 +48,10 @@ $businessTables = @(
     'ServiceCategories','ServiceOfferings','AddonGroups','AddonChoices',
     'BranchAvailabilitySettings','BranchRecurringSchedules',
     'BranchAvailabilityOverrides','BranchServiceAreas','BusinessUserAssignments',
+    'BusinessVerticals','CompanyBusinessVerticals',
     'InternalServiceNonces','InternalServiceIdempotencyRecords',
     'AppointmentReservations','WorkOrders','WorkOrderItems','WorkOrderSelections',
+    'VehicleWorkOrderDetails',
     'BookingStatusOutboxMessages','BookingStatusRequeueHistory',
     '__EFMigrationsHistory')
 
@@ -134,6 +136,20 @@ if ($RequireRoles) {
     }
 }
 if ($RequireZeroDomainRows) {
+    if ($hasBusiness) {
+        $verticalCount = @(Query $state.businessDatabase @"
+SELECT COUNT(*)
+FROM BusinessVerticals
+WHERE Id<>'A842F536-17B7-4BE6-A18D-1BDC6245094C'
+   OR Code<>'car_wash' OR IsActive<>1 OR RegistrationEnabled<>1
+"@)
+        $allVerticalCount = @(Query $state.businessDatabase `
+            'SELECT COUNT(*) FROM BusinessVerticals')
+        if ([int]$allVerticalCount[0] -ne 1 -or
+            [int]$verticalCount[0] -ne 0) {
+            throw 'Business database must contain only the active registration-enabled car-wash reference seed.'
+        }
+    }
     foreach ($item in @(
             [pscustomobject]@{ Database=$state.customerDatabase; Tables=$customerTables;
                 Exists=$hasCustomer },
@@ -141,7 +157,9 @@ if ($RequireZeroDomainRows) {
                 Exists=$hasBusiness })) {
         if (-not $item.Exists) { continue }
         foreach ($table in @($item.Tables | Where-Object {
-                    $_ -notin @('AspNetRoles','__EFMigrationsHistory')
+                    $_ -notin @(
+                        'AspNetRoles','BusinessVerticals','__EFMigrationsHistory'
+                    )
                 })) {
             $count = @(Query -database $item.Database `
                 -sql "SELECT COUNT(*) FROM [$table]")

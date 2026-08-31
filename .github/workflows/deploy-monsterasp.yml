@@ -1,4 +1,4 @@
-name: Deploy to MonsterASP.NET
+name: Deploy Customer and Business APIs
 
 on:
   workflow_dispatch:
@@ -10,11 +10,77 @@ concurrency:
   group: monsterasp-production
   cancel-in-progress: false
 
+env:
+  CUSTOMER_PROJECT: GhseeliApis/GhseeliApis/GhseeliApis.csproj
+  BUSINESS_PROJECT: GhseeliApis/Ghseeli.BusinessApi/Ghseeli.BusinessApi.csproj
+  CUSTOMER_SITE_URL: https://ghseelicustomer.runasp.net
+  BUSINESS_SITE_URL: https://ghseelibusiness.runasp.net
+
 jobs:
-  deploy:
-    name: Build and deploy
+  validate:
+    name: Test and build
     runs-on: windows-latest
-    environment: Main
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Restore solution
+        run: dotnet restore GhseeliApis/GhseeliApis.sln
+
+      - name: Test solution
+        run: >
+          dotnet test GhseeliApis/GhseeliApis.sln
+          --configuration Release
+          --no-restore
+          --nologo
+          --logger "console;verbosity=minimal"
+
+      - name: Build solution
+        run: >
+          dotnet build GhseeliApis/GhseeliApis.sln
+          --configuration Release
+          --no-restore
+          --nologo
+
+  deploy:
+    name: Deploy ${{ matrix.name }} API
+    needs: validate
+    runs-on: windows-latest
+    environment: Production
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Customer
+            project: GhseeliApis/GhseeliApis/GhseeliApis.csproj
+            output: publish/customer
+            site_url: https://ghseelicustomer.runasp.net
+            health_path: /api/Health/db
+            connection_secret: CUSTOMER_DB_CONNECTION
+            jwt_secret: CUSTOMER_JWT_SECRET
+            deploy_url_secret: CUSTOMER_WEBDEPLOY_URL
+            deploy_site_secret: CUSTOMER_WEBDEPLOY_SITE
+            deploy_username_secret: CUSTOMER_WEBDEPLOY_USERNAME
+            deploy_password_secret: CUSTOMER_WEBDEPLOY_PASSWORD
+          - name: Business
+            project: GhseeliApis/Ghseeli.BusinessApi/Ghseeli.BusinessApi.csproj
+            output: publish/business
+            site_url: https://ghseelibusiness.runasp.net
+            health_path: /api/health
+            connection_secret: BUSINESS_DB_CONNECTION
+            jwt_secret: BUSINESS_JWT_SECRET
+            deploy_url_secret: BUSINESS_WEBDEPLOY_URL
+            deploy_site_secret: BUSINESS_WEBDEPLOY_SITE
+            deploy_username_secret: BUSINESS_WEBDEPLOY_USERNAME
+            deploy_password_secret: BUSINESS_WEBDEPLOY_PASSWORD
 
     steps:
       - name: Check out source
@@ -25,91 +91,185 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Restore API
-        run: dotnet restore GhseeliApis/GhseeliApis/GhseeliApis.csproj --runtime win-x86
+      - name: Install EF Core tools
+        shell: pwsh
+        run: dotnet tool install --global dotnet-ef --version 8.*
 
-      - name: Build API
-        run: dotnet build GhseeliApis/GhseeliApis/GhseeliApis.csproj --configuration Release --no-restore
+      - name: Restore ${{ matrix.name }} API
+        run: dotnet restore "${{ matrix.project }}" --runtime win-x86
 
-      - name: Publish API
+      - name: Build ${{ matrix.name }} API for migration
         run: >
-          dotnet publish GhseeliApis/GhseeliApis/GhseeliApis.csproj
+          dotnet build "${{ matrix.project }}"
+          --configuration Release
+          --no-restore
+          --nologo
+
+      - name: Migrate ${{ matrix.name }} database
+        shell: pwsh
+        env:
+          APP_CONNECTION: ${{ secrets[matrix.connection_secret] }}
+          APP_JWT_SECRET: ${{ secrets[matrix.jwt_secret] }}
+          CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
+          BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
+        run: |
+          foreach ($name in @(
+            "APP_CONNECTION",
+            "APP_JWT_SECRET",
+            "CUSTOMER_TO_BUSINESS_SECRET",
+            "BUSINESS_TO_CUSTOMER_SECRET")) {
+            if ([string]::IsNullOrWhiteSpace(
+                [Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing Production secret '$name'."
+            }
+          }
+
+          if ("${{ matrix.name }}" -eq "Customer") {
+            $env:ConnectionStrings__CustomerConnection = $env:APP_CONNECTION
+            $env:JwtSettings__SecretKey = $env:APP_JWT_SECRET
+            $env:BusinessApiClient__BaseUrl = "${{ env.BUSINESS_SITE_URL }}"
+            $env:BusinessApiClient__ServiceId = "customer-api"
+            $env:BusinessApiClient__ActiveSecret =
+              $env:CUSTOMER_TO_BUSINESS_SECRET
+            $env:CustomerInternalServiceAuthentication__Services__0__ServiceId =
+              "business-api"
+            $env:CustomerInternalServiceAuthentication__Services__0__ActiveSecret =
+              $env:BUSINESS_TO_CUSTOMER_SECRET
+            $env:CustomerInternalServiceAuthentication__Services__0__AllowedOperations__0 =
+              "booking_status_callback"
+          }
+          else {
+            $env:ConnectionStrings__BusinessConnection = $env:APP_CONNECTION
+            $env:BusinessJwtSettings__SecretKey = $env:APP_JWT_SECRET
+            $env:CustomerBookingStatusClient__BaseUrl =
+              "${{ env.CUSTOMER_SITE_URL }}"
+            $env:CustomerBookingStatusClient__ServiceId = "business-api"
+            $env:CustomerBookingStatusClient__ActiveSecret =
+              $env:BUSINESS_TO_CUSTOMER_SECRET
+            $env:InternalServiceAuthentication__Services__0__ServiceId =
+              "customer-api"
+            $env:InternalServiceAuthentication__Services__0__ActiveSecret =
+              $env:CUSTOMER_TO_BUSINESS_SECRET
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__0 =
+              "catalog_snapshot"
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__1 =
+              "appointment_validate"
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__2 =
+              "reservation_create"
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__3 =
+              "reservation_status_read"
+          }
+
+          dotnet ef database update `
+            --project "${{ matrix.project }}" `
+            --startup-project "${{ matrix.project }}" `
+            --connection "$env:APP_CONNECTION" `
+            --configuration Release `
+            --no-build
+          if ($LASTEXITCODE -ne 0) {
+            throw "${{ matrix.name }} database migration failed."
+          }
+
+      - name: Publish ${{ matrix.name }} API
+        run: >
+          dotnet publish "${{ matrix.project }}"
           --configuration Release
           --runtime win-x86
           --self-contained true
           --no-restore
-          --output "${{ github.workspace }}\publish"
+          --output "${{ github.workspace }}\${{ matrix.output }}"
           /p:PublishTrimmed=false
           /p:PublishSingleFile=false
           /p:DebugType=None
           /p:DebugSymbols=false
 
-      - name: Retain deployment artifact
+      - name: Retain secret-free ${{ matrix.name }} artifact
         uses: actions/upload-artifact@v4
         with:
-          name: monsterasp-${{ github.sha }}
-          path: publish
+          name: ${{ matrix.name }}-${{ github.sha }}
+          path: ${{ matrix.output }}
           retention-days: 14
           if-no-files-found: error
 
-      - name: Validate deployment secrets
+      - name: Inject ${{ matrix.name }} runtime configuration
         shell: pwsh
         env:
-          DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
-          DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
-          DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
-          APP_CONNECTION_STRING: ${{ secrets.APP_CONNECTION_STRING }}
-          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
+          CUSTOMER_CONNECTION: ${{ secrets.CUSTOMER_DB_CONNECTION }}
+          BUSINESS_CONNECTION: ${{ secrets.BUSINESS_DB_CONNECTION }}
+          CUSTOMER_JWT_SECRET: ${{ secrets.CUSTOMER_JWT_SECRET }}
+          BUSINESS_JWT_SECRET: ${{ secrets.BUSINESS_JWT_SECRET }}
+          CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
+          BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
         run: |
-          $missing = @()
-          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_URL)) { $missing += "MONSTER_WEBDEPLOY_URL" }
-          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_USERNAME)) { $missing += "MONSTER_WEBDEPLOY_USERNAME" }
-          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_PASSWORD)) { $missing += "MONSTER_WEBDEPLOY_PASSWORD" }
-          if ([string]::IsNullOrWhiteSpace($env:APP_CONNECTION_STRING)) { $missing += "APP_CONNECTION_STRING" }
-          if ([string]::IsNullOrWhiteSpace($env:APP_JWT_SECRET)) { $missing += "APP_JWT_SECRET" }
-
-          if ($missing.Count -gt 0) {
-              throw "Missing secrets in GitHub environment 'Main': $($missing -join ', ')"
-          }
-
-      - name: Inject runtime configuration
-        shell: pwsh
-        env:
-          APP_CONNECTION_STRING: ${{ secrets.APP_CONNECTION_STRING }}
-          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
-        run: |
-          $webConfigPath = "${{ github.workspace }}\publish\web.config"
+          $webConfigPath = Join-Path "${{ github.workspace }}" "${{ matrix.output }}\web.config"
           [xml]$webConfig = Get-Content -LiteralPath $webConfigPath -Raw
           $aspNetCore = $webConfig.SelectSingleNode("//aspNetCore")
-
           if ($null -eq $aspNetCore) {
-              throw "The published web.config does not contain an aspNetCore element."
+            throw "Published web.config does not contain an aspNetCore element."
           }
-
           $environmentVariables = $aspNetCore.SelectSingleNode("environmentVariables")
           if ($null -eq $environmentVariables) {
-              $environmentVariables = $webConfig.CreateElement("environmentVariables")
-              [void]$aspNetCore.AppendChild($environmentVariables)
+            $environmentVariables = $webConfig.CreateElement("environmentVariables")
+            [void]$aspNetCore.AppendChild($environmentVariables)
           }
 
-          $values = [ordered]@{
+          if ("${{ matrix.name }}" -eq "Customer") {
+            $values = [ordered]@{
               "ASPNETCORE_ENVIRONMENT" = "Production"
-              "ConnectionStrings__DefaultConnection" = $env:APP_CONNECTION_STRING
-              "JwtSettings__SecretKey" = $env:APP_JWT_SECRET
+              "ConnectionStrings__CustomerConnection" = $env:CUSTOMER_CONNECTION
+              "JwtSettings__SecretKey" = $env:CUSTOMER_JWT_SECRET
               "JwtSettings__Issuer" = "GhseeliApis"
               "JwtSettings__Audience" = "GhseeliApis"
               "JwtSettings__ExpirationMinutes" = "60"
+              "BusinessApiClient__BaseUrl" = "${{ env.BUSINESS_SITE_URL }}"
+              "BusinessApiClient__ServiceId" = "customer-api"
+              "BusinessApiClient__ActiveSecret" = $env:CUSTOMER_TO_BUSINESS_SECRET
+              "CustomerInternalServiceAuthentication__Services__0__ServiceId" = "business-api"
+              "CustomerInternalServiceAuthentication__Services__0__ActiveSecret" = $env:BUSINESS_TO_CUSTOMER_SECRET
+              "CustomerInternalServiceAuthentication__Services__0__AllowedOperations__0" = "booking_status_callback"
+              "Authentication__Google__ClientId" = ""
+              "Authentication__Google__ClientSecret" = ""
+              "Authentication__Facebook__AppId" = ""
+              "Authentication__Facebook__AppSecret" = ""
+              "Stripe__PublishableKey" = ""
+              "Stripe__SecretKey" = ""
+              "Stripe__WebhookSecret" = ""
               "Swagger__Enabled" = "true"
+            }
+          }
+          else {
+            $values = [ordered]@{
+              "ASPNETCORE_ENVIRONMENT" = "Production"
+              "ConnectionStrings__BusinessConnection" = $env:BUSINESS_CONNECTION
+              "BusinessJwtSettings__SecretKey" = $env:BUSINESS_JWT_SECRET
+              "BusinessJwtSettings__Issuer" = "Ghseeli.BusinessApi"
+              "BusinessJwtSettings__Audience" = "Ghseeli.BusinessClients"
+              "BusinessJwtSettings__ExpirationMinutes" = "60"
+              "InternalServiceAuthentication__Services__0__ServiceId" = "customer-api"
+              "InternalServiceAuthentication__Services__0__ActiveSecret" = $env:CUSTOMER_TO_BUSINESS_SECRET
+              "InternalServiceAuthentication__Services__0__AllowedOperations__0" = "catalog_snapshot"
+              "InternalServiceAuthentication__Services__0__AllowedOperations__1" = "appointment_validate"
+              "InternalServiceAuthentication__Services__0__AllowedOperations__2" = "reservation_create"
+              "InternalServiceAuthentication__Services__0__AllowedOperations__3" = "reservation_status_read"
+              "CustomerBookingStatusClient__BaseUrl" = "${{ env.CUSTOMER_SITE_URL }}"
+              "CustomerBookingStatusClient__ServiceId" = "business-api"
+              "CustomerBookingStatusClient__ActiveSecret" = $env:BUSINESS_TO_CUSTOMER_SECRET
+              "Swagger__Enabled" = "true"
+            }
           }
 
           foreach ($entry in $values.GetEnumerator()) {
-              $node = $environmentVariables.SelectSingleNode("environmentVariable[@name='$($entry.Key)']")
-              if ($null -eq $node) {
-                  $node = $webConfig.CreateElement("environmentVariable")
-                  $node.SetAttribute("name", $entry.Key)
-                  [void]$environmentVariables.AppendChild($node)
-              }
-              $node.SetAttribute("value", $entry.Value)
+            if ($null -eq $entry.Value) {
+              throw "Runtime setting '$($entry.Key)' is missing."
+            }
+            $node = $environmentVariables.SelectSingleNode(
+              "environmentVariable[@name='$($entry.Key)']")
+            if ($null -eq $node) {
+              $node = $webConfig.CreateElement("environmentVariable")
+              $node.SetAttribute("name", $entry.Key)
+              [void]$environmentVariables.AppendChild($node)
+            }
+            $node.SetAttribute("value", [string]$entry.Value)
           }
 
           $settings = [System.Xml.XmlWriterSettings]::new()
@@ -117,10 +277,10 @@ jobs:
           $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
           $writer = [System.Xml.XmlWriter]::Create($webConfigPath, $settings)
           try {
-              $webConfig.Save($writer)
+            $webConfig.Save($writer)
           }
           finally {
-              $writer.Dispose()
+            $writer.Dispose()
           }
 
       - name: Install Web Deploy
@@ -128,60 +288,70 @@ jobs:
         run: |
           $path = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
           if (-not (Test-Path $path)) {
-              choco install webdeploy --yes --no-progress
+            choco install webdeploy --yes --no-progress
           }
           if (-not (Test-Path $path)) {
-              throw "msdeploy.exe was not found after installation."
+            throw "msdeploy.exe was not found after installation."
           }
 
-      - name: Deploy with Web Deploy
+      - name: Deploy ${{ matrix.name }} API
         shell: pwsh
         env:
-          DEPLOY_URL: ${{ secrets.MONSTER_WEBDEPLOY_URL }}
-          DEPLOY_USERNAME: ${{ secrets.MONSTER_WEBDEPLOY_USERNAME }}
-          DEPLOY_PASSWORD: ${{ secrets.MONSTER_WEBDEPLOY_PASSWORD }}
+          DEPLOY_URL: ${{ secrets[matrix.deploy_url_secret] }}
+          DEPLOY_SITE: ${{ secrets[matrix.deploy_site_secret] }}
+          DEPLOY_USERNAME: ${{ secrets[matrix.deploy_username_secret] }}
+          DEPLOY_PASSWORD: ${{ secrets[matrix.deploy_password_secret] }}
         run: |
-          $msdeploy = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
-          $source = "${{ github.workspace }}\publish"
-          $destination = "contentPath='$env:DEPLOY_USERNAME',computerName='$env:DEPLOY_URL',userName='$env:DEPLOY_USERNAME',password='$env:DEPLOY_PASSWORD',authType='Basic',includeAcls='False'"
-
-          & $msdeploy `
-              -verb:sync `
-              "-source:contentPath='$source'" `
-              "-dest:$destination" `
-              -enableRule:AppOffline `
-              -allowUntrusted `
-              -disableLink:AppPoolExtension `
-              -disableLink:ContentExtension `
-              -disableLink:CertificateExtension
-
-          if ($LASTEXITCODE -ne 0) {
-              throw "Web Deploy failed with exit code $LASTEXITCODE."
+          $missing = @()
+          foreach ($name in @(
+            "DEPLOY_URL",
+            "DEPLOY_SITE",
+            "DEPLOY_USERNAME",
+            "DEPLOY_PASSWORD")) {
+            if ([string]::IsNullOrWhiteSpace(
+                [Environment]::GetEnvironmentVariable($name))) {
+              $missing += $name
+            }
+          }
+          if ($missing.Count -gt 0) {
+            throw "Missing Web Deploy settings: $($missing -join ', ')"
           }
 
-      - name: Verify API health
+          $msdeploy = "${env:ProgramFiles(x86)}\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          $source = Join-Path "${{ github.workspace }}" "${{ matrix.output }}"
+          $destination = "contentPath='$env:DEPLOY_SITE',computerName='$env:DEPLOY_URL',userName='$env:DEPLOY_USERNAME',password='$env:DEPLOY_PASSWORD',authType='Basic',includeAcls='False'"
+          & $msdeploy `
+            -verb:sync `
+            "-source:contentPath='$source'" `
+            "-dest:$destination" `
+            -enableRule:AppOffline `
+            -allowUntrusted `
+            -disableLink:AppPoolExtension `
+            -disableLink:ContentExtension `
+            -disableLink:CertificateExtension
+          if ($LASTEXITCODE -ne 0) {
+            throw "Web Deploy failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Verify ${{ matrix.name }} health
         shell: pwsh
         run: |
-          $healthUrl = "${{ vars.MONSTER_SITE_URL }}".TrimEnd('/') + "/api/health"
-          if ([string]::IsNullOrWhiteSpace("${{ vars.MONSTER_SITE_URL }}")) {
-              throw "Missing MONSTER_SITE_URL variable in GitHub environment 'Main'."
-          }
-
-          $attempts = 12
-
-          for ($attempt = 1; $attempt -le $attempts; $attempt++) {
-              try {
-                  $response = Invoke-WebRequest -Uri $healthUrl -UseBasicParsing -TimeoutSec 20
-                  if ($response.StatusCode -eq 200) {
-                      Write-Host "Health check passed: $healthUrl"
-                      exit 0
-                  }
+          $healthUrl =
+            "${{ matrix.site_url }}".TrimEnd('/') + "${{ matrix.health_path }}"
+          for ($attempt = 1; $attempt -le 18; $attempt++) {
+            try {
+              $response = Invoke-WebRequest `
+                -Uri $healthUrl `
+                -UseBasicParsing `
+                -TimeoutSec 20
+              if ($response.StatusCode -eq 200) {
+                Write-Host "${{ matrix.name }} health check passed."
+                exit 0
               }
-              catch {
-                  Write-Host "Health check attempt $attempt/$attempts failed: $($_.Exception.Message)"
-              }
-
-              Start-Sleep -Seconds 10
+            }
+            catch {
+              Write-Host "${{ matrix.name }} health attempt $attempt/18 failed."
+            }
+            Start-Sleep -Seconds 10
           }
-
-          throw "Deployment completed, but health check did not pass: $healthUrl"
+          throw "${{ matrix.name }} deployment health check failed."

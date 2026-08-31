@@ -212,6 +212,20 @@ try {
         -not $verifierText.Contains('$businessPrincipals = @(if')) {
         throw 'Principal verification must preserve empty query results as arrays.'
     }
+    foreach ($businessTable in @(
+            'BusinessVerticals',
+            'CompanyBusinessVerticals',
+            'VehicleWorkOrderDetails')) {
+        if (-not $verifierText.Contains("'$businessTable'")) {
+            throw "Business inventory must include Step 17A table '$businessTable'."
+        }
+    }
+    if (-not $verifierText.Contains(
+            "Code<>'car_wash' OR IsActive<>1 OR RegistrationEnabled<>1") -or
+        -not $verifierText.Contains(
+            "'BusinessVerticals','__EFMigrationsHistory'")) {
+        throw 'Zero-domain verification must allow only the exact active car-wash reference seed.'
+    }
     Write-Host '[PASS] cross-wire, login-denial, and parallel-migration failures use the intended inputs'
 
     $tokens = $null

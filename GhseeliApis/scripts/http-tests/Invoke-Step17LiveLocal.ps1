@@ -1602,6 +1602,14 @@ VALUES
   NULL,NULL,NULL,N'+970000000002',1,$($state.businessTwoVersion),
   GETUTCDATE(),NULL);
 
+INSERT INTO CompanyBusinessVerticals
+ (CompanyId,BusinessVerticalId,IsPrimary,IsActive,CreatedAtUtc)
+VALUES
+ ('$($state.businessOneSourceId)',
+  'A842F536-17B7-4BE6-A18D-1BDC6245094C',1,1,GETUTCDATE()),
+ ('$($state.businessTwoSourceId)',
+  'A842F536-17B7-4BE6-A18D-1BDC6245094C',1,1,GETUTCDATE());
+
 INSERT INTO Branches
  (Id,CompanyId,NameAr,NameHe,AddressAr,AddressHe,Latitude,Longitude,
   IsActive,CreatedAt,UpdatedAt)
@@ -1625,13 +1633,15 @@ VALUES
   GETUTCDATE(),NULL);
 
 INSERT INTO ServiceCategories
- (Id,CompanyId,NameAr,NameHe,DescriptionAr,DescriptionHe,DisplayOrder,
-  IsActive,CreatedAt,UpdatedAt)
+ (Id,CompanyId,BusinessVerticalId,NameAr,NameHe,DescriptionAr,DescriptionHe,
+  DisplayOrder,IsActive,CreatedAt,UpdatedAt)
 VALUES
  ('$($state.businessOneCategorySourceId)','$($state.businessOneSourceId)',
+  'A842F536-17B7-4BE6-A18D-1BDC6245094C',
   $($one.Category),NULL,$($one.CategoryDescription),NULL,0,1,
   GETUTCDATE(),NULL),
  ('$($state.businessTwoCategorySourceId)','$($state.businessTwoSourceId)',
+  'A842F536-17B7-4BE6-A18D-1BDC6245094C',
   $($two.Category),$($two.CategoryHe),NULL,NULL,1,1,GETUTCDATE(),NULL);
 
 INSERT INTO ServiceOfferings

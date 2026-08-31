@@ -108,11 +108,14 @@ internal sealed class CustomerInternalLeaseHeartbeat : IAsyncDisposable
         TimeProvider timeProvider,
         IAppLogger logger)
     {
-        var deadline = LastConfirmedExpiryUtc.AddMilliseconds(
-            -options.InProgressLeaseSafetyMarginMilliseconds);
-        while (timeProvider.GetUtcNow() < deadline && !_stop.IsCancellationRequested)
+        var retryBudget = LastConfirmedExpiryUtc.AddMilliseconds(
+                -options.InProgressLeaseSafetyMarginMilliseconds) -
+            timeProvider.GetUtcNow();
+        var retryStartedAt = timeProvider.GetTimestamp();
+        while (GetRemainingRetryBudget() > TimeSpan.Zero &&
+               !_stop.IsCancellationRequested)
         {
-            var remaining = deadline - timeProvider.GetUtcNow();
+            var remaining = GetRemainingRetryBudget();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
             timeout.CancelAfter(CustomerInternalServiceMiddleware.Min(
                 remaining,
@@ -143,7 +146,7 @@ internal sealed class CustomerInternalLeaseHeartbeat : IAsyncDisposable
                 logger.LogError(
                     "Customer internal idempotency lease renewal attempt failed.",
                     exception);
-                remaining = deadline - timeProvider.GetUtcNow();
+                remaining = GetRemainingRetryBudget();
                 if (remaining <= TimeSpan.Zero)
                     break;
                 await Task.Delay(
@@ -156,5 +159,11 @@ internal sealed class CustomerInternalLeaseHeartbeat : IAsyncDisposable
             }
         }
         return _stop.IsCancellationRequested;
+
+        TimeSpan GetRemainingRetryBudget() =>
+            retryBudget -
+            timeProvider.GetElapsedTime(
+                retryStartedAt,
+                timeProvider.GetTimestamp());
     }
 }

@@ -142,10 +142,55 @@ public sealed class BusinessVerticalSchemaTests
             .WithMessage("*snapshot*");
     }
 
+    [Fact]
+    public async Task SaveChanges_AddedStandaloneWorkOrderWithMismatchedVerticalSnapshot_RejectsWithoutPersistence()
+    {
+        var databaseName = Guid.NewGuid().ToString("N");
+        Guid reservationId;
+        await using (var context = CreateInMemoryContext(databaseName))
+        {
+            var reservation = new AppointmentReservation();
+            reservationId = reservation.Id;
+            context.AppointmentReservations.Add(reservation);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = CreateInMemoryContext(databaseName))
+        {
+            context.WorkOrders.Add(new WorkOrder
+            {
+                AppointmentReservationId = reservationId,
+                Status = "Pending",
+                VehicleType = "SUV",
+                BusinessVerticalId = BusinessVerticalDefaults.CarWashId,
+                BusinessVerticalCode = "mechanics"
+            });
+
+            var action = () => context.SaveChangesAsync();
+
+            await action.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*business vertical*snapshot*consistently*");
+        }
+
+        await using var verificationContext = CreateInMemoryContext(databaseName);
+        verificationContext.WorkOrders.Should().BeEmpty();
+        verificationContext.VehicleWorkOrderDetails.Should().BeEmpty();
+        var persistedReservation = await verificationContext.AppointmentReservations
+            .SingleAsync();
+        persistedReservation.Id.Should().Be(reservationId);
+        persistedReservation.BusinessVerticalId.Should()
+            .Be(BusinessVerticalDefaults.CarWashId);
+        persistedReservation.BusinessVerticalCode.Should()
+            .Be(BusinessVerticalDefaults.CarWashCode);
+    }
+
     private static BusinessDbContext CreateInMemoryContext()
+        => CreateInMemoryContext(Guid.NewGuid().ToString("N"));
+
+    private static BusinessDbContext CreateInMemoryContext(string databaseName)
     {
         var options = new DbContextOptionsBuilder<BusinessDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+            .UseInMemoryDatabase(databaseName)
             .Options;
         return new BusinessDbContext(options);
     }

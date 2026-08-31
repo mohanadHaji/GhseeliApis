@@ -265,6 +265,119 @@ public class Step16BusinessSchemaMigrationTests
         }
     }
 
+    [Fact]
+    public async Task VerticalReadinessMigration_DowngradeRestoresLegacyVehicleColumnsAndData()
+    {
+        var databaseName = $"GhseeliBusinessVerticalDowngrade_{Guid.NewGuid():N}";
+        await using var context = CreateContext(databaseName);
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var reservationId = Guid.NewGuid();
+        var workOrderId = Guid.NewGuid();
+        var initialMigration = context.Database.GetMigrations().First();
+
+        try
+        {
+            await context.Database.EnsureDeletedAsync();
+            await context.GetService<IMigrator>().MigrateAsync(initialMigration);
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                    INSERT INTO [dbo].[Companies]
+                        ([Id], [NameAr], [IsActive], [CatalogVersion], [CreatedAt])
+                    VALUES
+                        ({companyId}, N'Preserved company', 1, 1, SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[ServiceCategories]
+                        ([Id], [CompanyId], [NameAr], [DisplayOrder], [IsActive], [CreatedAt])
+                    VALUES
+                        ({categoryId}, {companyId}, N'Preserved category', 0, 1, SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[AppointmentReservations]
+                        ([Id], [PublicId], [CustomerBookingReference], [OrderGuid], [RequestHash],
+                         [BranchId], [CatalogVersion], [Currency], [ItemSubtotal],
+                         [TotalDurationMinutes], [RequestedSlotStartUtc], [RequestedSlotEndUtc],
+                         [Status], [StatusSequence], [StatusChangedAtUtc], [CreatedAtUtc])
+                    VALUES
+                        ({reservationId}, {Guid.NewGuid()}, {Guid.NewGuid()}, {Guid.NewGuid()},
+                         {new string('b', 64)}, {Guid.NewGuid()}, 1, 'ILS', 50, 30,
+                         SYSUTCDATETIME(), DATEADD(minute, 30, SYSUTCDATETIME()),
+                         'Pending', 0, SYSUTCDATETIME(), SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[WorkOrders]
+                        ([Id], [PublicId], [AppointmentReservationId], [Status], [CustomerName],
+                         [VehicleType], [LicensePlate], [VehicleMake], [VehicleModel], [VehicleColor],
+                         [AddressLine], [Latitude], [Longitude], [CreatedAtUtc])
+                    VALUES
+                        ({workOrderId}, {Guid.NewGuid()}, {reservationId}, 'Pending', N'Customer',
+                         'Original type', 'Original plate', 'Original make', 'Original model',
+                         'Original color', N'Preserved address', 32.085300, 34.781800,
+                         SYSUTCDATETIME());
+                    """);
+
+            await context.Database.MigrateAsync();
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                    UPDATE [dbo].[VehicleWorkOrderDetails]
+                    SET [VehicleType] = N'Detail type',
+                        [LicensePlate] = N'Detail plate',
+                        [VehicleMake] = N'Detail make',
+                        [VehicleModel] = N'Detail model',
+                        [VehicleColor] = N'Detail color'
+                    WHERE [WorkOrderId] = {workOrderId};
+                    """);
+
+            await context.GetService<IMigrator>().MigrateAsync(initialMigration);
+
+            (await QueryNamesAsync(
+                context,
+                $"""
+                SELECT CONCAT(
+                    [VehicleType], '|', [LicensePlate], '|', [VehicleMake], '|',
+                    [VehicleModel], '|', [VehicleColor])
+                FROM [dbo].[WorkOrders]
+                WHERE [Id] = '{workOrderId:D}'
+                """)).Should().Equal(
+                    "Detail type|Detail plate|Detail make|Detail model|Detail color");
+            (await QueryNamesAsync(
+                context,
+                """
+                SELECT [name]
+                FROM sys.tables
+                WHERE [name] IN (
+                    'VehicleWorkOrderDetails',
+                    'BusinessVerticals',
+                    'CompanyBusinessVerticals')
+                """)).Should().BeEmpty();
+            (await QueryNamesAsync(
+                context,
+                """
+                SELECT CONCAT(t.[name], '|', c.[name])
+                FROM sys.columns c
+                INNER JOIN sys.tables t ON t.[object_id] = c.[object_id]
+                WHERE (t.[name] = 'AppointmentReservations'
+                       AND c.[name] IN ('BusinessVerticalId', 'BusinessVerticalCode'))
+                   OR (t.[name] = 'ServiceCategories'
+                       AND c.[name] = 'BusinessVerticalId')
+                   OR (t.[name] = 'WorkOrders'
+                       AND c.[name] IN ('BusinessVerticalId', 'BusinessVerticalCode'))
+                """)).Should().BeEmpty();
+            (await QueryNamesAsync(
+                context,
+                """
+                SELECT CONCAT(
+                    (SELECT COUNT(*) FROM [dbo].[Companies]), '|',
+                    (SELECT COUNT(*) FROM [dbo].[ServiceCategories]), '|',
+                    (SELECT COUNT(*) FROM [dbo].[AppointmentReservations]), '|',
+                    (SELECT COUNT(*) FROM [dbo].[WorkOrders]))
+                """)).Should().Equal("1|1|1|1");
+            (await QueryMigrationHistoryAsync(context)).Should().Equal(initialMigration);
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync();
+        }
+    }
+
     private static BusinessDbContext CreateContext(string databaseName)
     {
         var connectionString =

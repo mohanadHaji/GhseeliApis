@@ -50,10 +50,34 @@ public sealed class BusinessVerticalSnapshotSchemaTests
             .WithMessage("*snapshot*");
     }
 
+    [Fact]
+    public async Task SaveChanges_NewBookingWithNonCarWashVerticalSnapshot_RejectsWithoutPersistence()
+    {
+        var databaseName = Guid.NewGuid().ToString("N");
+        await using (var context = CreateContext(databaseName))
+        {
+            context.CustomerBookings.Add(new CustomerBooking
+            {
+                BusinessVerticalCode = "mechanics"
+            });
+
+            var action = () => context.SaveChangesAsync();
+
+            await action.Should().ThrowAsync<InvalidOperationException>()
+                .WithMessage("*business vertical*snapshot*car wash*");
+        }
+
+        await using var verificationContext = CreateContext(databaseName);
+        verificationContext.CustomerBookings.Should().BeEmpty();
+    }
+
     private static ApplicationDbContext CreateContext()
+        => CreateContext(Guid.NewGuid().ToString("N"));
+
+    private static ApplicationDbContext CreateContext(string databaseName)
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
+            .UseInMemoryDatabase(databaseName)
             .Options;
         return new ApplicationDbContext(options);
     }

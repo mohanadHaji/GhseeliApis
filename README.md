@@ -28,6 +28,51 @@ The APIs must not reference each other's implementation project or access each
 other's database. Cross-API operations use secured, idempotent HTTPS and
 contracts from `Ghseeli.IntegrationContracts`.
 
+## Production deployment
+
+The independently deployed production applications are:
+
+| Application | Public URL | Database ownership |
+|---|---|---|
+| Customer API | `https://ghseelicustomer.runasp.net` | Customer database only |
+| Business API | `https://ghseelibusiness.runasp.net` | Business database only |
+
+`.github/workflows/deploy-monsterasp.yml` is the production workflow. It:
+
+1. restores, tests, and builds the complete solution;
+2. applies Customer and Business EF Core migrations independently;
+3. publishes self-contained `win-x86` artifacts;
+4. injects production settings into each generated `web.config`;
+5. deploys each artifact to its own MonsterASP site;
+6. requires both HTTPS health checks to pass.
+
+The workflow consumes repository or `Production` environment secrets. Never
+put their values in source control:
+
+- `CUSTOMER_DB_CONNECTION`
+- `BUSINESS_DB_CONNECTION`
+- `CUSTOMER_JWT_SECRET`
+- `BUSINESS_JWT_SECRET`
+- `CUSTOMER_TO_BUSINESS_HMAC_SECRET`
+- `BUSINESS_TO_CUSTOMER_HMAC_SECRET`
+- `CUSTOMER_WEBDEPLOY_URL`, `CUSTOMER_WEBDEPLOY_SITE`,
+  `CUSTOMER_WEBDEPLOY_USERNAME`, `CUSTOMER_WEBDEPLOY_PASSWORD`
+- `BUSINESS_WEBDEPLOY_URL`, `BUSINESS_WEBDEPLOY_SITE`,
+  `BUSINESS_WEBDEPLOY_USERNAME`, `BUSINESS_WEBDEPLOY_PASSWORD`
+
+JWT and HMAC secrets are generated independently. Customer-to-Business
+operations use the first HMAC secret; Business-to-Customer booking-status
+callbacks use the second.
+
+Production was initially deployed on 2026-09-01 with both database migration
+histories complete. Both applications and Swagger documents passed
+database-backed HTTP health checks. MonsterASP HTTPS must also be activated
+for both assigned domains in **Domains/HTTPS** using Let's Encrypt before the
+deployment is release-ready. Do not weaken `RequireHttps` or switch internal
+API base URLs to HTTP; cross-API signed traffic is intentionally blocked until
+valid TLS is active. On MonsterASP free hosting, the certificate must be
+renewed manually every 90 days.
+
 ## Current product boundary
 
 All current routes, DTOs, Swagger descriptions, validation, and workflows are

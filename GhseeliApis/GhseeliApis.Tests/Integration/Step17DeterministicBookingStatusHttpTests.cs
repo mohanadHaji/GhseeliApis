@@ -312,6 +312,12 @@ public sealed class Step17DeterministicBookingStatusHttpTests
         await using var factory = owner.WithWebHostBuilder(builder =>
         {
             ConfigureShortLease(builder);
+            builder.UseSetting(
+                "CustomerInternalServiceAuthentication:InProgressRecoverySeconds",
+                "5");
+            builder.UseSetting(
+                "CustomerInternalServiceAuthentication:InProgressLeaseRenewalFraction",
+                "0.02");
             builder.ConfigureServices(services =>
                 ReplaceLeaseService(services, leaseControl));
         });

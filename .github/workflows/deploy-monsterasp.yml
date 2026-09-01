@@ -36,6 +36,10 @@ jobs:
         run: dotnet restore GhseeliApis/GhseeliApis.sln
 
       - name: Test solution
+        env:
+          CustomerBookingStatusClient__BaseUrl: https://customer.test
+          CustomerBookingStatusClient__ServiceId: business-api-test
+          CustomerBookingStatusClient__ActiveSecret: test-only-callback-secret-32-characters
         run: >
           dotnet test GhseeliApis/GhseeliApis.sln
           --configuration Release

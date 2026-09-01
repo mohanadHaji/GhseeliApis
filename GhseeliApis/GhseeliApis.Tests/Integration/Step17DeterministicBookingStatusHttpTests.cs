@@ -1285,7 +1285,10 @@ public sealed class Step17DeterministicBookingStatusHttpTests
             {
                 root.Dispose();
             }
-            SqlConnection.ClearAllPools();
+            using (var databaseConnection = new SqlConnection(_connectionString))
+            {
+                SqlConnection.ClearPool(databaseConnection);
+            }
             try
             {
                 var builder = new SqlConnectionStringBuilder(_connectionString)

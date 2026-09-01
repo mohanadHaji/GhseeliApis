@@ -67,7 +67,10 @@ internal sealed class SqlServerCatalogDatabase : IAsyncDisposable
 
     private async Task DeleteAsync()
     {
-        SqlConnection.ClearAllPools();
+        using (var databaseConnection = new SqlConnection(ConnectionString))
+        {
+            SqlConnection.ClearPool(databaseConnection);
+        }
 
         var builder = new SqlConnectionStringBuilder(ConnectionString)
         {

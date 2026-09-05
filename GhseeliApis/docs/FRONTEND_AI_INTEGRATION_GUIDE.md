@@ -10,10 +10,15 @@ integration rules.
 It is intentionally not a duplicate of every request and response schema.
 The exact wire contract belongs to each API's OpenAPI document:
 
-| API | Local OpenAPI | Production OpenAPI |
+| API | Local OpenAPI | Deployed document when explicitly enabled |
 |---|---|---|
 | Customer | `https://localhost:62878/swagger/v1/swagger.json` | `http://ghseelicustomer.runasp.net/swagger/v1/swagger.json` |
 | Business | `https://localhost:7167/swagger/v1/swagger.json` | `http://ghseelibusiness.runasp.net/swagger/v1/swagger.json` |
+
+Production Swagger availability is configuration-dependent. A frontend build
+must consume trusted versioned OpenAPI artifacts produced by CI or a controlled
+development/test environment, not depend on a production Swagger URL remaining
+public.
 
 When this guide and OpenAPI differ on a field name, required property, enum,
 format, nullability, route, or status code, **OpenAPI is authoritative**.
@@ -24,7 +29,9 @@ Regenerate the frontend API client instead of inventing a compatibility layer.
 1. Build two clearly separated experiences:
    - customer/mobile application;
    - business-owner/staff portal.
-2. Generate typed clients from both OpenAPI documents.
+2. Generate typed clients from frontend-filtered OpenAPI documents. Exclude
+   `/api/v1/internal/*`, webhooks, and administrative operations not used by
+   the target frontend.
 3. Never call Business internal endpoints from a browser or mobile client.
 4. Never calculate an authoritative price, duration, slot capacity, booking
    status, or payment status in the frontend.
@@ -175,7 +182,7 @@ Frontend behavior for Problem Details:
 | Status | Default UI behavior |
 |---:|---|
 | `400` | Keep the form open; map `fieldErrors` to fields and show `detail` |
-| `401` | Refresh/re-authenticate the correct credential; never retry forever |
+| `401` | Inspect the stable code: bearer failures require full login; `device_*` failures go to device recovery |
 | `403` | Show access denied; do not treat it as missing data |
 | `404` | Show not found or return to the owning list |
 | `409` | Refresh current state/version and ask the user to review before retry |
@@ -237,16 +244,21 @@ Customer auth is hosted by the Customer API:
 
 | Method | Route | Purpose |
 |---|---|---|
-| POST | `/api/auth/register` | Create a customer account |
-| POST | `/api/auth/login` | Email/password login |
-| POST | `/api/auth/validate` | Validate token/session behavior |
-| GET | `/api/auth/me` | Read authenticated identity |
-| GET | `/api/auth/external-login` | Existing OAuth initiation; not approved for new frontend use |
-| GET | `/api/auth/external-login-callback` | Existing controller callback; not approved for new frontend use |
-| POST | `/api/auth/link-external-login` | Link provider to signed-in customer |
-| GET | `/api/auth/link-external-login-callback` | Link callback |
-| DELETE | `/api/auth/external-login/{provider}` | Unlink provider |
-| GET | `/api/auth/external-logins` | List linked providers |
+| POST | `/api/Auth/register` | Approved customer registration route |
+| POST | `/api/Auth/login` | Email/password login |
+| GET | `/api/Auth/me` | Validate the current authenticated session and read identity |
+| GET | `/api/Auth/external-login` | Existing OAuth initiation; not approved for new frontend use |
+| GET | `/api/Auth/external-login-callback` | Existing controller callback; not approved for new frontend use |
+| POST | `/api/Auth/link-external-login` | Existing link flow; not approved for new frontend use |
+| GET | `/api/Auth/link-external-login-callback` | Existing link callback; not approved for new frontend use |
+| DELETE | `/api/Auth/external-login/{provider}` | Existing unlink operation |
+| GET | `/api/Auth/external-logins` | Existing linked-provider list |
+
+Do not use `POST /api/Users` for customer signup. It is a legacy anonymous
+creation surface; new frontend registration uses `POST /api/Auth/register`.
+Do not use `/api/Auth/validate` for routine session management because it
+resubmits the raw bearer token in a JSON body. Check local token expiry and use
+authenticated `/api/Auth/me`.
 
 Google and Facebook provider consoles must register these Customer API
 callbacks:
@@ -273,6 +285,24 @@ Business roles include `Owner`, `Employee`, and `Admin`. Render controls based
 on known permissions for usability, but always expect the server to enforce
 authorization and ownership.
 
+### Session lifecycle
+
+Neither API currently issues refresh tokens or exposes a server logout/revoke
+operation.
+
+| Event | Required client behavior |
+|---|---|
+| Login succeeds | Store the correct Customer or Business JWT and its expiry in secure storage |
+| App resumes | Check expiry locally; optionally confirm with the authenticated identity/profile route |
+| JWT expires | Clear only that session and require full login |
+| One request returns `401` | Allow one coordinated reauthentication flow; do not start one flow per failed request |
+| Logout | Delete local credentials and sensitive in-memory state |
+| Customer/business account switch | Clear the old role-specific store before establishing the new session |
+| Offline at expiry | Keep non-sensitive UI state, but do not queue authenticated mutations |
+
+Do not silently replay a mutation after login unless the operation has a stable
+idempotency identity and the user confirms the retry.
+
 ## Customer application information architecture
 
 Recommended major areas:
@@ -280,7 +310,7 @@ Recommended major areas:
 | Area | Main responsibility |
 |---|---|
 | Bootstrap | Device registration, configuration, language, maintenance state |
-| Authentication | Login, registration, OAuth, and profile |
+| Authentication | Email/password login, registration, and profile; OAuth is deferred |
 | Discovery | Categories, businesses, branches, offering details |
 | Slot picker | Date, selected services/add-ons, branch-local availability |
 | Checkout | Vehicle, location, services, add-ons, slot, quote |
@@ -299,7 +329,7 @@ Recommended major areas:
    - maintenance state and message;
    - support contact details;
    - legal links;
-   - feature/display configuration.
+   - display name and customer-visible display content.
 6. If an existing installation token is invalid, expired, inactive, or already
    rotated, stop retrying. The current backend requires the still-valid token
    to rotate an existing installation, so self-service recovery is not
@@ -453,7 +483,6 @@ service area, and slot. The frontend must display the returned breakdown:
 - base subtotal;
 - add-on subtotal;
 - item subtotal;
-- discounts;
 - service fee;
 - taxable subtotal;
 - tax;
@@ -483,6 +512,9 @@ Send:
 - `X-Order-Guid: <draft orderGuid>`;
 - body `expectedVersion`;
 - body `cancellationPolicyAcknowledged`.
+
+Do not send a separate public `Idempotency-Key` for this route. The stable
+`X-Order-Guid` is the booking confirmation idempotency identity.
 
 Preconditions:
 
@@ -523,8 +555,10 @@ implemented.
 
 ## Payment scenario
 
-Payment routes are currently hidden in Production. The frontend must hide
-payment actions in Production regardless of the current capability response.
+Payment initialization, verification, and webhook routes are currently hidden
+in Production. The authenticated `GET /api/v1/payments/{id}` status route
+remains available, but the frontend must hide actions that start or verify a
+Lahza payment in Production regardless of the current capability response.
 In an enabled environment, require a capability with
 `method == "CreditCard"` and `enabled == true`; initialize the payment using
 the request method value `Card`.
@@ -571,34 +605,34 @@ Do not expose provider internals or raw webhook data.
 
 | Method | Route |
 |---|---|
-| GET | `/api/vehicles/my-vehicles` |
-| GET | `/api/vehicles/{id}` |
-| POST | `/api/vehicles` |
-| PUT | `/api/vehicles/{id}` |
-| DELETE | `/api/vehicles/{id}` |
+| GET | `/api/Vehicles/my-vehicles` |
+| GET | `/api/Vehicles/{id}` |
+| POST | `/api/Vehicles` |
+| PUT | `/api/Vehicles/{id}` |
+| DELETE | `/api/Vehicles/{id}` |
 
 ### Addresses
 
 | Method | Route |
 |---|---|
-| GET | `/api/addresses/my-addresses` |
-| GET | `/api/addresses/{id}` |
-| POST | `/api/addresses` |
-| PUT | `/api/addresses/{id}` |
-| DELETE | `/api/addresses/{id}` |
-| PUT | `/api/addresses/{id}/set-primary` |
+| GET | `/api/Addresses/my-addresses` |
+| GET | `/api/Addresses/{id}` |
+| POST | `/api/Addresses` |
+| PUT | `/api/Addresses/{id}` |
+| DELETE | `/api/Addresses/{id}` |
+| PUT | `/api/Addresses/{id}/set-primary` |
 
 ### User self-service
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/api/users/me` | Current profile |
-| PUT | `/api/users/me` | Update allowed self-service fields |
-| DELETE | `/api/users/me` | Deactivate account |
-| PUT | `/api/users/me/reactivate` | Reactivate account |
-| PUT | `/api/users/me/password` | Change password |
-| POST | `/api/users/me/email/request-confirmation` | Request email confirmation |
-| POST | `/api/users/me/email/confirm` | Confirm email |
+| GET | `/api/Users/me` | Current profile |
+| PUT | `/api/Users/me` | Update allowed self-service fields |
+| DELETE | `/api/Users/me` | Deactivate account |
+| PUT | `/api/Users/me/reactivate` | Reactivate account |
+| PUT | `/api/Users/me/password` | Change password |
+| POST | `/api/Users/me/email/request-confirmation` | Request email confirmation |
+| POST | `/api/Users/me/email/confirm` | Confirm email |
 
 The server owns role and active-state security. Do not send privileged fields
 from self-service screens.
@@ -629,7 +663,8 @@ Recommended areas:
 9. Create categories.
 10. Create offerings under categories.
 11. Add groups and choices with valid selection rules.
-12. Publish only active, complete data.
+12. Activate only complete records. There is no separate catalog publish
+    endpoint; active-state mutations update the authoritative catalog version.
 
 Arabic business/catalog names and branch addresses are required. Hebrew values
 are optional and normalized to `null` when blank.
@@ -688,6 +723,311 @@ Confirmed/InProgress -> NoShow
 Capacity is consumed by `Pending`, `Confirmed`, and `InProgress`; terminal
 states release it.
 
+## Target frontend architecture
+
+Use separate deployable applications and generated clients:
+
+| Frontend | Recommended architecture | API access |
+|---|---|---|
+| Customer mobile | Native or cross-platform mobile application | Direct Customer API calls over trusted HTTPS |
+| Customer web, if added | Same-origin backend-for-frontend | Browser calls BFF; BFF calls Customer API |
+| Business portal | Same-origin backend-for-frontend | Browser calls BFF; BFF calls Business API |
+
+The BFF owns browser cookies, CSRF protection, server-side token storage, and
+API proxying. Do not place API bearer tokens in browser local storage. If the
+product later chooses direct browser API calls, the backend must first add
+tightly allowlisted CORS and document credential, preflight, and CSRF behavior.
+
+## Screen, navigation, and state contract
+
+### Customer application
+
+| Screen/state | Entry guard | Main operations | Success destination | Required alternate states |
+|---|---|---|---|---|
+| Bootstrap | None | Device registration, configuration | Discovery or maintenance | Offline, device recovery unavailable, configuration unavailable |
+| Maintenance | Configuration says maintenance | Configuration retry | Bootstrap/discovery | Support and legal links remain available |
+| Login/register | Valid device | Customer auth | Stored intended destination | Validation, expired session, OAuth unavailable |
+| Discovery | Valid device | Categories/businesses | Business or offering detail | Empty, stale, refresh unavailable |
+| Offering detail | Valid device | Offering/add-on detail | Slot picker or draft | Inactive/missing offering, invalid defaults |
+| Slot picker | Valid device | Available-slot search | Checkout intent | No slots, stale catalog, location outside area |
+| Draft checkout | Owning device | Create/read/update/reprice | Login or confirmation | Conflict, expired, repricing required |
+| Confirmation result | Device + Customer JWT | Confirm booking | Booking receipt | Ambiguous network result, unavailable slot, stale quote |
+| Payment return | Enabled environment + payment ID | Verify/read payment | Payment result | Pending, abandoned, failed, provider unavailable |
+| Account | Customer JWT | Profile, vehicles, addresses | Previous account route | Unauthorized, ownership-masked not found |
+
+Navigation rules:
+
+- Preserve the intended confirmation destination when login is required.
+- Do not preserve or replay a password, token, or payment URL in navigation
+  parameters.
+- Prompt before abandoning a dirty draft form.
+- Back navigation from hosted payment returns to payment verification, not
+  directly to a success screen.
+- Restore a draft only from securely persisted `orderGuid` plus the owning
+  device token; always fetch current server state.
+- A terminal confirmation or payment result replaces the mutation screen in
+  navigation history to prevent accidental duplicate submission.
+
+### Business portal
+
+| Route area | Allowed roles | Main operations | Current limitation |
+|---|---|---|---|
+| Authentication | Anonymous | Owner registration, login | Employee creation/invitation is unavailable |
+| Company read | Owner, Employee, Admin | Read assigned company/branches | Assignment remains server enforced |
+| Company/branch edit | Owner, Admin | Update company, create/update branch | Branch deletion is unavailable |
+| Catalog | Owner, Admin | Category/offering/group/choice CRUD | No separate publish command |
+| Availability | Owner, Admin | Settings, schedules, overrides, service area | Use branch-local time |
+| Known work-order transition | Owner, Employee, Admin | Transition known work-order ID | No list/detail API |
+| Known outbox requeue | Admin | Requeue known dead-letter event ID | No dead-letter browser |
+
+Hide unavailable navigation for usability, but treat `403` as authoritative.
+
+## Identifier provenance
+
+Customer catalog responses can include both Customer read-model IDs and
+Business source IDs.
+
+| Identifier | Use |
+|---|---|
+| `id` on Customer catalog resources | Customer catalog URLs and operations that explicitly request Customer IDs |
+| `sourceId` | Checkout intent fields and operations whose OpenAPI schema explicitly says `*SourceId` |
+| `orderGuid` | Draft identity, draft reprice header, and booking confirmation identity |
+| Booking `reference` | Public cross-system booking reference |
+| Database entity IDs not returned by public DTOs | Never infer or request |
+
+Example:
+
+```text
+CatalogOfferingResponse.id       -> available-slot item offeringId
+CatalogOfferingResponse.sourceId -> checkout item offeringSourceId
+```
+
+Always confirm the exact property through the generated operation type.
+
+## Collection, ordering, and pagination
+
+Current public list endpoints are unpaginated. The frontend must:
+
+- preserve server ordering and `displayOrder`;
+- render an explicit empty state for an empty successful list;
+- avoid assuming all lists remain permanently small;
+- avoid infinite-scroll abstractions that imply a nonexistent continuation
+  token;
+- perform client-side search/filtering only for presentation and never use it
+  as authorization or authoritative availability filtering.
+
+When pagination is introduced, it must be a versioned backend contract with a
+cursor or page model in OpenAPI. Do not invent `page`, `limit`, or `offset`
+query parameters.
+
+## Cache and persistence contract
+
+API responses use `Cache-Control: no-store`. Browser HTTP caches, service
+workers, and shared proxies must not persist API responses.
+
+| Data | Allowed retention |
+|---|---|
+| Device token/JWT | Secure credential storage only |
+| Configuration | In-memory for the current app session; refresh on bootstrap |
+| Catalog | In-memory application state; optional encrypted mobile snapshot only after product approval |
+| Draft identity | Secure local restoration state containing only `orderGuid`, version hint, and non-sensitive UI progress |
+| Full draft/quote | Fetch from server; do not treat a persisted copy as current |
+| Booking/payment snapshot | In-memory or encrypted local receipt state; server remains authoritative |
+| Business forms | In-memory draft only unless an explicit secure draft feature is designed |
+
+Respect `freshUntilUtc`, `maxStaleUntilUtc`, and `isStale` from catalog
+metadata. Clear user-specific state on logout/account switch. Clear catalog
+and draft state when the device identity changes.
+
+## Form and validation standard
+
+1. Generate basic required, enum, format, length, and range constraints from
+   OpenAPI.
+2. Validate on submit and optionally on blur after the user has interacted
+   with a field; do not show every error on first render.
+3. Preserve entered values after `400`.
+4. Map modern `fieldErrors` paths, including indexed paths such as
+   `items[0].selections[1].quantity`, to the matching control.
+5. Put cross-field or unknown paths in a form-level error summary.
+6. Focus the first invalid field and announce the error summary to assistive
+   technology.
+7. Do not trim or transform values beyond documented normalization before the
+   user sees what will be sent.
+8. Format decimals for display using locale-aware formatting, but parse and
+   submit values according to generated numeric types.
+9. Confirm destructive actions such as delete, deactivate, or removal.
+10. After `409`, compare server state and local edits; never silently overwrite.
+
+Business Arabic names and branch addresses are required. Optional Hebrew
+values should submit `null` when blank, following the generated schema and
+backend normalization.
+
+## Error adapter contract
+
+Normalize responses into a frontend error model without discarding the raw
+HTTP status:
+
+```ts
+type FrontendApiError = {
+  status: number;
+  code?: string;
+  message: string;
+  correlationId?: string;
+  fieldErrors: Record<string, string[]>;
+  retryAfterSeconds?: number;
+  source: "problem-details" | "business-validation" | "legacy-message" | "network";
+};
+```
+
+Adapter precedence:
+
+1. Modern Problem Details: use `code`, `detail`, `fieldErrors`, and
+   `correlationId`.
+2. Business validation object: map `errors` to `fieldErrors`.
+3. Legacy `{ message }`: use `message` with no code.
+4. Unknown JSON/text: use a safe generic localized client message.
+5. Network failure: distinguish offline, timeout, cancellation, and TLS
+   failures without claiming the server did not process a mutation.
+
+Never display raw HTML, stack traces, SQL, provider responses, or untrusted
+response text as markup.
+
+## Retry and idempotency standard
+
+| Operation | Automatic retry | Stable identity |
+|---|---:|---|
+| Safe read | At most two transient retries with jitter | Correlation ID may remain stable |
+| Forced catalog refresh | User-initiated retry preferred | None |
+| Draft update | No after conflict | Draft `orderGuid` + expected version |
+| Draft reprice | Only after an unambiguous transport failure | `X-Order-Guid` + expected version |
+| Booking confirmation | Controlled retry after ambiguity | `X-Order-Guid` |
+| Payment initialization | Controlled retry | Persisted `Idempotency-Key` |
+| Payment verification/read | Bounded polling while pending | Payment ID |
+| Business mutation documenting idempotency | Controlled retry | Persisted `Idempotency-Key` |
+
+Honor `Retry-After` on `429`. Stop retrying after authentication, validation,
+authorization, ownership, state, or version failures. Do not maintain a
+general offline mutation queue.
+
+## Accessibility and RTL standard
+
+- Target WCAG 2.2 AA for web and equivalent platform accessibility guidance
+  for mobile.
+- Use logical CSS/layout properties (`margin-inline-start`, `padding-inline`)
+  instead of hardcoded left/right positioning.
+- Mirror directional navigation icons where semantics require it; do not mirror
+  universal media/payment symbols.
+- Keep email, URLs, phone numbers, license plates, UUIDs, money codes, and
+  technical references readable with explicit bidirectional isolation.
+- Preserve logical focus order in RTL.
+- Announce loading completion, errors, validation summaries, and payment state
+  changes.
+- Provide at least 44x44 CSS-pixel/equivalent touch targets.
+- Do not communicate availability, status, or validation using color alone.
+- Test Arabic and Hebrew text expansion, mixed-direction strings, dynamic type,
+  screen readers, keyboard navigation, and reduced motion.
+
+## Payment return and deep-link contract
+
+`Lahza:CallbackUrl` must point to a controlled frontend universal link, app
+link, or same-origin web route. It is not the webhook.
+
+The callback handler:
+
+1. accepts only the exact allowlisted callback route;
+2. restores the pending payment ID from secure local state, not arbitrary query
+   parameters;
+3. ignores success/failure wording in the callback URL;
+4. calls backend verification;
+5. supports a cold app start;
+6. bounds polling and offers a manual retry while pending;
+7. removes the pending callback state after a terminal outcome.
+
+Do not include JWTs, device tokens, provider secrets, or authoritative payment
+state in deep-link parameters.
+
+## Environment and feature availability
+
+| Capability | Local development | Current deployed environment | Frontend rule |
+|---|---|---|---|
+| Customer/Business APIs | HTTPS launch profiles | HTTP health/Swagger host; TLS deferred | Never send real credentials over deployed HTTP |
+| Browser direct API access | No CORS | No CORS | Use same-origin BFF |
+| Customer email/password auth | Available when configured DB/JWT are valid | Available | Approved current auth |
+| OAuth | Configurable but unsafe redirect contract | Disabled/unapproved | Do not expose |
+| Catalog/checkout/booking | Available with both APIs and HMAC config | Cross-API HTTPS blocked until TLS | Show unavailable state when dependencies fail |
+| Lahza payment routes | Enabled by default outside Production when configured | Explicitly hidden | Feature must remain hidden |
+| Wallet/cash/third party | Disabled | Disabled | Do not render enabled actions |
+
+Feature availability must come from environment configuration plus server
+capabilities. Do not enable a hidden Production feature solely from a build
+constant.
+
+## Analytics and privacy
+
+Allowed analytics should describe UI behavior without payload content:
+
+- screen viewed;
+- action started/completed/failed;
+- stable error code;
+- HTTP status category;
+- duration bucket;
+- language;
+- feature availability state.
+
+Never record names, email, phone, address, coordinates, license plate, free
+text, tokens, JWT claims, URLs containing secrets, provider references,
+checkout URLs, request/response bodies, or raw correlation IDs. If support
+needs correlation IDs, keep them in a separate access-controlled diagnostic
+channel with a short retention period.
+
+## Frontend testing and mocking
+
+| Level | Required coverage |
+|---|---|
+| Generated-client contract | Client generation succeeds from filtered OpenAPI; no internal/webhook operations are emitted |
+| Unit | Error adapter, header injection, token expiry, ID mapping, money/date formatting, retry/idempotency helpers |
+| Component | Arabic/Hebrew forms, add-on controls, validation paths, stale/conflict/expired states |
+| Integration with mocks | Generated-schema happy paths plus `400`, `401`, `403`, `404`, `409`, `410`, `429`, and `503` |
+| Accessibility | Automated checks plus keyboard/screen-reader/manual RTL checks |
+| End-to-end | Bootstrap, browse, slots, draft, reprice, login, confirmation, and enabled-environment payment return |
+
+Use generated schema fixtures or builders. Manually author stateful mock
+transitions such as version conflicts and pending-to-terminal payment changes.
+Use a deterministic clock for expiry, retry, and slot tests. Never copy
+production data or credentials into fixtures.
+
+## High-value implementation examples
+
+### Draft conflict recovery
+
+```text
+GET draft -> version 4
+User edits locally
+PUT expectedVersion 4 -> 409
+GET draft -> version 5
+Show server changes beside unsaved local changes
+User confirms reapply
+PUT expectedVersion 5
+```
+
+### Stable payment idempotency
+
+```text
+Generate key once when the user starts one payment attempt
+Persist key with booking ID until initialization resolves
+Timeout -> retry same body with same key
+Terminal response -> clear pending key
+New deliberate payment attempt -> generate a new key
+```
+
+### Role-driven navigation
+
+```text
+Owner: company edit + catalog + availability + known work-order transition
+Employee: company read + known work-order transition
+Admin: Owner capabilities + known outbox requeue
+```
+
 ## Loading, retry, and offline behavior
 
 | Operation type | Frontend retry guidance |
@@ -744,20 +1084,36 @@ Do not put Customer and Business sessions in one interchangeable auth store.
 Recommended workflow:
 
 1. Run both APIs locally.
-2. Download both `/swagger/v1/swagger.json` documents.
-3. Generate separate clients/namespaces, for example:
+2. Download both `/swagger/v1/swagger.json` documents as source artifacts.
+3. Produce frontend-specific filtered documents:
+   - Customer app: Customer auth/profile, device, configuration, catalog,
+     checkout, booking confirmation, payment when enabled, vehicles, and
+     addresses;
+   - Business portal: Business auth, company, catalog, availability, and only
+     explicitly approved operational mutations.
+4. Exclude:
+   - every `/api/v1/internal/*` operation;
+   - `/api/lahza/webhook`;
+   - admin-only operations from non-admin clients;
+   - legacy/unapproved Customer registration and OAuth operations;
+   - gated payment operations from Production-generated clients while hidden.
+5. Generate separate clients/namespaces, for example:
    - `generated/customer-api`;
    - `generated/business-api`.
-4. Fail CI when generated output differs from committed output, if generated
+6. Fail CI when generated output differs from committed output, if generated
    clients are committed.
-5. Wrap generated clients only for:
+7. Wrap generated clients only for:
    - base URL selection;
    - credential/header injection;
    - language;
    - correlation IDs;
    - Problem Details conversion;
    - safe retry policy.
-6. Do not manually edit generated files.
+8. Do not manually edit generated files.
+
+Pin the generator and runtime package versions. Treat a filtered-spec diff as
+an API review artifact. Removing an operation or making a field required is a
+breaking frontend change even when the backend can still compile.
 
 The AI should inspect OpenAPI before creating:
 
@@ -768,6 +1124,27 @@ The AI should inspect OpenAPI before creating:
 - request examples;
 - API mocks;
 - status-specific UI behavior.
+
+## Current backend dependencies and deferred UI
+
+Do not invent screens for these missing contracts:
+
+| Frontend need | Current backend status | Required backend addition |
+|---|---|---|
+| Customer booking history/detail/live status | Confirmation only | Owned Customer booking list/detail APIs |
+| Customer cancellation/reschedule | Not exposed | State-aware owned mutation APIs |
+| Lost/expired device credential recovery | Not exposed | Secure recovery/reset contract |
+| JWT refresh/server logout | Not exposed | Refresh/revocation/session contract |
+| Forgotten password | Not exposed | Unauthenticated recovery flow |
+| OAuth login/linking | Existing redirect flow unapproved | Allowlisted one-time-code or secure-cookie flow |
+| Reactivation after JWT expiry | Not exposed | Dedicated reactivation proof/recovery flow |
+| Business work-order queue/detail | Transition by known ID only | Assigned list/detail APIs |
+| Employee management | Roles exist, management API absent | Invitation/assignment/role APIs |
+| Dead-letter browser | Requeue by known event ID only | Admin list/detail APIs |
+| Business dashboard/reporting/search | Not exposed | Versioned reporting/query contracts |
+| Branch deletion | Not exposed | Ownership-safe delete/archive operation |
+
+Each row is a backend dependency, not a frontend estimation task.
 
 ## Minimum frontend acceptance scenarios
 

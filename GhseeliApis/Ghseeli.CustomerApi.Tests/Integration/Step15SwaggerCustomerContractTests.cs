@@ -105,8 +105,14 @@ public sealed class Step15SwaggerCustomerContractTests :
         using var document = await GetSwaggerAsync();
         var root = document.RootElement;
 
-        AssertHeader(root, "/api/v1/bookings/from-draft", "post", "Idempotency-Key", true, 128);
         AssertHeader(root, "/api/v1/bookings/from-draft", "post", "X-Order-Guid", true, null, "uuid");
+        OperationAt(root, "/api/v1/bookings/from-draft", "post")
+            .GetProperty("parameters")
+            .EnumerateArray()
+            .Should()
+            .NotContain(parameter =>
+                parameter.GetProperty("name").GetString() == "Idempotency-Key",
+                "orderGuid is the booking confirmation idempotency identity");
         AssertHeader(root, "/api/v1/payments/intents", "post", "Idempotency-Key", true, 128);
         AssertHeader(root, "/api/v1/internal/bookings/status", "post", "Idempotency-Key", true, 128);
         AssertHeader(root, "/api/v1/internal/bookings/{reference}/reconcile", "post", "Idempotency-Key", true, 128);
@@ -213,6 +219,28 @@ public sealed class Step15SwaggerCustomerContractTests :
             "STEP15-SWAGGER-EXAMPLES-CHECKOUT-143 requires checkout order identity");
         json.Should().Contain("\"grandTotal\"",
             "STEP15-SWAGGER-EXAMPLES-CHECKOUT-143 requires authoritative totals");
+        json.Should().Contain("\"baseSubtotal\"")
+            .And.Contain("\"addonSubtotal\"")
+            .And.Contain("\"itemSubtotal\"")
+            .And.NotContain("\"subtotal\"",
+                "the pricing example must match CheckoutPricingSnapshotResponse");
+
+        var directExample = ResponseExample(
+            document.RootElement,
+            "/api/v1/pricing/reprice",
+            "post");
+        directExample.GetProperty("intent").GetProperty("items")
+            .GetArrayLength().Should().BeGreaterThan(0);
+        AssertCompletePricingExample(directExample.GetProperty("pricing"));
+
+        var draftExample = ResponseExample(
+            document.RootElement,
+            "/api/v1/checkout/reprice",
+            "post");
+        draftExample.GetProperty("expiresAt").GetString().Should().NotBeNullOrWhiteSpace();
+        draftExample.GetProperty("intent").GetProperty("vehicle")
+            .GetProperty("vehicleType").GetString().Should().Be("Sedan");
+        AssertCompletePricingExample(draftExample.GetProperty("pricing"));
         json.Should().Contain("same-body replay",
             "STEP15-SWAGGER-EXAMPLES-BOOKING-144 requires replay semantics");
         json.Should().Contain("server-authoritative",
@@ -534,6 +562,43 @@ public sealed class Step15SwaggerCustomerContractTests :
                 .GetProperty("content").TryGetProperty("application/problem+json", out _)
                 .Should().BeTrue();
         }
+    }
+
+    private static JsonElement ResponseExample(
+        JsonElement root,
+        string path,
+        string method) =>
+        OperationAt(root, path, method)
+            .GetProperty("responses")
+            .GetProperty("200")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("example");
+
+    private static void AssertCompletePricingExample(JsonElement pricing)
+    {
+        pricing.EnumerateObject().Select(property => property.Name)
+            .Should().Contain(
+            [
+                "catalogVersion",
+                "currency",
+                "quotedAtUtc",
+                "baseSubtotal",
+                "addonSubtotal",
+                "itemSubtotal",
+                "serviceFee",
+                "serviceFeeMode",
+                "serviceFeeFlatAmount",
+                "serviceFeePercentageRate",
+                "taxableSubtotal",
+                "taxRatePercent",
+                "taxAppliesToServiceFee",
+                "tax",
+                "grandTotal",
+                "totalDurationMinutes",
+                "items"
+            ]);
+        pricing.GetProperty("items").GetArrayLength().Should().BeGreaterThan(0);
     }
 
     private static string[] Header(HttpResponseMessage response, string name) =>

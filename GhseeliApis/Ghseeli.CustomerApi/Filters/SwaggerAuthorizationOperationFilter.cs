@@ -101,8 +101,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
                 schema => schema.MaxLength = 64);
         }
 
-        if ((path == "/api/v1/bookings/from-draft" && method == "POST") ||
-            (path == "/api/v1/payments/intents" && method == "POST") ||
+        if ((path == "/api/v1/payments/intents" && method == "POST") ||
             (path == "/api/v1/internal/bookings/status" && method == "POST") ||
             (path.EndsWith("/reconcile", StringComparison.Ordinal) && method == "POST"))
         {
@@ -377,14 +376,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
             successMedia.Example = path switch
             {
                 "/api/v1/pricing/reprice" => PricingExample(),
-                "/api/v1/checkout/reprice" => new OpenApiObject
-                {
-                    ["orderGuid"] = new OpenApiString(
-                        "22222222-2222-2222-2222-222222222222"),
-                    ["version"] = new OpenApiInteger(2),
-                    ["requiresReprice"] = new OpenApiBoolean(false),
-                    ["pricing"] = PricingExample()["pricing"]
-                },
+                "/api/v1/checkout/reprice" => DraftPricingExample(),
                 "/api/v1/bookings/from-draft" => new OpenApiObject
                 {
                     ["orderGuid"] = new OpenApiString(
@@ -402,13 +394,54 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
     private static OpenApiObject PricingExample() => new()
     {
         ["language"] = new OpenApiString("ar"),
+        ["intent"] = IntentExample(),
         ["pricing"] = new OpenApiObject
         {
+            ["catalogVersion"] = new OpenApiLong(42),
             ["currency"] = new OpenApiString("ILS"),
-            ["subtotal"] = new OpenApiDouble(79.50),
+            ["quotedAtUtc"] = new OpenApiString("2026-09-05T15:00:00Z"),
+            ["baseSubtotal"] = new OpenApiDouble(70),
+            ["addonSubtotal"] = new OpenApiDouble(9.50),
+            ["itemSubtotal"] = new OpenApiDouble(79.50),
             ["serviceFee"] = new OpenApiDouble(0),
+            ["serviceFeeMode"] = new OpenApiString("None"),
+            ["serviceFeeFlatAmount"] = new OpenApiDouble(0),
+            ["serviceFeePercentageRate"] = new OpenApiDouble(0),
+            ["taxableSubtotal"] = new OpenApiDouble(79.50),
+            ["taxRatePercent"] = new OpenApiDouble(0),
+            ["taxAppliesToServiceFee"] = new OpenApiBoolean(false),
             ["tax"] = new OpenApiDouble(0),
-            ["grandTotal"] = new OpenApiDouble(79.50)
+            ["grandTotal"] = new OpenApiDouble(79.50),
+            ["totalDurationMinutes"] = new OpenApiInteger(45),
+            ["items"] = new OpenApiArray
+            {
+                new OpenApiObject
+                {
+                    ["offeringSourceId"] = new OpenApiString(
+                        "44444444-4444-4444-4444-444444444444"),
+                    ["baseSubtotal"] = new OpenApiDouble(70),
+                    ["addonSubtotal"] = new OpenApiDouble(9.50),
+                    ["itemSubtotal"] = new OpenApiDouble(79.50),
+                    ["totalDurationMinutes"] = new OpenApiInteger(45),
+                    ["selections"] = new OpenApiArray
+                    {
+                        new OpenApiObject
+                        {
+                            ["addonGroupSourceId"] = new OpenApiString(
+                                "55555555-5555-5555-5555-555555555555"),
+                            ["addonChoiceSourceId"] = new OpenApiString(
+                                "66666666-6666-6666-6666-666666666666"),
+                            ["selectionType"] = new OpenApiString("SingleChoice"),
+                            ["quantity"] = new OpenApiInteger(1),
+                            ["unitPriceAdjustment"] = new OpenApiDouble(9.50),
+                            ["totalPriceAdjustment"] = new OpenApiDouble(9.50),
+                            ["unitDurationAdjustmentMinutes"] = new OpenApiInteger(5),
+                            ["totalDurationAdjustmentMinutes"] = new OpenApiInteger(5),
+                            ["isDefaultApplied"] = new OpenApiBoolean(false)
+                        }
+                    }
+                }
+            }
         },
         ["paymentCapabilities"] = new OpenApiObject
         {
@@ -419,6 +452,68 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
                     ["method"] = new OpenApiString("CreditCard"),
                     ["enabled"] = new OpenApiBoolean(false),
                     ["reasonCode"] = new OpenApiString("provider_unavailable")
+                }
+            }
+        }
+    };
+
+    private static OpenApiObject DraftPricingExample()
+    {
+        var pricing = PricingExample();
+        return new OpenApiObject
+        {
+            ["language"] = pricing["language"],
+            ["orderGuid"] = new OpenApiString(
+                "22222222-2222-2222-2222-222222222222"),
+            ["version"] = new OpenApiInteger(2),
+            ["expiresAt"] = new OpenApiString("2026-09-05T15:30:00Z"),
+            ["requiresReprice"] = new OpenApiBoolean(false),
+            ["intent"] = pricing["intent"],
+            ["pricing"] = pricing["pricing"],
+            ["paymentCapabilities"] = pricing["paymentCapabilities"]
+        };
+    }
+
+    private static OpenApiObject IntentExample() => new()
+    {
+        ["businessSourceId"] = new OpenApiString(
+            "77777777-7777-7777-7777-777777777777"),
+        ["branchSourceId"] = new OpenApiString(
+            "88888888-8888-8888-8888-888888888888"),
+        ["catalogVersion"] = new OpenApiLong(42),
+        ["requestedSlotStartUtc"] = new OpenApiString("2026-09-06T08:00:00Z"),
+        ["vehicle"] = new OpenApiObject
+        {
+            ["vehicleType"] = new OpenApiString("Sedan"),
+            ["licensePlate"] = new OpenApiString("TEST-123"),
+            ["make"] = new OpenApiString("Example"),
+            ["model"] = new OpenApiString("Model"),
+            ["color"] = new OpenApiString("White")
+        },
+        ["location"] = new OpenApiObject
+        {
+            ["addressLine"] = new OpenApiString("Example address"),
+            ["city"] = new OpenApiString("Example city"),
+            ["area"] = new OpenApiString("Example area"),
+            ["latitude"] = new OpenApiDouble(32.0853),
+            ["longitude"] = new OpenApiDouble(34.7818)
+        },
+        ["items"] = new OpenApiArray
+        {
+            new OpenApiObject
+            {
+                ["offeringSourceId"] = new OpenApiString(
+                    "44444444-4444-4444-4444-444444444444"),
+                ["selections"] = new OpenApiArray
+                {
+                    new OpenApiObject
+                    {
+                        ["addonGroupSourceId"] = new OpenApiString(
+                            "55555555-5555-5555-5555-555555555555"),
+                        ["addonChoiceSourceId"] = new OpenApiString(
+                            "66666666-6666-6666-6666-666666666666"),
+                        ["quantity"] = new OpenApiInteger(1)
+                    }
                 }
             }
         }

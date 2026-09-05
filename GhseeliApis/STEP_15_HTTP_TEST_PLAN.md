@@ -148,7 +148,7 @@ Each `/swagger/v1/swagger.json` must be valid OpenAPI 3, deterministic, and:
 - define reusable `ProblemDetails` plus `fieldErrors`, correlation and
   localization headers;
 - define Customer HTTP-bearer JWT, Business HTTP-bearer JWT, `X-Device-Token`, internal
-  HMAC headers, `Idempotency-Key`, `X-Order-Guid`, and Stripe signature only
+  HMAC headers, `Idempotency-Key`, `X-Order-Guid`, and provider signature only
   where applicable;
 - attach security per operation, never globally: anonymous operations have
   none; device-only operations require only device; JWT+device require both;
@@ -158,6 +158,12 @@ Each `/swagger/v1/swagger.json` must be valid OpenAPI 3, deterministic, and:
 - advertise JSON input only where runtime requires JSON and accurately
   document 64 KiB/body/header limits, language precedence, no-store,
   idempotency/replay, ownership masking, and payment capability semantics.
+
+Booking confirmation uses required `X-Order-Guid` as its public logical
+idempotency identity. It does not advertise a separate client
+`Idempotency-Key`; the Customer service derives the internal Business
+reservation key from the stable order GUID. Payment and applicable internal
+mutations continue to require `Idempotency-Key`.
 
 Swagger is enabled in Development or explicit non-production configuration;
 disabled production/default environments return 404.
@@ -392,12 +398,12 @@ route's earlier frozen replay contract says otherwise.
 | `STEP15-SWAGGER-SCHEMA-ENUMS-140` | Contract | String-only enum values and every catalog selection/payment/booking status value are documented; integers rejected. |
 | `STEP15-SWAGGER-SCHEMA-BOUNDS-141` | Contract | IDs, string lengths, collection counts, quantity, coordinates, decimals, dates, body/header limits match validators/runtime. |
 | `STEP15-SWAGGER-EXAMPLES-LOCALIZED-142` | Contract | Safe Arabic and Hebrew success/problem examples are valid against their schemas and show stable identical codes. |
-| `STEP15-SWAGGER-EXAMPLES-CHECKOUT-143` | Contract | Draft/direct repricing examples show orderGuid, selections, version, authoritative item totals, discounts, grand total, currency, capabilities. |
+| `STEP15-SWAGGER-EXAMPLES-CHECKOUT-143` | Contract | Draft/direct repricing examples show orderGuid, selections, version, authoritative base/add-on/item subtotals, service fee, tax, grand total, currency, and capabilities. |
 | `STEP15-SWAGGER-EXAMPLES-BOOKING-144` | Contract | Confirmation example documents `X-Order-Guid`, immutable snapshots, idempotent replay and all relevant statuses. |
 | `STEP15-SWAGGER-EXAMPLES-PAYMENT-145` | Contract | Intent request has bookingId/method only; response uses server money and client-safe confirmation; unsupported methods/capabilities documented. |
 | `STEP15-SWAGGER-EXAMPLES-HMAC-146` | Contract | HMAC examples use placeholders, canonical signing explanation, timestamp/nonce/correlation/idempotency rules, no real signature. |
 | `STEP15-SWAGGER-EXAMPLES-BUSINESS-147` | Contract | Required Arabic/optional Hebrew company/catalog/address examples and selection rule variants validate. |
-| `STEP15-SWAGGER-IDEMPOTENCY-148` | Contract | Idempotency-Key and X-Order-Guid placement, bounds, same-body replay/different-body conflict are operation-accurate. |
+| `STEP15-SWAGGER-IDEMPOTENCY-148` | Contract | `X-Order-Guid` is the sole public booking-confirmation idempotency identity; `Idempotency-Key` appears only on payment and applicable internal mutations with operation-accurate bounds and replay/conflict semantics. |
 | `STEP15-SWAGGER-CACHE-CORRELATION-149` | Contract | Response headers document no-store and correlation for all covered operations/problems. |
 | `STEP15-SWAGGER-EXAMPLE-REDACTION-150` | Automated-only | Scan OpenAPI/examples/descriptions for secret-like values, PII, localhost production confusion, internal IDs, and implementation types. |
 | `STEP15-SWAGGER-DETERMINISTIC-151` | Automated-only | Repeated generation is semantically identical, valid, reference-complete, and has unique operation IDs. |

@@ -299,7 +299,9 @@ PII, provider payloads, or internal row IDs.
 - A supplied valid correlation ID is propagated and echoed; otherwise the receiving API creates one and echoes it.
 - Correlation IDs are bounded safe tokens only; overlong or CRLF-bearing values are rejected and replaced before logging or forwarding.
 - Cross-system mutating requests require `Idempotency-Key`.
-- Customer booking confirmation uses `orderGuid` as the logical idempotency source.
+- Customer booking confirmation is the public exception: required
+  `X-Order-Guid` is its logical idempotency identity, and the Customer API
+  derives the internal Business reservation idempotency key from it.
 - Each receiving API stores the key, operation, request hash, status, and serialized response body.
 - Reusing a key with different request content returns `409 idempotency_conflict`.
 - Reusing a completed identical request returns the original logical result without re-executing the operation.

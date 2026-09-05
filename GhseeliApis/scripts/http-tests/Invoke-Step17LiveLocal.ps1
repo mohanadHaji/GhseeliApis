@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 [CmdletBinding()]
 param(
     [ValidateSet('Validate','Provision','Setup','Chain','OutageRecovery',
@@ -135,7 +135,7 @@ function Assert-LiveOptIn {
         throw ('Set STEP17_ENABLE_DETERMINISTIC_FAKE_PAYMENT_GATEWAY=true ' +
             'to explicitly opt into the local fake; real provider calls are forbidden.')
     }
-    $customerProgram = Join-Path $solution 'GhseeliApis\Program.cs'
+    $customerProgram = Join-Path $solution 'Ghseeli.CustomerApi\Program.cs'
     $customerSource = Get-Content -LiteralPath $customerProgram -Raw `
         -Encoding UTF8
     if (-not $customerSource.Contains('Step17TestFixtures') -or
@@ -559,7 +559,7 @@ function Get-HostEnvironment([object]$State,[bool]$Customer) {
 }
 
 function Start-Customer([object]$State) {
-    $project = Join-Path $solution 'GhseeliApis\GhseeliApis.csproj'
+    $project = Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj'
     $process = Start-OwnedProcess 'customer' 'dotnet' (
         "run --project $(Quote $project) -c Release --no-build --no-launch-profile") `
         $solution (Get-HostEnvironment $State $true)
@@ -578,7 +578,7 @@ function Start-Business([object]$State) {
 }
 
 function Start-CustomerProduction([object]$State) {
-    $project = Join-Path $solution 'GhseeliApis\GhseeliApis.csproj'
+    $project = Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj'
     $environment = Get-HostEnvironment $State $true
     $environment.ASPNETCORE_ENVIRONMENT = 'Production'
     $environment.ASPNETCORE_URLS = $State.customerProductionBaseUrl

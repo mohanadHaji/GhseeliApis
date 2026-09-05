@@ -197,8 +197,8 @@ if (-not $SkipDatabaseCopy) {
         "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
     try {
         & dotnet ef database update `
-            --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
-            --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+            --project (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
+            --startup-project (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
             --configuration Release --no-build
         if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
     }

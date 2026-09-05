@@ -101,7 +101,7 @@ function Invoke-Migration([ValidateSet('Customer','Business')][string]$owner) {
     $isCustomer = $owner -eq 'Customer'
     $database = if ($isCustomer) { $customerDatabase } else { $businessDatabase }
     $project = if ($isCustomer) {
-        Join-Path $solution 'GhseeliApis\GhseeliApis.csproj'
+        Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj'
     } else {
         Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj'
     }

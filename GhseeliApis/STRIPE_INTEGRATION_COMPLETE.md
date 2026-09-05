@@ -417,7 +417,7 @@ docker run -e "Stripe__SecretKey=sk_live_..." \
 #### 4. Apply Database Migration
 ```bash
 # When database connection is available
-dotnet ef database update --project GhseeliApis.csproj
+dotnet ef database update --project Ghseeli.CustomerApi.csproj
 
 # Verify columns added:
 # - PaymentMethodId (varchar 200, nullable)

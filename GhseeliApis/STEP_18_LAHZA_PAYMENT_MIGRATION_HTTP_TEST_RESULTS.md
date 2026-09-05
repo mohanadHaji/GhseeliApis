@@ -178,3 +178,17 @@ browser automation or verification response.
 A separate successful-card diagnostic supplied a valid HTTPS callback URL.
 The checkout still terminated as `abandoned`, so the missing callback URL is
 not the cause of the observed test-card behavior.
+
+## Post-project-rename regression
+
+After renaming the Customer projects to `Ghseeli.CustomerApi` and
+`Ghseeli.CustomerApi.Tests`, the complete solution passed **1,844/1,844**
+automated tests: **1,260 Customer** and **584 Business**.
+
+The disposable local Lahza suite was also rerun:
+
+- configured-provider scenarios: **39 passed / 0 failed**;
+- unconfigured-provider scenario: **1 passed / 0 failed**;
+- database invariants: **4 payments, 4 idempotency rows, 11 Lahza receipts**.
+
+No production deployment was run for the project rename.

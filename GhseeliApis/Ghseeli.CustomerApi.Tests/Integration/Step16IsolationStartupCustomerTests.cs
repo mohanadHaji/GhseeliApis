@@ -40,7 +40,8 @@ public sealed class Step16IsolationStartupCustomerTests
     public void ApiProjects_ReferenceOnlyNeutralSharedProjects()
     {
         var root = FindSolutionRoot();
-        AssertNeutralReferences(Path.Combine(root, "GhseeliApis", "GhseeliApis.csproj"));
+        AssertNeutralReferences(Path.Combine(
+            root, "Ghseeli.CustomerApi", "Ghseeli.CustomerApi.csproj"));
         AssertNeutralReferences(Path.Combine(root, "Ghseeli.BusinessApi", "Ghseeli.BusinessApi.csproj"));
     }
 
@@ -110,9 +111,10 @@ public sealed class Step16IsolationStartupCustomerTests
     public void CustomerConnectionAndSchemaIdentity_AreExplicitAndIndependent()
     {
         var root = FindSolutionRoot();
-        var program = File.ReadAllText(Path.Combine(root, "GhseeliApis", "Program.cs"));
+        var program = File.ReadAllText(Path.Combine(
+            root, "Ghseeli.CustomerApi", "Program.cs"));
         var setup = File.ReadAllText(Path.Combine(
-            root, "GhseeliApis", "Extensions", "SqlServerSetupExtension.cs"));
+            root, "Ghseeli.CustomerApi", "Extensions", "SqlServerSetupExtension.cs"));
 
         setup.Should().Contain("CustomerConnection");
         setup.Should().NotContain("BusinessConnection");
@@ -132,7 +134,8 @@ public sealed class Step16IsolationStartupCustomerTests
             .Where(value => !value.Contains(','))
             .Should().BeEquivalentTo(["User", "Admin"]);
 
-        File.ReadAllText(Path.Combine(FindSolutionRoot(), "GhseeliApis", "Program.cs"))
+        File.ReadAllText(Path.Combine(
+                FindSolutionRoot(), "Ghseeli.CustomerApi", "Program.cs"))
             .Should().NotContain("CompanyPolicy")
             .And.NotContain("\"Company\"");
     }
@@ -151,7 +154,8 @@ public sealed class Step16IsolationStartupCustomerTests
     [Fact]
     public void Startup_HasFailFastSafeValidationForConnectionJwtHmacAndSchemaMismatch()
     {
-        var program = File.ReadAllText(Path.Combine(FindSolutionRoot(), "GhseeliApis", "Program.cs"));
+        var program = File.ReadAllText(Path.Combine(
+            FindSolutionRoot(), "Ghseeli.CustomerApi", "Program.cs"));
         program.Should().ContainAll(
             "CustomerConnection",
             "JwtSettings",
@@ -174,14 +178,14 @@ public sealed class Step16IsolationStartupCustomerTests
     {
         var root = FindSolutionRoot();
         var migrationFiles = Directory.GetFiles(
-            Path.Combine(root, "GhseeliApis", "Migrations"), "*.cs");
+            Path.Combine(root, "Ghseeli.CustomerApi", "Migrations"), "*.cs");
         migrationFiles.Should().NotBeEmpty();
         migrationFiles.Select(Path.GetFileName)
             .Should().OnlyContain(name =>
                 name!.Contains("Customer", StringComparison.OrdinalIgnoreCase) ||
                 name.Contains("ModelSnapshot", StringComparison.OrdinalIgnoreCase));
 
-        File.ReadAllText(Path.Combine(root, "GhseeliApis", "Program.cs"))
+        File.ReadAllText(Path.Combine(root, "Ghseeli.CustomerApi", "Program.cs"))
             .Should().NotContain("EnsureDeleted")
             .And.NotContain("EnsureCreated");
     }

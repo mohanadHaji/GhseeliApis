@@ -88,7 +88,8 @@ foreach ($entry in $coverageEntries) {
 }
 
 function Get-DiscoveredTests([string]$ProjectPath) {
-    $output = @(& dotnet test $ProjectPath --no-restore --list-tests `
+    $output = @(& dotnet test $ProjectPath --configuration Release `
+        --no-restore --list-tests `
         --nologo --verbosity quiet 2>&1)
     if ($LASTEXITCODE -ne 0) {
         throw "Test discovery failed for '$ProjectPath': $($output -join [Environment]::NewLine)"
@@ -104,7 +105,7 @@ function Get-DiscoveredTests([string]$ProjectPath) {
 
 $discoveredTests = @(
     Get-DiscoveredTests (
-        Join-Path $solution 'GhseeliApis.Tests\GhseeliApis.Tests.csproj')
+        Join-Path $solution 'Ghseeli.CustomerApi.Tests\Ghseeli.CustomerApi.Tests.csproj')
     Get-DiscoveredTests (
         Join-Path $solution `
             'Ghseeli.BusinessApi.Tests\Ghseeli.BusinessApi.Tests.csproj')

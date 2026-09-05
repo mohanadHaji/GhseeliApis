@@ -1,11 +1,11 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36603.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GhseeliApis", "GhseeliApis\GhseeliApis.csproj", "{BE4A9038-08A9-4E75-B330-8DBD1BFE4FD7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ghseeli.CustomerApi", "Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj", "{BE4A9038-08A9-4E75-B330-8DBD1BFE4FD7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GhseeliApis.Tests", "GhseeliApis.Tests\GhseeliApis.Tests.csproj", "{69D86C1F-79D1-44BD-8F30-BC0DC4C251B7}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ghseeli.CustomerApi.Tests", "Ghseeli.CustomerApi.Tests\Ghseeli.CustomerApi.Tests.csproj", "{69D86C1F-79D1-44BD-8F30-BC0DC4C251B7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Ghseeli.BusinessApi", "Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj", "{B0C91B9D-0781-40B1-A2BD-B34A6237477A}"
 EndProject

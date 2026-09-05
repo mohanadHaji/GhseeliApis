@@ -39,7 +39,7 @@ there were **0 Stripe network calls**, no production host, and no live key.
   renewal beyond the original lease and exactly-once execution, but now uses
   a realistic five-second lease/load margin. The targeted regression and final
   parallel full-solution run passed. No behavioral assertion was weakened.
-- Clean `Release` builds of `GhseeliApis.csproj` and
+- Clean `Release` builds of `Ghseeli.CustomerApi.csproj` and
   `Ghseeli.BusinessApi.csproj`: **2/2**, each with **0 warnings, 0 errors**.
 - Both independently owned DbContexts: **0 pending model changes**,
   **2/2 idempotent scripts generated**, and **4/4 repeated database updates**

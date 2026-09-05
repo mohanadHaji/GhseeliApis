@@ -24,7 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Ghseeli.Common\Ghseeli.Common.csproj" />
-    <ProjectReference Include="..\GhseeliApis\GhseeliApis.csproj" />
+    <ProjectReference Include="..\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj" />
   </ItemGroup>
 
 </Project>

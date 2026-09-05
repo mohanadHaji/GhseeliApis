@@ -6,51 +6,51 @@
 
 ### Initialize User Secrets (Already Done)
 ```bash
-dotnet user-secrets init --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets init --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### JWT Settings
 ```bash
-dotnet user-secrets set "JwtSettings:SecretKey" "your_secret_key_minimum_32_characters" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets set "JwtSettings:SecretKey" "your_secret_key_minimum_32_characters" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### OAuth Credentials - Google
 ```bash
-dotnet user-secrets set "Authentication:Google:ClientId" "your_google_client_id" --project GhseeliApis/GhseeliApis.csproj
-dotnet user-secrets set "Authentication:Google:ClientSecret" "your_google_client_secret" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets set "Authentication:Google:ClientId" "your_google_client_id" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Authentication:Google:ClientSecret" "your_google_client_secret" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### OAuth Credentials - Facebook
 ```bash
-dotnet user-secrets set "Authentication:Facebook:AppId" "your_facebook_app_id" --project GhseeliApis/GhseeliApis.csproj
-dotnet user-secrets set "Authentication:Facebook:AppSecret" "your_facebook_app_secret" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets set "Authentication:Facebook:AppId" "your_facebook_app_id" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Authentication:Facebook:AppSecret" "your_facebook_app_secret" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### Stripe API Keys
 ```bash
-dotnet user-secrets set "Stripe:PublishableKey" "pk_test_your_key" --project GhseeliApis/GhseeliApis.csproj
-dotnet user-secrets set "Stripe:SecretKey" "sk_test_your_key" --project GhseeliApis/GhseeliApis.csproj
-dotnet user-secrets set "Stripe:WebhookSecret" "whsec_your_secret" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets set "Stripe:PublishableKey" "pk_test_your_key" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Stripe:SecretKey" "sk_test_your_key" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Stripe:WebhookSecret" "whsec_your_secret" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### Database Password
 ```bash
-dotnet user-secrets set "CloudSql:Password" "your_database_password" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets set "CloudSql:Password" "your_database_password" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### List All Secrets
 ```bash
-dotnet user-secrets list --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets list --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### Remove a Secret
 ```bash
-dotnet user-secrets remove "KeyName" --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets remove "KeyName" --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### Clear All Secrets
 ```bash
-dotnet user-secrets clear --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets clear --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ## Environment Variables (Production)
@@ -133,16 +133,16 @@ kubectl create secret generic app-secrets \
 ### "UserSecretsId not found" Error
 ```bash
 # Initialize user secrets
-dotnet user-secrets init --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets init --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 ```
 
 ### Secrets Not Loading
 ```bash
 # Verify secrets are set
-dotnet user-secrets list --project GhseeliApis/GhseeliApis.csproj
+dotnet user-secrets list --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 
 # Check UserSecretsId in .csproj file
-cat GhseeliApis/GhseeliApis.csproj | grep UserSecretsId
+cat Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj | grep UserSecretsId
 ```
 
 ### Invalid JSON in appsettings.json

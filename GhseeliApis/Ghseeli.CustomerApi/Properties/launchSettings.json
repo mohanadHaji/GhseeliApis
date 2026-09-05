@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "GhseeliApis": {
+    "Ghseeli.CustomerApi": {
       "commandName": "Project",
       "launchBrowser": true,
       "environmentVariables": {

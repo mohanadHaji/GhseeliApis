@@ -60,7 +60,7 @@ function Quote([string]$Value) {
 }
 
 function Start-CustomerHost([string]$SecretKey) {
-    $project = Join-Path $solution 'GhseeliApis\GhseeliApis.csproj'
+    $project = Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj'
     $start = [Diagnostics.ProcessStartInfo]::new()
     $start.FileName = 'dotnet'
     $start.Arguments =

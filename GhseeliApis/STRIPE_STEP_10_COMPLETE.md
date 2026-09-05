@@ -257,7 +257,7 @@ az webapp config appsettings set \
 ### 2. Apply Database Migration
 ```bash
 # When database is available
-dotnet ef database update --project GhseeliApis.csproj
+dotnet ef database update --project Ghseeli.CustomerApi.csproj
 
 # Verify columns exist
 # PaymentMethodId (varchar 200)

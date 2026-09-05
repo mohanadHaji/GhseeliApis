@@ -127,7 +127,7 @@ if (-not $SkipDatabaseCopy) {
     Copy-Database $SourceBusinessDatabase $BusinessDatabase
 
     $env:ConnectionStrings__RemoteTest = "Server=$server;Database=$CustomerDatabase;Integrated Security=true;TrustServerCertificate=true"
-    & dotnet ef database update --project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --startup-project (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') --configuration Release --no-build
+    & dotnet ef database update --project (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') --startup-project (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') --configuration Release --no-build
     if ($LASTEXITCODE -ne 0) { throw 'Customer migration failed.' }
     $env:ConnectionStrings__BusinessConnection = "Server=$server;Database=$BusinessDatabase;Integrated Security=true;TrustServerCertificate=true"
     & dotnet ef database update --project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --startup-project (Join-Path $solution 'Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj') --configuration Release --no-build

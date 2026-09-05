@@ -12,7 +12,7 @@ Successfully created comprehensive unit tests for Stripe payment gateway impleme
 ### 1. ? Created StripePaymentServiceTests
 Comprehensive test suite for StripePaymentService:
 
-**File Created**: `GhseeliApis.Tests/Services/StripePaymentServiceTests.cs`
+**File Created**: `Ghseeli.CustomerApi.Tests/Services/StripePaymentServiceTests.cs`
 
 **Test Categories:**
 - **Constructor Tests** (3 tests)
@@ -82,7 +82,7 @@ public void Constructor_ThrowsException_WhenSecretKeyIsNull()
 ### 2. ? Created StripeWebhookControllerTests
 Comprehensive test suite for webhook endpoint:
 
-**File Created**: `GhseeliApis.Tests/Controllers/StripeWebhookControllerTests.cs`
+**File Created**: `Ghseeli.CustomerApi.Tests/Controllers/StripeWebhookControllerTests.cs`
 
 **Test Categories:**
 - **Configuration Tests** (2 tests)
@@ -271,8 +271,8 @@ Webhook tests cannot fully validate signature verification without:
 
 | File | Lines | Tests | Purpose |
 |------|-------|-------|---------|
-| `GhseeliApis.Tests/Services/StripePaymentServiceTests.cs` | ~280 | 22 | Tests Stripe payment service |
-| `GhseeliApis.Tests/Controllers/StripeWebhookControllerTests.cs` | ~320 | 19 | Tests webhook controller |
+| `Ghseeli.CustomerApi.Tests/Services/StripePaymentServiceTests.cs` | ~280 | 22 | Tests Stripe payment service |
+| `Ghseeli.CustomerApi.Tests/Controllers/StripeWebhookControllerTests.cs` | ~320 | 19 | Tests webhook controller |
 | **Total** | **~600** | **41** | Comprehensive Stripe testing |
 
 ## Testing Strategy

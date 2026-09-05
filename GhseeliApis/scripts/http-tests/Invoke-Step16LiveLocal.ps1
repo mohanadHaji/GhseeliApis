@@ -128,7 +128,7 @@ function Start-Host(
         }
     }
     elseif ($project.EndsWith(
-            'GhseeliApis\GhseeliApis.csproj',
+            'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj',
             [StringComparison]::OrdinalIgnoreCase)) {
         $customerJwtSecret = [Environment]::GetEnvironmentVariable(
             'STEP16_CUSTOMER_JWT_SECRET')
@@ -473,7 +473,7 @@ function Start-CustomerHost(
         $environment[$item.Key] = $item.Value
     }
     $customer = Start-Host $name `
-        (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+        (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
         $url $environment
     Wait-Ready "$url/api/Health" $customer
     return $customer
@@ -548,7 +548,7 @@ function Invoke-ProductionAndFailurePhases {
     Add-LifecycleEvidence 'production-swagger-and-root-disabled' 'passed'
 
     Assert-MissingConnectionFailsClosed 'customer-missing-connection' `
-        (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+        (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
         'https://localhost:54433' 'https://localhost:54433/api/Health' `
         'ConnectionStrings__CustomerConnection'
     Add-LifecycleEvidence 'customer-missing-connection-failed-closed' 'passed'
@@ -561,7 +561,7 @@ function Invoke-ProductionAndFailurePhases {
     $wrongConnection =
         "Server=$($state.server);Database=$($state.wrongDatabase);Integrated Security=true;TrustServerCertificate=true"
     $customerWrong = Start-Host 'customer-wrong-schema' `
-        (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+        (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
         'https://localhost:54433' @{
             ASPNETCORE_ENVIRONMENT='Production'
             ConnectionStrings__CustomerConnection=$wrongConnection
@@ -626,7 +626,7 @@ function Invoke-ProductionAndFailurePhases {
     $businessDeniedBuilder['Connect Timeout'] = 2
     $businessDeniedBuilder['ConnectRetryCount'] = 0
     $customerLoginDenied = Start-Host 'customer-login-denied' `
-        (Join-Path $solution 'GhseeliApis\GhseeliApis.csproj') `
+        (Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj') `
         'https://localhost:54433' @{
             ASPNETCORE_ENVIRONMENT='Production'
             ConnectionStrings__CustomerConnection=$customerDeniedBuilder.ConnectionString

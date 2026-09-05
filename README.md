@@ -17,11 +17,11 @@ The solution is under `GhseeliApis\GhseeliApis.sln`.
 
 | Project | Responsibility |
 |---|---|
-| `GhseeliApis` | Customer identity, devices, vehicles, addresses, synchronized catalog, checkout drafts, pricing, customer bookings, payments, and Lahza webhooks |
+| `Ghseeli.CustomerApi` | Customer identity, devices, vehicles, addresses, synchronized catalog, checkout drafts, pricing, customer bookings, payments, and Lahza webhooks |
 | `Ghseeli.BusinessApi` | Business identity, companies, branches, catalog, availability, reservations, work orders, and staff transitions |
 | `Ghseeli.IntegrationContracts` | Neutral versioned HTTP DTOs and enums shared across the APIs |
 | `Ghseeli.Common` | Shared infrastructure that is safe for both applications, including application logging |
-| `GhseeliApis.Tests` | Customer API unit, relational, contract, security, and HTTP tests |
+| `Ghseeli.CustomerApi.Tests` | Customer API unit, relational, contract, security, and HTTP tests |
 | `Ghseeli.BusinessApi.Tests` | Business API unit, relational, contract, security, and HTTP tests |
 
 The APIs must not reference each other's implementation project or access each
@@ -308,7 +308,7 @@ Run commands from `GhseeliApis\`, the directory containing
 ```powershell
 dotnet build
 dotnet test
-dotnet run --project .\GhseeliApis\GhseeliApis.csproj
+dotnet run --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet run --project .\Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
 ```
 
@@ -316,8 +316,8 @@ Apply migrations independently:
 
 ```powershell
 dotnet ef database update `
-  --project .\GhseeliApis\GhseeliApis.csproj `
-  --startup-project .\GhseeliApis\GhseeliApis.csproj
+  --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
+  --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 
 dotnet ef database update `
   --project .\Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj `

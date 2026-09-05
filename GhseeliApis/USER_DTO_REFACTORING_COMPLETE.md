@@ -200,8 +200,8 @@ Only provided fields are updated; others remain unchanged.
 - ? `GhseeliApis/Handlers/Interfaces/IUserHandler.cs` - Updated signatures
 - ? `GhseeliApis/Handlers/UserHandler.cs` - Refactored with UserManager
 - ? `GhseeliApis/Controllers/UsersController.cs` - Updated to use DTOs
-- ? `GhseeliApis.Tests/Handlers/UserHandlerTests.cs` - Refactored with mocks
-- ? `GhseeliApis.Tests/Controllers/UsersControllerTests.cs` - Refactored with mocks
+- ? `Ghseeli.CustomerApi.Tests/Handlers/UserHandlerTests.cs` - Refactored with mocks
+- ? `Ghseeli.CustomerApi.Tests/Controllers/UsersControllerTests.cs` - Refactored with mocks
 
 ## Conclusion
 The User Management API now follows best practices for RESTful API design:

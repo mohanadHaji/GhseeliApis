@@ -40,14 +40,14 @@ public sealed class Step16IsolationStartupBusinessTests
     {
         typeof(Program).Assembly.GetReferencedAssemblies()
             .Select(reference => reference.Name)
-            .Should().NotContain("GhseeliApis");
+            .Should().NotContain("Ghseeli.CustomerApi");
 
         using var factory = new Step16BusinessFactory();
         _ = factory.CreateClient();
         using var scope = factory.Services.CreateScope();
         scope.ServiceProvider.GetServices<object>()
             .Select(service => service.GetType().Assembly.GetName().Name)
-            .Should().NotContain("GhseeliApis");
+            .Should().NotContain("Ghseeli.CustomerApi");
     }
 
     [Fact]

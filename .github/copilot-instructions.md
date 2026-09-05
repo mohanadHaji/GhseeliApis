@@ -4,7 +4,7 @@
 
 The solution is being split into independently deployed backends:
 
-- `GhseeliApis` — Customer API and customer database.
+- `Ghseeli.CustomerApi` — Customer API and customer database.
 - `Ghseeli.BusinessApi` — Business-owner API and business database.
 - `Ghseeli.IntegrationContracts` — Neutral versioned HTTP DTOs/enums only; no domain logic, EF entities, authentication, or application dependencies.
 
@@ -27,9 +27,8 @@ dotnet test --filter "FullyQualifiedName~VehiclesControllerTests.GetMyVehicles_R
 # Run tests in one class
 dotnet test --filter "FullyQualifiedName~VehicleValidationTests"
 
-# Run the API locally
-cd GhseeliApis
-dotnet run
+# Run the Customer API locally
+dotnet run --project Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 
 # Run the Business API locally
 dotnet run --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
@@ -37,9 +36,9 @@ dotnet run --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj
 # Run only Business API tests
 dotnet test Ghseeli.BusinessApi.Tests\Ghseeli.BusinessApi.Tests.csproj
 
-# EF Core migrations (run from GhseeliApis/GhseeliApis project dir)
-dotnet ef migrations add MigrationName
-dotnet ef database update
+# Customer API migrations (run from the solution directory)
+dotnet ef migrations add MigrationName --project Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj --startup-project Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet ef database update --project Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj --startup-project Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 
 # Business API migrations (run from the solution directory)
 dotnet ef migrations add MigrationName --project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --startup-project Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --output-dir Persistence\Migrations
@@ -47,7 +46,7 @@ dotnet ef migrations add MigrationName --project Ghseeli.BusinessApi\Ghseeli.Bus
 
 There is no separate lint command; use `dotnet build` for compiler and static validation.
 
-Secrets (JWT key, connection strings, OAuth, Stripe) are loaded from **user secrets** in development. Use `dotnet user-secrets` to configure — never put real secrets in `appsettings.json`. Production deployment uses `publish-production.ps1` from the solution root, which does a clean Release build targeting `win-x64`.
+Secrets (JWT key, connection strings, OAuth, Lahza) are loaded from **user secrets** in development. Use `dotnet user-secrets` to configure — never put real secrets in `appsettings.json`. Production deployment uses `publish-production.ps1` from the solution root, which does a clean Release build targeting `win-x64`.
 
 Both API projects and the integration-contract project target .NET 8. Test projects target .NET 9. EF design-time commands require the owning API's configured connection string.
 

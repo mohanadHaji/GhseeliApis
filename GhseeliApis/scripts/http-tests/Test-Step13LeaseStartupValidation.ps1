@@ -9,7 +9,7 @@ if ($CustomerDatabase -notmatch '^[A-Za-z0-9_]+$') {
 }
 
 $solution = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$project = Join-Path $solution 'GhseeliApis\GhseeliApis.csproj'
+$project = Join-Path $solution 'Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj'
 $artifacts = Join-Path $PSScriptRoot 'artifacts'
 New-Item -ItemType Directory -Path $artifacts -Force | Out-Null
 

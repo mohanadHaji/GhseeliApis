@@ -429,7 +429,7 @@ stripe login
 **Forward Webhooks to Local Server**:
 ```bash
 # Start API
-dotnet run --project GhseeliApis/GhseeliApis.csproj
+dotnet run --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 
 # In another terminal, forward webhooks
 stripe listen --forward-to https://localhost:5001/api/stripe/webhook
@@ -542,7 +542,7 @@ This integration is **PCI-compliant** because:
 
 **Solution**:
 ```bash
-dotnet user-secrets set "Stripe:SecretKey" "sk_test_YOUR_KEY" --project GhseeliApis.csproj
+dotnet user-secrets set "Stripe:SecretKey" "sk_test_YOUR_KEY" --project Ghseeli.CustomerApi.csproj
 ```
 
 ---
@@ -799,4 +799,4 @@ function App() {
 
 ## License
 
-Copyright © 2024 Ghseeli. All rights reserved.
+Copyright ï¿½ 2024 Ghseeli. All rights reserved.

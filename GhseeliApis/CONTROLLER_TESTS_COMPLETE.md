@@ -55,13 +55,13 @@ For each controller endpoint, tests cover:
 ## Files Created
 
 ### Test Files (7 new)
-1. `GhseeliApis.Tests/Controllers/VehiclesControllerTests.cs` - 21 tests
-2. `GhseeliApis.Tests/Controllers/AddressesControllerTests.cs` - 24 tests
-3. `GhseeliApis.Tests/Controllers/PaymentsControllerTests.cs` - 24 tests
-4. `GhseeliApis.Tests/Controllers/BookingsControllerTests.cs` - 30 tests
-5. `GhseeliApis.Tests/Controllers/CompaniesControllerTests.cs` - 21 tests
-6. `GhseeliApis.Tests/Controllers/ServicesControllerTests.cs` - 18 tests
-7. `GhseeliApis.Tests/Controllers/ServiceOptionsControllerTests.cs` - 18 tests
+1. `Ghseeli.CustomerApi.Tests/Controllers/VehiclesControllerTests.cs` - 21 tests
+2. `Ghseeli.CustomerApi.Tests/Controllers/AddressesControllerTests.cs` - 24 tests
+3. `Ghseeli.CustomerApi.Tests/Controllers/PaymentsControllerTests.cs` - 24 tests
+4. `Ghseeli.CustomerApi.Tests/Controllers/BookingsControllerTests.cs` - 30 tests
+5. `Ghseeli.CustomerApi.Tests/Controllers/CompaniesControllerTests.cs` - 21 tests
+6. `Ghseeli.CustomerApi.Tests/Controllers/ServicesControllerTests.cs` - 18 tests
+7. `Ghseeli.CustomerApi.Tests/Controllers/ServiceOptionsControllerTests.cs` - 18 tests
 
 ## Key Test Patterns Implemented
 

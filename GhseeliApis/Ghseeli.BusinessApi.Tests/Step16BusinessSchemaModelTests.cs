@@ -167,9 +167,9 @@ public class Step16BusinessSchemaModelTests
             .Where(name => name is not null)
             .ToArray();
 
-        businessReferences.Should().NotContain("GhseeliApis");
+        businessReferences.Should().NotContain("Ghseeli.CustomerApi");
         contractReferences.Should().NotContain(name =>
-            name == "GhseeliApis" ||
+            name == "Ghseeli.CustomerApi" ||
             name == "Ghseeli.BusinessApi" ||
             name!.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) ||
             name.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal));

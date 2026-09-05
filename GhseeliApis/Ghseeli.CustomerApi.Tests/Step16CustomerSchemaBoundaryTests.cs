@@ -114,7 +114,10 @@ public sealed class Step16CustomerSchemaBoundaryTests
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            var candidate = Path.Combine(directory.FullName, "GhseeliApis", "GhseeliApis.csproj");
+            var candidate = Path.Combine(
+                directory.FullName,
+                "Ghseeli.CustomerApi",
+                "Ghseeli.CustomerApi.csproj");
             if (File.Exists(candidate))
             {
                 return Path.GetDirectoryName(candidate)!;

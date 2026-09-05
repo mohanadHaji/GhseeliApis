@@ -259,7 +259,7 @@ catch (Exception ex)
 
 5. **Update User Secrets**
    ```bash
-   dotnet user-secrets set "Stripe:WebhookSecret" "whsec_your_actual_secret" --project GhseeliApis.csproj
+   dotnet user-secrets set "Stripe:WebhookSecret" "whsec_your_actual_secret" --project Ghseeli.CustomerApi.csproj
    ```
 
 ### Local Testing with Stripe CLI
@@ -280,7 +280,7 @@ stripe login
 **Forward Webhooks to Local Server:**
 ```bash
 # Start local API on https://localhost:5001
-dotnet run --project GhseeliApis/GhseeliApis.csproj
+dotnet run --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 
 # In another terminal, forward webhooks
 stripe listen --forward-to https://localhost:5001/api/stripe/webhook
@@ -552,7 +552,7 @@ Stripe-Signature: t=1234567890,v1=signature_hash
 
 ```bash
 # 1. Start your API
-dotnet run --project GhseeliApis/GhseeliApis.csproj
+dotnet run --project Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
 
 # 2. Forward webhooks (in another terminal)
 stripe listen --forward-to https://localhost:5001/api/stripe/webhook

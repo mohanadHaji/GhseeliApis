@@ -24,8 +24,8 @@ Status: Passed
 
 | Suite | Passed | Failed | Skipped |
 |---|---:|---:|---:|
-| Customer API | 1,261 | 0 | 0 |
-| Business API | 583 | 0 | 0 |
+| Customer API | 1,260 | 0 | 0 |
+| Business API | 584 | 0 | 0 |
 | Complete solution | 1,844 | 0 | 0 |
 
 Focused available-slot, Swagger, HMAC, and reservation-concurrency selections
@@ -52,8 +52,8 @@ Covered:
 - direct signed Business request;
 - missing Business HMAC credentials.
 
-The final hardened run produced
-`scripts/http-tests/artifacts/step20-available-slots-a20e0905abcf.results.local.json`.
+The post-project-rename run produced
+`scripts/http-tests/artifacts/step20-available-slots-a21e0905cafe.results.local.json`.
 Generated artifacts and local credentials remain ignored.
 
 ## Additional evidence

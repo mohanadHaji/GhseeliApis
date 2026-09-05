@@ -49,7 +49,7 @@ The final databases were fresh isolated clones:
 
 ```powershell
 dotnet build .\GhseeliApis.sln --verbosity minimal
-dotnet test .\GhseeliApis.Tests\GhseeliApis.Tests.csproj --filter "FullyQualifiedName~BookingConfirmation|FullyQualifiedName~CustomerBookingRelational|FullyQualifiedName~BusinessApiClient|FullyQualifiedName~CheckoutDraftApiIntegration|FullyQualifiedName~CheckoutDraftService|FullyQualifiedName~CheckoutPricingService" --verbosity minimal
+dotnet test .\Ghseeli.CustomerApi.Tests\Ghseeli.CustomerApi.Tests.csproj --filter "FullyQualifiedName~BookingConfirmation|FullyQualifiedName~CustomerBookingRelational|FullyQualifiedName~BusinessApiClient|FullyQualifiedName~CheckoutDraftApiIntegration|FullyQualifiedName~CheckoutDraftService|FullyQualifiedName~CheckoutPricingService" --verbosity minimal
 dotnet test .\Ghseeli.BusinessApi.Tests\Ghseeli.BusinessApi.Tests.csproj --filter "FullyQualifiedName~ReservationService|FullyQualifiedName~TimeZoneAvailabilityResolver|FullyQualifiedName~InternalServiceIdempotencyRelational" --verbosity minimal
 powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Invoke-HttpTests.ps1 -ManifestPath .\scripts\http-tests\plans\step-12-booking-confirmation.manifest.json -BaseUrl https://localhost:50692 -ResultsPath .\scripts\http-tests\artifacts\step-12-booking-confirmation.live.results.json

@@ -116,7 +116,7 @@ public sealed class Step17HostSecurityContractTests
     public void CustomerPipeline_AppliesForwardedHeadersBeforeHsts()
     {
         var program = File.ReadAllText(
-            Path.Combine(FindSolutionRoot(), "GhseeliApis", "Program.cs"));
+            Path.Combine(FindSolutionRoot(), "Ghseeli.CustomerApi", "Program.cs"));
         var forwardedHeaders = program.IndexOf(
             "app.UseForwardedHeaders();",
             StringComparison.Ordinal);

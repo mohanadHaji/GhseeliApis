@@ -15,7 +15,7 @@ public class ProjectIsolationTests
             .GetReferencedAssemblies()
             .Select(assembly => assembly.Name);
 
-        referencedAssemblies.Should().NotContain("GhseeliApis");
+        referencedAssemblies.Should().NotContain("Ghseeli.CustomerApi");
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class ProjectIsolationTests
         referencedAssemblies.Should().NotContain(name =>
             name!.StartsWith("Microsoft.EntityFrameworkCore", StringComparison.Ordinal) ||
             name.StartsWith("Microsoft.AspNetCore.Identity", StringComparison.Ordinal) ||
-            name == "GhseeliApis" ||
+            name == "Ghseeli.CustomerApi" ||
             name == "Ghseeli.BusinessApi");
     }
 }

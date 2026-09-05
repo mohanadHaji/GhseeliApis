@@ -106,7 +106,7 @@
 - `dotnet test .\GhseeliApis.sln --verbosity minimal`
 - `powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1`
 - `dotnet ef database update --project .\Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj --startup-project .\Ghseeli.BusinessApi\Ghseeli.BusinessApi.csproj`
-- `dotnet ef database update --project .\GhseeliApis\GhseeliApis.csproj --startup-project .\GhseeliApis\GhseeliApis.csproj`
+- `dotnet ef database update --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj`
 - `Import-Module .\scripts\http-tests\HttpTestHarness.psm1; Invoke-HttpTestHarness -ManifestPath .\scripts\http-tests\plans\step-09-catalog-readmodel.manifest.json -BaseUrl https://localhost:50592 -Tags preseeded -ResultsPath .\scripts\http-tests\artifacts\step-09-catalog-readmodel.preseeded.results.json -Variables <local hashtable>`
 - `Import-Module .\scripts\http-tests\HttpTestHarness.psm1; Invoke-HttpTestHarness -ManifestPath .\scripts\http-tests\plans\step-09-catalog-readmodel.manifest.json -BaseUrl https://localhost:50592 -Tags blocked-initial-refresh -ResultsPath .\scripts\http-tests\artifacts\step-09-catalog-readmodel.initial-refresh.results.json -Variables <local hashtable>`
 - `Import-Module .\scripts\http-tests\HttpTestHarness.psm1; Invoke-HttpTestHarness -ManifestPath .\scripts\http-tests\plans\step-09-catalog-readmodel.manifest.json -BaseUrl https://localhost:50592 -Tags unchanged -ResultsPath .\scripts\http-tests\artifacts\step-09-catalog-readmodel.unchanged-refresh.results.json -Variables <local hashtable>`

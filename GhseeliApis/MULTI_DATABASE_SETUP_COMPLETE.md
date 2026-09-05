@@ -150,7 +150,7 @@ git push origin master
 2. `GhseeliApis/appsettings.Production.json`
    - Updated to use environment variables
 
-3. `GhseeliApis/Extensions/SqlServerSetupExtension.cs`
+3. `Ghseeli.CustomerApi/Extensions/SqlServerSetupExtension.cs`
    - Updated priority order: RemoteTest ? Production ? DefaultConnection
 
 4. `GhseeliApis/Persistence/ApplicationDbContextFactory.cs`

@@ -67,7 +67,7 @@ if (!string.IsNullOrWhiteSpace(PaymentIntentId) && PaymentIntentId.Length > 200)
 **Solution**: Upgraded EF Core Design to v9.0.0
 
 ```bash
-dotnet add GhseeliApis.csproj package Microsoft.EntityFrameworkCore.Design --version 9.0.0
+dotnet add Ghseeli.CustomerApi.csproj package Microsoft.EntityFrameworkCore.Design --version 9.0.0
 ```
 
 **Result**: 
@@ -96,8 +96,8 @@ PaymentIntentId = table.Column<string>(
 ```
 
 **Migration Files Created:**
-- `GhseeliApis/Migrations/20251207201942_AddStripeFieldsToPayment.cs`
-- `GhseeliApis/Migrations/20251207201942_AddStripeFieldsToPayment.Designer.cs`
+- `Ghseeli.CustomerApi/Migrations/20251207201942_AddStripeFieldsToPayment.cs`
+- `Ghseeli.CustomerApi/Migrations/20251207201942_AddStripeFieldsToPayment.Designer.cs`
 
 ### 6. ? Build Verification
 - Build successful with all changes
@@ -111,7 +111,7 @@ PaymentIntentId = table.Column<string>(
 **Note**: The migration will be automatically applied when the application starts with a valid database connection, or can be manually applied with:
 
 ```bash
-dotnet ef database update --project GhseeliApis.csproj
+dotnet ef database update --project Ghseeli.CustomerApi.csproj
 ```
 
 ## Files Created/Modified
@@ -121,7 +121,7 @@ dotnet ef database update --project GhseeliApis.csproj
 | `GhseeliApis/Models/Payment.cs` | Modified | +16 | Added Stripe fields and validation |
 | `GhseeliApis/appsettings.json` | Modified | -11 | Removed invalid comment keys |
 | `USER_SECRETS_GUIDE.md` | Created | +200 | Configuration instructions guide |
-| `GhseeliApis/GhseeliApis.csproj` | Modified | +1 | Upgraded EF Core Design to 9.0.0 |
+| `Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj` | Modified | +1 | Upgraded EF Core Design to 9.0.0 |
 | `Migrations/20251207201942_AddStripeFieldsToPayment.cs` | Created | ~800 | Database migration script |
 | `Migrations/20251207201942_AddStripeFieldsToPayment.Designer.cs` | Created | ~600 | Migration metadata |
 
@@ -320,19 +320,19 @@ payment.Status = result.Success
 
 ```bash
 # Create migration (already done)
-dotnet ef migrations add AddStripeFieldsToPayment --project GhseeliApis.csproj
+dotnet ef migrations add AddStripeFieldsToPayment --project Ghseeli.CustomerApi.csproj
 
 # Apply migration to database (when DB available)
-dotnet ef database update --project GhseeliApis.csproj
+dotnet ef database update --project Ghseeli.CustomerApi.csproj
 
 # Rollback migration (if needed)
-dotnet ef database update PreviousMigrationName --project GhseeliApis.csproj
+dotnet ef database update PreviousMigrationName --project Ghseeli.CustomerApi.csproj
 
 # Remove last migration (if not applied)
-dotnet ef migrations remove --project GhseeliApis.csproj
+dotnet ef migrations remove --project Ghseeli.CustomerApi.csproj
 
 # Generate SQL script (for manual execution)
-dotnet ef migrations script --project GhseeliApis.csproj
+dotnet ef migrations script --project Ghseeli.CustomerApi.csproj
 ```
 
 ### Troubleshooting

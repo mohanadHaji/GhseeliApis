@@ -21,7 +21,7 @@
 
 ## Commands and current evidence
 
-- `dotnet test .\GhseeliApis.Tests\GhseeliApis.Tests.csproj --filter "FullyQualifiedName~PricingControllerTests|FullyQualifiedName~CheckoutPricingServiceTests|FullyQualifiedName~CheckoutDraftApiIntegrationTests|FullyQualifiedName~CheckoutDraftRelationalIntegrationTests" --verbosity minimal`
+- `dotnet test .\Ghseeli.CustomerApi.Tests\Ghseeli.CustomerApi.Tests.csproj --filter "FullyQualifiedName~PricingControllerTests|FullyQualifiedName~CheckoutPricingServiceTests|FullyQualifiedName~CheckoutDraftApiIntegrationTests|FullyQualifiedName~CheckoutDraftRelationalIntegrationTests" --verbosity minimal`
   - **passed: 63/63**
 - `powershell -ExecutionPolicy Bypass -File .\scripts\http-tests\Run-SelfTests.ps1`
   - **passed: 17/17**

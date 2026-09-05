@@ -50,7 +50,7 @@ Both packages automatically include:
 
 ### Project File Updated
 
-Location: `GhseeliApis/GhseeliApis.csproj`
+Location: `Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj`
 
 The packages are now part of the project dependencies and will be restored automatically on:
 - `dotnet restore`
@@ -61,7 +61,7 @@ The packages are now part of the project dependencies and will be restored autom
 
 ```bash
 # Verify packages are installed
-dotnet list GhseeliApis/GhseeliApis.csproj package | findstr "Authentication"
+dotnet list Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj package | findstr "Authentication"
 
 # Output shows:
 # > Microsoft.AspNetCore.Authentication.Facebook    8.0.11

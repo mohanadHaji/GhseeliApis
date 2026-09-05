@@ -76,20 +76,20 @@ $files | ForEach-Object {
 
 # Automated, compiler, and EF gates
 dotnet test .\GhseeliApis.sln -c Release --no-restore
-dotnet build .\GhseeliApis\GhseeliApis.csproj -c Release --no-restore
+dotnet build .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj -c Release --no-restore
 dotnet ef migrations has-pending-model-changes `
-  --project .\GhseeliApis\GhseeliApis.csproj `
-  --startup-project .\GhseeliApis\GhseeliApis.csproj
+  --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
+  --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet ef migrations script --idempotent `
-  --project .\GhseeliApis\GhseeliApis.csproj `
-  --startup-project .\GhseeliApis\GhseeliApis.csproj `
+  --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
+  --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
   --output .\scripts\http-tests\artifacts\step14-idempotent.local.sql
 dotnet ef database update `
-  --project .\GhseeliApis\GhseeliApis.csproj `
-  --startup-project .\GhseeliApis\GhseeliApis.csproj
+  --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
+  --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet ef database update `
-  --project .\GhseeliApis\GhseeliApis.csproj `
-  --startup-project .\GhseeliApis\GhseeliApis.csproj
+  --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj `
+  --startup-project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 
 # Initialize a fresh target whose name differs from the source.
 .\scripts\http-tests\Initialize-Step14Fixtures.ps1 `
@@ -99,7 +99,7 @@ dotnet ef database update `
 
 # Launch the exact configured host with ASPNETCORE_URLS=https://127.0.0.1:<port>,
 # the fresh target connection, ignored JWT values, and --no-launch-profile.
-dotnet run --project .\GhseeliApis\GhseeliApis.csproj -c Release `
+dotnet run --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj -c Release `
   --no-build --no-launch-profile
 
 $baseUrl = 'https://127.0.0.1:<port>'

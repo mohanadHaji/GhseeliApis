@@ -346,15 +346,15 @@ Total tests: 285
 2. **Modified:**
    - `GhseeliApis/Services/Interfaces/IAuthService.cs`
    - `GhseeliApis/Services/AuthService.cs`
-   - `GhseeliApis/Program.cs`
+   - `Ghseeli.CustomerApi/Program.cs`
    - `GhseeliApis/Controllers/PaymentsController.cs`
    - `GhseeliApis/Controllers/BookingsController.cs`
    - `GhseeliApis/Controllers/UsersController.cs`
    - `GhseeliApis/Controllers/CompaniesController.cs`
    - `GhseeliApis/Controllers/ServicesController.cs`
    - `GhseeliApis/Controllers/ServiceOptionsController.cs`
-   - `GhseeliApis.Tests/Controllers/AuthControllerTests.cs`
-   - `GhseeliApis.Tests/Services/AuthServiceTests.cs`
+   - `Ghseeli.CustomerApi.Tests/Controllers/AuthControllerTests.cs`
+   - `Ghseeli.CustomerApi.Tests/Services/AuthServiceTests.cs`
 
 ---
 

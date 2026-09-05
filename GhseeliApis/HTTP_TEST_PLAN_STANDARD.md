@@ -1,6 +1,6 @@
 # HTTP Test Plan Standard
 
-Purpose: define the repository standard for planning, executing, and recording HTTP-visible behavior changes in `GhseeliApis`, `Ghseeli.BusinessApi`, internal service routes, and webhooks. This complements `API_BOUNDARIES.md` and `.github/copilot-instructions.md`.
+Purpose: define the repository standard for planning, executing, and recording HTTP-visible behavior changes in `Ghseeli.CustomerApi`, `Ghseeli.BusinessApi`, internal service routes, and webhooks. This complements `API_BOUNDARIES.md` and `.github/copilot-instructions.md`.
 
 ## 1. Mandatory close-out for every meaningful change
 

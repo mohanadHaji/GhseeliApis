@@ -8,7 +8,7 @@ The solution will contain two independently deployable ASP.NET Core APIs.
 
 ### Customer API
 
-The existing `GhseeliApis` project evolves into the customer-facing API.
+The `Ghseeli.CustomerApi` project is the customer-facing API.
 
 It owns:
 

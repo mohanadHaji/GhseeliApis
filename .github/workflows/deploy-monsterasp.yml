@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  CUSTOMER_PROJECT: GhseeliApis/GhseeliApis/GhseeliApis.csproj
+  CUSTOMER_PROJECT: GhseeliApis/Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
   BUSINESS_PROJECT: GhseeliApis/Ghseeli.BusinessApi/Ghseeli.BusinessApi.csproj
   CUSTOMER_SITE_URL: https://ghseelicustomer.runasp.net
   BUSINESS_SITE_URL: https://ghseelibusiness.runasp.net
@@ -64,7 +64,7 @@ jobs:
       matrix:
         include:
           - name: Customer
-            project: GhseeliApis/GhseeliApis/GhseeliApis.csproj
+            project: GhseeliApis/Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
             output: publish/customer
             site_url: https://ghseelicustomer.runasp.net
             health_path: /api/Health/db

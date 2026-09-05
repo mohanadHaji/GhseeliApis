@@ -99,7 +99,7 @@ Successfully implemented 6 OAuth controller endpoints with comprehensive unit te
 
 ## Unit Tests (18 total)
 
-**File:** `GhseeliApis.Tests/Controllers/AuthControllerTests.cs`
+**File:** `Ghseeli.CustomerApi.Tests/Controllers/AuthControllerTests.cs`
 
 ### Test Coverage Breakdown
 
@@ -505,7 +505,7 @@ User can no longer login with Google
    - Added using statements (Authentication, Identity)
    - All endpoints include error handling and logging
 
-2. **GhseeliApis.Tests/Controllers/AuthControllerTests.cs**
+2. **Ghseeli.CustomerApi.Tests/Controllers/AuthControllerTests.cs**
    - Added 18 OAuth controller tests
    - Updated constructor (mock SignInManager, UserManager)
    - Added SetupAuthenticatedUser helper method

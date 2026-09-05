@@ -14,7 +14,7 @@ production execution or destructive work against a shared database.
 
 ### 1.1 Ownership
 
-- `GhseeliApis` is the Customer host and uses only its Customer connection.
+- `Ghseeli.CustomerApi` is the Customer host and uses only its Customer connection.
 - `Ghseeli.BusinessApi` is the Business host and uses only its Business
   connection.
 - Neither implementation project references the other. The only shared

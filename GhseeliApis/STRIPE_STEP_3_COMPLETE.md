@@ -30,7 +30,7 @@ Successfully configured Stripe payment gateway settings, including appsettings.j
 ### 2. ? Initialized User Secrets
 - Ran `dotnet user-secrets init` to generate UserSecretsId
 - UserSecretsId generated: `beb103e8-8fc9-41e4-b8e2-44f1698990dc`
-- UserSecretsId added to GhseeliApis.csproj automatically
+- UserSecretsId added to Ghseeli.CustomerApi.csproj automatically
 
 ### 3. ? Set Stripe User Secrets
 Successfully stored all three Stripe keys in User Secrets:
@@ -45,7 +45,7 @@ Successfully stored all three Stripe keys in User Secrets:
 - Added scoped service registration: `StripePaymentService` implements `IPaymentGatewayService`
 - Service now available for dependency injection in handlers and controllers
 
-**File Modified**: `GhseeliApis/Program.cs`
+**File Modified**: `Ghseeli.CustomerApi/Program.cs`
 
 ```csharp
 builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayService, 
@@ -63,18 +63,18 @@ builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IPaymentGatewayServic
 ### User Secrets Commands (For Reference)
 ```bash
 # Initialize User Secrets (already done)
-dotnet user-secrets init --project GhseeliApis.csproj
+dotnet user-secrets init --project Ghseeli.CustomerApi.csproj
 
 # Set Stripe API keys (when you get real keys from Stripe)
-dotnet user-secrets set "Stripe:PublishableKey" "pk_test_YOUR_KEY" --project GhseeliApis.csproj
-dotnet user-secrets set "Stripe:SecretKey" "sk_test_YOUR_KEY" --project GhseeliApis.csproj
-dotnet user-secrets set "Stripe:WebhookSecret" "whsec_YOUR_SECRET" --project GhseeliApis.csproj
+dotnet user-secrets set "Stripe:PublishableKey" "pk_test_YOUR_KEY" --project Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Stripe:SecretKey" "sk_test_YOUR_KEY" --project Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "Stripe:WebhookSecret" "whsec_YOUR_SECRET" --project Ghseeli.CustomerApi.csproj
 
 # List all secrets
-dotnet user-secrets list --project GhseeliApis.csproj
+dotnet user-secrets list --project Ghseeli.CustomerApi.csproj
 
 # Remove a secret (if needed)
-dotnet user-secrets remove "Stripe:SecretKey" --project GhseeliApis.csproj
+dotnet user-secrets remove "Stripe:SecretKey" --project Ghseeli.CustomerApi.csproj
 ```
 
 ### Getting Real Stripe API Keys
@@ -127,8 +127,8 @@ kubectl create secret generic stripe-secrets \
 | File | Lines Changed | Purpose |
 |------|--------------|---------|
 | `GhseeliApis/appsettings.json` | +8 | Added Stripe configuration section |
-| `GhseeliApis/Program.cs` | +1 | Registered IPaymentGatewayService |
-| `GhseeliApis/GhseeliApis.csproj` | +3 | Added UserSecretsId (automatic) |
+| `Ghseeli.CustomerApi/Program.cs` | +1 | Registered IPaymentGatewayService |
+| `Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj` | +3 | Added UserSecretsId (automatic) |
 
 ## Testing Status
 

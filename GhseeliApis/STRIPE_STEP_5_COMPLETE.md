@@ -116,7 +116,7 @@ booking.IsPaid = false;
 ### 4. ? Updated Unit Tests
 Fixed PaymentHandlerTests to include mock payment gateway service:
 
-**File Modified**: `GhseeliApis.Tests/Handlers/PaymentHandlerTests.cs`
+**File Modified**: `Ghseeli.CustomerApi.Tests/Handlers/PaymentHandlerTests.cs`
 
 ```csharp
 private readonly Mock<IPaymentGatewayService> _mockPaymentGateway;
@@ -299,7 +299,7 @@ This allows:
 | File | Lines Added | Lines Modified | Purpose |
 |------|-------------|----------------|---------|
 | `GhseeliApis/Handlers/PaymentHandler.cs` | +90 | ~20 | Added Stripe integration |
-| `GhseeliApis.Tests/Handlers/PaymentHandlerTests.cs` | +3 | ~5 | Updated test mocks |
+| `Ghseeli.CustomerApi.Tests/Handlers/PaymentHandlerTests.cs` | +3 | ~5 | Updated test mocks |
 
 ## Testing Status
 

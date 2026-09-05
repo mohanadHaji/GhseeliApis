@@ -576,7 +576,7 @@ public class BusinessApiClientTests
 
     private sealed class TestHostEnvironment : IWebHostEnvironment
     {
-        public string ApplicationName { get; set; } = "GhseeliApis.Tests";
+        public string ApplicationName { get; set; } = "Ghseeli.CustomerApi.Tests";
         public IFileProvider WebRootFileProvider { get; set; } = null!;
         public string WebRootPath { get; set; } = string.Empty;
         public string EnvironmentName { get; set; } = Environments.Production;

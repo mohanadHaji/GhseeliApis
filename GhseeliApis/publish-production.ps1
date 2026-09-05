@@ -1,10 +1,12 @@
-# Publish GhseeliApis for Production Deployment
+# Publish Ghseeli.CustomerApi for Production Deployment
 # Run this script from the solution root directory
+
+$ErrorActionPreference = 'Stop'
 
 Write-Host "Starting production publish..." -ForegroundColor Cyan
 
 # Navigate to project directory
-Set-Location -Path "GhseeliApis"
+Set-Location -Path "Ghseeli.CustomerApi"
 
 # Clean ALL build artifacts (including bin and obj folders)
 Write-Host "`nCleaning ALL build artifacts..." -ForegroundColor Yellow
@@ -22,7 +24,7 @@ dotnet clean --configuration Release --verbosity minimal
 
 # Restore dependencies
 Write-Host "`nRestoring dependencies..." -ForegroundColor Yellow
-dotnet restore --verbosity minimal
+dotnet restore --runtime win-x64 --verbosity minimal
 
 # Publish the application (FORCE FRESH BUILD)
 Write-Host "`nPublishing application (forcing fresh build)..." -ForegroundColor Yellow
@@ -56,9 +58,9 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host "`nKey files to verify:" -ForegroundColor Cyan
         
         $keyFiles = @(
-            "GhseeliApis.dll",
-            "GhseeliApis.deps.json",
-            "GhseeliApis.runtimeconfig.json",
+            "Ghseeli.CustomerApi.dll",
+            "Ghseeli.CustomerApi.deps.json",
+            "Ghseeli.CustomerApi.runtimeconfig.json",
             "appsettings.json",
             "appsettings.Production.json",
             "web.config"
@@ -76,7 +78,7 @@ if ($LASTEXITCODE -eq 0) {
         }
         
         # Verify fresh build by checking DLL timestamp
-        $mainDll = Join-Path $publishPath "GhseeliApis.dll"
+        $mainDll = Join-Path $publishPath "Ghseeli.CustomerApi.dll"
         if (Test-Path $mainDll) {
             $dllBuildTime = (Get-Item $mainDll).LastWriteTime
             $timeSinceBuild = (Get-Date) - $dllBuildTime

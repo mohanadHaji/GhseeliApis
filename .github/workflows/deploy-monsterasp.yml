@@ -66,7 +66,7 @@ jobs:
           - name: Customer
             project: GhseeliApis/Ghseeli.CustomerApi/Ghseeli.CustomerApi.csproj
             output: publish/customer
-            site_url: https://ghseelicustomer.runasp.net
+            health_url: http://ghseelicustomer.runasp.net
             health_path: /api/Health/db
             connection_secret: CUSTOMER_DB_CONNECTION
             jwt_secret: CUSTOMER_JWT_SECRET
@@ -77,7 +77,7 @@ jobs:
           - name: Business
             project: GhseeliApis/Ghseeli.BusinessApi/Ghseeli.BusinessApi.csproj
             output: publish/business
-            site_url: https://ghseelibusiness.runasp.net
+            health_url: http://ghseelibusiness.runasp.net
             health_path: /api/health
             connection_secret: BUSINESS_DB_CONNECTION
             jwt_secret: BUSINESS_JWT_SECRET
@@ -245,6 +245,7 @@ jobs:
               "Lahza__BaseUrl" = "https://api.lahza.io"
               "Lahza__SecretKey" = $env:LAHZA_SECRET_KEY
               "Lahza__CallbackUrl" = ""
+              "Lahza__EndpointsEnabled" = "false"
               "Lahza__TimeoutSeconds" = "15"
               "Swagger__Enabled" = "true"
             }
@@ -350,7 +351,7 @@ jobs:
         shell: pwsh
         run: |
           $healthUrl =
-            "${{ matrix.site_url }}".TrimEnd('/') + "${{ matrix.health_path }}"
+            "${{ matrix.health_url }}".TrimEnd('/') + "${{ matrix.health_path }}"
           for ($attempt = 1; $attempt -le 18; $attempt++) {
             try {
               $response = Invoke-WebRequest `

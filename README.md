@@ -43,6 +43,11 @@ The independently deployed production applications are:
 2. applies Customer and Business EF Core migrations independently;
 3. publishes self-contained `win-x86` artifacts;
 4. injects production settings into each generated `web.config`;
+
+Lahza payment initialization, verification, and webhook routes are currently
+hidden in Production with `Lahza__EndpointsEnabled=false`. The payment records,
+migration, and provider configuration remain in place so the routes can be
+enabled later without another schema change.
 5. deploys each artifact to its own MonsterASP site;
 6. requires both HTTPS health checks to pass.
 

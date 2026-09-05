@@ -24,6 +24,30 @@ public sealed class CustomerPaymentApiIntegrationTests
     private const string JwtSecret = "CheckoutDraftApiTestsSecret_Minimum32Chars";
 
     [Fact]
+    public async Task LahzaEndpoints_InProductionByDefault_AreNotMappedOrDocumented()
+    {
+        await using var factory = new CheckoutDraftApiFactory(
+            environmentName: "Production");
+        using var client = factory.CreateApiClient();
+
+        using var swaggerResponse = await client.GetAsync("/swagger/v1/swagger.json");
+        using var document = JsonDocument.Parse(
+            await swaggerResponse.Content.ReadAsStringAsync());
+        var paths = document.RootElement.GetProperty("paths");
+
+        swaggerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        paths.TryGetProperty("/api/v1/payments/intents", out _).Should().BeFalse();
+        paths.TryGetProperty("/api/v1/payments/{id}/verify", out _).Should().BeFalse();
+        paths.TryGetProperty("/api/lahza/webhook", out _).Should().BeFalse();
+        paths.TryGetProperty("/api/v1/payments/{id}", out _).Should().BeTrue();
+
+        using var webhookResponse = await client.PostAsync(
+            "/api/lahza/webhook",
+            new StringContent("{}", Encoding.UTF8, "application/json"));
+        webhookResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Swagger_DocumentsPaymentSchemasSecurityAndNoLegacyWrites()
     {
         await using var factory = new CheckoutDraftApiFactory();

@@ -1427,13 +1427,15 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
     private readonly IEnumerable<CustomerDevice> _devices;
     private readonly IReadOnlyDictionary<string, string?> _settings;
     private readonly Action<IServiceCollection>? _configureTestServices;
+    private readonly string _environmentName;
 
     public CheckoutDraftApiFactory(
         CatalogSnapshotResponse? snapshot = null,
         IEnumerable<CustomerDevice>? devices = null,
         DateTimeOffset? utcNow = null,
         IReadOnlyDictionary<string, string?>? settings = null,
-        Action<IServiceCollection>? configureTestServices = null)
+        Action<IServiceCollection>? configureTestServices = null,
+        string environmentName = "Development")
     {
         _database = SqlServerCatalogDatabase.CreateAsync().GetAwaiter().GetResult();
         Snapshot = snapshot ?? CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 10);
@@ -1442,6 +1444,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
             utcNow ?? new DateTimeOffset(2026, 8, 24, 8, 0, 0, TimeSpan.Zero));
         _settings = settings ?? new Dictionary<string, string?>(StringComparer.Ordinal);
         _configureTestServices = configureTestServices;
+        _environmentName = environmentName;
         BusinessApiClient.GetCatalogSnapshotHandler = (_, _) => Task.FromResult(Snapshot);
         BusinessApiClient.ValidateAppointmentHandler = (request, _, _) =>
             Task.FromResult(CatalogTestSupport.CreateValidationResponse(Snapshot, request));
@@ -1453,7 +1456,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(_environmentName);
         builder.UseSetting("ConnectionStrings:CustomerConnection", _database.ConnectionString);
         builder.UseSetting("JwtSettings:SecretKey", "CheckoutDraftApiTestsSecret_Minimum32Chars");
         builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.CheckoutDraftTests");

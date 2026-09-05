@@ -182,8 +182,8 @@ not the cause of the observed test-card behavior.
 ## Post-project-rename regression
 
 After renaming the Customer projects to `Ghseeli.CustomerApi` and
-`Ghseeli.CustomerApi.Tests`, the complete solution passed **1,844/1,844**
-automated tests: **1,260 Customer** and **584 Business**.
+`Ghseeli.CustomerApi.Tests`, the complete solution passed **1,847/1,847**
+automated tests: **1,263 Customer** and **584 Business**.
 
 The disposable local Lahza suite was also rerun:
 
@@ -191,4 +191,5 @@ The disposable local Lahza suite was also rerun:
 - unconfigured-provider scenario: **1 passed / 0 failed**;
 - database invariants: **4 payments, 4 idempotency rows, 11 Lahza receipts**.
 
-No production deployment was run for the project rename.
+Production now defaults the Lahza create, verify, and webhook routes to
+unmapped until `Lahza:EndpointsEnabled` is explicitly enabled.

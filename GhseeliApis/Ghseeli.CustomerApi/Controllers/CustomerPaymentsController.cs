@@ -27,6 +27,7 @@ public sealed class CustomerPaymentsController : ControllerBase
     }
 
     [HttpPost("intents")]
+    [LahzaEndpoint]
     [ProducesResponseType(typeof(CustomerPaymentResponse), StatusCodes.Status200OK)]
     [EnforceJsonRequestContentType]
     [EnforceRequestBodySizeLimit(
@@ -147,6 +148,7 @@ public sealed class CustomerPaymentsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/verify")]
+    [LahzaEndpoint]
     [ProducesResponseType(typeof(CustomerPaymentResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> Verify(
         Guid id,

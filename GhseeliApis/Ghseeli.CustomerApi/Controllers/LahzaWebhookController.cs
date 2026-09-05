@@ -1,5 +1,6 @@
 using System.Text;
 using Ghseeli.Common.Logging;
+using GhseeliApis.Filters;
 using GhseeliApis.Services.Payments;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -8,6 +9,7 @@ namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/lahza")]
+[LahzaEndpoint]
 public sealed class LahzaWebhookController : ControllerBase
 {
     public const long MaxBodyBytes = 65_536;

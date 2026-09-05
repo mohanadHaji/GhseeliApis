@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using GhseeliApis.Extensions;
+using GhseeliApis.Filters;
 using GhseeliApis.Middleware;
 using GhseeliApis.Persistence;
 using GhseeliApis.Handlers;
@@ -31,11 +32,16 @@ using System.Net;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var lahzaEndpointsEnabled =
+    builder.Configuration.GetValue<bool?>("Lahza:EndpointsEnabled") ??
+    !builder.Environment.IsProduction();
 
 // Add services to the container
 builder.Services.AddControllers(options =>
 {
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+    options.Conventions.Add(
+        new LahzaEndpointConvention(lahzaEndpointsEnabled));
 });
 builder.Services.AddHsts(options => options.ExcludedHosts.Clear());
 builder.Services.Configure<ApiBehaviorOptions>(options =>

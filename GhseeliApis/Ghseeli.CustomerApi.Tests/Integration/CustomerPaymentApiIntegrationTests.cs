@@ -26,7 +26,16 @@ public sealed class CustomerPaymentApiIntegrationTests
     [Fact]
     public async Task LahzaEndpoints_InProductionByDefault_AreNotMappedOrDocumented()
     {
-        await using var factory = new CheckoutDraftApiFactory(
+        var paymentId = Guid.NewGuid();
+        var service = new ControlledPaymentService
+        {
+            Get = _ => CreatePaymentResponse(paymentId)
+        };
+        var token = CatalogTestSupport.CreateToken(90);
+        var device = CatalogTestSupport.CreateDevice(token, DateTimeOffset.UtcNow.AddDays(1));
+        await using var factory = CreateFactory(
+            service,
+            [device],
             environmentName: "Production");
         using var client = factory.CreateApiClient();
 
@@ -41,10 +50,56 @@ public sealed class CustomerPaymentApiIntegrationTests
         paths.TryGetProperty("/api/lahza/webhook", out _).Should().BeFalse();
         paths.TryGetProperty("/api/v1/payments/{id}", out _).Should().BeTrue();
 
-        using var webhookResponse = await client.PostAsync(
-            "/api/lahza/webhook",
-            new StringContent("{}", Encoding.UTF8, "application/json"));
-        webhookResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        foreach (var path in new[]
+                 {
+                     "/api/v1/payments/intents",
+                     "/api/v1/payments/intents/",
+                     $"/api/v1/payments/{Guid.NewGuid():D}/verify",
+                     $"/api/v1/payments/{Guid.NewGuid():D}/verify/",
+                     "/api/lahza/webhook",
+                     "/api/lahza/webhook/"
+                 })
+        {
+            using var response = await client.PostAsync(
+                path,
+                new StringContent("{}", Encoding.UTF8, "application/json"));
+            await AssertPaymentProblemAsync(
+                response,
+                HttpStatusCode.NotFound,
+                "resource_not_found",
+                "ar");
+        }
+
+        using var readRequest = CreateAuthenticatedPaymentRequest(
+            HttpMethod.Get,
+            $"/api/v1/payments/{paymentId:D}",
+            token);
+        using var readResponse = await client.SendAsync(readRequest);
+        readResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        service.GetCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task LahzaVerification_InDevelopment_RemainsMappedAndReachable()
+    {
+        var paymentId = Guid.NewGuid();
+        var service = new ControlledPaymentService
+        {
+            Get = _ => CreatePaymentResponse(paymentId)
+        };
+        var token = CatalogTestSupport.CreateToken(91);
+        var device = CatalogTestSupport.CreateDevice(token, DateTimeOffset.UtcNow.AddDays(1));
+        await using var factory = CreateFactory(service, [device]);
+        using var client = factory.CreateApiClient();
+        using var request = CreateAuthenticatedPaymentRequest(
+            HttpMethod.Post,
+            $"/api/v1/payments/{paymentId:D}/verify",
+            token);
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        service.GetCalls.Should().Be(1);
     }
 
     [Fact]
@@ -789,9 +844,11 @@ public sealed class CustomerPaymentApiIntegrationTests
     private static CheckoutDraftApiFactory CreateFactory(
         ControlledPaymentService service,
         IEnumerable<GhseeliApis.Models.CustomerDevice>? devices = null,
-        IAppLogger? logger = null) =>
+        IAppLogger? logger = null,
+        string environmentName = "Development") =>
         new(
             devices: devices,
+            environmentName: environmentName,
             configureTestServices: services =>
             {
                 services.RemoveAll<ICustomerPaymentService>();
@@ -802,6 +859,35 @@ public sealed class CustomerPaymentApiIntegrationTests
                     services.AddSingleton(logger);
                 }
             });
+
+    private static HttpRequestMessage CreateAuthenticatedPaymentRequest(
+        HttpMethod method,
+        string path,
+        string deviceToken)
+    {
+        var request = new HttpRequestMessage(method, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(Guid.NewGuid()));
+        request.Headers.Add("X-Device-Token", deviceToken);
+        return request;
+    }
+
+    private static CustomerPaymentResponse CreatePaymentResponse(Guid paymentId) =>
+        new()
+        {
+            Id = paymentId,
+            BookingId = Guid.NewGuid(),
+            Amount = 20m,
+            Currency = "ILS",
+            Method = "Card",
+            Status = "Pending",
+            Provider = PaymentProviders.Lahza,
+            ProviderStatus = "pending",
+            ProviderReference = "GHSEELI-GATE",
+            CheckoutUrl = "https://checkout.lahza.test/pay/GHSEELI-GATE",
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        };
 
     private static void AssertBearerSecurity(JsonElement operation)
     {

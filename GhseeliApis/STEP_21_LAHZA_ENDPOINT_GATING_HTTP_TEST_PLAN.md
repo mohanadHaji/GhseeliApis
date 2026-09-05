@@ -2,7 +2,8 @@
 
 Date: 2026-09-05
 
-Status: Completed locally; production deployment pending
+Status: Production gate deployed; strict `404` normalization validated locally
+and pending deployment
 
 ## Goal
 
@@ -31,6 +32,7 @@ payment release gate is complete.
 | `STEP21-LAHZA-GATE-005` | Existing payment read route | `GET /api/v1/payments/{id}` remains mapped |
 | `STEP21-LAHZA-GATE-006` | Enabled non-production test host | Existing Lahza deterministic HTTP scenarios remain available |
 | `STEP21-LAHZA-GATE-007` | Production deployment configuration | Workflow injects `Lahza__EndpointsEnabled=false` |
+| `STEP21-LAHZA-GATE-008` | Disabled routes with trailing slashes | Canonical and trailing-slash variants return the same localized `404 resource_not_found` problem |
 
 ## Execution level
 
@@ -42,9 +44,9 @@ No production request is used as test evidence.
 
 ## Results
 
-- Production-default gate tests: 2 passed, 0 failed.
+- Production-default and enabled-environment gate tests: 2 passed, 0 failed.
 - Deployment configuration tests: 2 passed, 0 failed.
-- Complete solution: 1,847 passed, 0 failed, 0 skipped.
+- Complete solution: 1,848 passed, 0 failed, 0 skipped.
 - Release build: 0 warnings, 0 errors.
 - Existing Lahza-enabled disposable HTTP suite: 40 passed, 0 failed.
 - Step 17, Step 18, and Step 20 asset validators passed.

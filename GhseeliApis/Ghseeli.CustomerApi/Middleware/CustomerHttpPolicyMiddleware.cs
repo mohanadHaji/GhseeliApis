@@ -20,8 +20,18 @@ public sealed class CustomerHttpPolicyMiddleware
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
     private readonly RequestDelegate _next;
+    private readonly bool _lahzaEndpointsEnabled;
 
-    public CustomerHttpPolicyMiddleware(RequestDelegate next) => _next = next;
+    public CustomerHttpPolicyMiddleware(
+        RequestDelegate next,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
+    {
+        _next = next;
+        _lahzaEndpointsEnabled =
+            configuration.GetValue<bool?>("Lahza:EndpointsEnabled") ??
+            !environment.IsProduction();
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -30,6 +40,15 @@ public sealed class CustomerHttpPolicyMiddleware
         var localized = IsLocalized(context.Request.Path);
         var language = ResolveLanguage(context.Request);
         context.Items[ResolvedLanguageItemKey] = language;
+        if (!_lahzaEndpointsEnabled && IsLahzaRoute(context.Request.Path))
+        {
+            await WriteProblemAsync(
+                context,
+                404,
+                "resource_not_found",
+                language);
+            return;
+        }
         if (localized &&
             HasInvalidExplicitLanguage(context.Request))
         {
@@ -217,6 +236,30 @@ public sealed class CustomerHttpPolicyMiddleware
         {
             context.Response.Body = originalBody;
         }
+    }
+
+    private static bool IsLahzaRoute(PathString path)
+    {
+        var value = path.Value?.TrimEnd('/');
+        if (string.Equals(
+                value,
+                "/api/v1/payments/intents",
+                StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(
+                value,
+                "/api/lahza/webhook",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return value is not null &&
+               value.StartsWith(
+                   "/api/v1/payments/",
+                   StringComparison.OrdinalIgnoreCase) &&
+               value.EndsWith(
+                   "/verify",
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task InvokeNextWithBufferedResponseAsync(
@@ -464,6 +507,7 @@ public sealed class CustomerHttpPolicyMiddleware
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
         context.Response.ContentLength = null;
+        context.Response.Headers.ContentLanguage = language;
         await context.Response.WriteAsync(
             JsonSerializer.Serialize(problem, JsonOptions),
             context.RequestAborted);

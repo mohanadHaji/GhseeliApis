@@ -2,8 +2,7 @@
 
 Date: 2026-09-05
 
-Status: Production gate deployed; strict `404` normalization validated locally
-and pending deployment
+Status: Completed and deployed
 
 ## Goal
 
@@ -50,3 +49,10 @@ No production request is used as test evidence.
 - Release build: 0 warnings, 0 errors.
 - Existing Lahza-enabled disposable HTTP suite: 40 passed, 0 failed.
 - Step 17, Step 18, and Step 20 asset validators passed.
+- Strict `404` commit: `dda4122`.
+- Deployment workflow run: `33972229263`, succeeded.
+- Production Swagger excludes initialization, verification, and webhook
+  operations while retaining `GET /api/v1/payments/{id}`.
+- Production canonical and trailing-slash variants for all three disabled
+  routes return `404`; an unauthenticated payment read returns `401`, proving
+  the read route remains active behind its normal authentication boundary.

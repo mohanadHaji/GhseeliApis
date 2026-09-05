@@ -22,10 +22,13 @@ public sealed class CustomerPaymentServiceTests
     {
         await using var db = CreateDb();
         var fixture = AddBooking(db, grandTotal: 12.34m);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(It.IsAny<StripeIntentCreateCommand>(), default))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult("pi_1", "succeeded", "secret", "ch_1",
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(It.IsAny<PaymentInitializationCommand>(), default))
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     command.Amount, command.Currency));
         var service = CreateService(db, gateway.Object);
 
@@ -34,12 +37,13 @@ public sealed class CustomerPaymentServiceTests
             "key-1", fixture.userId, fixture.deviceId, default);
 
         result.Amount.Should().Be(12.34m);
-        result.PublishableKey.Should().Be("pk_test_configured");
+        result.Provider.Should().Be(PaymentProviders.Lahza);
+        result.ProviderReference.Should().StartWith("GHSEELI-");
         result.Status.Should().Be(PaymentStatus.Pending.ToString());
         fixture.booking.IsPaid.Should().BeFalse();
         fixture.booking.PaymentState.Should().Be("Unpaid");
-        gateway.Verify(value => value.CreateAsync(
-            It.Is<StripeIntentCreateCommand>(command =>
+        gateway.Verify(value => value.InitializeAsync(
+            It.Is<PaymentInitializationCommand>(command =>
                 command.Amount == 1234 && command.Currency == "ILS"),
             default), Times.Once);
     }
@@ -60,8 +64,8 @@ public sealed class CustomerPaymentServiceTests
             "same-key", fixture.userId, fixture.deviceId, default);
 
         replay.Id.Should().Be(first.Id);
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(), default), Times.Once);
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(), default), Times.Once);
     }
 
     [Fact]
@@ -84,8 +88,8 @@ public sealed class CustomerPaymentServiceTests
 
         replay.Amount.Should().Be(first.Amount).And.Be(12.34m);
         replay.Currency.Should().Be(first.Currency).And.Be("ILS");
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(), default), Times.Once);
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(), default), Times.Once);
     }
 
     [Fact]
@@ -99,7 +103,7 @@ public sealed class CustomerPaymentServiceTests
             "confirmed-key", fixture.userId, fixture.deviceId, default);
 
         result.Status.Should().Be(PaymentStatus.Pending.ToString());
-        result.ClientSecret.Should().Be("secret");
+        result.CheckoutUrl.Should().StartWith("https://checkout.lahza.test/");
     }
 
     [Fact]
@@ -121,8 +125,8 @@ public sealed class CustomerPaymentServiceTests
 
         results[0].Id.Should().NotBe(results[1].Id);
         (await db.CustomerPayments.CountAsync()).Should().Be(2);
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(), default), Times.Exactly(2));
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(), default), Times.Exactly(2));
     }
 
     [Fact]
@@ -145,8 +149,8 @@ public sealed class CustomerPaymentServiceTests
         replay.Id.Should().Be(first.Id);
         (await db.CustomerPaymentIdempotencyRecords.SingleAsync())
             .RequestHash.Should().Be((await db.CustomerPayments.SingleAsync()).RequestHash);
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(), default), Times.Once);
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(), default), Times.Once);
     }
 
     [Theory]
@@ -158,15 +162,17 @@ public sealed class CustomerPaymentServiceTests
     {
         await using var db = CreateDb();
         var fixture = AddBooking(db);
-        var commands = new List<StripeIntentCreateCommand>();
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(), default))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
+        var commands = new List<PaymentInitializationCommand>();
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(), default))
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
             {
                 commands.Add(command);
-                return new StripeIntentResult(
-                    "pi_mismatch", "requires_action", "secret", null,
+                return new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     amountMismatch ? command.Amount + 1 : command.Amount,
                     currencyMismatch ? "USD" : command.Currency);
             });
@@ -183,10 +189,10 @@ public sealed class CustomerPaymentServiceTests
         }
 
         var persisted = await db.CustomerPayments.AsNoTracking().SingleAsync();
-        persisted.IntentLeaseOwnerToken.Should().BeNull();
-        persisted.IntentLeaseExpiresAtUtc.Should().BeNull();
+        persisted.InitializationLeaseOwnerToken.Should().BeNull();
+        persisted.InitializationLeaseExpiresAtUtc.Should().BeNull();
         commands.Should().HaveCount(2);
-        commands.Select(value => (value.PaymentId, value.IdempotencyKey))
+        commands.Select(value => (value.PaymentId, value.ProviderReference))
             .Distinct().Should().ContainSingle();
     }
 
@@ -204,9 +210,9 @@ public sealed class CustomerPaymentServiceTests
     {
         await using var db = CreateDb();
         var fixture = AddBooking(db);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(), default))
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(), default))
             .ThrowsAsync(failure);
         var service = CreateService(db, gateway.Object);
 
@@ -219,8 +225,8 @@ public sealed class CustomerPaymentServiceTests
         exception.Code.Should().Be(CustomerPaymentErrorCodes.GatewayAmbiguous);
         exception.InnerException.Should().BeSameAs(failure);
         var persisted = await db.CustomerPayments.AsNoTracking().SingleAsync();
-        persisted.IntentLeaseOwnerToken.Should().BeNull();
-        persisted.IntentLeaseExpiresAtUtc.Should().BeNull();
+        persisted.InitializationLeaseOwnerToken.Should().BeNull();
+        persisted.InitializationLeaseExpiresAtUtc.Should().BeNull();
     }
 
     [Fact]
@@ -243,10 +249,10 @@ public sealed class CustomerPaymentServiceTests
             Request(fixture.booking.PublicReference),
             "commit-failure-key", fixture.userId, fixture.deviceId, default);
 
-        retry.ClientSecret.Should().Be("secret");
+        retry.CheckoutUrl.Should().StartWith("https://checkout.lahza.test/");
         gateway.CreatedIntentCount.Should().Be(1);
         gateway.Commands.Should().HaveCount(2);
-        gateway.Commands.Select(value => (value.PaymentId, value.IdempotencyKey))
+        gateway.Commands.Select(value => (value.PaymentId, value.ProviderReference))
             .Distinct().Should().ContainSingle();
         (await db.CustomerPayments.CountAsync()).Should().Be(1);
     }
@@ -314,7 +320,7 @@ public sealed class CustomerPaymentServiceTests
         var service = CreateService(
             db,
             SuccessfulGateway().Object,
-            stripeConfigured: false);
+            lahzaConfigured: false);
 
         var act = () => service.CreateAsync(
             Request(Guid.NewGuid()),
@@ -345,7 +351,7 @@ public sealed class CustomerPaymentServiceTests
         var replay = await CreateService(
             db,
             gateway.Object,
-            stripeConfigured: false).CreateAsync(
+            lahzaConfigured: false).CreateAsync(
                 Request(fixture.booking.PublicReference),
                 "stable-key",
                 fixture.userId,
@@ -353,21 +359,21 @@ public sealed class CustomerPaymentServiceTests
                 default);
 
         replay.Id.Should().Be(first.Id);
-        replay.ClientSecret.Should().Be(first.ClientSecret);
-        replay.PublishableKey.Should().Be(first.PublishableKey);
+        replay.CheckoutUrl.Should().Be(first.CheckoutUrl);
+        replay.ProviderReference.Should().Be(first.ProviderReference);
         gateway.VerifyNoOtherCalls();
     }
 
     [Fact]
-    public async Task Ambiguous_gateway_failure_persists_stable_payment_for_same_key_retry()
+    public async Task Ambiguous_gateway_failure_requires_verification_with_stable_provider_reference()
     {
         await using var db = CreateDb();
         var fixture = AddBooking(db);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.SetupSequence(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(), default))
-            .ThrowsAsync(new Stripe.StripeException("timeout"))
-            .ReturnsAsync((StripeIntentResult)null!);
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.SetupSequence(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(), default))
+            .ThrowsAsync(new TimeoutException("timeout"))
+            .ReturnsAsync((PaymentInitializationResult)null!);
         var service = CreateService(db, gateway.Object);
 
         var first = () => service.CreateAsync(
@@ -376,21 +382,83 @@ public sealed class CustomerPaymentServiceTests
         (await first.Should().ThrowAsync<CustomerPaymentException>())
             .Which.Code.Should().Be(CustomerPaymentErrorCodes.GatewayAmbiguous);
         var persisted = await db.CustomerPayments.SingleAsync();
-        persisted.PaymentIntentId.Should().BeNull();
+        persisted.ProviderReference.Should().Be(
+            CustomerPaymentService.CreateProviderReference(persisted.Id));
+        persisted.InitializationState.Should().Be(PaymentInitializationStates.Ambiguous);
 
-        gateway.Setup(value => value.CreateAsync(
-                It.Is<StripeIntentCreateCommand>(command =>
-                    command.PaymentId == persisted.Id &&
-                    command.IdempotencyKey == persisted.StripeIdempotencyKey),
-                default))
-            .ReturnsAsync(new StripeIntentResult(
-                "pi_retry", "requires_action", "secret", null,
-                persisted.MinorAmount, persisted.Currency));
-        var replay = await service.CreateAsync(
+        var replayCreate = () => service.CreateAsync(
             Request(fixture.booking.PublicReference),
-            "retry-key", fixture.userId, fixture.deviceId, default);
+            "retry-key",
+            fixture.userId,
+            fixture.deviceId,
+            default);
+        (await replayCreate.Should().ThrowAsync<CustomerPaymentException>())
+            .Which.Code.Should().Be(CustomerPaymentErrorCodes.GatewayAmbiguous);
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(),
+            It.IsAny<CancellationToken>()), Times.Once);
 
-        replay.Id.Should().Be(persisted.Id);
+        gateway.Setup(value => value.VerifyAsync(
+                persisted.ProviderReference,
+                default))
+            .ReturnsAsync(new PaymentVerificationResult(
+                persisted.ProviderReference,
+                "success",
+                "1001",
+                persisted.MinorAmount,
+                persisted.Currency));
+        var replay = await service.VerifyAsync(
+            persisted.Id,
+            fixture.userId,
+            fixture.deviceId,
+            default);
+
+        replay.Should().NotBeNull();
+        replay!.Id.Should().Be(persisted.Id);
+        replay.Status.Should().Be(PaymentStatus.Completed.ToString());
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Legacy_stripe_payment_with_eur_and_no_reference_remains_readable()
+    {
+        await using var db = CreateDb();
+        var fixture = AddBooking(db);
+        var payment = new CustomerPayment
+        {
+            Id = Guid.NewGuid(),
+            CustomerBooking = fixture.booking,
+            CustomerBookingId = fixture.booking.Id,
+            UserId = fixture.userId,
+            OwnerDeviceId = fixture.deviceId,
+            Amount = 10m,
+            MinorAmount = 1000,
+            Currency = "EUR",
+            Method = PaymentMethod.Card,
+            Status = PaymentStatus.Completed,
+            IdempotencyKey = "legacy-key",
+            RequestHash = new string('A', 64),
+            Provider = "Stripe",
+            ProviderReference = null,
+            InitializationState = PaymentInitializationStates.Legacy,
+            CreatedAtUtc = DateTimeOffset.UnixEpoch,
+            UpdatedAtUtc = DateTimeOffset.UnixEpoch
+        };
+        db.CustomerPayments.Add(payment);
+        await db.SaveChangesAsync();
+
+        var result = await CreateService(db, SuccessfulGateway().Object).GetAsync(
+            payment.Id,
+            fixture.userId,
+            fixture.deviceId,
+            default);
+
+        result.Should().NotBeNull();
+        result!.Provider.Should().Be("Stripe");
+        result.ProviderReference.Should().BeNull();
+        result.Currency.Should().Be("EUR");
     }
 
     [Fact]
@@ -429,8 +497,8 @@ public sealed class CustomerPaymentServiceTests
 
         replay.Id.Should().Be(first.Id);
         replay.BookingId.Should().Be(fixture.booking.PublicReference);
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(), default), Times.Once);
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(), default), Times.Once);
     }
 
     [Fact]
@@ -451,7 +519,7 @@ public sealed class CustomerPaymentServiceTests
             default);
 
         result.BookingId.Should().Be(fixture.booking.PublicReference);
-        result.ClientSecret.Should().Be("secret");
+        result.CheckoutUrl.Should().StartWith("https://checkout.lahza.test/");
     }
 
     [Theory]
@@ -507,27 +575,28 @@ public sealed class CustomerPaymentServiceTests
         exception.Code.Should().Be(CustomerPaymentErrorCodes.IdempotencyKeyInvalid);
     }
 
-    private static Mock<IStripePaymentIntentGateway> SuccessfulGateway()
+    private static Mock<IPaymentGateway> SuccessfulGateway()
     {
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(It.IsAny<StripeIntentCreateCommand>(), default))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult(
-                    "pi_success", "requires_action", "secret", null,
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(It.IsAny<PaymentInitializationCommand>(), default))
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     command.Amount, command.Currency));
         return gateway;
     }
 
     private static CustomerPaymentService CreateService(
         ApplicationDbContext db,
-        IStripePaymentIntentGateway gateway,
-        bool stripeConfigured = true)
+        IPaymentGateway gateway,
+        bool lahzaConfigured = true)
     {
-        var options = new Mock<IOptionsMonitor<StripeConfigurationOptions>>();
-        options.SetupGet(value => value.CurrentValue).Returns(new StripeConfigurationOptions
+        var options = new Mock<IOptionsMonitor<LahzaConfigurationOptions>>();
+        options.SetupGet(value => value.CurrentValue).Returns(new LahzaConfigurationOptions
         {
-            PublishableKey = stripeConfigured ? "pk_test_configured" : string.Empty,
-            SecretKey = stripeConfigured ? "sk_test_configured" : string.Empty
+            SecretKey = lahzaConfigured ? "sk_test_configured" : string.Empty
         });
         return new CustomerPaymentService(
             db,
@@ -563,6 +632,16 @@ public sealed class CustomerPaymentServiceTests
             Currency = "ILS",
             PaymentState = "Unpaid"
         };
+        db.Users.Add(new User
+        {
+            Id = userId,
+            UserName = $"payment-{userId:N}@example.test",
+            NormalizedUserName = $"PAYMENT-{userId:N}@EXAMPLE.TEST",
+            Email = $"payment-{userId:N}@example.test",
+            NormalizedEmail = $"PAYMENT-{userId:N}@EXAMPLE.TEST",
+            FullName = "Payment Test User",
+            IsActive = true
+        });
         db.CustomerBookings.Add(booking);
         db.SaveChanges();
         return (booking, userId, deviceId);
@@ -612,26 +691,38 @@ public sealed class CustomerPaymentServiceTests
             }
         }
 
-    private sealed class IdempotentFakeGateway : IStripePaymentIntentGateway
+    private sealed class IdempotentFakeGateway : IPaymentGateway
         {
-            private readonly Dictionary<string, StripeIntentResult> _intents = [];
+            private readonly Dictionary<string, PaymentInitializationResult> _intents = [];
 
-            public List<StripeIntentCreateCommand> Commands { get; } = [];
+            public List<PaymentInitializationCommand> Commands { get; } = [];
             public int CreatedIntentCount => _intents.Count;
 
-            public Task<StripeIntentResult> CreateAsync(
-                StripeIntentCreateCommand command,
+            public Task<PaymentInitializationResult> InitializeAsync(
+                PaymentInitializationCommand command,
                 CancellationToken cancellationToken)
             {
                 Commands.Add(command);
-                if (!_intents.TryGetValue(command.IdempotencyKey, out var result))
+                if (!_intents.TryGetValue(command.ProviderReference, out var result))
                 {
-                    result = new StripeIntentResult(
-                        "pi_stable", "requires_action", "secret", null,
+                    result = new PaymentInitializationResult(
+                        command.ProviderReference,
+                        "initialized",
+                        new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                         command.Amount, command.Currency);
-                    _intents.Add(command.IdempotencyKey, result);
+                    _intents.Add(command.ProviderReference, result);
                 }
                 return Task.FromResult(result);
-        }
+            }
+
+            public Task<PaymentVerificationResult> VerifyAsync(
+                string providerReference,
+                CancellationToken cancellationToken) =>
+                Task.FromResult(new PaymentVerificationResult(
+                    providerReference,
+                    "pending",
+                    null,
+                    0,
+                    "ILS"));
     }
 }

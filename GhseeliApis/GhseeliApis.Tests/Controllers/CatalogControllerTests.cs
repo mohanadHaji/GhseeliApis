@@ -17,6 +17,7 @@ namespace GhseeliApis.Tests.Controllers;
 public class CatalogControllerTests
 {
     private readonly Mock<ICatalogReadModelService> _service = new();
+    private readonly Mock<IAvailableSlotsQueryService> _availableSlotsService = new();
     private readonly Mock<IAppLogger> _logger = new();
 
     [Fact]
@@ -109,6 +110,65 @@ public class CatalogControllerTests
         controller.Response.Headers.CacheControl.ToString().Should().Be("no-store");
     }
 
+    [Fact]
+    public async Task GetAvailableSlots_WhenRequestIsValid_ReturnsNoStoreResponse()
+    {
+        var businessId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var request = new GetAvailableSlotsRequest
+        {
+            Date = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(1)),
+            Items =
+            [
+                new CatalogAvailableSlotsItemRequest { OfferingId = Guid.NewGuid() }
+            ]
+        };
+        var expected = new CatalogAvailableSlotsResponse
+        {
+            BusinessId = businessId,
+            BranchId = branchId,
+            Date = request.Date
+        };
+        _availableSlotsService.Setup(service => service.GetAsync(
+                businessId,
+                branchId,
+                request,
+                "ar",
+                default))
+            .ReturnsAsync(expected);
+        var controller = CreateController();
+
+        var result = await controller.GetAvailableSlots(
+            businessId,
+            branchId,
+            request,
+            "ar",
+            default);
+
+        result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeSameAs(expected);
+        controller.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+    }
+
+    [Fact]
+    public async Task GetAvailableSlots_WhenRequestIsMalformed_ReturnsLocalizedValidationProblem()
+    {
+        var controller = CreateController();
+
+        var result = await controller.GetAvailableSlots(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new GetAvailableSlotsRequest(),
+            "he",
+            default);
+
+        var problem = result.Should().BeOfType<ObjectResult>().Subject;
+        problem.StatusCode.Should().Be(StatusCodes.Status400BadRequest);
+        problem.Value.Should().BeOfType<ProblemDetails>()
+            .Which.Extensions.Should().ContainKey("fieldErrors");
+        _availableSlotsService.VerifyNoOtherCalls();
+    }
+
     private CatalogController CreateController()
     {
         return new CatalogController(
@@ -117,6 +177,8 @@ public class CatalogControllerTests
             new GetCatalogBusinessesRequestValidator(),
             new GetCatalogBusinessOfferingsRequestValidator(),
             new GetCatalogResourceRequestValidator(),
+            new GetAvailableSlotsRequestValidator(TimeProvider.System),
+            _availableSlotsService.Object,
             _logger.Object)
         {
             ControllerContext = new ControllerContext

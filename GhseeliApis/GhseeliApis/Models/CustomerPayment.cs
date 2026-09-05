@@ -16,14 +16,14 @@ public sealed class CustomerPayment
     public PaymentStatus Status { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
     public string RequestHash { get; set; } = string.Empty;
-    public string StripeIdempotencyKey { get; set; } = string.Empty;
-    public string? PaymentIntentId { get; set; }
-    public string? ChargeId { get; set; }
+    public string Provider { get; set; } = "Lahza";
+    public string? ProviderReference { get; set; }
+    public string? ProviderTransactionId { get; set; }
     public string? ProviderStatus { get; set; }
-    public string? ClientSecret { get; set; }
-    public string? ProviderPublishableKey { get; set; }
-    public Guid? IntentLeaseOwnerToken { get; set; }
-    public DateTimeOffset? IntentLeaseExpiresAtUtc { get; set; }
+    public string? CheckoutUrl { get; set; }
+    public string InitializationState { get; set; } = PaymentInitializationStates.NotStarted;
+    public Guid? InitializationLeaseOwnerToken { get; set; }
+    public DateTimeOffset? InitializationLeaseExpiresAtUtc { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset UpdatedAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
@@ -43,8 +43,9 @@ public sealed class CustomerPaymentIdempotencyRecord
     public DateTimeOffset CreatedAtUtc { get; set; }
 }
 
-public sealed class StripeWebhookEventRecord
+public sealed class PaymentWebhookEventRecord
 {
+    public string Provider { get; set; } = "Lahza";
     public string EventId { get; set; } = string.Empty;
     public string BodyHash { get; set; } = string.Empty;
     public string EventType { get; set; } = string.Empty;
@@ -52,11 +53,19 @@ public sealed class StripeWebhookEventRecord
     public string? DispositionReason { get; set; }
     public Guid? CustomerPaymentId { get; set; }
     public CustomerPayment? CustomerPayment { get; set; }
-    public string? PaymentIntentId { get; set; }
-    public string? ChargeId { get; set; }
+    public string? ProviderReference { get; set; }
+    public string? ProviderTransactionId { get; set; }
     public long? Amount { get; set; }
     public string? Currency { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();
+}
+
+public static class PaymentInitializationStates
+{
+    public const string NotStarted = "NotStarted";
+    public const string Initialized = "Initialized";
+    public const string Ambiguous = "Ambiguous";
+    public const string Legacy = "Legacy";
 }

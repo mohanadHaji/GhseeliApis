@@ -64,7 +64,7 @@ public sealed class Step15SwaggerCustomerContractTests :
         AssertApiKey(root, "HmacTimestamp", "X-Timestamp");
         AssertApiKey(root, "HmacNonce", "X-Nonce");
         AssertApiKey(root, "HmacSignature", "X-Signature");
-        AssertApiKey(root, "StripeSignature", "Stripe-Signature");
+        AssertApiKey(root, "LahzaSignature", "X-Lahza-Signature");
 
         AssertNoSecurity(root, "/api/v1/devices/register", "post");
         AssertNoSecurity(root, "/api/Auth/register", "post");
@@ -73,9 +73,14 @@ public sealed class Step15SwaggerCustomerContractTests :
         AssertNoSecurity(root, "/api/Auth/external-login-callback", "get");
         AssertNoSecurity(root, "/api/Health", "get");
         AssertNoSecurity(root, "/api/Health/db", "get");
-        AssertSecurity(root, "/api/stripe/webhook", "post", ["StripeSignature"]);
+        AssertSecurity(root, "/api/lahza/webhook", "post", ["LahzaSignature"]);
 
         AssertSecurity(root, "/api/v1/configuration", "get", ["DeviceToken"]);
+        AssertSecurity(
+            root,
+            "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
+            "post",
+            ["DeviceToken"]);
         AssertSecurity(root, "/api/v1/checkout/drafts", "post", ["DeviceToken"]);
         AssertSecurity(root, "/api/v1/bookings/from-draft", "post",
             ["CustomerBearer", "DeviceToken"]);
@@ -215,7 +220,7 @@ public sealed class Step15SwaggerCustomerContractTests :
         json.Should().Contain("<service-id>",
             "STEP15-SWAGGER-EXAMPLES-HMAC-146 requires safe placeholders");
         json.Should().NotMatchRegex(
-            @"(?i)(sk_(live|test)_|Bearer\s+eyJ|Stripe-Signature[""']?\s*[:=]\s*[""']?t=\d)",
+            @"(?i)(sk_(live|test)_|Bearer\s+eyJ|X-Lahza-Signature[""']?\s*[:=]\s*[""']?t=\d)",
             "STEP15-SWAGGER-EXAMPLE-REDACTION-150 forbids credential-like examples");
     }
 
@@ -231,7 +236,7 @@ public sealed class Step15SwaggerCustomerContractTests :
             ["200", "400", "401", "403", "404", "405", "409", "413", "415", "500", "502", "503"]);
         AssertStatuses(root, "/api/v1/internal/bookings/status", "post",
             ["200", "400", "401", "405", "409", "413", "415", "500", "503"]);
-        AssertStatuses(root, "/api/stripe/webhook", "post",
+        AssertStatuses(root, "/api/lahza/webhook", "post",
             ["200", "400", "401", "405", "413", "415", "500", "503"]);
 
         var catalogGet = OperationAt(root, "/api/v1/catalog/businesses", "get")
@@ -351,6 +356,7 @@ public sealed class Step15SwaggerCustomerContractTests :
         "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",
+        "POST /api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
         "GET /api/v1/catalog/offerings/{id}",
         "POST /api/v1/checkout/drafts",
         "GET /api/v1/checkout/drafts/{orderGuid}",
@@ -360,10 +366,11 @@ public sealed class Step15SwaggerCustomerContractTests :
         "POST /api/v1/bookings/from-draft",
         "POST /api/v1/payments/intents",
         "GET /api/v1/payments/{id}",
+        "POST /api/v1/payments/{id}/verify",
         "POST /api/v1/internal/bookings/status",
         "POST /api/v1/internal/bookings/{reference}/reconcile",
         "GET /api/v1/internal/bookings/{reference}",
-        "POST /api/stripe/webhook",
+        "POST /api/lahza/webhook",
         "POST /api/Auth/register",
         "POST /api/Auth/login",
         "POST /api/Auth/validate",

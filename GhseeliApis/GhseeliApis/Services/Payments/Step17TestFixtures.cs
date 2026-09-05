@@ -54,22 +54,33 @@ public sealed class Step17TestFixturesOptionsValidator :
     }
 }
 
-public sealed class Step17DeterministicPaymentIntentGateway :
-    IStripePaymentIntentGateway
+public sealed class Step17DeterministicPaymentGateway : IPaymentGateway
 {
-    public Task<StripeIntentResult> CreateAsync(
-        StripeIntentCreateCommand command,
+    public Task<PaymentInitializationResult> InitializeAsync(
+        PaymentInitializationCommand command,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var intentId = $"pi_step17_{command.PaymentId:N}";
-        var result = new StripeIntentResult(
-            intentId,
-            "requires_confirmation",
-            $"{intentId}_secret_{command.BookingId:N}",
-            null,
+        var accessCode = $"step17-{command.PaymentId:N}";
+        var result = new PaymentInitializationResult(
+            command.ProviderReference,
+            "initialized",
+            new Uri($"https://checkout.lahza.test/{accessCode}"),
             command.Amount,
-            command.Currency.ToLowerInvariant());
+            command.Currency);
         return Task.FromResult(result);
+    }
+
+    public Task<PaymentVerificationResult> VerifyAsync(
+        string providerReference,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new PaymentVerificationResult(
+            providerReference,
+            "pending",
+            null,
+            0,
+            string.Empty));
     }
 }

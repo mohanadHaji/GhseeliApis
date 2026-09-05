@@ -19,12 +19,12 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace GhseeliApis.Tests.Integration;
 
 /// <summary>
-/// Proves Stripe webhook acknowledgement and state convergence against SQL Server.
+/// Proves Lahza webhook acknowledgement and state convergence against SQL Server.
 /// </summary>
 public sealed class CustomerPaymentWebhookRelationalHttpTests
 {
     [Fact]
-    public async Task PartialRefund_ForCompletedBooking_IsDurablyIgnoredWithoutChangingPaidState()
+    public async Task PartialRefund_ForCompletedBooking_IsRecordedWithoutChangingPaidState()
     {
         var parser = new ControlledRelationalWebhookParser();
         await using var factory = new RelationalWebhookApiFactory(parser);
@@ -33,10 +33,10 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         parser.Add("partial", CreateEvent(
             payment,
             "evt_partial",
-            StripePaymentEventKind.Refunded,
-            "charge.refunded",
+            PaymentEventKind.Refunded,
+            "refund.processed",
             "ch_partial",
-            isFullyRefunded: false));
+            amount: payment.MinorAmount - 1));
 
         using var response = await SendAsync(client, "partial");
 
@@ -49,10 +49,10 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         persisted.CustomerBooking.Status.Should().Be("Completed");
         persisted.CustomerBooking.IsPaid.Should().BeTrue();
         persisted.CustomerBooking.PaymentState.Should().Be("Completed");
-        var receipt = await verify.StripeWebhookEvents.SingleAsync();
+        var receipt = await verify.PaymentWebhookEvents.SingleAsync();
         receipt.State.Should().Be("Completed");
         receipt.CustomerPaymentId.Should().Be(payment.Id);
-        receipt.DispositionReason.Should().Be("partial_refund_ignored");
+        receipt.DispositionReason.Should().Be("partial_refund_not_applied");
     }
 
     [Fact]
@@ -66,8 +66,8 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         parser.Add("duplicate", CreateEvent(
             payment,
             "evt_parallel_duplicate",
-            StripePaymentEventKind.Succeeded,
-            "payment_intent.succeeded",
+            PaymentEventKind.Succeeded,
+            "charge.success",
             "ch_duplicate"));
         barrier.Arm();
 
@@ -86,7 +86,7 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
             .SingleAsync();
         persisted.Status.Should().Be(PaymentStatus.Completed);
         persisted.CustomerBooking.IsPaid.Should().BeTrue();
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(1);
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(1);
     }
 
     [Fact]
@@ -100,8 +100,8 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         parser.Add("transient", CreateEvent(
             payment,
             "evt_transient",
-            StripePaymentEventKind.Succeeded,
-            "payment_intent.succeeded",
+            PaymentEventKind.Succeeded,
+            "charge.success",
             "ch_transient"));
         failpoint.Arm();
 
@@ -127,8 +127,8 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         parser.Add("atomic", CreateEvent(
             payment,
             "evt_atomic",
-            StripePaymentEventKind.Succeeded,
-            "payment_intent.succeeded",
+            PaymentEventKind.Succeeded,
+            "charge.success",
             "ch_atomic"));
         failpoint.Arm();
 
@@ -155,14 +155,14 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         parser.Add("refund", CreateEvent(
             payment,
             "evt_concurrent_refund_http",
-            StripePaymentEventKind.Refunded,
-            "charge.refunded",
+            PaymentEventKind.Refunded,
+            "refund.processed",
             "ch_concurrent"));
         parser.Add("success", CreateEvent(
             payment,
             "evt_concurrent_success_http",
-            StripePaymentEventKind.Succeeded,
-            "payment_intent.succeeded",
+            PaymentEventKind.Succeeded,
+            "charge.success",
             "ch_concurrent"));
         barrier.Arm();
 
@@ -182,38 +182,31 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         persisted.Status.Should().Be(PaymentStatus.Refunded);
         persisted.CustomerBooking.IsPaid.Should().BeFalse();
         persisted.CustomerBooking.PaymentState.Should().Be("Refunded");
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(2);
-        (await verify.StripeWebhookEvents.CountAsync(value => value.State == "Completed"))
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(2);
+        (await verify.PaymentWebhookEvents.CountAsync(value => value.State == "Completed"))
             .Should().Be(2);
     }
 
-    private static VerifiedStripeEvent CreateEvent(
+    private static VerifiedPaymentEvent CreateEvent(
         CustomerPayment payment,
         string eventId,
-        StripePaymentEventKind kind,
+        PaymentEventKind kind,
         string eventType,
         string chargeId,
-        bool isFullyRefunded = true) =>
+        long? amount = null) =>
         new(
             eventId,
             eventType,
             kind,
-            payment.PaymentIntentId!,
+            payment.ProviderReference!,
             chargeId,
-            payment.MinorAmount,
-            payment.Currency,
-            new Dictionary<string, string>
-            {
-                ["payment_id"] = payment.Id.ToString("D"),
-                ["booking_id"] = payment.CustomerBookingId.ToString("D"),
-                ["booking_reference"] = payment.CustomerBooking.PublicReference.ToString("D")
-            },
-            isFullyRefunded);
+            amount ?? payment.MinorAmount,
+            payment.Currency);
 
     private static async Task<HttpResponseMessage> SendAsync(HttpClient client, string body)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/stripe/webhook");
-        request.Headers.TryAddWithoutValidation("Stripe-Signature", "controlled");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/lahza/webhook");
+        request.Headers.TryAddWithoutValidation("X-Lahza-Signature", "controlled");
         request.Content = new StringContent(body, Encoding.UTF8);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         return await client.SendAsync(request);
@@ -231,19 +224,24 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
             .SingleAsync();
         persisted.Status.Should().Be(status);
         persisted.CustomerBooking.IsPaid.Should().Be(paid);
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(receipts);
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(receipts);
     }
 
-    private sealed class ControlledRelationalWebhookParser : IStripeWebhookParser
+    private sealed class ControlledRelationalWebhookParser : IPaymentWebhookParser
     {
-        private readonly Dictionary<string, VerifiedStripeEvent> _events =
+        private readonly Dictionary<string, VerifiedPaymentEvent> _events =
             new(StringComparer.Ordinal);
 
-        public void Add(string body, VerifiedStripeEvent stripeEvent) =>
-            _events.Add(body, stripeEvent);
+        public void Add(string body, VerifiedPaymentEvent paymentEvent) =>
+            _events.Add(
+                Convert.ToHexString(Encoding.UTF8.GetBytes(body)),
+                paymentEvent);
 
-        public VerifiedStripeEvent Parse(string rawBody, string signature, string webhookSecret) =>
-            _events[rawBody];
+        public VerifiedPaymentEvent Parse(
+            ReadOnlyMemory<byte> rawBody,
+            string signature,
+            string webhookSecret) =>
+            _events[Convert.ToHexString(rawBody.Span)];
     }
 
     private sealed class FailNextSaveChangesInterceptor : SaveChangesInterceptor
@@ -333,7 +331,7 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
         {
             if (Volatile.Read(ref _armed) == 1 &&
                 command.CommandText.Contains("FROM [CustomerPayments] AS [c]", StringComparison.Ordinal) &&
-                command.CommandText.Contains("[c].[PaymentIntentId]", StringComparison.Ordinal) &&
+                command.CommandText.Contains("[c].[ProviderReference]", StringComparison.Ordinal) &&
                 Interlocked.Increment(ref _readCount) <= 2)
             {
                 if (Volatile.Read(ref _readCount) == 2)
@@ -351,11 +349,11 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
     {
         private readonly SqlServerCatalogDatabase _database =
             SqlServerCatalogDatabase.CreateAsync().GetAwaiter().GetResult();
-        private readonly IStripeWebhookParser _parser;
+        private readonly IPaymentWebhookParser _parser;
         private readonly IInterceptor[] _interceptors;
 
         public RelationalWebhookApiFactory(
-            IStripeWebhookParser parser,
+            IPaymentWebhookParser parser,
             params IInterceptor[] interceptors)
         {
             _parser = parser;
@@ -369,15 +367,13 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
             builder.UseSetting("JwtSettings:SecretKey", "WebhookApiTestsSecret_Minimum32Characters");
             builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.WebhookTests");
             builder.UseSetting("JwtSettings:Audience", "GhseeliApis.WebhookClients");
-            builder.UseSetting("Stripe:WebhookSecret", "whsec_controlled");
-            builder.UseSetting("Stripe:PublishableKey", string.Empty);
-            builder.UseSetting("Stripe:SecretKey", string.Empty);
+            builder.UseSetting("Lahza:SecretKey", "sk_test_controlled");
             builder.ConfigureServices(services =>
             {
                 services.RemoveAll(typeof(DbContextOptions<ApplicationDbContext>));
                 services.RemoveAll<ApplicationDbContext>();
-                services.RemoveAll<IStripeWebhookParser>();
-                services.AddSingleton<IStripeWebhookParser>(_parser);
+                services.RemoveAll<IPaymentWebhookParser>();
+                services.AddSingleton<IPaymentWebhookParser>(_parser);
                 services.AddDbContext<ApplicationDbContext>(options =>
                 {
                     options.UseSqlServer(_database.ConnectionString, sql =>
@@ -453,9 +449,9 @@ public sealed class CustomerPaymentWebhookRelationalHttpTests
                     Status = status,
                     IdempotencyKey = $"key-{Guid.NewGuid():N}",
                     RequestHash = new string('A', 64),
-                    StripeIdempotencyKey = $"stripe-{Guid.NewGuid():N}",
-                    PaymentIntentId = $"pi_{Guid.NewGuid():N}",
-                    ChargeId = chargeId
+                    Provider = PaymentProviders.Lahza,
+                    ProviderReference = $"GHSEELI-{Guid.NewGuid():N}".ToUpperInvariant(),
+                    ProviderTransactionId = chargeId
                 };
                 context.CustomerPayments.Add(payment);
             });

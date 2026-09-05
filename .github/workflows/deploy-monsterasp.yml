@@ -116,6 +116,7 @@ jobs:
           APP_JWT_SECRET: ${{ secrets[matrix.jwt_secret] }}
           CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
           BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
+          LAHZA_SECRET_KEY: ${{ secrets.LAHZA_SECRET_KEY }}
         run: |
           foreach ($name in @(
             "APP_CONNECTION",
@@ -162,6 +163,8 @@ jobs:
               "reservation_create"
             $env:InternalServiceAuthentication__Services__0__AllowedOperations__3 =
               "reservation_status_read"
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__4 =
+              "appointment_available_slots"
           }
 
           dotnet ef database update `
@@ -204,6 +207,7 @@ jobs:
           BUSINESS_JWT_SECRET: ${{ secrets.BUSINESS_JWT_SECRET }}
           CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
           BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
+          LAHZA_SECRET_KEY: ${{ secrets.LAHZA_SECRET_KEY }}
         run: |
           $webConfigPath = Join-Path "${{ github.workspace }}" "${{ matrix.output }}\web.config"
           [xml]$webConfig = Get-Content -LiteralPath $webConfigPath -Raw
@@ -218,6 +222,9 @@ jobs:
           }
 
           if ("${{ matrix.name }}" -eq "Customer") {
+            if ([string]::IsNullOrWhiteSpace($env:LAHZA_SECRET_KEY)) {
+              throw "Missing Production secret 'LAHZA_SECRET_KEY'."
+            }
             $values = [ordered]@{
               "ASPNETCORE_ENVIRONMENT" = "Production"
               "ConnectionStrings__CustomerConnection" = $env:CUSTOMER_CONNECTION
@@ -235,9 +242,10 @@ jobs:
               "Authentication__Google__ClientSecret" = ""
               "Authentication__Facebook__AppId" = ""
               "Authentication__Facebook__AppSecret" = ""
-              "Stripe__PublishableKey" = ""
-              "Stripe__SecretKey" = ""
-              "Stripe__WebhookSecret" = ""
+              "Lahza__BaseUrl" = "https://api.lahza.io"
+              "Lahza__SecretKey" = $env:LAHZA_SECRET_KEY
+              "Lahza__CallbackUrl" = ""
+              "Lahza__TimeoutSeconds" = "15"
               "Swagger__Enabled" = "true"
             }
           }
@@ -255,6 +263,7 @@ jobs:
               "InternalServiceAuthentication__Services__0__AllowedOperations__1" = "appointment_validate"
               "InternalServiceAuthentication__Services__0__AllowedOperations__2" = "reservation_create"
               "InternalServiceAuthentication__Services__0__AllowedOperations__3" = "reservation_status_read"
+              "InternalServiceAuthentication__Services__0__AllowedOperations__4" = "appointment_available_slots"
               "CustomerBookingStatusClient__BaseUrl" = "${{ env.CUSTOMER_SITE_URL }}"
               "CustomerBookingStatusClient__ServiceId" = "business-api"
               "CustomerBookingStatusClient__ActiveSecret" = $env:BUSINESS_TO_CUSTOMER_SECRET

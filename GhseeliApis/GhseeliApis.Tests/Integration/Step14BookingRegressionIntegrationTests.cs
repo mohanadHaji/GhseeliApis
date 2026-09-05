@@ -52,16 +52,15 @@ public sealed class Step14BookingRegressionIntegrationTests
 
         await using (var context = database.CreateContext())
         {
-            var gateway = new Mock<IStripePaymentIntentGateway>();
-            gateway.Setup(value => value.CreateAsync(
-                    It.IsAny<StripeIntentCreateCommand>(),
+            var gateway = new Mock<IPaymentGateway>();
+            gateway.Setup(value => value.InitializeAsync(
+                    It.IsAny<PaymentInitializationCommand>(),
                     It.IsAny<CancellationToken>()))
-                .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                    new StripeIntentResult(
-                        "pi_step14_booking_regression",
-                        "requires_confirmation",
-                        "client-secret-must-not-leak",
-                        null,
+                .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                    new PaymentInitializationResult(
+                        command.ProviderReference,
+                        "initialized",
+                        new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                         command.Amount,
                         command.Currency));
             var options = Options("pk_test_regression", "sk_test_regression");
@@ -94,8 +93,8 @@ public sealed class Step14BookingRegressionIntegrationTests
         await ApplyWebhookAsync(
             database,
             "evt_step14_success",
-            StripePaymentEventKind.Succeeded,
-            "payment_intent.succeeded",
+            PaymentEventKind.Succeeded,
+            "charge.success",
             "ch_step14");
         var completed = await ReadSnapshotAsync(database, booking.Id);
         completed.Immutable.Should().BeEquivalentTo(before.Immutable);
@@ -105,8 +104,8 @@ public sealed class Step14BookingRegressionIntegrationTests
         await ApplyWebhookAsync(
             database,
             "evt_step14_refund",
-            StripePaymentEventKind.Refunded,
-            "charge.refunded",
+            PaymentEventKind.Refunded,
+            "refund.processed",
             "ch_step14");
         var refunded = await ReadSnapshotAsync(database, booking.Id);
         refunded.Immutable.Should().BeEquivalentTo(before.Immutable);
@@ -283,7 +282,7 @@ public sealed class Step14BookingRegressionIntegrationTests
                 "status", "sequence", "changedAtUtc");
         pendingBody.ToLowerInvariant().Should().NotContain("payment");
         pendingBody.ToLowerInvariant().Should().NotContain("secret");
-        pendingBody.ToLowerInvariant().Should().NotContain("stripe");
+        pendingBody.ToLowerInvariant().Should().NotContain("lahza");
     }
 
     private static CustomerBooking CreateCustomerBooking()
@@ -396,28 +395,25 @@ public sealed class Step14BookingRegressionIntegrationTests
             Status = status,
             IdempotencyKey = "step14-regression",
             RequestHash = new string('a', 64),
-            StripeIdempotencyKey = $"step14-{Guid.NewGuid():N}",
-            PaymentIntentId = "pi_step14_booking_regression",
-            ChargeId = status is PaymentStatus.Completed or PaymentStatus.Refunded
+            Provider = PaymentProviders.Lahza,
+            ProviderReference = "GHSEELI-STEP14-BOOKING-REGRESSION",
+            ProviderTransactionId = status is PaymentStatus.Completed or PaymentStatus.Refunded
                 ? "ch_step14"
                 : null,
             ProviderStatus = status.ToString(),
-            ClientSecret = "client-secret-must-not-leak",
-            ProviderPublishableKey = "pk_test_must_not_leak",
+            CheckoutUrl = "https://checkout.lahza.test/pay/GHSEELI-STEP14-BOOKING-REGRESSION",
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
 
-    private static IOptionsMonitor<StripeConfigurationOptions> Options(
+    private static IOptionsMonitor<LahzaConfigurationOptions> Options(
         string publishableKey,
         string secretKey)
     {
-        var options = new Mock<IOptionsMonitor<StripeConfigurationOptions>>();
-        options.SetupGet(value => value.CurrentValue).Returns(new StripeConfigurationOptions
+        var options = new Mock<IOptionsMonitor<LahzaConfigurationOptions>>();
+        options.SetupGet(value => value.CurrentValue).Returns(new LahzaConfigurationOptions
         {
-            PublishableKey = publishableKey,
-            SecretKey = secretKey,
-            WebhookSecret = "whsec_regression"
+            SecretKey = secretKey
         });
         return options.Object;
     }
@@ -425,7 +421,7 @@ public sealed class Step14BookingRegressionIntegrationTests
     private static async Task ApplyWebhookAsync(
         SqlServerCatalogDatabase database,
         string eventId,
-        StripePaymentEventKind kind,
+        PaymentEventKind kind,
         string eventType,
         string? chargeId = null)
     {
@@ -433,27 +429,20 @@ public sealed class Step14BookingRegressionIntegrationTests
         var payment = await context.CustomerPayments
             .Include(value => value.CustomerBooking)
             .SingleAsync();
-        var service = new StripeWebhookService(
+        var service = new PaymentWebhookService(
             context,
             new TestAppLogger(),
             TimeProvider.System);
         await service.ProcessAsync(
-            new VerifiedStripeEvent(
+            new VerifiedPaymentEvent(
                 eventId,
                 eventType,
                 kind,
-                "pi_step14_booking_regression",
+                payment.ProviderReference!,
                 chargeId,
                 12345,
-                "ils",
-                new Dictionary<string, string>
-                {
-                    ["payment_id"] = payment.Id.ToString("D"),
-                    ["booking_id"] = payment.CustomerBookingId.ToString("D"),
-                    ["booking_reference"] =
-                        payment.CustomerBooking.PublicReference.ToString("D")
-                }),
-            $"{{\"id\":\"{eventId}\"}}",
+                "ILS"),
+            Encoding.UTF8.GetBytes($"{{\"id\":\"{eventId}\"}}"),
             default);
     }
 
@@ -566,10 +555,9 @@ public sealed class Step14BookingRegressionIntegrationTests
             booking.Payment!.Amount,
             booking.Payment.Currency,
             booking.Payment.Status,
-            booking.Payment.PaymentIntentId,
-            booking.Payment.ChargeId,
-            booking.Payment.ClientSecret,
-            booking.Payment.ProviderPublishableKey);
+            booking.Payment.ProviderReference,
+            booking.Payment.ProviderTransactionId,
+            booking.Payment.CheckoutUrl);
     }
 
     private static HttpRequestMessage CreateSignedStatusRequest(
@@ -708,8 +696,7 @@ public sealed class Step14BookingRegressionIntegrationTests
         decimal PaymentAmount,
         string PaymentCurrency,
         PaymentStatus Status,
-        string? PaymentIntentId,
-        string? ChargeId,
-        string? ClientSecret,
-        string? PublishableKey);
+        string? ProviderReference,
+        string? ProviderTransactionId,
+        string? CheckoutUrl);
 }

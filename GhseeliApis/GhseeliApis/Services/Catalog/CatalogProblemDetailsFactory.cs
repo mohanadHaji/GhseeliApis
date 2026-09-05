@@ -68,6 +68,10 @@ internal static class CatalogProblemDetailsFactory
                 "מסנני הקטלוג שסופקו אינם שייכים לאותו עסק.",
             (CatalogProblemCodes.FilterMismatch, _) =>
                 "مرشحات الكتالوج المقدمة لا تنتمي إلى نفس النشاط التجاري.",
+            (CatalogProblemCodes.StaleVersion, ConfigurationLanguageResolver.Hebrew) =>
+                "קטלוג השירותים השתנה. יש לרענן ולנסות שוב.",
+            (CatalogProblemCodes.StaleVersion, _) =>
+                "تم تحديث كتالوج الخدمات. يرجى التحديث والمحاولة مرة أخرى.",
             (CatalogProblemCodes.Unavailable, ConfigurationLanguageResolver.Hebrew) =>
                 "קטלוג השירותים אינו זמין כעת.",
             _ =>

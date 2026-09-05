@@ -58,18 +58,18 @@ public sealed class Step17SecurityHeadersLoggingTests
         AssertSingleSecurityHeaders(response);
         await using var verify = CreateContext(factory);
         (await verify.CustomerPayments.CountAsync()).Should().Be(0);
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(0);
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(0);
     }
 
     [Fact]
     [Trait("ScenarioId", "STEP17-SEC-LOG-030")]
-    public async Task STEP17_SEC_LOG_030_InvalidStripeSignatureRedactsAllSentinels()
+    public async Task STEP17_SEC_LOG_030_InvalidLahzaSignatureRedactsAllSentinels()
     {
         var logs = new CapturingLoggerProvider();
         await using var factory = new CheckoutDraftApiFactory(
             settings: new Dictionary<string, string?>
             {
-                ["Stripe:WebhookSecret"] = "whsec_step17_logging"
+                ["Lahza:SecretKey"] = "sk_test_step17_logging"
             },
             configureTestServices: services =>
             {
@@ -79,23 +79,23 @@ public sealed class Step17SecurityHeadersLoggingTests
         const string email = "step17.sentinel@example.test";
         const string phone = "+972-50-777-0030";
         const string address = "17 Sentinel Street";
-        const string clientSecret = "pi_step17_secret_SENTINEL";
+        const string providerPayload = "lahza-provider-payload-SENTINEL";
         const string sql = "SELECT * FROM Secrets; Server=private-step17-db;Password=db-sentinel;";
         const string stack = "at Step17.Private.Stack()";
-        const string rawSignature = "t=1700000000,v1=step17-raw-signature-sentinel";
+        const string rawSignature = "step17-raw-signature-sentinel";
         var rawBody = JsonSerializer.Serialize(new
         {
             email,
             phone,
             address,
-            clientSecret,
+            providerPayload,
             sql,
             stack
         });
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            "/api/stripe/webhook");
-        request.Headers.TryAddWithoutValidation("Stripe-Signature", rawSignature);
+            "/api/lahza/webhook");
+        request.Headers.TryAddWithoutValidation("X-Lahza-Signature", rawSignature);
         request.Content = new StringContent(rawBody, Encoding.UTF8, "application/json");
 
         using var response = await client.SendAsync(request);
@@ -114,11 +114,11 @@ public sealed class Step17SecurityHeadersLoggingTests
             email,
             phone,
             address,
-            clientSecret,
+            providerPayload,
             sql,
             stack);
         await using var verify = CreateContext(factory);
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(0);
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(0);
         (await verify.CustomerPayments.CountAsync()).Should().Be(0);
     }
 

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using GhseeliApis.DTOs.Payment;
+using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using GhseeliApis.Services.Payments;
 using System.Text.Json;
@@ -11,6 +12,21 @@ namespace GhseeliApis.Tests.Services.Payments;
 /// </summary>
 public sealed class CustomerPaymentContractTests
 {
+    [Fact]
+    public void Initialization_states_are_exact_and_new_payments_default_to_not_started()
+    {
+        new[]
+        {
+            PaymentInitializationStates.NotStarted,
+            PaymentInitializationStates.Initialized,
+            PaymentInitializationStates.Ambiguous,
+            PaymentInitializationStates.Legacy
+        }.Should().Equal("NotStarted", "Initialized", "Ambiguous", "Legacy");
+
+        new CustomerPayment().InitializationState
+            .Should().Be(PaymentInitializationStates.NotStarted);
+    }
+
     [Fact]
     public void Create_request_does_not_expose_client_authoritative_payment_fields()
     {
@@ -42,36 +58,35 @@ public sealed class CustomerPaymentContractTests
     }
 
     [Fact]
-    public void Stripe_create_command_contains_no_client_payment_method()
+    public void Payment_initialization_command_contains_no_client_payment_method()
     {
-        typeof(StripeIntentCreateCommand).GetProperties()
+        typeof(PaymentInitializationCommand).GetProperties()
             .Select(property => property.Name)
             .Should().NotContain("PaymentMethodId");
     }
 
     [Fact]
-    public void Stripe_intent_is_unconfirmed_and_has_no_payment_method()
+    public void Payment_initialization_command_uses_server_authoritative_values()
     {
-        var command = new StripeIntentCreateCommand(
+        var command = new PaymentInitializationCommand(
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
             1234,
             "ILS",
-            "stripe-key");
+            "customer@example.test",
+            "GHSEELI-TEST-REFERENCE");
 
-        var options = StripePaymentIntentGateway.BuildCreateOptions(command);
-
-        options.Confirm.Should().BeFalse();
-        options.PaymentMethod.Should().BeNull();
-        options.Amount.Should().Be(1234);
-        options.Currency.Should().Be("ils");
+        command.Amount.Should().Be(1234);
+        command.Currency.Should().Be("ILS");
+        command.CustomerEmail.Should().Be("customer@example.test");
+        command.ProviderReference.Should().Be("GHSEELI-TEST-REFERENCE");
     }
 
     [Theory]
     [InlineData("ILS", 10.01, 1001)]
     [InlineData("USD", 0.01, 1)]
-    [InlineData("EUR", 999999.99, 99999999)]
+    [InlineData("JOD", 999999.99, 99999999)]
     public void Minor_unit_conversion_is_exact(string currency, decimal amount, long expected)
     {
         CustomerPaymentMoney.ToMinorUnits(amount, currency).Should().Be(expected);
@@ -119,14 +134,14 @@ public sealed class CustomerPaymentContractTests
     }
 
     [Theory]
-    [InlineData(PaymentStatus.Pending, StripePaymentEventKind.Succeeded, PaymentStatus.Completed)]
-    [InlineData(PaymentStatus.Failed, StripePaymentEventKind.Succeeded, PaymentStatus.Completed)]
-    [InlineData(PaymentStatus.Completed, StripePaymentEventKind.Refunded, PaymentStatus.Refunded)]
-    [InlineData(PaymentStatus.Completed, StripePaymentEventKind.Failed, PaymentStatus.Completed)]
-    [InlineData(PaymentStatus.Refunded, StripePaymentEventKind.Succeeded, PaymentStatus.Refunded)]
+    [InlineData(PaymentStatus.Pending, PaymentEventKind.Succeeded, PaymentStatus.Completed)]
+    [InlineData(PaymentStatus.Failed, PaymentEventKind.Succeeded, PaymentStatus.Completed)]
+    [InlineData(PaymentStatus.Completed, PaymentEventKind.Refunded, PaymentStatus.Refunded)]
+    [InlineData(PaymentStatus.Completed, PaymentEventKind.Failed, PaymentStatus.Completed)]
+    [InlineData(PaymentStatus.Refunded, PaymentEventKind.Succeeded, PaymentStatus.Refunded)]
     public void Webhook_transition_is_duplicate_and_out_of_order_safe(
         PaymentStatus current,
-        StripePaymentEventKind eventKind,
+        PaymentEventKind eventKind,
         PaymentStatus expected)
     {
         CustomerPaymentTransitions.Apply(current, eventKind).Should().Be(expected);

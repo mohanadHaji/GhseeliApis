@@ -83,10 +83,10 @@ public sealed class Step17HostSecurityContractTests
             PaymentIntentWindowSeconds = 60,
             PaymentAggregatePermitLimit = 20,
             PaymentAggregateWindowSeconds = 60,
-            ValidStripePermitLimit = 600,
-            ValidStripeWindowSeconds = 60,
-            InvalidStripePermitLimit = 60,
-            InvalidStripeWindowSeconds = 60,
+            ValidPaymentWebhookPermitLimit = 600,
+            ValidPaymentWebhookWindowSeconds = 60,
+            InvalidPaymentWebhookPermitLimit = 60,
+            InvalidPaymentWebhookWindowSeconds = 60,
             AnonymousPermitLimit = 60,
             AnonymousWindowSeconds = 60
         });
@@ -141,10 +141,10 @@ public sealed class Step17HostSecurityContractTests
     [InlineData(nameof(CustomerRateLimitOptions.PaymentIntentWindowSeconds))]
     [InlineData(nameof(CustomerRateLimitOptions.PaymentAggregatePermitLimit))]
     [InlineData(nameof(CustomerRateLimitOptions.PaymentAggregateWindowSeconds))]
-    [InlineData(nameof(CustomerRateLimitOptions.ValidStripePermitLimit))]
-    [InlineData(nameof(CustomerRateLimitOptions.ValidStripeWindowSeconds))]
-    [InlineData(nameof(CustomerRateLimitOptions.InvalidStripePermitLimit))]
-    [InlineData(nameof(CustomerRateLimitOptions.InvalidStripeWindowSeconds))]
+    [InlineData(nameof(CustomerRateLimitOptions.ValidPaymentWebhookPermitLimit))]
+    [InlineData(nameof(CustomerRateLimitOptions.ValidPaymentWebhookWindowSeconds))]
+    [InlineData(nameof(CustomerRateLimitOptions.InvalidPaymentWebhookPermitLimit))]
+    [InlineData(nameof(CustomerRateLimitOptions.InvalidPaymentWebhookWindowSeconds))]
     [InlineData(nameof(CustomerRateLimitOptions.AnonymousPermitLimit))]
     [InlineData(nameof(CustomerRateLimitOptions.AnonymousWindowSeconds))]
     public void RateLimitOptions_EveryCategoryFailsClosedWhenNonpositive(
@@ -528,9 +528,9 @@ public sealed class Step17HostSecurityContractTests
 
     [Fact]
     [Trait("ScenarioId", "STEP17-SEC-RATE-011")]
-    public async Task StripeWebhook_FourthInvalidSignatureIsMachineRateLimited()
+    public async Task LahzaWebhook_FourthInvalidSignatureIsMachineRateLimited()
     {
-        var service = new ControlledStripeWebhookService();
+        var service = new ControlledPaymentWebhookService();
         using var factory = CreateRateFactory(webhook: service);
         using var client = CreateClient(factory);
 
@@ -556,9 +556,9 @@ public sealed class Step17HostSecurityContractTests
 
     [Fact]
     [Trait("ScenarioId", "STEP17-SEC-RATE-012")]
-    public async Task StripeWebhook_ValidDeliveryIsIndependentOfExhaustedInvalidBucket()
+    public async Task LahzaWebhook_ValidDeliveryIsIndependentOfExhaustedInvalidBucket()
     {
-        var service = new ControlledStripeWebhookService();
+        var service = new ControlledPaymentWebhookService();
         using var factory = CreateRateFactory(webhook: service);
         using var client = CreateClient(factory);
 
@@ -578,9 +578,9 @@ public sealed class Step17HostSecurityContractTests
     }
 
     [Fact]
-    public async Task StripeWebhook_SixthValidDeliveryUsesVerifiedIdentityBucket()
+    public async Task LahzaWebhook_SixthValidDeliveryUsesVerifiedIdentityBucket()
     {
-        var service = new ControlledStripeWebhookService();
+        var service = new ControlledPaymentWebhookService();
         using var factory = CreateRateFactory(webhook: service);
         using var client = CreateClient(factory);
 
@@ -749,7 +749,7 @@ public sealed class Step17HostSecurityContractTests
             string? token = null,
             ControlledAuthService? auth = null,
             ControlledPaymentService? payment = null,
-            ControlledStripeWebhookService? webhook = null)
+            ControlledPaymentWebhookService? webhook = null)
     {
             var baseFactory = CreateFactory(token);
             return baseFactory.WithWebHostBuilder(builder =>
@@ -770,13 +770,13 @@ public sealed class Step17HostSecurityContractTests
                 builder.UseSetting("RateLimiting:PaymentIntentWindowSeconds", "60");
                 builder.UseSetting("RateLimiting:PaymentAggregatePermitLimit", "2");
                 builder.UseSetting("RateLimiting:PaymentAggregateWindowSeconds", "60");
-                builder.UseSetting("RateLimiting:ValidStripePermitLimit", "5");
-                builder.UseSetting("RateLimiting:ValidStripeWindowSeconds", "60");
-                builder.UseSetting("RateLimiting:InvalidStripePermitLimit", "3");
-                builder.UseSetting("RateLimiting:InvalidStripeWindowSeconds", "60");
+                builder.UseSetting("RateLimiting:ValidPaymentWebhookPermitLimit", "5");
+                builder.UseSetting("RateLimiting:ValidPaymentWebhookWindowSeconds", "60");
+                builder.UseSetting("RateLimiting:InvalidPaymentWebhookPermitLimit", "3");
+                builder.UseSetting("RateLimiting:InvalidPaymentWebhookWindowSeconds", "60");
                 builder.UseSetting("RateLimiting:AnonymousPermitLimit", "3");
                 builder.UseSetting("RateLimiting:AnonymousWindowSeconds", "60");
-                builder.UseSetting("Stripe:WebhookSecret", "whsec_rate_test");
+                builder.UseSetting("Lahza:SecretKey", "sk_test_rate");
                 builder.ConfigureTestServices(services =>
                 {
                     if (auth is not null)
@@ -791,8 +791,8 @@ public sealed class Step17HostSecurityContractTests
                     }
                     if (webhook is not null)
                     {
-                        services.RemoveAll<IStripeWebhookService>();
-                        services.AddSingleton<IStripeWebhookService>(webhook);
+                        services.RemoveAll<IPaymentWebhookService>();
+                        services.AddSingleton<IPaymentWebhookService>(webhook);
                     }
                 });
             });
@@ -827,14 +827,14 @@ public sealed class Step17HostSecurityContractTests
             string signature)
     {
             const string body =
-                """{"id":"evt_rate_test","object":"event","type":"customer.created","data":{"object":{"id":"cus_rate_test","object":"customer"}}}""";
+                """{"id":"evt_rate_test","event":"customer.created","data":{"reference":"GHSEELI-RATE-TEST","id":1001,"amount":1000,"currency":"ILS"}}""";
             using var request = new HttpRequestMessage(
                 HttpMethod.Post,
-                "/api/stripe/webhook");
+                "/api/lahza/webhook");
             request.Headers.TryAddWithoutValidation(
-                "Stripe-Signature",
+                "X-Lahza-Signature",
                 signature == "valid"
-                    ? CreateStripeSignature(body)
+                    ? CreateLahzaSignature(body)
                     : signature);
             request.Content = new StringContent(
                 body,
@@ -843,16 +843,13 @@ public sealed class Step17HostSecurityContractTests
             return await client.SendAsync(request);
     }
 
-    private static string CreateStripeSignature(string body)
+    private static string CreateLahzaSignature(string body)
     {
-        const string secret = "whsec_rate_test";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        var signature = Convert.ToHexString(
-                HMACSHA256.HashData(
-                    Encoding.UTF8.GetBytes(secret),
-                    Encoding.UTF8.GetBytes($"{timestamp}.{body}")))
-            .ToLowerInvariant();
-        return $"t={timestamp},v1={signature}";
+        const string secret = "sk_test_rate";
+        return Convert.ToHexString(
+            HMACSHA256.HashData(
+                Encoding.UTF8.GetBytes(secret),
+                Encoding.UTF8.GetBytes(body)));
     }
 
     private static async Task AssertLocalizedRateLimitAsync(
@@ -1081,9 +1078,10 @@ public sealed class Step17HostSecurityContractTests
                     Currency = "ILS",
                     Method = "Card",
                     Status = "Pending",
+                    Provider = PaymentProviders.Lahza,
                     ProviderStatus = "requires_confirmation",
-                    ClientSecret = "safe-client-value",
-                    PublishableKey = "safe-publishable-value",
+                    ProviderReference = "GHSEELI-SAFE",
+                    CheckoutUrl = "https://checkout.lahza.test/pay/GHSEELI-SAFE",
                     CreatedAtUtc = DateTimeOffset.UtcNow
                 };
             }
@@ -1097,15 +1095,22 @@ public sealed class Step17HostSecurityContractTests
             Guid deviceId,
             CancellationToken cancellationToken) =>
             Task.FromResult<CustomerPaymentResponse?>(null);
+
+        public Task<CustomerPaymentResponse?> VerifyAsync(
+            Guid paymentId,
+            Guid userId,
+            Guid deviceId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CustomerPaymentResponse?>(null);
     }
 
-    private sealed class ControlledStripeWebhookService : IStripeWebhookService
+    private sealed class ControlledPaymentWebhookService : IPaymentWebhookService
     {
         public int Calls { get; private set; }
 
         public Task ProcessAsync(
-            VerifiedStripeEvent stripeEvent,
-            string rawBody,
+            VerifiedPaymentEvent paymentEvent,
+            ReadOnlyMemory<byte> rawBody,
             CancellationToken cancellationToken)
         {
             Calls++;

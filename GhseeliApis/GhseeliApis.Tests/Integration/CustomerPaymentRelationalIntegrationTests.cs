@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Moq;
 using System.Data.Common;
+using System.Text;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace GhseeliApis.Tests.Integration;
@@ -39,32 +40,60 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     }
 
     [Fact]
-    public async Task Stripe_event_id_is_durably_unique()
+    public async Task Payment_webhook_event_id_is_unique_within_provider()
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
         await using (var first = database.CreateContext())
         {
-            first.StripeWebhookEvents.Add(new StripeWebhookEventRecord
+            first.PaymentWebhookEvents.Add(new PaymentWebhookEventRecord
             {
                 EventId = "evt_unique",
                 BodyHash = new string('A', 64),
-                EventType = "payment_intent.succeeded",
+                EventType = "charge.success",
                 State = "Completed"
             });
             await first.SaveChangesAsync();
         }
 
         await using var second = database.CreateContext();
-        second.StripeWebhookEvents.Add(new StripeWebhookEventRecord
+        second.PaymentWebhookEvents.Add(new PaymentWebhookEventRecord
         {
             EventId = "evt_unique",
             BodyHash = new string('B', 64),
-            EventType = "payment_intent.succeeded",
+            EventType = "charge.success",
             State = "Completed"
         });
         var act = () => second.SaveChangesAsync();
 
         await act.Should().ThrowAsync<DbUpdateException>();
+    }
+
+    [Fact]
+    public async Task Payment_webhook_event_id_can_repeat_across_providers()
+    {
+        await using var database = await SqlServerCatalogDatabase.CreateAsync();
+        await using var context = database.CreateContext();
+        context.PaymentWebhookEvents.AddRange(
+            new PaymentWebhookEventRecord
+            {
+                Provider = "Lahza",
+                EventId = "evt_cross_provider",
+                BodyHash = new string('A', 64),
+                EventType = "charge.success",
+                State = "Completed"
+            },
+            new PaymentWebhookEventRecord
+            {
+                Provider = "Stripe",
+                EventId = "evt_cross_provider",
+                BodyHash = new string('B', 64),
+                EventType = "payment_intent.succeeded",
+                State = "Completed"
+            });
+
+        await context.SaveChangesAsync();
+
+        (await context.PaymentWebhookEvents.CountAsync()).Should().Be(2);
     }
 
     [Fact]
@@ -125,16 +154,15 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         var barrier = new ExistingPaymentReadBarrier();
         await using var firstContext = database.CreateContext(barrier);
         await using var secondContext = database.CreateContext(barrier);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(),
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult(
-                    $"pi_{command.PaymentId:N}",
-                    "requires_confirmation",
-                    "client-secret",
-                    null,
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     command.Amount,
                     command.Currency));
         var first = CreateService(firstContext, gateway.Object);
@@ -155,8 +183,8 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         await using var verify = database.CreateContext();
         (await verify.CustomerPayments.CountAsync()).Should().Be(1);
         (await verify.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(2);
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(),
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -169,13 +197,15 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         var barrier = new ExistingPaymentReadBarrier();
         await using var firstContext = database.CreateContext(barrier);
         await using var secondContext = database.CreateContext(barrier);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(),
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult(
-                    "pi_same_key", "requires_action", "same-secret", null,
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     command.Amount, command.Currency));
         var request = new GhseeliApis.DTOs.Payment.CreateCustomerPaymentIntentRequest
         {
@@ -193,9 +223,10 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         await using var verify = database.CreateContext();
         (await verify.CustomerPayments.CountAsync()).Should().Be(1);
         (await verify.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(1);
-        (await verify.CustomerPayments.SingleAsync()).PaymentIntentId.Should().Be("pi_same_key");
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(),
+        (await verify.CustomerPayments.SingleAsync()).ProviderReference
+            .Should().StartWith("GHSEELI-");
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -206,13 +237,15 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         var booking = await SeedBookingAsync(database);
         var failpoint = new ThrowAfterIntentCompletionInterceptor();
         await using var context = database.CreateContext(failpoint);
-        var gateway = new Mock<IStripePaymentIntentGateway>();
-        gateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(),
+        var gateway = new Mock<IPaymentGateway>();
+        gateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult(
-                    "pi_ambiguous_commit", "requires_action", "secret", null,
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/{command.ProviderReference}"),
                     command.Amount, command.Currency));
 
         var result = await CreateService(context, gateway.Object).CreateAsync(
@@ -226,16 +259,16 @@ public sealed class CustomerPaymentRelationalIntegrationTests
             booking.OwnerDeviceId,
             default);
 
-        result.ClientSecret.Should().Be("secret");
+        result.CheckoutUrl.Should().StartWith("https://checkout.lahza.test/");
         failpoint.WasTriggered.Should().BeTrue();
         await using var verify = database.CreateContext();
         (await verify.CustomerPayments.CountAsync()).Should().Be(1);
         (await verify.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(1);
         var payment = await verify.CustomerPayments.SingleAsync();
-        payment.PaymentIntentId.Should().Be("pi_ambiguous_commit");
-        payment.IntentLeaseOwnerToken.Should().BeNull();
-        gateway.Verify(value => value.CreateAsync(
-            It.IsAny<StripeIntentCreateCommand>(),
+        payment.ProviderReference.Should().StartWith("GHSEELI-");
+        payment.InitializationLeaseOwnerToken.Should().BeNull();
+        gateway.Verify(value => value.InitializeAsync(
+            It.IsAny<PaymentInitializationCommand>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -276,11 +309,11 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
         await using var context = database.CreateContext();
-        context.StripeWebhookEvents.Add(new StripeWebhookEventRecord
+        context.PaymentWebhookEvents.Add(new PaymentWebhookEventRecord
         {
             EventId = $"evt_{Guid.NewGuid():N}",
             BodyHash = new string('A', 64),
-            EventType = "payment_intent.succeeded",
+            EventType = "charge.success",
             State = state
         });
 
@@ -290,8 +323,8 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     }
 
     [Theory]
-    [InlineData("provider-intent")]
-    [InlineData("provider-idempotency")]
+    [InlineData("provider-reference")]
+    [InlineData("provider-transaction")]
     public async Task Provider_identifiers_are_durably_unique(string identifier)
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
@@ -302,13 +335,13 @@ public sealed class CustomerPaymentRelationalIntegrationTests
             firstBooking.Id, firstBooking.UserId, firstBooking.OwnerDeviceId, "unique-a");
         var second = CreatePayment(
             secondBooking.Id, secondBooking.UserId, secondBooking.OwnerDeviceId, "unique-b");
-        if (identifier == "provider-intent")
+        if (identifier == "provider-reference")
         {
-            first.PaymentIntentId = second.PaymentIntentId = "pi_duplicate";
+            first.ProviderReference = second.ProviderReference = "GHSEELI-DUPLICATE";
         }
         else
         {
-            first.StripeIdempotencyKey = second.StripeIdempotencyKey = "stripe-duplicate";
+            first.ProviderTransactionId = second.ProviderTransactionId = "1001";
         }
         context.CustomerPayments.AddRange(first, second);
 
@@ -392,11 +425,11 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
         await using var context = database.CreateContext();
-        context.StripeWebhookEvents.Add(new StripeWebhookEventRecord
+        context.PaymentWebhookEvents.Add(new PaymentWebhookEventRecord
         {
             EventId = $"evt_{Guid.NewGuid():N}",
             BodyHash = new string('A', 64),
-            EventType = "payment_intent.succeeded",
+            EventType = "charge.success",
             State = "Completed",
             CustomerPaymentId = Guid.NewGuid()
         });
@@ -411,17 +444,17 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
         var payment = await SeedPaymentAsync(database);
-        var staleGateway = new BlockingGateway("pi_stale", "stale-secret");
-        var winnerGateway = new Mock<IStripePaymentIntentGateway>();
-        winnerGateway.Setup(value => value.CreateAsync(
-                It.IsAny<StripeIntentCreateCommand>(),
+        var staleGateway = new BlockingGateway(
+            "https://checkout.lahza.test/pay/stale");
+        var winnerGateway = new Mock<IPaymentGateway>();
+        winnerGateway.Setup(value => value.InitializeAsync(
+                It.IsAny<PaymentInitializationCommand>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync((StripeIntentCreateCommand command, CancellationToken _) =>
-                new StripeIntentResult(
-                    "pi_winner",
-                    "requires_confirmation",
-                    "winner-secret",
-                    null,
+            .ReturnsAsync((PaymentInitializationCommand command, CancellationToken _) =>
+                new PaymentInitializationResult(
+                    command.ProviderReference,
+                    "initialized",
+                    new Uri($"https://checkout.lahza.test/pay/winner-{command.ProviderReference}"),
                     command.Amount,
                     command.Currency));
         await using var staleContext = database.CreateContext();
@@ -448,7 +481,7 @@ public sealed class CustomerPaymentRelationalIntegrationTests
                 .Where(value => value.Id == payment.Id)
                 .ExecuteUpdateAsync(setters => setters
                     .SetProperty(
-                        value => value.IntentLeaseExpiresAtUtc,
+                        value => value.InitializationLeaseExpiresAtUtc,
                         DateTimeOffset.UtcNow.AddSeconds(-1)));
         });
 
@@ -461,14 +494,14 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         staleGateway.Release();
         var stale = await staleTask;
 
-        winner.ClientSecret.Should().Be("winner-secret");
-        stale.ClientSecret.Should().Be("winner-secret");
+        winner.CheckoutUrl.Should().Contain("/winner-GHSEELI-");
+        stale.CheckoutUrl.Should().Be(winner.CheckoutUrl);
         await using var verify = database.CreateContext();
         var persisted = await verify.CustomerPayments.SingleAsync();
-        persisted.PaymentIntentId.Should().Be("pi_winner");
-        persisted.ClientSecret.Should().Be("winner-secret");
-        persisted.IntentLeaseOwnerToken.Should().BeNull();
-        persisted.IntentLeaseExpiresAtUtc.Should().BeNull();
+        persisted.ProviderReference.Should().StartWith("GHSEELI-");
+        persisted.CheckoutUrl.Should().Be(winner.CheckoutUrl);
+        persisted.InitializationLeaseOwnerToken.Should().BeNull();
+        persisted.InitializationLeaseExpiresAtUtc.Should().BeNull();
     }
 
     [Fact]
@@ -476,7 +509,8 @@ public sealed class CustomerPaymentRelationalIntegrationTests
     {
         await using var database = await SqlServerCatalogDatabase.CreateAsync();
         var payment = await SeedPaymentAsync(database);
-        var gateway = new BlockingGateway("pi_canceled", "canceled-secret");
+        var gateway = new BlockingGateway(
+            "https://checkout.lahza.test/pay/canceled");
         await using var context = database.CreateContext();
         var service = CreateService(context, gateway);
         var request = new GhseeliApis.DTOs.Payment.CreateCustomerPaymentIntentRequest
@@ -499,9 +533,10 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         await act.Should().ThrowAsync<OperationCanceledException>();
         await using var verify = database.CreateContext();
         var persisted = await verify.CustomerPayments.SingleAsync();
-        persisted.PaymentIntentId.Should().BeNull();
-        persisted.IntentLeaseOwnerToken.Should().BeNull();
-        persisted.IntentLeaseExpiresAtUtc.Should().BeNull();
+        persisted.ProviderReference.Should().StartWith("GHSEELI-");
+        persisted.InitializationState.Should().Be(PaymentInitializationStates.NotStarted);
+        persisted.InitializationLeaseOwnerToken.Should().BeNull();
+        persisted.InitializationLeaseExpiresAtUtc.Should().BeNull();
     }
 
     [Fact]
@@ -515,48 +550,46 @@ public sealed class CustomerPaymentRelationalIntegrationTests
             await context.CustomerPayments
                 .Where(value => value.Id == payment.Id)
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(value => value.PaymentIntentId, "pi_ordering")
-                    .SetProperty(value => value.ChargeId, (string?)null));
+                    .SetProperty(value => value.ProviderReference, "GHSEELI-ORDERING")
+                    .SetProperty(value => value.ProviderTransactionId, (string?)null));
         });
         var barrier = new WebhookPaymentReadBarrier();
         await using var refundContext = database.CreateContext(barrier);
         await using var successContext = database.CreateContext(barrier);
-        var refundService = new StripeWebhookService(
+        var refundService = new PaymentWebhookService(
             refundContext,
             Mock.Of<IAppLogger>(),
             TimeProvider.System);
-        var successService = new StripeWebhookService(
+        var successService = new PaymentWebhookService(
             successContext,
             Mock.Of<IAppLogger>(),
             TimeProvider.System);
-        var metadata = new Dictionary<string, string>
-        {
-            ["payment_id"] = payment.Id.ToString("D"),
-            ["booking_id"] = payment.CustomerBookingId.ToString("D"),
-            ["booking_reference"] = payment.CustomerBooking.PublicReference.ToString("D")
-        };
-        var refund = new VerifiedStripeEvent(
+        var refund = new VerifiedPaymentEvent(
             "evt_concurrent_refund",
-            "charge.refunded",
-            StripePaymentEventKind.Refunded,
-            "pi_ordering",
+            "refund.processed",
+            PaymentEventKind.Refunded,
+            "GHSEELI-ORDERING",
             "ch_ordering",
             payment.MinorAmount,
-            payment.Currency,
-            metadata);
-        var success = new VerifiedStripeEvent(
+            payment.Currency);
+        var success = new VerifiedPaymentEvent(
             "evt_concurrent_success",
-            "payment_intent.succeeded",
-            StripePaymentEventKind.Succeeded,
-            "pi_ordering",
+            "charge.success",
+            PaymentEventKind.Succeeded,
+            "GHSEELI-ORDERING",
             "ch_ordering",
             payment.MinorAmount,
-            payment.Currency,
-            metadata);
+            payment.Currency);
 
         await Task.WhenAll(
-            refundService.ProcessAsync(refund, "refund-body", default),
-            successService.ProcessAsync(success, "success-body", default));
+            refundService.ProcessAsync(
+                refund,
+                Encoding.UTF8.GetBytes("refund-body"),
+                default),
+            successService.ProcessAsync(
+                success,
+                Encoding.UTF8.GetBytes("success-body"),
+                default));
 
         await using var verify = database.CreateContext();
         var persisted = await verify.CustomerPayments
@@ -565,35 +598,42 @@ public sealed class CustomerPaymentRelationalIntegrationTests
         persisted.Status.Should().Be(PaymentStatus.Refunded);
         persisted.CustomerBooking.IsPaid.Should().BeFalse();
         persisted.CustomerBooking.PaymentState.Should().Be("Refunded");
-        (await verify.StripeWebhookEvents.CountAsync()).Should().Be(2);
-        (await verify.StripeWebhookEvents.CountAsync(value =>
+        (await verify.PaymentWebhookEvents.CountAsync()).Should().Be(2);
+        (await verify.PaymentWebhookEvents.CountAsync(value =>
             value.State == "Completed")).Should().Be(2);
     }
 
-    private sealed class BlockingGateway(
-        string paymentIntentId,
-        string clientSecret) : IStripePaymentIntentGateway
+    private sealed class BlockingGateway(string checkoutUrl) : IPaymentGateway
     {
         private readonly TaskCompletionSource _release =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public TaskCompletionSource<StripeIntentCreateCommand> Started { get; } =
+        public TaskCompletionSource<PaymentInitializationCommand> Started { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public async Task<StripeIntentResult> CreateAsync(
-            StripeIntentCreateCommand command,
+        public async Task<PaymentInitializationResult> InitializeAsync(
+            PaymentInitializationCommand command,
             CancellationToken cancellationToken)
         {
             Started.TrySetResult(command);
             await _release.Task.WaitAsync(cancellationToken);
-            return new StripeIntentResult(
-                paymentIntentId,
-                "requires_confirmation",
-                clientSecret,
-                null,
+            return new PaymentInitializationResult(
+                command.ProviderReference,
+                "initialized",
+                new Uri(checkoutUrl),
                 command.Amount,
                 command.Currency);
         }
+
+        public Task<PaymentVerificationResult> VerifyAsync(
+            string reference,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PaymentVerificationResult(
+                reference,
+                "pending",
+                null,
+                0,
+                "ILS"));
 
         public void Release() => _release.TrySetResult();
     }
@@ -645,7 +685,7 @@ public sealed class CustomerPaymentRelationalIntegrationTests
                     "FROM [CustomerPayments] AS [c]",
                     StringComparison.Ordinal) &&
                 command.CommandText.Contains(
-                    "[c].[PaymentIntentId]",
+                    "[c].[ProviderReference]",
                     StringComparison.Ordinal) &&
                 Interlocked.Increment(ref _readCount) <= 2)
             {
@@ -673,9 +713,10 @@ public sealed class CustomerPaymentRelationalIntegrationTests
             CancellationToken cancellationToken = default)
         {
             if (command.CommandText.Contains("UPDATE", StringComparison.OrdinalIgnoreCase) &&
-                command.CommandText.Contains("[PaymentIntentId]", StringComparison.Ordinal) &&
+                command.CommandText.Contains("[CheckoutUrl]", StringComparison.Ordinal) &&
                 command.CommandText.Contains("[ProviderStatus]", StringComparison.Ordinal) &&
-                command.CommandText.Contains("[IntentLeaseOwnerToken]", StringComparison.Ordinal) &&
+                command.CommandText.Contains("[InitializationState]", StringComparison.Ordinal) &&
+                command.CommandText.Contains("[InitializationLeaseOwnerToken]", StringComparison.Ordinal) &&
                 Interlocked.Exchange(ref _triggered, 1) == 0)
             {
                 throw new IOException("Simulated lost SQL commit acknowledgement.");
@@ -770,12 +811,11 @@ public sealed class CustomerPaymentRelationalIntegrationTests
 
     private static CustomerPaymentService CreateService(
         GhseeliApis.Persistence.ApplicationDbContext context,
-        IStripePaymentIntentGateway gateway)
+        IPaymentGateway gateway)
     {
-        var options = new Mock<IOptionsMonitor<StripeConfigurationOptions>>();
-        options.SetupGet(value => value.CurrentValue).Returns(new StripeConfigurationOptions
+        var options = new Mock<IOptionsMonitor<LahzaConfigurationOptions>>();
+        options.SetupGet(value => value.CurrentValue).Returns(new LahzaConfigurationOptions
         {
-            PublishableKey = "pk_test_configured",
             SecretKey = "sk_test_configured"
         });
         return new CustomerPaymentService(
@@ -804,7 +844,8 @@ public sealed class CustomerPaymentRelationalIntegrationTests
             Status = PaymentStatus.Pending,
             IdempotencyKey = key,
             RequestHash = new string('A', 64),
-            StripeIdempotencyKey = $"stripe-{Guid.NewGuid():N}"
+            Provider = PaymentProviders.Lahza,
+            ProviderReference = $"GHSEELI-{Guid.NewGuid():N}".ToUpperInvariant()
         };
 
     private static CustomerPaymentIdempotencyRecord CreateIdempotency(

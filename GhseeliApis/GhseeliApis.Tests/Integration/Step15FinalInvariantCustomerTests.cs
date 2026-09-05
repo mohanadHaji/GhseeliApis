@@ -241,7 +241,7 @@ public sealed class Step15FinalInvariantCustomerTests
 
     [Fact]
     [Trait("ScenarioId", "STEP15-PROBLEM-REDACTION-032")]
-    public async Task Captured_logs_redact_representative_JWT_device_HMAC_Stripe_and_provider_failures()
+    public async Task Captured_logs_redact_representative_JWT_device_HMAC_Lahza_and_provider_failures()
     {
         var logs = new CapturingLoggerProvider();
         var service = new MockPaymentService((_, _, _, _, _) =>
@@ -282,11 +282,11 @@ public sealed class Step15FinalInvariantCustomerTests
             hmacFailure.Content = new StringContent("{\"providerSecret\":\"hmac-sensitive-body\"}", Encoding.UTF8, "application/json");
             using var _ = await client.SendAsync(hmacFailure);
         }
-        using (var stripeFailure = new HttpRequestMessage(HttpMethod.Post, "/api/stripe/webhook"))
+        using (var lahzaFailure = new HttpRequestMessage(HttpMethod.Post, "/api/lahza/webhook"))
         {
-            stripeFailure.Headers.TryAddWithoutValidation("Stripe-Signature", "stripe-sensitive-signature");
-            stripeFailure.Content = new StringContent("stripe-sensitive-body", Encoding.UTF8, "application/json");
-            using var _ = await client.SendAsync(stripeFailure);
+            lahzaFailure.Headers.TryAddWithoutValidation("X-Lahza-Signature", "lahza-sensitive-signature");
+            lahzaFailure.Content = new StringContent("lahza-sensitive-body", Encoding.UTF8, "application/json");
+            using var _ = await client.SendAsync(lahzaFailure);
         }
         using var providerFailure = await SendPaymentAsync(
             client, "provider-sensitive-idempotency", Jwt(Guid.NewGuid()));
@@ -298,8 +298,8 @@ public sealed class Step15FinalInvariantCustomerTests
             "device-sensitive-value",
             "hmac-sensitive-signature",
             "hmac-sensitive-body",
-            "stripe-sensitive-signature",
-            "stripe-sensitive-body",
+            "lahza-sensitive-signature",
+            "lahza-sensitive-body",
             "provider-raw-secret",
             "provider-sensitive-idempotency");
         logs.Messages.Should().NotBeEmpty("the assertion must inspect actual emitted framework/application logs");
@@ -487,6 +487,13 @@ public sealed class Step15FinalInvariantCustomerTests
             Guid deviceId,
             CancellationToken cancellationToken) =>
             Task.FromResult<CustomerPaymentResponse?>(null);
+
+        public Task<CustomerPaymentResponse?> VerifyAsync(
+            Guid paymentId,
+            Guid userId,
+            Guid deviceId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CustomerPaymentResponse?>(null);
     }
 
     private sealed class OneWinnerPaymentService : ICustomerPaymentService
@@ -529,6 +536,13 @@ public sealed class Step15FinalInvariantCustomerTests
         }
 
         public Task<CustomerPaymentResponse?> GetAsync(
+            Guid paymentId,
+            Guid userId,
+            Guid deviceId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<CustomerPaymentResponse?>(null);
+
+        public Task<CustomerPaymentResponse?> VerifyAsync(
             Guid paymentId,
             Guid userId,
             Guid deviceId,

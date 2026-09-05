@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace GhseeliApis.Tests.Integration;
 
 /// <summary>
-/// Exercises the complete Stripe webhook HTTP boundary with controlled verified events.
+/// Exercises the complete Lahza webhook HTTP boundary with controlled verified events.
 /// </summary>
 public sealed class CustomerPaymentWebhookApiIntegrationTests
 {
@@ -41,7 +41,6 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("not-a-webhook-secret")]
     public async Task Webhook_InvalidConfigurationFailsClosedBeforeBodyOrSignature(
         string? secret)
     {
@@ -93,7 +92,7 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
             Failure = new CustomerPaymentException(
                 status,
                 code,
-                "whsec_leak stripe-signature customer@example.com")
+                "sk_test_leak x-lahza-signature customer@example.com")
         };
         var service = new ControlledWebhookService();
         await using var factory = CreateFactory(parser, service);
@@ -116,8 +115,8 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
         await using var factory = CreateFactory(parser, service);
         using var client = factory.CreateApiClient();
         var bytes = Encoding.UTF8.GetBytes(new string('x', 65_537));
-        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/stripe/webhook");
-        request.Headers.Add("Stripe-Signature", "valid");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/lahza/webhook");
+        request.Headers.Add("X-Lahza-Signature", "valid");
         request.Content = streamed
             ? new UnknownLengthContent(bytes)
             : new ByteArrayContent(bytes);
@@ -154,7 +153,7 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
             response,
             HttpStatusCode.BadRequest,
             CustomerPaymentErrorCodes.EventInvalid);
-        parser.RawBody.Should().Be(body);
+        parser.RawBody.Should().Equal(Encoding.UTF8.GetBytes(body));
     }
 
     [Fact]
@@ -184,8 +183,9 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
             .And.NotContain("payment")
             .And.NotContain("booking")
             .And.NotContain("disposition");
-        parser.RawBody.Should().Be("""{"id":"evt_safe"}""");
-        service.RawBody.Should().Be(parser.RawBody);
+        parser.RawBody.Should().Equal(
+            Encoding.UTF8.GetBytes("""{"id":"evt_safe"}"""));
+        service.RawBody.Should().Equal(parser.RawBody!);
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
         var service = new ControlledWebhookService
         {
             Failure = new InvalidOperationException(
-                "SELECT secret FROM payment sk_test_unsafe whsec_unsafe customer@example.com")
+                "SELECT secret FROM payment sk_test_unsafe lahza_secret_unsafe customer@example.com")
         };
         await using var factory = CreateFactory(parser, service, logger: logger);
         using var client = factory.CreateApiClient();
@@ -210,26 +210,26 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
             CustomerPaymentErrorCodes.GatewayAmbiguous);
         logger.AllText.Should().NotContain("SELECT secret")
             .And.NotContain("sk_test_unsafe")
-            .And.NotContain("whsec_unsafe")
+            .And.NotContain("lahza_secret_unsafe")
             .And.NotContain("customer@example.com");
     }
 
     private static CheckoutDraftApiFactory CreateFactory(
         ControlledWebhookParser parser,
         ControlledWebhookService service,
-        string? webhookSecret = "whsec_test_only",
+        string? secretKey = "sk_test_only",
         IAppLogger? logger = null) =>
         new(
             settings: new Dictionary<string, string?>
             {
-                ["Stripe:WebhookSecret"] = webhookSecret
+                ["Lahza:SecretKey"] = secretKey
             },
             configureTestServices: services =>
             {
-                services.RemoveAll<IStripeWebhookParser>();
-                services.RemoveAll<IStripeWebhookService>();
-                services.AddSingleton<IStripeWebhookParser>(parser);
-                services.AddSingleton<IStripeWebhookService>(service);
+                services.RemoveAll<IPaymentWebhookParser>();
+                services.RemoveAll<IPaymentWebhookService>();
+                services.AddSingleton<IPaymentWebhookParser>(parser);
+                services.AddSingleton<IPaymentWebhookService>(service);
                 if (logger is not null)
                 {
                     services.RemoveAll<IAppLogger>();
@@ -255,10 +255,10 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
         string? signature,
         string? contentType)
     {
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/stripe/webhook");
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/lahza/webhook");
         if (signature is not null)
         {
-            request.Headers.TryAddWithoutValidation("Stripe-Signature", signature);
+            request.Headers.TryAddWithoutValidation("X-Lahza-Signature", signature);
         }
         request.Content = new StringContent(body, Encoding.UTF8);
         request.Content.Headers.ContentType = contentType is null
@@ -282,61 +282,60 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
         root.GetProperty("status").GetInt32().Should().Be((int)status);
         root.GetProperty("code").GetString().Should().Be(code);
         root.GetProperty("title").GetString()
-            .Should().Be("Stripe webhook request could not be processed.");
+            .Should().Be("Lahza webhook request could not be processed.");
         root.GetProperty("detail").GetString()
-            .Should().Be("Stripe webhook request could not be processed.");
+            .Should().Be("Lahza webhook request could not be processed.");
         root.TryGetProperty("language", out _).Should().BeFalse();
         var correlation = root.GetProperty("correlationId").GetString();
         response.Headers.GetValues("X-Correlation-Id").Should().ContainSingle(correlation);
-        body.Should().NotContain("whsec_")
-            .And.NotContain("stripe-signature")
+        body.Should().NotContain("sk_test_")
+        .And.NotContain("x-lahza-signature")
             .And.NotContain("customer@example.com")
             .And.NotContain("SELECT secret");
     }
 
-    private sealed class ControlledWebhookParser : IStripeWebhookParser
+    private sealed class ControlledWebhookParser : IPaymentWebhookParser
     {
         public int Calls { get; private set; }
-        public string? RawBody { get; private set; }
+        public byte[]? RawBody { get; private set; }
         public Exception? Failure { get; set; }
 
-        public VerifiedStripeEvent Parse(
-            string rawBody,
+        public VerifiedPaymentEvent Parse(
+            ReadOnlyMemory<byte> rawBody,
             string signature,
             string webhookSecret)
         {
             Calls++;
-            RawBody = rawBody;
+            RawBody = rawBody.ToArray();
             if (Failure is not null)
             {
                 throw Failure;
             }
 
-            return new VerifiedStripeEvent(
+            return new VerifiedPaymentEvent(
                 "evt_safe",
                 "unknown.event",
-                StripePaymentEventKind.Ignored,
+                PaymentEventKind.Ignored,
                 string.Empty,
                 null,
                 0,
-                string.Empty,
-                new Dictionary<string, string>());
+                string.Empty);
         }
     }
 
-    private sealed class ControlledWebhookService : IStripeWebhookService
+    private sealed class ControlledWebhookService : IPaymentWebhookService
     {
         public int Calls { get; private set; }
-        public string? RawBody { get; private set; }
+        public byte[]? RawBody { get; private set; }
         public Exception? Failure { get; set; }
 
         public Task ProcessAsync(
-            VerifiedStripeEvent stripeEvent,
-            string rawBody,
+            VerifiedPaymentEvent paymentEvent,
+            ReadOnlyMemory<byte> rawBody,
             CancellationToken cancellationToken)
         {
             Calls++;
-            RawBody = rawBody;
+            RawBody = rawBody.ToArray();
             return Failure is null
                 ? Task.CompletedTask
                 : Task.FromException(Failure);

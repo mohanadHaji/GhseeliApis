@@ -24,7 +24,7 @@ public sealed class Step16IsolationStartupCustomerTests
         "CatalogController", "CheckoutDraftsController", "CheckoutPricingController",
         "ConfigurationController", "CustomerPaymentsController", "DevicesController",
         "HealthController", "InternalBookingStatusController", "PricingController",
-        "StripeWebhookController", "UsersController", "VehiclesController"
+        "LahzaWebhookController", "UsersController", "VehiclesController"
     ];
 
     private static readonly string[] ForbiddenTables =

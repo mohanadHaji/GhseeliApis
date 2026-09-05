@@ -17,7 +17,7 @@ The solution is under `GhseeliApis\GhseeliApis.sln`.
 
 | Project | Responsibility |
 |---|---|
-| `GhseeliApis` | Customer identity, devices, vehicles, addresses, synchronized catalog, checkout drafts, pricing, customer bookings, payments, and Stripe webhooks |
+| `GhseeliApis` | Customer identity, devices, vehicles, addresses, synchronized catalog, checkout drafts, pricing, customer bookings, payments, and Lahza webhooks |
 | `Ghseeli.BusinessApi` | Business identity, companies, branches, catalog, availability, reservations, work orders, and staff transitions |
 | `Ghseeli.IntegrationContracts` | Neutral versioned HTTP DTOs and enums shared across the APIs |
 | `Ghseeli.Common` | Shared infrastructure that is safe for both applications, including application logging |
@@ -55,6 +55,8 @@ put their values in source control:
 - `BUSINESS_JWT_SECRET`
 - `CUSTOMER_TO_BUSINESS_HMAC_SECRET`
 - `BUSINESS_TO_CUSTOMER_HMAC_SECRET`
+- `LAHZA_SECRET_KEY` when Lahza card payments are enabled; leave it unset to
+  keep card payment disabled
 - `CUSTOMER_WEBDEPLOY_URL`, `CUSTOMER_WEBDEPLOY_SITE`,
   `CUSTOMER_WEBDEPLOY_USERNAME`, `CUSTOMER_WEBDEPLOY_PASSWORD`
 - `BUSINESS_WEBDEPLOY_URL`, `BUSINESS_WEBDEPLOY_SITE`,
@@ -81,11 +83,15 @@ car-wash focused. In particular:
 - Customer checkout and booking require vehicle data.
 - Business reservations create vehicle work-order details.
 - Customer catalog browsing exposes only the existing car-wash catalog.
+- Customers can request capacity-aware available appointment slots for one
+  selected business and branch. The Customer API maps public catalog IDs while
+  the Business API remains authoritative for schedules, timezone, duration,
+  overrides, and current reservation capacity.
 - New business-owner registration is assigned internally to the `car_wash`
   vertical.
 - Other verticals are not enabled for registration or exposed through any
   current API.
-- Card payment must remain disabled when Stripe is not configured. Wallet,
+- Card payment must remain disabled when Lahza is not configured. Wallet,
   cash-on-arrival, and third-party payment remain unavailable.
 
 The vertical-ready schema does **not** mean mechanics or dry cleaners are
@@ -198,6 +204,9 @@ The Customer database also uses `dbo`.
 - `CatalogProviders.BusinessVerticalCode` is internal and defaults to
   `car_wash`. Customer catalog queries explicitly exclude every other vertical,
   and the marker is intentionally not exposed by current DTOs.
+- `POST /api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots`
+  is device protected and returns an advisory, non-cacheable capacity snapshot.
+  Booking confirmation always revalidates the slot atomically.
 
 ### Checkout, booking, and payment
 
@@ -212,7 +221,7 @@ The Customer database also uses `dbo`.
 - Customer bookings retain vehicle snapshots because the current Customer API
   remains explicitly vehicle-focused.
 - Payment and webhook tables own server-authoritative amount, currency,
-  idempotency, and verified Stripe lifecycle state.
+  idempotency, hosted-checkout references, and verified Lahza lifecycle state.
 - Processed status messages prevent duplicate or out-of-order callbacks.
 
 ## Relationship summary
@@ -316,7 +325,7 @@ dotnet ef database update `
 ```
 
 Development connection strings, JWT keys, OAuth credentials, internal HMAC
-secrets, and Stripe values must come from user secrets or environment
+secrets, and Lahza values must come from user secrets or environment
 variables. Never place real secrets in committed settings or test artifacts.
 
 ## Testing workflow
@@ -337,9 +346,10 @@ The manifest-driven PowerShell HTTP harness is under
 `Invoke-HttpTests.ps1`; committed plans are under `plans`, while generated
 results and `*.local.json` overrides remain ignored under `artifacts`.
 
-The real Stripe test-network scenario is intentionally separate. Until valid
-test-mode Stripe configuration is available, deployment must keep card
-payment disabled and must not claim the real Stripe release gate passed.
+The real Lahza test-network scenarios are intentionally separate. Until a
+valid test-mode Lahza secret is available, deployment keeps card payment
+disabled and must not claim the real Lahza release gate passed. Production
+callbacks and webhooks additionally require a publicly trusted HTTPS endpoint.
 
 ## Handoff for a new session
 
@@ -353,9 +363,9 @@ Before changing code:
    starts a vertical implementation.
 6. Update this README whenever schema or future-expansion assumptions change.
 
-The next planned activity after this schema-readiness change is the
-comprehensive non-Stripe pre-deployment acceptance gate: inventory every
-endpoint and field, exercise independent and cross-system lifecycles with
-multiple actors, verify state transitions and failure recovery, and reconcile
-every route to passing evidence. The user will request that full gate
-separately.
+The Stripe runtime has been replaced by provider-neutral Lahza hosted checkout,
+owned server verification, and exact-body HMAC-SHA256 webhooks. Deterministic
+automated, relational, migration, and safe-local HTTP gates pass. The remaining
+payment release work requires a Lahza test secret supplied through user
+secrets/environment variables and a publicly trusted HTTPS endpoint; do not
+enable production card payments before both external gates pass.

@@ -12,13 +12,13 @@ using Moq;
 namespace GhseeliApis.Tests.Controllers;
 
 /// <summary>
-/// Tests the bounded, verified Stripe webhook HTTP boundary.
+/// Tests the bounded, verified Lahza webhook HTTP boundary.
 /// </summary>
-public sealed class StripeWebhookControllerTests
+public sealed class LahzaWebhookControllerTests
 {
-    private readonly Mock<IStripeWebhookParser> _parser = new();
-    private readonly Mock<IStripeWebhookService> _service = new();
-    private readonly Mock<IOptionsMonitor<StripeConfigurationOptions>> _options = new();
+    private readonly Mock<IPaymentWebhookParser> _parser = new();
+    private readonly Mock<IPaymentWebhookService> _service = new();
+    private readonly Mock<IOptionsMonitor<LahzaConfigurationOptions>> _options = new();
     private readonly Mock<IAppLogger> _logger = new();
 
     [Fact]
@@ -36,7 +36,7 @@ public sealed class StripeWebhookControllerTests
     {
         var controller = CreateController(
             "application/json",
-            new string('x', (int)StripeWebhookController.MaxBodyBytes + 1),
+            new string('x', (int)LahzaWebhookController.MaxBodyBytes + 1),
             contentLength: null);
 
         var result = await controller.HandleWebhook();
@@ -48,12 +48,16 @@ public sealed class StripeWebhookControllerTests
     [Fact]
     public async Task Invalid_signature_returns_stable_problem()
     {
-        _parser.Setup(value => value.Parse("{}", "bad", "whsec_test"))
+        _parser.Setup(value => value.Parse(
+                It.Is<ReadOnlyMemory<byte>>(body =>
+                    body.ToArray().SequenceEqual(Encoding.UTF8.GetBytes("{}"))),
+                "bad",
+                "sk_test_webhook"))
             .Throws(new CustomerPaymentException(
                 400,
                 CustomerPaymentErrorCodes.SignatureInvalid));
         var controller = CreateController("application/json", "{}");
-        controller.Request.Headers["Stripe-Signature"] = "bad";
+        controller.Request.Headers["X-Lahza-Signature"] = "bad";
 
         var result = await controller.HandleWebhook();
 
@@ -80,12 +84,16 @@ public sealed class StripeWebhookControllerTests
     [Fact]
     public async Task Signed_malformed_event_returns_event_invalid()
     {
-        _parser.Setup(value => value.Parse("not-json", "valid", "whsec_test"))
+        _parser.Setup(value => value.Parse(
+                It.Is<ReadOnlyMemory<byte>>(body =>
+                    body.ToArray().SequenceEqual(Encoding.UTF8.GetBytes("not-json"))),
+                "valid",
+                "sk_test_webhook"))
             .Throws(new CustomerPaymentException(
                 400,
                 CustomerPaymentErrorCodes.EventInvalid));
         var controller = CreateController("application/json", "not-json", contentLength: 8);
-        controller.Request.Headers["Stripe-Signature"] = "valid";
+        controller.Request.Headers["X-Lahza-Signature"] = "valid";
 
         var result = await controller.HandleWebhook();
 
@@ -98,30 +106,38 @@ public sealed class StripeWebhookControllerTests
     [Fact]
     public async Task Processing_failure_is_retryable_not_acknowledged()
     {
-        var verified = new VerifiedStripeEvent(
-            "evt_1", "payment_intent.succeeded", StripePaymentEventKind.Succeeded,
-            "pi_1", "ch_1", 100, "ils", new Dictionary<string, string>());
-        _parser.Setup(value => value.Parse("{}", "valid", "whsec_test")).Returns(verified);
-        _service.Setup(value => value.ProcessAsync(verified, "{}", It.IsAny<CancellationToken>()))
+        var verified = new VerifiedPaymentEvent(
+            "evt_1", "charge.success", PaymentEventKind.Succeeded,
+            "GHSEELI-TEST", "1001", 100, "ILS");
+        _parser.Setup(value => value.Parse(
+                It.Is<ReadOnlyMemory<byte>>(body =>
+                    body.ToArray().SequenceEqual(Encoding.UTF8.GetBytes("{}"))),
+                "valid",
+                "sk_test_webhook")).Returns(verified);
+        _service.Setup(value => value.ProcessAsync(
+                verified,
+                It.Is<ReadOnlyMemory<byte>>(body =>
+                    body.ToArray().SequenceEqual(Encoding.UTF8.GetBytes("{}"))),
+                It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("database unavailable"));
         var controller = CreateController("application/json", "{}");
-        controller.Request.Headers["Stripe-Signature"] = "valid";
+        controller.Request.Headers["X-Lahza-Signature"] = "valid";
 
         var result = await controller.HandleWebhook();
 
         result.Should().BeOfType<ObjectResult>().Which.StatusCode.Should().Be(503);
     }
 
-    private StripeWebhookController CreateController(
+    private LahzaWebhookController CreateController(
         string contentType,
         string body,
         long? contentLength = 2)
     {
-        _options.SetupGet(value => value.CurrentValue).Returns(new StripeConfigurationOptions
+        _options.SetupGet(value => value.CurrentValue).Returns(new LahzaConfigurationOptions
         {
-            WebhookSecret = "whsec_test"
+            SecretKey = "sk_test_webhook"
         });
-        var controller = new StripeWebhookController(
+        var controller = new LahzaWebhookController(
             _parser.Object,
             _service.Object,
             _options.Object,

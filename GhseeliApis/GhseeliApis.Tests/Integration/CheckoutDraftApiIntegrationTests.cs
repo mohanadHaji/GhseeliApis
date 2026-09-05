@@ -1102,7 +1102,7 @@ public class CheckoutDraftApiIntegrationTests
 
     [Fact]
     [Trait("ScenarioId", "STEP15-INVARIANT-CAPABILITIES-158")]
-    public async Task PostPricingReprice_IgnoresForgedTotalsAndEnablesStripeCapabilityWhenConfigured()
+    public async Task PostPricingReprice_IgnoresForgedTotalsAndEnablesLahzaCapabilityWhenConfigured()
     {
         var token = CatalogTestSupport.CreateToken(58);
         await using var factory = new CheckoutDraftApiFactory(
@@ -1112,9 +1112,7 @@ public class CheckoutDraftApiIntegrationTests
             ],
             settings: new Dictionary<string, string?>(StringComparer.Ordinal)
             {
-                ["Stripe:PublishableKey"] = "pk_test_step11_api",
-                ["Stripe:SecretKey"] = "sk_test_step11_api",
-                ["Stripe:WebhookSecret"] = "whsec_step11_api"
+                ["Lahza:SecretKey"] = "sk_test_step11_api"
             });
         using var client = factory.CreateApiClient();
         using var request = CreateRequest(
@@ -1471,9 +1469,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
         builder.UseSetting("CheckoutPricing:ServiceFee:Mode", "None");
         builder.UseSetting("CheckoutPricing:ServiceFee:FlatAmount", "0");
         builder.UseSetting("CheckoutPricing:ServiceFee:PercentageRate", "0");
-        builder.UseSetting("Stripe:PublishableKey", string.Empty);
-        builder.UseSetting("Stripe:SecretKey", string.Empty);
-        builder.UseSetting("Stripe:WebhookSecret", string.Empty);
+        builder.UseSetting("Lahza:SecretKey", string.Empty);
 
         foreach (var setting in _settings)
         {

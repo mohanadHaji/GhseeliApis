@@ -12,6 +12,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
+using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace GhseeliApis.Tests.Integration;
@@ -33,6 +35,7 @@ public class CatalogApiIntegrationTests
         using var document = await ReadJsonAsync(response);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        factory.BusinessApiClient.AvailableSlotsRequests.Should().Be(0);
         document.RootElement.GetProperty("code").GetString().Should().Be(DeviceProblemCodes.TokenMissing);
         document.RootElement.GetProperty("language").GetString().Should().Be("he");
     }
@@ -206,6 +209,129 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP20-SLOTS-CUSTOMER-001")]
+    public async Task GetAvailableSlots_WithValidDeviceAndCatalogSelection_ReturnsNoStoreSlots()
+    {
+        var token = CatalogTestSupport.CreateToken(20);
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(companyId, version: 12));
+        factory.BusinessApiClient.GetAvailableSlotsHandler = (request, _) =>
+            Task.FromResult(new Ghseeli.IntegrationContracts.BusinessCatalog.AvailableSlotsResponse
+            {
+                Valid = true,
+                CompanyId = request.CompanyId,
+                BranchId = request.BranchId,
+                Date = request.Date,
+                TimeZoneId = "UTC",
+                CatalogVersion = 12,
+                Currency = "ILS",
+                TotalDurationMinutes = 60,
+                GeneratedAtUtc = DateTime.UtcNow,
+                Slots =
+                [
+                    new Ghseeli.IntegrationContracts.BusinessCatalog.AvailableSlotResponse
+                    {
+                        StartUtc = request.Date.ToDateTime(new TimeOnly(9), DateTimeKind.Utc),
+                        EndUtc = request.Date.ToDateTime(new TimeOnly(10), DateTimeKind.Utc),
+                        StartLocal = request.Date.ToDateTime(new TimeOnly(9)),
+                        EndLocal = request.Date.ToDateTime(new TimeOnly(10)),
+                        ConfiguredCapacity = 3,
+                        RemainingCapacity = 2,
+                        IsAvailable = true
+                    }
+                ]
+            });
+        using var client = factory.CreateApiClient();
+        var ids = await GetCatalogSelectionAsync(client, token);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"/api/v1/catalog/businesses/{ids.BusinessId:D}/branches/{ids.BranchId:D}/available-slots")
+        {
+            Content = JsonContent.Create(new
+            {
+                date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                items = new[] { new { offeringId = ids.OfferingId } }
+            })
+        };
+        request.Headers.TryAddWithoutValidation(DeviceTokenDefaults.HeaderName, token);
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        document.RootElement.GetProperty("businessId").GetGuid().Should().Be(ids.BusinessId);
+        document.RootElement.GetProperty("branchId").GetGuid().Should().Be(ids.BranchId);
+        document.RootElement.GetProperty("totalDurationMinutes").GetInt32().Should().Be(60);
+        document.RootElement.GetProperty("slots")[0].GetProperty("remainingCapacity")
+            .GetInt32().Should().Be(2);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP20-SLOTS-CUSTOMER-004")]
+    public async Task GetAvailableSlots_WithoutDeviceToken_ReturnsUnauthorized()
+    {
+        await using var factory = new CatalogApiFactory();
+        using var client = factory.CreateApiClient();
+
+        using var response = await client.PostAsJsonAsync(
+            $"/api/v1/catalog/businesses/{Guid.NewGuid():D}/branches/{Guid.NewGuid():D}/available-slots",
+            new
+            {
+                date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                items = new[] { new { offeringId = Guid.NewGuid() } }
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        factory.BusinessApiClient.AvailableSlotsRequests.Should().Be(0);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP20-SLOTS-CUSTOMER-010")]
+    public async Task GetAvailableSlots_WithWrongContentType_ReturnsUnsupportedMediaType()
+    {
+        var token = CatalogTestSupport.CreateToken(21);
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/v1/catalog/businesses/{Guid.NewGuid():D}/branches/{Guid.NewGuid():D}/available-slots",
+            token);
+        request.Content = new StringContent("{}", Encoding.UTF8, "text/plain");
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.UnsupportedMediaType);
+        factory.BusinessApiClient.AvailableSlotsRequests.Should().Be(0);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP20-SLOTS-CUSTOMER-011")]
+    public async Task GetAvailableSlots_WithOversizedBody_ReturnsPayloadTooLarge()
+    {
+        var token = CatalogTestSupport.CreateToken(22);
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/v1/catalog/businesses/{Guid.NewGuid():D}/branches/{Guid.NewGuid():D}/available-slots",
+            token);
+        request.Content = new StringContent(
+            $"{{\"padding\":\"{new string('x', 70_000)}\"}}",
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
+        factory.BusinessApiClient.AvailableSlotsRequests.Should().Be(0);
+    }
+
+    [Fact]
     public async Task Swagger_ContainsCatalogRoutes_AndCatalogServicesAreResolvable()
     {
         await using var factory = new CatalogApiFactory();
@@ -224,6 +350,9 @@ public class CatalogApiIntegrationTests
         paths.TryGetProperty("/api/v1/catalog/businesses/{id}", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/catalog/businesses/{id}/offerings", out _).Should().BeTrue();
         paths.TryGetProperty("/api/v1/catalog/offerings/{id}", out _).Should().BeTrue();
+        paths.TryGetProperty(
+            "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
+            out _).Should().BeTrue();
         scope.ServiceProvider.GetRequiredService<ICatalogReadModelService>().Should().NotBeNull();
     }
 
@@ -333,6 +462,33 @@ public class CatalogApiIntegrationTests
         }
 
         return request;
+    }
+
+    private static async Task<(Guid BusinessId, Guid BranchId, Guid OfferingId)>
+        GetCatalogSelectionAsync(HttpClient client, string token)
+    {
+        using var businessesRequest = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            token);
+        using var businessesResponse = await client.SendAsync(businessesRequest);
+        using var businessesDocument = await ReadJsonAsync(businessesResponse);
+        var business = businessesDocument.RootElement.GetProperty("businesses")[0];
+        var businessId = business.GetProperty("id").GetGuid();
+        var branchId = business.GetProperty("branches")[0].GetProperty("id").GetGuid();
+
+        using var offeringsRequest = CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/businesses/{businessId:D}/offerings?branchId={branchId:D}",
+            token);
+        using var offeringsResponse = await client.SendAsync(offeringsRequest);
+        using var offeringsDocument = await ReadJsonAsync(offeringsResponse);
+        offeringsResponse.EnsureSuccessStatusCode();
+        return (
+            businessId,
+            branchId,
+            offeringsDocument.RootElement.GetProperty("offerings")[0]
+                .GetProperty("id").GetGuid());
     }
 
     private static async Task<JsonDocument> ReadJsonAsync(HttpResponseMessage response)

@@ -41,10 +41,10 @@ public sealed class CustomerRateLimitOptions
     public int PaymentIntentWindowSeconds { get; set; } = 60;
     public int PaymentAggregatePermitLimit { get; set; } = 20;
     public int PaymentAggregateWindowSeconds { get; set; } = 60;
-    public int ValidStripePermitLimit { get; set; } = 600;
-    public int ValidStripeWindowSeconds { get; set; } = 60;
-    public int InvalidStripePermitLimit { get; set; } = 60;
-    public int InvalidStripeWindowSeconds { get; set; } = 60;
+    public int ValidPaymentWebhookPermitLimit { get; set; } = 600;
+    public int ValidPaymentWebhookWindowSeconds { get; set; } = 60;
+    public int InvalidPaymentWebhookPermitLimit { get; set; } = 60;
+    public int InvalidPaymentWebhookWindowSeconds { get; set; } = 60;
     public int AnonymousPermitLimit { get; set; } = 60;
     public int AnonymousWindowSeconds { get; set; } = 60;
 }
@@ -81,10 +81,10 @@ public sealed class CustomerRateLimitOptionsValidator :
             options.PaymentIntentWindowSeconds,
             options.PaymentAggregatePermitLimit,
             options.PaymentAggregateWindowSeconds,
-            options.ValidStripePermitLimit,
-            options.ValidStripeWindowSeconds,
-            options.InvalidStripePermitLimit,
-            options.InvalidStripeWindowSeconds,
+            options.ValidPaymentWebhookPermitLimit,
+            options.ValidPaymentWebhookWindowSeconds,
+            options.InvalidPaymentWebhookPermitLimit,
+            options.InvalidPaymentWebhookWindowSeconds,
             options.AnonymousPermitLimit,
             options.AnonymousWindowSeconds
         };
@@ -163,8 +163,8 @@ public sealed class CustomerRateLimitPartitionMiddleware
         "Ghseeli.RateLimit.AuthAccount";
     internal const string PaymentBookingPartitionItemKey =
         "Ghseeli.RateLimit.PaymentBooking";
-    internal const string StripePartitionItemKey =
-        "Ghseeli.RateLimit.Stripe";
+    internal const string PaymentWebhookPartitionItemKey =
+        "Ghseeli.RateLimit.PaymentWebhook";
     internal const string ValidDeviceTokenPartitionItemKey =
         "Ghseeli.RateLimit.ValidDeviceToken";
     internal const string MachineProblemItemKey =
@@ -180,8 +180,8 @@ public sealed class CustomerRateLimitPartitionMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        IStripeWebhookParser stripeParser,
-        IOptionsMonitor<StripeConfigurationOptions> stripeOptions,
+        IPaymentWebhookParser paymentWebhookParser,
+        IOptionsMonitor<LahzaConfigurationOptions> lahzaOptions,
         IDeviceRegistrationService deviceService)
     {
         await TryAuthenticateBearerAsync(context);
@@ -220,13 +220,13 @@ public sealed class CustomerRateLimitPartitionMiddleware
                     : provider.Trim().ToUpperInvariant());
         }
 
-        if (IsStripeWebhook(context.Request))
+        if (IsPaymentWebhook(context.Request))
         {
             context.Items[MachineProblemItemKey] = true;
-            await ClassifyStripeAsync(
+            await ClassifyPaymentWebhookAsync(
                 context,
-                stripeParser,
-                stripeOptions.CurrentValue);
+                paymentWebhookParser,
+                lahzaOptions.CurrentValue);
         }
 
         await _next(context);
@@ -354,16 +354,15 @@ public sealed class CustomerRateLimitPartitionMiddleware
         return matches.Length == 1;
     }
 
-    private static async Task ClassifyStripeAsync(
+    private static async Task ClassifyPaymentWebhookAsync(
         HttpContext context,
-        IStripeWebhookParser parser,
-        StripeConfigurationOptions options)
+        IPaymentWebhookParser parser,
+        LahzaConfigurationOptions options)
     {
-        context.Items[StripePartitionItemKey] = "invalid";
-        var secret = options.WebhookSecret?.Trim();
-        var signature = context.Request.Headers["Stripe-Signature"].ToString();
+        context.Items[PaymentWebhookPartitionItemKey] = "invalid";
+        var secret = options.SecretKey?.Trim();
+        var signature = context.Request.Headers["X-Lahza-Signature"].ToString();
         if (string.IsNullOrWhiteSpace(secret) ||
-            !secret.StartsWith("whsec_", StringComparison.Ordinal) ||
             string.IsNullOrWhiteSpace(signature) ||
             !IsJson(context.Request.ContentType))
         {
@@ -378,8 +377,8 @@ public sealed class CustomerRateLimitPartitionMiddleware
 
         try
         {
-            parser.Parse(Encoding.UTF8.GetString(body), signature, secret);
-            context.Items[StripePartitionItemKey] =
+            parser.Parse(body, signature, secret);
+            context.Items[PaymentWebhookPartitionItemKey] =
                 $"valid:{HashPartition(secret)}";
         }
         catch (CustomerPaymentException)
@@ -431,9 +430,9 @@ public sealed class CustomerRateLimitPartitionMiddleware
             "/api/Auth/external-login-callback",
             StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsStripeWebhook(HttpRequest request) =>
+    private static bool IsPaymentWebhook(HttpRequest request) =>
         HttpMethods.IsPost(request.Method) &&
-        request.Path.Equals("/api/stripe/webhook", StringComparison.OrdinalIgnoreCase);
+        request.Path.Equals("/api/lahza/webhook", StringComparison.OrdinalIgnoreCase);
 
     private static bool RequiresDeviceToken(HttpContext context)
     {
@@ -540,20 +539,20 @@ public static class CustomerRateLimitingExtensions
                 options.AuthAccountWindowSeconds);
         }
 
-        if (IsStripeWebhook(request))
+        if (IsPaymentWebhook(request))
         {
-            var stripe = Item(
+            var webhook = Item(
                 context,
-                CustomerRateLimitPartitionMiddleware.StripePartitionItemKey);
-            return stripe.StartsWith("valid:", StringComparison.Ordinal)
+                CustomerRateLimitPartitionMiddleware.PaymentWebhookPartitionItemKey);
+            return webhook.StartsWith("valid:", StringComparison.Ordinal)
                 ? FixedWindow(
-                    $"stripe:{stripe}",
-                    options.ValidStripePermitLimit,
-                    options.ValidStripeWindowSeconds)
+                    $"payment-webhook:{webhook}",
+                    options.ValidPaymentWebhookPermitLimit,
+                    options.ValidPaymentWebhookWindowSeconds)
                 : FixedWindow(
-                    $"stripe-invalid:{peer}",
-                    options.InvalidStripePermitLimit,
-                    options.InvalidStripeWindowSeconds);
+                    $"payment-webhook-invalid:{peer}",
+                    options.InvalidPaymentWebhookPermitLimit,
+                    options.InvalidPaymentWebhookWindowSeconds);
         }
 
         var deviceHash = DeviceTokenHash(context);
@@ -706,9 +705,9 @@ public static class CustomerRateLimitingExtensions
             "/api/Auth/external-login-callback",
             StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsStripeWebhook(HttpRequest request) =>
+    private static bool IsPaymentWebhook(HttpRequest request) =>
         HttpMethods.IsPost(request.Method) &&
-        request.Path.Equals("/api/stripe/webhook", StringComparison.OrdinalIgnoreCase);
+        request.Path.Equals("/api/lahza/webhook", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsDeviceRoute(PathString path) =>
         path.StartsWithSegments("/api/v1/configuration", StringComparison.OrdinalIgnoreCase) ||

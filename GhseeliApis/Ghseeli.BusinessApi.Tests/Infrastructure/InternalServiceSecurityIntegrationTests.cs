@@ -429,6 +429,137 @@ public class InternalServiceSecurityIntegrationTests : IClassFixture<CatalogApiF
     }
 
     [Fact]
+    public async Task AvailableSlots_WhenSignedRequestIsValid_ReturnsAuthoritativeValidationResponse()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/available-slots",
+            new AvailableSlotsRequest
+            {
+                CompanyId = _factory.CompanyId,
+                BranchId = Guid.NewGuid(),
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                Currency = "ILS",
+                Items =
+                [
+                    new AvailableSlotsItemRequest { OfferingId = Guid.NewGuid() }
+                ]
+            },
+            correlationId: "corr-step20-valid");
+
+        var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, content);
+        response.Headers.GetValues(InternalServiceWireConstants.CorrelationIdHeaderName)
+            .Single().Should().Be("corr-step20-valid");
+        using var document = JsonDocument.Parse(content);
+        document.RootElement.GetProperty("valid").GetBoolean().Should().BeFalse();
+        document.RootElement.GetProperty("errors")[0].GetProperty("code")
+            .GetString().Should().Be(AppointmentValidationErrorCodes.BranchNotFound);
+    }
+
+    [Fact]
+    public async Task AvailableSlots_WhenServiceAuthenticationIsMissing_ReturnsUnauthorized()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/internal/appointments/available-slots",
+            new AvailableSlotsRequest());
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task AvailableSlots_ServiceAllowedOnlySlotOperation_Succeeds()
+    {
+        _factory.ResetState();
+        const string serviceId = "slot-only-service";
+        const string secret = "SlotOnlyServiceSecret_Minimum32Characters";
+        using var slotOnlyFactory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting(
+                "InternalServiceAuthentication:Services:2:ServiceId",
+                serviceId);
+            builder.UseSetting(
+                "InternalServiceAuthentication:Services:2:ActiveSecret",
+                secret);
+            builder.UseSetting(
+                "InternalServiceAuthentication:Services:2:AllowedOperations:0",
+                InternalServiceOperationNames.AppointmentAvailableSlots);
+        });
+        using var client = slotOnlyFactory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/available-slots",
+            new AvailableSlotsRequest
+            {
+                CompanyId = _factory.CompanyId,
+                BranchId = Guid.NewGuid(),
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                Currency = "ILS",
+                Items =
+                [
+                    new AvailableSlotsItemRequest { OfferingId = Guid.NewGuid() }
+                ]
+            },
+            serviceId: serviceId,
+            secret: secret);
+
+        var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task AvailableSlots_WhenNonceIsReplayed_ReturnsConflict()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        var body = new AvailableSlotsRequest
+        {
+            CompanyId = _factory.CompanyId,
+            BranchId = Guid.NewGuid(),
+            Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            Currency = "ILS",
+            Items =
+            [
+                new AvailableSlotsItemRequest { OfferingId = Guid.NewGuid() }
+            ]
+        };
+        var nonce = Guid.NewGuid().ToString("N");
+        using var first = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/available-slots",
+            body,
+            nonce: nonce);
+        using var replay = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/available-slots",
+            body,
+            nonce: nonce);
+
+        var firstResponse = await client.SendAsync(first);
+        var replayResponse = await client.SendAsync(replay);
+        var replayContent = await replayResponse.Content.ReadAsStringAsync();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        replayResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        replayContent.Should().Contain(InternalServiceProblemCodes.ReplayNonce);
+    }
+
+    [Fact]
     public async Task ValidateAppointment_WhenKnownContentLengthBodyExceedsConfiguredLimit_ReturnsPayloadTooLarge()
     {
         _factory.ResetState();

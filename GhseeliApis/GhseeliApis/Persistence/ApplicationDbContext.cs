@@ -35,7 +35,8 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
     public DbSet<CustomerPaymentIdempotencyRecord> CustomerPaymentIdempotencyRecords =>
         Set<CustomerPaymentIdempotencyRecord>();
-    public DbSet<StripeWebhookEventRecord> StripeWebhookEvents => Set<StripeWebhookEventRecord>();
+    public DbSet<PaymentWebhookEventRecord> PaymentWebhookEvents =>
+        Set<PaymentWebhookEventRecord>();
     public DbSet<CustomerBookingItem> CustomerBookingItems => Set<CustomerBookingItem>();
     public DbSet<CustomerBookingSelection> CustomerBookingSelections => Set<CustomerBookingSelection>();
     public DbSet<BookingConfirmationAttempt> BookingConfirmationAttempts => Set<BookingConfirmationAttempt>();

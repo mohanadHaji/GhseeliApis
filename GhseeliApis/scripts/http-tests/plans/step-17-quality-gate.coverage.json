@@ -1077,7 +1077,7 @@
       "id": "STEP17-SEC-RATE-011",
       "automation": "automated-live",
       "status": "red",
-      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.StripeWebhook_FourthInvalidSignatureIsMachineRateLimited",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.LahzaWebhook_FourthInvalidSignatureIsMachineRateLimited",
       "existingCoverage": [],
       "evidence": "TestServer mapping passed in Step17HostSecurityContractTests 48/48; required live-local execution not run"
     },
@@ -1085,7 +1085,7 @@
       "id": "STEP17-SEC-RATE-012",
       "automation": "automated-testserver",
       "status": "passed",
-      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.StripeWebhook_ValidDeliveryIsIndependentOfExhaustedInvalidBucket",
+      "testReference": "GhseeliApis.Tests.Integration.Step17HostSecurityContractTests.LahzaWebhook_ValidDeliveryIsIndependentOfExhaustedInvalidBucket",
       "existingCoverage": [],
       "evidence": "dotnet test GhseeliApis.Tests --filter FullyQualifiedName~Step17HostSecurityContractTests: 48/48 passed (2026-08-25)"
     },
@@ -1273,7 +1273,7 @@
       "id": "STEP17-SEC-LOG-030",
       "automation": "automated-testserver",
       "status": "passed",
-      "testReference": "GhseeliApis.Tests.Integration.Step17SecurityHeadersLoggingTests.STEP17_SEC_LOG_030_InvalidStripeSignatureRedactsAllSentinels",
+      "testReference": "GhseeliApis.Tests.Integration.Step17SecurityHeadersLoggingTests.STEP17_SEC_LOG_030_InvalidLahzaSignatureRedactsAllSentinels",
       "existingCoverage": [
         "CustomerPaymentWebhookApiIntegrationTests.Webhook_VerificationAndConflictFailuresUseSafeExactProblems",
         "CustomerPaymentWebhookApiIntegrationTests.Webhook_PersistenceFailureIsRetryableAndNeverAcknowledged"

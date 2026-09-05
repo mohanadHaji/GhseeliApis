@@ -1,6 +1,8 @@
 using FluentValidation;
+using FluentValidation.AspNetCore;
 using Ghseeli.Common.Logging;
 using GhseeliApis.DTOs.Catalog;
+using GhseeliApis.Filters;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Configuration;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +13,14 @@ namespace GhseeliApis.Controllers;
 [Route("api/v1/catalog")]
 public sealed class CatalogController : ControllerBase
 {
+    private const long MaxAvailableSlotsRequestBodyBytes = 65_536;
     private readonly ICatalogReadModelService _service;
     private readonly IValidator<GetCatalogCategoriesRequest> _categoriesValidator;
     private readonly IValidator<GetCatalogBusinessesRequest> _businessesValidator;
     private readonly IValidator<GetCatalogBusinessOfferingsRequest> _businessOfferingsValidator;
     private readonly IValidator<GetCatalogResourceRequest> _resourceValidator;
+    private readonly IValidator<GetAvailableSlotsRequest> _availableSlotsValidator;
+    private readonly IAvailableSlotsQueryService _availableSlotsService;
     private readonly IAppLogger _logger;
 
     public CatalogController(
@@ -24,6 +29,8 @@ public sealed class CatalogController : ControllerBase
         IValidator<GetCatalogBusinessesRequest> businessesValidator,
         IValidator<GetCatalogBusinessOfferingsRequest> businessOfferingsValidator,
         IValidator<GetCatalogResourceRequest> resourceValidator,
+        IValidator<GetAvailableSlotsRequest> availableSlotsValidator,
+        IAvailableSlotsQueryService availableSlotsService,
         IAppLogger logger)
     {
         _service = service;
@@ -31,7 +38,58 @@ public sealed class CatalogController : ControllerBase
         _businessesValidator = businessesValidator;
         _businessOfferingsValidator = businessOfferingsValidator;
         _resourceValidator = resourceValidator;
+        _availableSlotsValidator = availableSlotsValidator;
+        _availableSlotsService = availableSlotsService;
         _logger = logger;
+    }
+
+    [HttpPost("businesses/{businessId:guid}/branches/{branchId:guid}/available-slots")]
+    [EnforceJsonRequestContentType]
+    [RequestSizeLimit(MaxAvailableSlotsRequestBodyBytes)]
+    [EnforceRequestBodySizeLimit(MaxAvailableSlotsRequestBodyBytes)]
+    [ProducesResponseType<CatalogAvailableSlotsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetAvailableSlots(
+        Guid businessId,
+        Guid branchId,
+        [CustomizeValidator(Skip = true)]
+        [FromBody]
+        GetAvailableSlotsRequest request,
+        [FromHeader(Name = "Accept-Language")] string? acceptLanguage,
+        CancellationToken cancellationToken)
+    {
+        ApplyNoStore();
+        var validation = await _availableSlotsValidator.ValidateAsync(
+            request,
+            cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationProblemResult(validation, acceptLanguage);
+        }
+
+        try
+        {
+            return Ok(await _availableSlotsService.GetAsync(
+                businessId,
+                branchId,
+                request,
+                acceptLanguage,
+                cancellationToken));
+        }
+        catch (CatalogReadModelException exception)
+        {
+            return CatalogProblemResult(
+                exception.StatusCode,
+                exception.Code,
+                request.Language,
+                acceptLanguage);
+        }
     }
 
     [HttpGet("categories")]

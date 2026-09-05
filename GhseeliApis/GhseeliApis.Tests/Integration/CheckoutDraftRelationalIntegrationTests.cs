@@ -8,6 +8,7 @@ using GhseeliApis.Repositories;
 using GhseeliApis.Repositories.Interfaces;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Payments;
 using GhseeliApis.Tests.Support;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -614,9 +615,9 @@ public class CheckoutDraftRelationalIntegrationTests
                 MaxStaleWindowSeconds = 3600,
                 LeaseDurationSeconds = 60
             });
-        var stripeOptionsMonitor = new Mock<IOptionsMonitor<StripeConfigurationOptions>>();
-        stripeOptionsMonitor.SetupGet(monitor => monitor.CurrentValue)
-            .Returns(new StripeConfigurationOptions());
+        var lahzaOptionsMonitor = new Mock<IOptionsMonitor<LahzaConfigurationOptions>>();
+        lahzaOptionsMonitor.SetupGet(monitor => monitor.CurrentValue)
+            .Returns(new LahzaConfigurationOptions());
         var refreshCoordinator = new CatalogProviderRefreshCoordinator(
             new CatalogReadModelRepository(context),
             businessApiClient,
@@ -631,7 +632,7 @@ public class CheckoutDraftRelationalIntegrationTests
             new CatalogReadModelRepository(context),
             refreshCoordinator,
             businessApiClient,
-            new CheckoutPaymentCapabilitiesService(stripeOptionsMonitor.Object),
+            new CheckoutPaymentCapabilitiesService(lahzaOptionsMonitor.Object),
             new HttpContextAccessor
             {
                 HttpContext = httpContext

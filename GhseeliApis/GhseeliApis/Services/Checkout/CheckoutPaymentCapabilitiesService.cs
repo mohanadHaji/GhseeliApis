@@ -1,4 +1,5 @@
 using GhseeliApis.DTOs.Checkout;
+using GhseeliApis.Services.Payments;
 using Microsoft.Extensions.Options;
 
 namespace GhseeliApis.Services.Checkout;
@@ -10,18 +11,18 @@ public interface ICheckoutPaymentCapabilitiesService
 
 public sealed class CheckoutPaymentCapabilitiesService : ICheckoutPaymentCapabilitiesService
 {
-    private readonly IOptionsMonitor<StripeConfigurationOptions> _stripeOptionsMonitor;
+    private readonly IOptionsMonitor<LahzaConfigurationOptions> _lahzaOptionsMonitor;
 
     public CheckoutPaymentCapabilitiesService(
-        IOptionsMonitor<StripeConfigurationOptions> stripeOptionsMonitor)
+        IOptionsMonitor<LahzaConfigurationOptions> lahzaOptionsMonitor)
     {
-        _stripeOptionsMonitor = stripeOptionsMonitor;
+        _lahzaOptionsMonitor = lahzaOptionsMonitor;
     }
 
     public CheckoutPaymentCapabilitiesResponse GetCapabilities()
     {
-        var stripeOptions = _stripeOptionsMonitor.CurrentValue;
-        var creditCardEnabled = IsStripeConfigured(stripeOptions);
+        var creditCardEnabled = LahzaConfiguration.IsConfigured(
+            _lahzaOptionsMonitor.CurrentValue);
 
         return new CheckoutPaymentCapabilitiesResponse
         {
@@ -60,20 +61,4 @@ public sealed class CheckoutPaymentCapabilitiesService : ICheckoutPaymentCapabil
             ReasonCode = reasonCode
         };
 
-    public static bool IsStripeConfigured(StripeConfigurationOptions options) =>
-        IsConfiguredKey(options.PublishableKey, "pk_") &&
-        IsConfiguredKey(options.SecretKey, "sk_");
-
-    private static bool IsConfiguredKey(string? value, string expectedPrefix)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return false;
-        }
-
-        var trimmed = value.Trim();
-        return trimmed.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase) &&
-               !trimmed.Contains("YOUR_", StringComparison.OrdinalIgnoreCase) &&
-               !trimmed.Contains("_HERE", StringComparison.OrdinalIgnoreCase);
-    }
 }

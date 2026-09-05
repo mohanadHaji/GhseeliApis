@@ -259,6 +259,56 @@ public sealed class AppointmentAvailabilityFacts
     public int? ConfiguredCapacity { get; set; }
 }
 
+public sealed class AvailableSlotsRequest
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public Guid CompanyId { get; set; }
+    public Guid BranchId { get; set; }
+    public DateOnly Date { get; set; }
+    public long? ExpectedCatalogVersion { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public AppointmentCustomerLocationFacts? CustomerLocation { get; set; }
+    public IReadOnlyCollection<AvailableSlotsItemRequest> Items { get; set; } =
+        Array.Empty<AvailableSlotsItemRequest>();
+    public bool IncludeUnavailable { get; set; }
+}
+
+public sealed class AvailableSlotsItemRequest
+{
+    public Guid OfferingId { get; set; }
+    public IReadOnlyCollection<ValidateAppointmentAddonSelectionRequest> SelectedAddons { get; set; } =
+        Array.Empty<ValidateAppointmentAddonSelectionRequest>();
+}
+
+public sealed class AvailableSlotsResponse
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public bool Valid { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid BranchId { get; set; }
+    public DateOnly Date { get; set; }
+    public string? TimeZoneId { get; set; }
+    public long CatalogVersion { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public int TotalDurationMinutes { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+    public IReadOnlyList<AvailableSlotResponse> Slots { get; set; } =
+        Array.Empty<AvailableSlotResponse>();
+    public IReadOnlyCollection<AppointmentValidationIssue> Errors { get; set; } =
+        Array.Empty<AppointmentValidationIssue>();
+}
+
+public sealed class AvailableSlotResponse
+{
+    public DateTime StartUtc { get; set; }
+    public DateTime EndUtc { get; set; }
+    public DateTime StartLocal { get; set; }
+    public DateTime EndLocal { get; set; }
+    public int ConfiguredCapacity { get; set; }
+    public int RemainingCapacity { get; set; }
+    public bool IsAvailable { get; set; }
+}
+
 public sealed class AppointmentServiceAreaFacts
 {
     public bool ServiceAreaConfigured { get; set; }

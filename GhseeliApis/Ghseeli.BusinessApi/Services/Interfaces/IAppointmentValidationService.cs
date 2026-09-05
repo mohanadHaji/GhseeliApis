@@ -6,3 +6,10 @@ public interface IAppointmentValidationService
 {
     Task<ValidateAppointmentResponse> ValidateAsync(ValidateAppointmentRequest request);
 }
+
+public interface IAvailableSlotsService
+{
+    Task<AvailableSlotsResponse> GetAsync(
+        AvailableSlotsRequest request,
+        CancellationToken cancellationToken);
+}

@@ -14,8 +14,9 @@ public sealed class CustomerPaymentResponse
     public string Currency { get; set; } = string.Empty;
     public string Method { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string Provider { get; set; } = string.Empty;
     public string? ProviderStatus { get; set; }
-    public string? ClientSecret { get; set; }
-    public string? PublishableKey { get; set; }
+    public string? ProviderReference { get; set; }
+    public string? CheckoutUrl { get; set; }
     public DateTimeOffset CreatedAtUtc { get; set; }
 }

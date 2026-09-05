@@ -1370,13 +1370,9 @@ namespace GhseeliApis.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ChargeId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("ClientSecret")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                    b.Property<string>("CheckoutUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<DateTimeOffset>("CreatedAtUtc")
                         .HasColumnType("datetimeoffset");
@@ -1394,11 +1390,16 @@ namespace GhseeliApis.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
-                    b.Property<DateTimeOffset?>("IntentLeaseExpiresAtUtc")
+                    b.Property<DateTimeOffset?>("InitializationLeaseExpiresAtUtc")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<Guid?>("IntentLeaseOwnerToken")
+                    b.Property<Guid?>("InitializationLeaseOwnerToken")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("InitializationState")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<int>("Method")
                         .HasColumnType("int");
@@ -1409,17 +1410,22 @@ namespace GhseeliApis.Migrations
                     b.Property<Guid>("OwnerDeviceId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("PaymentIntentId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
-                    b.Property<string>("ProviderPublishableKey")
+                    b.Property<string>("ProviderReference")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("ProviderStatus")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("RequestHash")
                         .IsRequired()
@@ -1434,11 +1440,6 @@ namespace GhseeliApis.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("StripeIdempotencyKey")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
                     b.Property<DateTimeOffset>("UpdatedAtUtc")
                         .HasColumnType("datetimeoffset");
 
@@ -1450,15 +1451,16 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("CustomerBookingId")
                         .IsUnique();
 
-                    b.HasIndex("IntentLeaseExpiresAtUtc")
-                        .HasFilter("[IntentLeaseOwnerToken] IS NOT NULL");
+                    b.HasIndex("InitializationLeaseExpiresAtUtc")
+                        .HasFilter("[InitializationLeaseOwnerToken] IS NOT NULL");
 
-                    b.HasIndex("PaymentIntentId")
+                    b.HasIndex("Provider", "ProviderReference")
                         .IsUnique()
-                        .HasFilter("[PaymentIntentId] IS NOT NULL");
+                        .HasFilter("[ProviderReference] IS NOT NULL");
 
-                    b.HasIndex("StripeIdempotencyKey")
-                        .IsUnique();
+                    b.HasIndex("Provider", "ProviderTransactionId")
+                        .IsUnique()
+                        .HasFilter("[ProviderTransactionId] IS NOT NULL");
 
                     b.HasIndex("UserId", "OwnerDeviceId", "Id");
 
@@ -1469,9 +1471,13 @@ namespace GhseeliApis.Migrations
                         {
                             t.HasCheckConstraint("CK_CustomerPayments_Amount", "[Amount] > 0");
 
-                            t.HasCheckConstraint("CK_CustomerPayments_Currency", "[Currency] IN ('ILS','USD','EUR')");
+                            t.HasCheckConstraint("CK_CustomerPayments_Currency", "([Provider] = 'Lahza' AND [Currency] IN ('ILS','JOD','USD')) OR ([Provider] = 'Stripe' AND [Currency] IN ('ILS','USD','EUR'))");
+
+                            t.HasCheckConstraint("CK_CustomerPayments_InitializationState", "[InitializationState] IN ('NotStarted','Initialized','Ambiguous','Legacy')");
 
                             t.HasCheckConstraint("CK_CustomerPayments_MinorAmount", "[MinorAmount] > 0");
+
+                            t.HasCheckConstraint("CK_CustomerPayments_Provider", "[Provider] IN ('Lahza','Stripe')");
                         });
                 });
 
@@ -1512,6 +1518,76 @@ namespace GhseeliApis.Migrations
                     b.ToTable("CustomerPaymentIdempotencyRecords", "dbo");
                 });
 
+            modelBuilder.Entity("GhseeliApis.Models.PaymentWebhookEventRecord", b =>
+                {
+                    b.Property<string>("Provider")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("EventId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long?>("Amount")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("BodyHash")
+                        .IsRequired()
+                        .HasColumnType("char(64)");
+
+                    b.Property<DateTimeOffset?>("CompletedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
+
+                    b.Property<Guid?>("CustomerPaymentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DispositionReason")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ProviderReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProviderTransactionId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Provider", "EventId");
+
+                    b.HasIndex("State", "CreatedAtUtc");
+
+                    b.HasIndex("CustomerPaymentId", "State", "ProviderTransactionId");
+
+                    b.ToTable("PaymentWebhookEvents", "dbo", t =>
+                        {
+                            t.HasCheckConstraint("CK_PaymentWebhookEvents_State", "[State] IN ('Processing','Completed','Quarantined','Deferred')");
+                        });
+                });
+
             modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
                 {
                     b.Property<Guid>("EventId")
@@ -1545,72 +1621,6 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("CustomerBookingId", "Sequence");
 
                     b.ToTable("ProcessedBookingStatusMessages", "dbo");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.StripeWebhookEventRecord", b =>
-                {
-                    b.Property<string>("EventId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<long?>("Amount")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("BodyHash")
-                        .IsRequired()
-                        .HasColumnType("char(64)");
-
-                    b.Property<string>("ChargeId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTimeOffset?>("CompletedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Currency")
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<Guid?>("CustomerPaymentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DispositionReason")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("EventType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("PaymentIntentId")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<string>("State")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("nvarchar(16)");
-
-                    b.HasKey("EventId");
-
-                    b.HasIndex("State", "CreatedAtUtc");
-
-                    b.HasIndex("CustomerPaymentId", "State", "ChargeId");
-
-                    b.ToTable("StripeWebhookEvents", "dbo", t =>
-                        {
-                            t.HasCheckConstraint("CK_StripeWebhookEvents_State", "[State] IN ('Processing','Completed','Quarantined','Deferred')");
-                        });
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.User", b =>
@@ -2086,6 +2096,16 @@ namespace GhseeliApis.Migrations
                     b.Navigation("CustomerPayment");
                 });
 
+            modelBuilder.Entity("GhseeliApis.Models.PaymentWebhookEventRecord", b =>
+                {
+                    b.HasOne("GhseeliApis.Models.CustomerPayment", "CustomerPayment")
+                        .WithMany()
+                        .HasForeignKey("CustomerPaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CustomerPayment");
+                });
+
             modelBuilder.Entity("GhseeliApis.Models.ProcessedBookingStatusMessage", b =>
                 {
                     b.HasOne("GhseeliApis.Models.CustomerBooking", "CustomerBooking")
@@ -2095,16 +2115,6 @@ namespace GhseeliApis.Migrations
                         .IsRequired();
 
                     b.Navigation("CustomerBooking");
-                });
-
-            modelBuilder.Entity("GhseeliApis.Models.StripeWebhookEventRecord", b =>
-                {
-                    b.HasOne("GhseeliApis.Models.CustomerPayment", "CustomerPayment")
-                        .WithMany()
-                        .HasForeignKey("CustomerPaymentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("CustomerPayment");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.UserAddress", b =>

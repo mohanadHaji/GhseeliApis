@@ -19,7 +19,7 @@ It owns:
 - customer-facing catalog read models;
 - checkout drafts and repricing orchestration;
 - customer bookings and immutable booking snapshots;
-- payments, Stripe PaymentIntents, refunds, and Stripe webhooks.
+- payments, Lahza hosted checkout, verification, refunds, and Lahza webhooks.
 
 ### Business API
 
@@ -66,7 +66,7 @@ Neither API may reference the other API's implementation project or connect to t
 | `UsersController` customer self-service | Customer API |
 | `VehiclesController` | Customer API |
 | `AddressesController` | Customer API |
-| Legacy `PaymentsController` | Removed; modern `/api/v1/payments/*` and Stripe webhook routes remain in Customer API |
+| Legacy `PaymentsController` | Removed; modern `/api/v1/payments/*` and Lahza webhook routes remain in Customer API |
 | Legacy `BookingsController` | Removed; modern Customer booking confirmation/status integration remains |
 | Legacy `CompaniesController` | Removed; Customer catalog reads and Business company management replace it |
 | Legacy `ServicesController` and `ServiceOptionsController` | Removed; Customer catalog reads and Business catalog management replace them |
@@ -103,7 +103,7 @@ authentication on the Customer host.
 - BookingConfirmationAttempt
 - CustomerPayment
 - CustomerPaymentIdempotencyRecord
-- StripeWebhookEvent
+- PaymentWebhookEvent
 - CustomerInternalServiceNonce
 - CustomerInternalIdempotencyRecord
 - ProcessedBookingStatusMessage
@@ -159,7 +159,7 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Internal routes on either host require all four HMAC credentials described in
   section 6. HMAC credentials never satisfy a bearer or device requirement, and
   either host's bearer token never satisfies HMAC.
-- The Stripe webhook is authenticated only by `Stripe-Signature` over the exact
+- The Lahza webhook is authenticated only by `X-Lahza-Signature` over the exact
   bounded raw body. It is exempt from JWT, device, and internal HMAC.
 - Device registration, implemented Customer and Business authentication entry
   points, implemented OAuth initiation/callback routes, health, and enabled
@@ -175,7 +175,7 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Customer routes use customer concepts without a redundant `customer` segment.
 - Business owner routes use `/api/v1/business`.
 - Service-to-service routes use `/api/v1/internal`.
-- Stripe retains `/api/stripe/webhook` unless a versioned Stripe migration is explicitly approved.
+- Lahza uses the provider-specific anonymous route `/api/lahza/webhook`.
 
 ### Language
 
@@ -196,7 +196,7 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - User-facing errors on either host use a stable code plus a localized message.
 - Business user-facing success and error payloads follow the same selection
   rules, including mutations and authorization failures.
-- Internal HMAC and Stripe webhook diagnostics are deliberately English,
+- Internal HMAC and Lahza webhook diagnostics are deliberately English,
   machine-oriented, and safe. They omit `language`, `Content-Language`, and
   language negotiation. Health and Swagger are also language-neutral.
 - Language changes presentation only. It cannot change authorization,
@@ -259,7 +259,7 @@ The shared generic stable-code registry is:
 
 Feature registries take precedence over generic codes: `device_*`,
 `configuration_*`, `catalog_*`, `checkout_*`, `pricing_*`, `booking_*`,
-`payment_*`, `stripe_*`, `internal_*`, and the Business domain code registry.
+`payment_*`, `lahza_*`, `internal_*`, and the Business domain code registry.
 Existing code/status/detail pairs from Steps 3 and 5–14 are frozen. Exact
 Arabic/Hebrew generic strings and all scenario snapshots are normative in
 [`STEP_15_HTTP_TEST_PLAN.md`](STEP_15_HTTP_TEST_PLAN.md); adding a translation
@@ -268,7 +268,7 @@ must not rename a stable code.
 Internal HMAC problems retain their English machine diagnostics and stable
 authentication, permission, HTTPS, body, media-type, idempotency, replay, and
 unavailability codes. Missing-header diagnostics may include only the
-deterministic missing header names. Stripe problems retain their English
+deterministic missing header names. Lahza problems retain their English
 signature/body/content/event diagnostics. Neither diagnostic family may echo
 raw bodies, signatures, secrets, nonces, JWTs, device tokens, idempotency keys,
 PII, provider payloads, or internal row IDs.
@@ -395,6 +395,7 @@ summarize the cross-domain routes; they do not create compatibility aliases.
 | GET | `/api/v1/catalog/businesses` | Yes | No | Browse eligible companies/branches |
 | GET | `/api/v1/catalog/businesses/{id}` | Yes | No | Get business details |
 | GET | `/api/v1/catalog/businesses/{id}/offerings` | Yes | No | Browse offerings |
+| POST | `/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots` | Yes | No | List authoritative capacity-aware appointment slots |
 | GET | `/api/v1/catalog/offerings/{id}` | Yes | No | Get offering and add-on rules |
 | POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice for a checkout-like intent |
 | POST | `/api/v1/checkout/drafts` | Yes | No | Create anonymous draft |
@@ -402,9 +403,10 @@ summarize the cross-domain routes; they do not create compatibility aliases.
 | PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update anonymous draft intent |
 | POST | `/api/v1/checkout/reprice` | Yes | No | Reprice a device-owned draft using `X-Order-Guid` and `expectedVersion` |
 | POST | `/api/v1/bookings/from-draft` | Yes | Yes | Confirm a draft as a booking |
-| POST | `/api/v1/payments/intents` | Yes | Yes | Create Stripe intent from booking total |
+| POST | `/api/v1/payments/intents` | Yes | Yes | Initialize Lahza hosted checkout from booking total |
 | GET | `/api/v1/payments/{id}` | Yes | Yes | Read owned payment |
-| POST | `/api/stripe/webhook` | No | No | Stripe signature-protected webhook |
+| POST | `/api/v1/payments/{id}/verify` | Yes | Yes | Verify an owned Lahza transaction |
+| POST | `/api/lahza/webhook` | No | No | Lahza HMAC-SHA256 signature-protected webhook |
 
 Customer profile, vehicle, and address routes remain Customer API responsibilities and will be versioned during their migration.
 
@@ -425,6 +427,7 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 |---|---|---|
 | GET | `/api/v1/internal/catalog/snapshot` | Return a versioned catalog snapshot |
 | POST | `/api/v1/internal/appointments/validate` | Validate catalog selections, duration, price, service area, and slot |
+| POST | `/api/v1/internal/appointments/available-slots` | Generate branch-local slots with current remaining capacity |
 | POST | `/api/v1/internal/reservations` | Idempotently reserve an appointment and create a work order |
 | GET | `/api/v1/internal/reservations/{reference}` | Reconcile reservation/work-order state |
 
@@ -446,7 +449,7 @@ default in Production. Each UI reads its own document and "Try it" targets only
 that host.
 
 The Customer document contains only retained Customer routes, Customer
-internal callbacks, health, OAuth, and Stripe webhook only. The Business
+internal callbacks, health, OAuth, and Lahza webhook only. The Business
 document contains Business owner/staff and Business internal routes only.
 Neither document requires the other implementation or database.
 
@@ -459,7 +462,7 @@ Problem Details/`fieldErrors`, `X-Correlation-Id`, `Cache-Control`,
 
 Security is attached per operation rather than globally. The documents define
 Customer bearer, Business bearer, device token, the complete HMAC quartet,
-`Idempotency-Key`, `X-Order-Guid`, and Stripe signature only where applicable.
+`Idempotency-Key`, `X-Order-Guid`, and Lahza signature only where applicable.
 Anonymous, OAuth, health, and webhook exemptions are explicit. Examples use
 placeholders and contain no credential, signature, secret, token, PII,
 production host, provider payload, or internal database ID.
@@ -559,7 +562,12 @@ Operational rules:
 - Appointment-validation request and response timestamps are always evaluated as UTC instants. Response facts emit UTC timestamps only.
 - Recurring schedules and date overrides are authored in branch-local clock time. When `endLocalTime` is less than `startLocalTime`, the window is treated as an overnight window that continues into the next local date.
 - If a requested slot lands in an ambiguous daylight-saving clock time or crosses a daylight-saving transition, validation fails closed as unavailable.
-- `configuredCapacity` reports the configured schedule or override capacity only. Reservation occupancy, work-order consumption, and live capacity depletion remain deferred to a later step.
+- `configuredCapacity` reports the selected schedule or override capacity.
+- Available-slot search subtracts overlapping `Pending`, `Confirmed`, and
+  `InProgress` reservations and can include or omit full slots.
+- Search results are advisory snapshots. Reservation creation remains the
+  authoritative serializable capacity check, so concurrent customers cannot
+  overbook a capacity-one slot.
 
 The Customer API may add its own disclosed customer-side tax, discount, or platform-fee components. It must not override Business API prices.
 
@@ -593,8 +601,8 @@ Selection types are serialized as strings and integer enum values are rejected.
   item/base and add-on subtotals, discounts, service fee, taxable subtotal, tax,
   grand total, currency, duration, and payment capabilities. Decimal rounding
   and response ordering are deterministic.
-- `Card`/`CreditCard` is available only with valid configured Stripe publishable
-  and secret keys. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable
+- `Card`/`CreditCard` is available only with a valid configured Lahza HTTPS API
+  endpoint and secret key. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable
   with stable localized reason codes until their server flows exist.
 
 ### Reservation
@@ -630,7 +638,7 @@ order public ID constraints prevent duplicates. Customer persistence uses a
 unique `orderGuid` and immutable provider, branch, service, selection, vehicle,
 location, price, fee, tax, duration, and appointment snapshots. A lost Business
 response is recovered by replaying the durable attempt with the same key; no
-payment or Stripe capture occurs during confirmation.
+payment or Lahza transaction initialization occurs during confirmation.
 
 ### Booking status callback
 
@@ -764,7 +772,7 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 - Authoritative repricing validates each draft item against Business with the exact catalog version and stable per-request idempotency keys, refreshes stale catalog data at most once, and never trusts client-supplied currency, fee, tax, subtotal, or total fields.
 - Invalid min/max, quantity, inactive option, expired draft, stale version, unavailable slot, and out-of-area location return stable errors.
 - Decimal rounding is deterministic.
-- Safe pricing defaults are non-billable until configured: currency defaults to `ILS`, tax defaults to `0`, service fees default to `None`, and only valid configured Stripe keys enable `CreditCard`. `Wallet`, `CashOnArrival`, and `ThirdParty` remain disabled with localized reason codes until implemented.
+- Safe pricing defaults are non-billable until configured: currency defaults to `ILS`, tax defaults to `0`, service fees default to `None`, and only a valid configured Lahza HTTPS endpoint and secret enable `CreditCard`. `Wallet`, `CashOnArrival`, and `ThirdParty` remain disabled with localized reason codes until implemented.
 
 ### Booking integration
 
@@ -780,47 +788,52 @@ These are behavioral contracts for later roadmap steps. Tests are written before
 - `POST /api/v1/payments/intents` requires `UserPolicy`, the existing device token, and a
   bounded `Idempotency-Key` (1-128 non-control characters). Its JSON contract contains only
   public `CustomerBooking.PublicReference` as `bookingId` and method `Card`. It never accepts
-  a Stripe PaymentMethod ID. Unknown extension
+  card data, a provider reference, or a provider authorization code. Unknown extension
   fields, including client-authoritative money, currency, transaction, paid, or status
   values, are ignored and cannot affect the canonical request.
 - Payment amount and currency come only from the immutable `CustomerBooking.GrandTotal` and
-  `CustomerBooking.Currency`. Supported two-decimal currencies are `ILS`, `USD`, and `EUR`;
-  conversion to Stripe minor units is exact and checked.
-- Intent creation is eligible only while the canonical booking status is `Pending` or
+  `CustomerBooking.Currency`. Supported two-decimal currencies are `ILS`, `JOD`, and `USD`;
+  conversion to Lahza minor units is exact and checked.
+- Transaction initialization is eligible only while the canonical booking status is `Pending` or
   `Confirmed`. `InProgress`, terminal, already-paid, refunded, or previously associated
   bookings cannot create another server payment.
-- Card is available only under the same valid `pk_` plus `sk_` capability semantics exposed
-  during repricing. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable with stable
+- Card is available only when the Lahza API uses an absolute HTTPS URL and a non-placeholder
+  secret key. `Wallet`, `CashOnArrival`, and `ThirdParty` remain unavailable with stable
   localized error/reason codes.
 - Customer payment ownership and every idempotency replay require both the authenticated customer ID and issuing device
   ID. Missing and wrong-owner reads/creates return the same localized `404`.
-- A server payment ID and derived Stripe idempotency key are committed before Stripe I/O.
+- A server payment ID and deterministic Lahza provider reference are committed before Lahza I/O.
   No SQL transaction spans the network call. A random, expiring database lease grants one
-  API instance ownership of intent creation; acquisition, completion, and release are
+  API instance ownership of transaction initialization; acquisition, completion, and release are
   owner-conditional, expired leases are reclaimable, and stale owners cannot overwrite the
-  winner. The unique booking association, device-scoped idempotency records, and Stripe
-  `RequestOptions.IdempotencyKey` prevent duplicate records/intents. Same-key/same-request
-  retries recover ambiguous outcomes; changed canonical requests conflict. A different key
+  winner. The unique booking association, device-scoped idempotency records, and stable Lahza
+  reference prevent duplicate local records. Ambiguous initialization is durably marked and
+  fails closed instead of issuing another provider initialization; the owned verification
+  endpoint can reconcile any transaction that Lahza reports for that stable reference.
+  Changed canonical requests conflict. A different key
   for the same owned booking is durably associated with and replays the existing logical
   payment.
-- Stripe PaymentIntents are created unconfirmed (`Confirm=false`) without a PaymentMethod;
-  the response returns client-safe confirmation data for the mobile SDK. Stripe PaymentMethod
-  IDs are neither accepted, persisted, nor returned. Client secrets and sensitive Stripe
-  material are never logged. Intent creation/replay returns `200`; only a verified webhook
-  changes paid state.
-- `POST /api/stripe/webhook` accepts bounded JSON only, verifies the configured `whsec_`
-  signature against the exact raw body, and stores the Stripe event ID plus SHA-256 body
+- Lahza initialization returns a hosted HTTPS checkout URL and reference. Only
+  the hosted checkout URL and reference are returned to the mobile client; card data and
+  sensitive Lahza material are never accepted, persisted, returned, or logged.
+- `POST /api/v1/payments/{id}/verify` calls Lahza from the server and requires exact reference,
+  amount, currency, and nested transaction-status validation. A callback redirect or provider
+  envelope status never marks a booking paid by itself.
+- `POST /api/lahza/webhook` accepts bounded JSON only, verifies `X-Lahza-Signature` as
+  HMAC-SHA256 over the exact raw body using constant-time comparison, and stores a stable
+  event identity plus SHA-256 body
   hash. Identical events no-op; reused IDs with changed bodies conflict; incomplete internal
   processing returns retryable `5xx` rather than an acknowledgement.
-- Webhook mutations match the persisted PaymentIntent ID and verify server payment ID,
-  booking ID/reference, amount, currency, and (for refunds) charge ID. Safe transitions are
+- Webhook mutations match the persisted provider reference and verify amount, currency, and
+  provider transaction identity. Safe transitions are
   `Pending -> Completed|Failed`, `Failed -> Completed`, and `Completed -> Refunded`.
   Failure/cancel after completion and success after refund are no-ops.
-- Verified events with an unknown intent or invariant mismatch are durably quarantined with
+- Verified events with an unknown reference or invariant mismatch are durably quarantined with
   a safe reason and acknowledged without payment mutation; only true persistence/transient
   failures remain retryable.
-- A verified full refund received before success is stored as a deferred durable receipt.
-  Once matching success establishes the charge, reconciliation atomically converges the
+- Lahza `refund.pending` and `refund.processing` events are recorded without clearing paid
+  state. A verified processed refund received before success is stored as a deferred durable
+  receipt. Once matching success establishes the transaction, reconciliation converges the
   payment to `Refunded` and the booking to unpaid, including concurrent cross-instance event
   ordering; duplicate receipts remain idempotent.
 - Intent request bodies are limited to exactly 65,536 bytes for both known content lengths
@@ -831,7 +844,7 @@ These are behavioral contracts for later roadmap steps. Tests are written before
   empty or malformed keys return `idempotency_key_invalid`. Disabled known methods return
   `payment_method_not_yet_supported`. Booking totals must be positive exact two-decimal
   values (`booking_not_payable`), and currency must be canonical uppercase `ILS`, `USD`, or
-  `EUR` (`booking_currency_not_supported`); both booking failures return HTTP 409. Missing,
+  `JOD` (`booking_currency_not_supported`); both booking failures return HTTP 409. Missing,
   unknown, and wrong-owner booking creation uses `booking_not_found`.
 - The legacy unversioned payment create/refund/admin-status controller is non-routable.
 

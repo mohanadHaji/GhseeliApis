@@ -97,28 +97,27 @@ public sealed class Step17TestFixturesTests
     [Fact]
     public async Task DeterministicFake_ReturnsStableLocalIntentWithoutNetwork()
     {
-        var gateway = new Step17DeterministicPaymentIntentGateway();
-        var command = new StripeIntentCreateCommand(
+        var gateway = new Step17DeterministicPaymentGateway();
+        var command = new PaymentInitializationCommand(
             Guid.Parse("17000000-0000-4000-8000-000000000001"),
             Guid.Parse("17000000-0000-4000-8000-000000000002"),
             Guid.Parse("17000000-0000-4000-8000-000000000003"),
             6050,
             "ILS",
-            "step17-test-key");
+            "customer@example.test",
+            "GHSEELI-17000000000040008000000000000001");
 
-        var first = await gateway.CreateAsync(command, CancellationToken.None);
-        var second = await gateway.CreateAsync(command, CancellationToken.None);
+        var first = await gateway.InitializeAsync(command, CancellationToken.None);
+        var second = await gateway.InitializeAsync(command, CancellationToken.None);
 
         first.Should().Be(second);
-        first.PaymentIntentId.Should()
-            .Be("pi_step17_17000000000040008000000000000001");
-        first.Status.Should().Be("requires_confirmation");
-        first.ClientSecret.Should().Be(
-            "pi_step17_17000000000040008000000000000001_secret_" +
-            "17000000000040008000000000000002");
-        first.ChargeId.Should().BeNull();
+        first.ProviderReference.Should()
+            .Be("GHSEELI-17000000000040008000000000000001");
+        first.Status.Should().Be("initialized");
+        first.CheckoutUrl.Should().Be(
+            new Uri("https://checkout.lahza.test/step17-17000000000040008000000000000001"));
         first.Amount.Should().Be(6050);
-        first.Currency.Should().Be("ils");
+        first.Currency.Should().Be("ILS");
     }
 
     [Fact]
@@ -134,8 +133,8 @@ public sealed class Step17TestFixturesTests
             });
         using var scope = factory.Services.CreateScope();
 
-        scope.ServiceProvider.GetRequiredService<IStripePaymentIntentGateway>()
-            .Should().BeOfType<Step17DeterministicPaymentIntentGateway>();
+        scope.ServiceProvider.GetRequiredService<IPaymentGateway>()
+            .Should().BeOfType<Step17DeterministicPaymentGateway>();
     }
 
     [Fact]

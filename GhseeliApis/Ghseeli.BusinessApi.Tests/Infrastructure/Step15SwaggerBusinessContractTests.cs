@@ -405,6 +405,7 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
         "POST /api/v1/business/admin/booking-status-outbox/{eventId}/requeue",
         "GET /api/v1/internal/catalog/snapshot",
         "POST /api/v1/internal/appointments/validate",
+        "POST /api/v1/internal/appointments/available-slots",
         "POST /api/v1/internal/reservations",
         "GET /api/v1/internal/reservations/{reference}",
         "GET /api/health"

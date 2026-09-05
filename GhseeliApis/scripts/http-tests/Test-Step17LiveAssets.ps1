@@ -160,6 +160,22 @@ $manifest = Get-Content -LiteralPath $ManifestPath -Raw -Encoding UTF8 |
     ConvertFrom-Json
 $manifestEntries = @($manifest.scenarios)
 $manifestIds = @($manifestEntries | ForEach-Object { [string]$_.id })
+$historicalStripeIds = @(
+    'STEP17-E2E-PAYMENT-026',
+    'STEP17-E2E-PAYMENT-027',
+    'STEP17-E2E-WEBHOOK-028',
+    'STEP17-E2E-WEBHOOK-029',
+    'STEP17-E2E-WEBHOOK-030',
+    'STEP17-E2E-WEBHOOK-031',
+    'STEP17-SEC-RATE-011',
+    'STEP17-SEC-BOUND-024'
+)
+$activeManifestEntries = @($manifestEntries | Where-Object {
+        [string]$_.id -cnotin $historicalStripeIds
+    })
+$activeManifestIds = @($activeManifestEntries | ForEach-Object {
+        [string]$_.id
+    })
 if ($manifestIds.Count -ne 58 -or
     @($manifestIds | Sort-Object -Unique).Count -ne 58) {
     throw 'Step 17 live manifest must contain exactly 58 unique scenarios.'
@@ -180,6 +196,10 @@ if ($expectedE2eIds.Count -ne 39 -or $expectedSecIds.Count -ne 19 -or
     @($manifestIds | Where-Object { $_ -clike 'STEP17-DET-*' }).Count) {
     throw 'Live selection must be exactly all 39 E2E IDs and the 19 declared live SEC IDs, with no DET IDs.'
 }
+if ($activeManifestIds.Count -ne 50 -or
+    @($historicalStripeIds | Where-Object { $_ -cnotin $manifestIds }).Count) {
+    throw 'Step 17 must retain eight historical Stripe scenarios while executing exactly 50 provider-neutral scenarios.'
+}
 
 $approvedOrigins = @(
     '{{var:customerBaseUrl}}',
@@ -195,7 +215,7 @@ $requiredLeakageMarkers = @(
     'stack','SqlException','ConnectionString','Bearer ','X-Device-Token',
     'X-Ghseeli-Signature','Stripe-Signature','sk_live_','whsec_',
     'client_secret','@example.com')
-foreach ($scenario in $manifestEntries) {
+foreach ($scenario in $activeManifestEntries) {
     foreach ($property in $requiredScenarioProperties) {
         if ($scenario.psobject.Properties.Name -cnotcontains $property) {
             throw "Live scenario '$($scenario.id)' lacks '$property'."
@@ -242,10 +262,6 @@ foreach ($scenario in $manifestEntries) {
         $scenario.method -cne 'OPTIONS') {
         throw "Internal live scenario '$($scenario.id)' lacks runtime HMAC signing."
     }
-    if ($scenario.id -clike 'STEP17-E2E-WEBHOOK-*' -and
-        $null -eq $scenario.psobject.Properties['stripeSignature']) {
-        throw "Webhook live scenario '$($scenario.id)' lacks local signature generation."
-    }
     if ($scenario.id -clike 'STEP17-SEC-BOUND-*' -and
         [string]$scenario.prerequisitesSetup -notmatch '(?i)byte|65,53') {
         throw "Boundary scenario '$($scenario.id)' does not state its exact byte setup."
@@ -271,10 +287,10 @@ if ($manifestText -match
     throw 'Step 17 manifest contains a committed credential or production marker.'
 }
 
-$bodyFiles = @($manifestEntries |
+$bodyFiles = @($activeManifestEntries |
     Where-Object { $null -ne $_.psobject.Properties['bodyFile'] })
-if ($bodyFiles.Count -ne 10) {
-    throw "Step 17 must generate exactly ten request-boundary body files; found $($bodyFiles.Count)."
+if ($bodyFiles.Count -ne 9) {
+    throw "Step 17 must execute nine provider-neutral request-boundary body files; found $($bodyFiles.Count)."
 }
 foreach ($scenario in $bodyFiles) {
     if ([string]$scenario.bodyFile -notmatch
@@ -308,7 +324,7 @@ $declaredVariables = [Collections.Generic.HashSet[string]]::new(
 foreach ($property in $manifest.setupVariables.psobject.Properties) {
     [void]$declaredVariables.Add($property.Name)
 }
-foreach ($scenario in $manifestEntries) {
+foreach ($scenario in $activeManifestEntries) {
     if ($null -eq $scenario.psobject.Properties['extract']) { continue }
     foreach ($property in $scenario.extract.psobject.Properties) {
         [void]$declaredVariables.Add($property.Name)
@@ -334,8 +350,9 @@ foreach ($name in @(
         'businessToCustomerReconcileServiceId')) {
     [void]$declaredVariables.Add($name)
 }
+$activeManifestText = $activeManifestEntries | ConvertTo-Json -Depth 100
 $referencedVariables = @([regex]::Matches(
-        $manifestText, '\{\{var:([A-Za-z0-9_.-]+)\}\}') |
+        $activeManifestText, '\{\{var:([A-Za-z0-9_.-]+)\}\}') |
     ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 $unknownVariables = @($referencedVariables | Where-Object {
         -not $declaredVariables.Contains($_)
@@ -348,9 +365,15 @@ $corsIds = @($manifestIds | Where-Object { $_ -clike 'STEP17-SEC-CORS-*' })
 $rateIds = @($manifestIds | Where-Object { $_ -clike 'STEP17-SEC-RATE-*' })
 $boundIds = @($manifestIds | Where-Object { $_ -clike 'STEP17-SEC-BOUND-*' })
 $proxyIds = @($manifestIds | Where-Object { $_ -clike 'STEP17-SEC-PROXY-*' })
-if ($corsIds.Count -ne 4 -or $rateIds.Count -ne 2 -or
-    $boundIds.Count -ne 10 -or $proxyIds.Count -ne 3) {
-    throw 'Live SEC selection must be CORS=4, RATE=2, BOUND=10, PROXY=3.'
+$activeRateIds = @($activeManifestIds | Where-Object {
+        $_ -clike 'STEP17-SEC-RATE-*'
+    })
+$activeBoundIds = @($activeManifestIds | Where-Object {
+        $_ -clike 'STEP17-SEC-BOUND-*'
+    })
+if ($corsIds.Count -ne 4 -or $activeRateIds.Count -ne 1 -or
+    $activeBoundIds.Count -ne 9 -or $proxyIds.Count -ne 3) {
+    throw 'Active Step 17 SEC selection must be CORS=4, RATE=1, BOUND=9, PROXY=3 after Stripe retirement.'
 }
 
 $inherited = [ordered]@{
@@ -362,7 +385,6 @@ $inherited = [ordered]@{
     'step-11-pricing-reprice.manifest.json' = 27
     'step-12-booking-confirmation.manifest.json' = 64
     'step-13-booking-status.manifest.json' = 90
-    'step-14-payment-rebuild.manifest.json' = 130
     'step-15-localization-swagger.manifest.json' = 90
     'step-16-clean-schema-separation.manifest.json' = 790
 }
@@ -381,23 +403,14 @@ foreach ($item in $inherited.GetEnumerator()) {
     }
     $inheritedTotal += $actual
 }
-if ($inheritedTotal -ne 1295) {
-    throw "Inherited Step 17 registry must contain exactly 1,295 entries."
-}
-$realStripe = @($inheritedIds | Where-Object {
-        $_ -ceq 'STEP14-INTENT-REAL-STRIPE-057'
-    })
-if ($realStripe.Count -ne 1 -or
-    @($inheritedIds | Where-Object {
-            $_ -cne 'STEP14-INTENT-REAL-STRIPE-057'
-        }).Count -ne 1294) {
-    throw 'Inherited selection must contain exactly one excluded real-Stripe ID and 1,294 local entries.'
+if ($inheritedTotal -ne 1165) {
+    throw "Inherited Step 17 registry must contain 1,165 provider-neutral entries after historical Step 14 exclusion."
 }
 
 $runnerText = Get-Content -LiteralPath $RunnerPath -Raw -Encoding UTF8
 foreach ($required in @(
         "'Validate','Provision','Setup','Chain','OutageRecovery'",
-        "'Security','Inherited','Verify','Cleanup','All'",
+        "'Security','Inherited','AvailableSlots','Verify','Cleanup','All'",
         'Initialize-Step16Fixtures.ps1',
         'Verify-Step16DatabaseInvariants.ps1',
         'Remove-Step16Fixtures.ps1',
@@ -410,8 +423,8 @@ foreach ($required in @(
         "ASPNETCORE_ENVIRONMENT = 'Development'",
         "ASPNETCORE_ENVIRONMENT') -eq",
         "'Production'",
-        "STEP14-INTENT-REAL-STRIPE-057",
-        'if ($selected -ne 1294)',
+        '$historicalStripeScenarioIds',
+        'if ($selected -ne 1165)',
         'Stop-Process -Id $Process.Id',
         'Get-NetTCPConnection',
         'New-BoundaryBodies',
@@ -466,8 +479,9 @@ $parseFailures = [Collections.Generic.List[string]]::new()
 foreach ($script in Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File) {
     $tokens = $null
     $errors = $null
-    [void][Management.Automation.Language.Parser]::ParseFile(
-        $script.FullName, [ref]$tokens, [ref]$errors)
+    $scriptText = Get-Content -LiteralPath $script.FullName -Raw -Encoding UTF8
+    [void][Management.Automation.Language.Parser]::ParseInput(
+        $scriptText, [ref]$tokens, [ref]$errors)
     foreach ($parseError in @($errors)) {
         $parseFailures.Add("$($script.Name): $($parseError.Message)")
     }
@@ -477,6 +491,6 @@ if ($parseFailures.Count) {
 }
 
 Write-Host (
-    'Step 17 assets passed: 118 new IDs, 58 live entries, ' +
-    '60 deterministic/contract mappings, 1,295 inherited entries, ' +
-    'and 1,294 inherited local selections.')
+    'Step 17 assets passed: 118 plan IDs, 58 preserved live entries, ' +
+    '50 active provider-neutral entries, 8 historical Stripe entries, ' +
+    'and 1,165 inherited provider-neutral selections.')

@@ -331,6 +331,14 @@ builder.Services.AddAuthorization(options =>
             BusinessClaimTypes.InternalAllowedOperation,
             InternalServiceOperationNames.AppointmentValidate);
     });
+    options.AddPolicy(BusinessPolicies.InternalAppointmentAvailableSlots, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.AppointmentAvailableSlots);
+    });
     options.AddPolicy(BusinessPolicies.InternalReservationCreate, policy =>
     {
         policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
@@ -371,6 +379,7 @@ builder.Services.AddScoped<ICatalogService, CatalogService>();
 builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagementService>();
 builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
 builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
+builder.Services.AddScoped<IAvailableSlotsService, AvailableSlotsService>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<IBookingStatusService, BookingStatusService>();
 builder.Services.AddScoped<IBookingStatusOutboxDispatcher, BookingStatusOutboxDispatcher>();

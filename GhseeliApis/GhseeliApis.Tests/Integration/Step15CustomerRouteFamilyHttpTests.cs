@@ -458,16 +458,16 @@ public sealed class Step15CustomerRouteFamilyHttpTests
             "secret@example.com super-secret",
             Encoding.UTF8,
             "text/plain");
-        using var response = await client.PostAsync("/api/stripe/webhook?language=he", content);
+        using var response = await client.PostAsync("/api/lahza/webhook?language=he", content);
         using var document = await Step15CustomerAssertions.JsonAsync(response);
 
         Step15CustomerAssertions.ExactProblem(
             response,
             document.RootElement,
             415,
-            "stripe_webhook_unsupported_media_type",
-            "Stripe webhook request could not be processed.",
-            "Stripe webhook request could not be processed.",
+            "lahza_webhook_unsupported_media_type",
+            "Lahza webhook request could not be processed.",
+            "Lahza webhook request could not be processed.",
             null);
     }
 

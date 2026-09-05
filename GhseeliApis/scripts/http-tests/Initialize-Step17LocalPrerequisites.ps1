@@ -98,7 +98,7 @@ $configuration = [ordered]@{
     STEP17_BUSINESS_TO_CUSTOMER_RECONCILE_SERVICE_ID =
         "step17-reconcile-$suffix"
     STEP17_BUSINESS_TO_CUSTOMER_RECONCILE_HMAC_SECRET = New-RandomText 48
-    STEP17_WEBHOOK_SECRET = "whsec_step17_$(New-RandomText 48)"
+    STEP17_WEBHOOK_SECRET = "lahza_step17_$(New-RandomText 48)"
     STEP17_ENABLE_DETERMINISTIC_FAKE_PAYMENT_GATEWAY = 'true'
 }
 

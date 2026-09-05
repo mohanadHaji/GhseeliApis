@@ -37,9 +37,9 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
                 "HmacSignature")];
         }
 
-        if (path == "/api/stripe/webhook")
+        if (path == "/api/lahza/webhook")
         {
-            return [Requirement("StripeSignature")];
+            return [Requirement("LahzaSignature")];
         }
 
         var metadata = context.ApiDescription.ActionDescriptor.EndpointMetadata;
@@ -183,7 +183,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         }
         if (context.ApiDescription.ParameterDescriptions.Any(parameter =>
                 parameter.Source.Id == "Body") ||
-            path == "/api/stripe/webhook")
+            path == "/api/lahza/webhook")
         {
             statuses.Add(413);
             statuses.Add(415);
@@ -191,7 +191,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         if (path.StartsWith("/api/v1/catalog", StringComparison.Ordinal) ||
             path is "/api/v1/configuration" or "/api/v1/pricing/reprice" or
                 "/api/v1/checkout/reprice" or "/api/v1/bookings/from-draft" or
-                "/api/v1/payments/intents" or "/api/stripe/webhook" ||
+                "/api/v1/payments/intents" or "/api/lahza/webhook" ||
             path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
         {
             statuses.Add(503);
@@ -427,7 +427,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
     private static bool IsLocalized(string path) =>
         path.StartsWith("/api/", StringComparison.Ordinal) &&
         !path.StartsWith("/api/Health", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWith("/api/stripe", StringComparison.OrdinalIgnoreCase) &&
+        !path.StartsWith("/api/lahza", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWith("/api/v1/internal/", StringComparison.Ordinal) &&
         path != "/api/v1/devices/register";
 

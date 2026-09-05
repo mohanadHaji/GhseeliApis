@@ -30,7 +30,7 @@ public sealed class Step16CustomerSchemaMigrationTests
         "CustomerBookingSelections", "CustomerBookings", "CustomerConfigurations",
         "CustomerDevices", "CustomerInternalIdempotencyRecords",
         "CustomerInternalServiceNonces", "CustomerPaymentIdempotencyRecords",
-        "CustomerPayments", "ProcessedBookingStatusMessages", "StripeWebhookEvents",
+        "CustomerPayments", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
         "UserAddresses", "Vehicles"
     ];
 
@@ -76,6 +76,13 @@ public sealed class Step16CustomerSchemaMigrationTests
 
         script.ToUpperInvariant().Should().NotContain("POMELO");
         script.ToUpperInvariant().Should().NotContain("MYSQL");
+        script.Should().Contain(
+            "[InitializationState] IN (''NotStarted'',''Initialized'',''Ambiguous'',''Legacy'')");
+        script.Should().Contain(
+            "([Provider] = ''Lahza'' AND [Currency] IN (''ILS'',''JOD'',''USD'')) OR " +
+            "([Provider] = ''Stripe'' AND [Currency] IN (''ILS'',''USD'',''EUR''))");
+        script.Should().Contain(
+            "PRIMARY KEY ([Provider], [EventId])");
     }
 
     [Fact]
@@ -98,7 +105,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(3);
+            firstHistory.Should().HaveCount(4);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")

@@ -1,0 +1,222 @@
+{
+  "name": "Step 20 available slots",
+  "description": "Live-local Customer and Business available-slot contract checks against disposable databases.",
+  "sensitiveFields": [
+    "token",
+    "secret",
+    "x-device-token",
+    "x-ghseeli-signature",
+    "x-ghseeli-nonce"
+  ],
+  "scenarios": [
+    {
+      "id": "STEP20-SLOTS-CUSTOMER-001",
+      "planScenarioId": "STEP20-SLOTS-CUSTOMER-001",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:businessLocalId}}/branches/{{var:branchLocalId}}/available-slots",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:deviceToken}}",
+        "X-Correlation-Id": "corr-step20-customer-success"
+      },
+      "jsonBody": {
+        "date": "{{var:slotDate}}",
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "items": [
+          {
+            "offeringId": "{{var:offeringLocalId}}",
+            "selectedAddons": []
+          }
+        ],
+        "includeUnavailable": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": { "equals": "no-store", "count": 1 },
+          "ETag": { "exists": false },
+          "Last-Modified": { "exists": false },
+          "X-Correlation-Id": {
+            "equals": "corr-step20-customer-success",
+            "count": 1
+          }
+        },
+        "json": [
+          { "path": "$.businessId", "equals": "{{var:businessLocalId}}" },
+          { "path": "$.branchId", "equals": "{{var:branchLocalId}}" },
+          { "path": "$.date", "equals": "{{var:slotDate}}" },
+          { "path": "$.catalogVersion", "equals": "{{var:catalogVersion}}" },
+          { "path": "$.currency", "equals": "ILS" },
+          { "path": "$.totalDurationMinutes", "exists": true },
+          { "path": "$.slots", "exists": true }
+        ],
+        "bodyNotContains": [
+          "{{var:companyId}}",
+          "{{var:branchId}}",
+          "{{var:offeringId}}",
+          "stack",
+          "exception",
+          "ConnectionString"
+        ]
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-CUSTOMER-004",
+      "planScenarioId": "STEP20-SLOTS-CUSTOMER-004",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:businessLocalId}}/branches/{{var:branchLocalId}}/available-slots",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "date": "{{var:slotDate}}",
+        "items": [{ "offeringId": "{{var:offeringLocalId}}" }]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "bodyNotContains": ["stack", "exception", "{{var:companyId}}"]
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-CUSTOMER-010",
+      "planScenarioId": "STEP20-SLOTS-CUSTOMER-010",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:businessLocalId}}/branches/{{var:branchLocalId}}/available-slots",
+      "headers": {
+        "Content-Type": "text/plain",
+        "X-Device-Token": "{{var:deviceToken}}"
+      },
+      "repeatBody": {
+        "text": "{}",
+        "count": 1,
+        "contentType": "text/plain",
+        "forceChunked": false
+      },
+      "expect": {
+        "status": 415,
+        "contentType": "application/problem+json"
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-CUSTOMER-014",
+      "planScenarioId": "STEP20-SLOTS-CUSTOMER-014",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:businessLocalId}}/branches/{{var:branchLocalId}}/available-slots",
+      "headers": {
+        "Content-Type": "application/json",
+        "Accept-Language": "he",
+        "X-Device-Token": "{{var:deviceToken}}"
+      },
+      "jsonBody": {
+        "date": "{{var:slotDate}}",
+        "items": []
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "errorCode": "catalog_filter_mismatch",
+        "json": [
+          { "path": "$.language", "equals": "he" },
+          { "path": "$.fieldErrors.items", "exists": true }
+        ]
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-CUSTOMER-017",
+      "planScenarioId": "STEP20-SLOTS-CUSTOMER-017",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:businessLocalId}}/branches/{{var:branchLocalId}}/available-slots",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:deviceToken}}"
+      },
+      "jsonBody": {
+        "date": "{{var:slotDate}}",
+        "expectedCatalogVersion": "{{var:staleCatalogVersion}}",
+        "items": [{ "offeringId": "{{var:offeringLocalId}}" }]
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "errorCode": "catalog_stale_version"
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-INTERNAL-001",
+      "planScenarioId": "STEP20-SLOTS-INTERNAL-001",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/available-slots",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "corr-step20-internal-success"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:customerToBusinessServiceId}}",
+        "secretEnv": "STEP17_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
+        "timestamp": "{{gen:iso8601}}",
+        "nonce": "{{gen:nonce}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "companyId": "{{var:companyId}}",
+        "branchId": "{{var:branchId}}",
+        "date": "{{var:slotDate}}",
+        "expectedCatalogVersion": "{{var:catalogVersion}}",
+        "currency": "ILS",
+        "customerLocation": {
+          "latitude": 24.7136,
+          "longitude": 46.6753
+        },
+        "items": [{ "offeringId": "{{var:offeringId}}", "selectedAddons": [] }],
+        "includeUnavailable": true
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.valid", "equals": true },
+          { "path": "$.companyId", "equals": "{{var:companyId}}" },
+          { "path": "$.branchId", "equals": "{{var:branchId}}" },
+          { "path": "$.date", "equals": "{{var:slotDate}}" }
+        ],
+        "bodyNotContains": ["stack", "exception", "ConnectionString"]
+      }
+    },
+    {
+      "id": "STEP20-SLOTS-INTERNAL-002",
+      "planScenarioId": "STEP20-SLOTS-INTERNAL-002",
+      "feature": "step20",
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/available-slots",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "companyId": "{{var:companyId}}",
+        "branchId": "{{var:branchId}}",
+        "date": "{{var:slotDate}}",
+        "currency": "ILS",
+        "items": [{ "offeringId": "{{var:offeringId}}" }]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json"
+      }
+    }
+  ]
+}

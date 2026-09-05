@@ -22,6 +22,10 @@ public interface IBusinessApiClient
         string idempotencyKey,
         CancellationToken cancellationToken = default);
 
+    Task<AvailableSlotsResponse> GetAvailableSlotsAsync(
+        AvailableSlotsRequest request,
+        CancellationToken cancellationToken = default);
+
     Task<CreateReservationResponse> CreateReservationAsync(
         CreateReservationRequest request,
         string idempotencyKey,
@@ -126,6 +130,41 @@ public sealed class BusinessApiClient : IBusinessApiClient
         return await ReadResponseAsync<ValidateAppointmentResponse>(
             response,
             "appointment validation",
+            correlationId,
+            cancellationToken);
+    }
+
+    public async Task<AvailableSlotsResponse> GetAvailableSlotsAsync(
+        AvailableSlotsRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        request.ContractVersion = BusinessCatalogContract.Version;
+        var correlationId = ResolveCorrelationId();
+        var requestUri = ResolveRequestUri(
+            "/api/v1/internal/appointments/available-slots",
+            correlationId);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(request, JsonOptions),
+                Encoding.UTF8,
+                "application/json")
+        };
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
+
+        return await ReadResponseAsync<AvailableSlotsResponse>(
+            response,
+            "available slots",
             correlationId,
             cancellationToken);
     }

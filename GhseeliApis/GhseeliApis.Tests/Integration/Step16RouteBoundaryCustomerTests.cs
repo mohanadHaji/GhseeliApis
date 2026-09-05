@@ -237,14 +237,16 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
         "GET /api/v1/catalog/categories", "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",
+        "POST /api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
         "GET /api/v1/catalog/offerings/{id}", "POST /api/v1/checkout/drafts",
         "GET /api/v1/checkout/drafts/{orderGuid}",
         "PUT /api/v1/checkout/drafts/{orderGuid}", "POST /api/v1/pricing/reprice",
         "POST /api/v1/checkout/reprice", "POST /api/v1/bookings/from-draft",
         "POST /api/v1/payments/intents", "GET /api/v1/payments/{id}",
+        "POST /api/v1/payments/{id}/verify",
         "POST /api/v1/internal/bookings/status",
         "POST /api/v1/internal/bookings/{reference}/reconcile",
-        "GET /api/v1/internal/bookings/{reference}", "POST /api/stripe/webhook",
+        "GET /api/v1/internal/bookings/{reference}", "POST /api/lahza/webhook",
         "GET /api/Health", "GET /api/Health/db"
     ];
 
@@ -396,12 +398,12 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
 
     private static string[] ExpectedCustomerSecurity(string method, string path)
     {
-        if (path == "/api/stripe/webhook") return ["StripeSignature"];
+        if (path == "/api/lahza/webhook") return ["LahzaSignature"];
         if (path == "/api/v1/devices/register") return [];
         if (path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
             return ["HmacServiceId", "HmacTimestamp", "HmacNonce", "HmacSignature"];
         if (path is "/api/v1/bookings/from-draft" or "/api/v1/payments/intents" or
-            "/api/v1/payments/{id}")
+            "/api/v1/payments/{id}" or "/api/v1/payments/{id}/verify")
             return ["CustomerBearer", "DeviceToken"];
         if (path.StartsWith("/api/v1/", StringComparison.Ordinal))
             return ["DeviceToken"];
@@ -436,6 +438,10 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
             ValidateAppointmentRequest request, string idempotencyKey,
             CancellationToken cancellationToken = default) =>
             Throw<ValidateAppointmentResponse>();
+        public Task<AvailableSlotsResponse> GetAvailableSlotsAsync(
+            AvailableSlotsRequest request,
+            CancellationToken cancellationToken = default) =>
+            Throw<AvailableSlotsResponse>();
         public Task<CreateReservationResponse> CreateReservationAsync(
             CreateReservationRequest request, string idempotencyKey,
             CancellationToken cancellationToken = default) =>

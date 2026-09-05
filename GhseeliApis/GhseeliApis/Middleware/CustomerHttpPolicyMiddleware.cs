@@ -308,7 +308,7 @@ public sealed class CustomerHttpPolicyMiddleware
     private static bool IsLocalized(PathString path) =>
         !path.StartsWithSegments("/swagger", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWithSegments("/api/Health", StringComparison.OrdinalIgnoreCase) &&
-        !path.StartsWithSegments("/api/stripe", StringComparison.OrdinalIgnoreCase) &&
+        !path.StartsWithSegments("/api/lahza", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase) &&
         (path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase) ||
          path.StartsWithSegments("/api/v1", StringComparison.OrdinalIgnoreCase));

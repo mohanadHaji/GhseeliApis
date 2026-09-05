@@ -33,7 +33,7 @@ public sealed class Step17DeterministicPaymentHttpTests
         var gateway = new ScriptedGateway(_ =>
             throw new InvalidOperationException("The gateway must not be called."));
         var fixture = CreateCustomerFixture();
-        await using var factory = CreatePaymentFactory(fixture, gateway, stripeConfigured: false);
+        await using var factory = CreatePaymentFactory(fixture, gateway, lahzaConfigured: false);
         var booking = await SeedBookingAsync(factory, fixture);
         using var client = factory.CreateApiClient();
 
@@ -80,20 +80,19 @@ public sealed class Step17DeterministicPaymentHttpTests
             body.Should().NotContain("step17-provider-timeout-must-not-leak");
         }
 
-        gateway.Commands.Should().HaveCount(2);
+        gateway.Commands.Should().ContainSingle();
         gateway.Commands.Select(command => command.PaymentId).Distinct()
             .Should().ContainSingle();
-        gateway.Commands.Select(command => command.IdempotencyKey).Distinct()
+        gateway.Commands.Select(command => command.ProviderReference).Distinct()
             .Should().ContainSingle();
-        gateway.Commands[1].Should().Be(gateway.Commands[0]);
-
         await using var verify = CreateContext(factory);
         var payment = await verify.CustomerPayments.AsNoTracking().SingleAsync();
         payment.Status.Should().Be(PaymentStatus.Pending);
-        payment.PaymentIntentId.Should().BeNull();
-        payment.ClientSecret.Should().BeNull();
-        payment.IntentLeaseOwnerToken.Should().BeNull();
-        payment.IntentLeaseExpiresAtUtc.Should().BeNull();
+        payment.InitializationState.Should().Be(PaymentInitializationStates.Ambiguous);
+        payment.ProviderReference.Should().StartWith("GHSEELI-");
+        payment.CheckoutUrl.Should().BeNull();
+        payment.InitializationLeaseOwnerToken.Should().BeNull();
+        payment.InitializationLeaseExpiresAtUtc.Should().BeNull();
         (await verify.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(1);
         var persistedBooking = await verify.CustomerBookings.AsNoTracking().SingleAsync();
         persistedBooking.IsPaid.Should().BeFalse();
@@ -104,13 +103,11 @@ public sealed class Step17DeterministicPaymentHttpTests
     [Trait("ScenarioId", "STEP17-DET-PAY-045")]
     public async Task STEP17_DET_PAY_045_GatewayMoneyMismatchReturnsBadGateway()
     {
-        const string providerIntent = "pi_step17_mismatch_private";
-        const string providerSecret = "pi_step17_mismatch_private_secret";
-        var gateway = new ScriptedGateway(command => new StripeIntentResult(
-            providerIntent,
-            "requires_confirmation",
-            providerSecret,
-            null,
+        const string providerReference = "GHSEELI-STEP17-MISMATCH";
+        var gateway = new ScriptedGateway(command => new PaymentInitializationResult(
+            command.ProviderReference,
+            "initialized",
+            new Uri($"https://checkout.lahza.test/pay/{providerReference}"),
             command.Amount + 1,
             "USD"));
         var fixture = CreateCustomerFixture();
@@ -129,8 +126,8 @@ public sealed class Step17DeterministicPaymentHttpTests
                 response,
                 HttpStatusCode.BadGateway,
                 CustomerPaymentErrorCodes.GatewayAmbiguous);
-            body.Should().NotContain(providerIntent)
-                .And.NotContain(providerSecret);
+            body.Should().NotContain(providerReference)
+                .And.NotContain("access-mismatch");
         }
 
         gateway.Commands.Should().HaveCount(2);
@@ -138,10 +135,10 @@ public sealed class Step17DeterministicPaymentHttpTests
         await using var verify = CreateContext(factory);
         var payment = await verify.CustomerPayments.AsNoTracking().SingleAsync();
         payment.Status.Should().Be(PaymentStatus.Pending);
-        payment.PaymentIntentId.Should().BeNull();
-        payment.ClientSecret.Should().BeNull();
-        payment.IntentLeaseOwnerToken.Should().BeNull();
-        payment.IntentLeaseExpiresAtUtc.Should().BeNull();
+        payment.ProviderReference.Should().StartWith("GHSEELI-");
+        payment.CheckoutUrl.Should().BeNull();
+        payment.InitializationLeaseOwnerToken.Should().BeNull();
+        payment.InitializationLeaseExpiresAtUtc.Should().BeNull();
         (await verify.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(1);
         (await verify.CustomerBookings.AsNoTracking().SingleAsync()).IsPaid.Should().BeFalse();
     }
@@ -178,16 +175,16 @@ public sealed class Step17DeterministicPaymentHttpTests
     {
         await using var factory = CreateWebhookFactory();
         var payment = await SeedPaymentAsync(factory, PaymentStatus.Completed, paid: true);
-        var stripeEvent = Event(
+        var paymentEvent = Event(
             payment,
             "evt_step17_pay_048",
-            StripePaymentEventKind.Failed,
-            "payment_intent.payment_failed");
+            PaymentEventKind.RefundFailed,
+            "refund.failed");
         using var client = factory.CreateApiClient();
 
         using var response = await SendWebhookAsync(
             client,
-            BuildPaymentIntentEvent(stripeEvent));
+            BuildLahzaEvent(paymentEvent));
 
         await AssertAcknowledgementAsync(response);
         await using var verify = CreateContext(factory);
@@ -198,26 +195,26 @@ public sealed class Step17DeterministicPaymentHttpTests
         persisted.Status.Should().Be(PaymentStatus.Completed);
         persisted.CustomerBooking.IsPaid.Should().BeTrue();
         persisted.CustomerBooking.PaymentState.Should().Be("Completed");
-        var receipt = await verify.StripeWebhookEvents.AsNoTracking().SingleAsync();
+        var receipt = await verify.PaymentWebhookEvents.AsNoTracking().SingleAsync();
         receipt.EventId.Should().Be("evt_step17_pay_048");
-        receipt.EventType.Should().Be("payment_intent.payment_failed");
+        receipt.EventType.Should().Be("refund.failed");
         receipt.State.Should().Be("Completed");
-        receipt.DispositionReason.Should().BeNull();
+        receipt.DispositionReason.Should().Be("refund_failed");
     }
 
     private static async Task AssertDurableMismatchAsync(
         string eventId,
-        Func<CustomerPayment, VerifiedStripeEvent> createEvent,
+        Func<CustomerPayment, VerifiedPaymentEvent> createEvent,
         string expectedDisposition)
     {
         await using var factory = CreateWebhookFactory();
         var payment = await SeedPaymentAsync(factory, PaymentStatus.Pending, paid: false);
-        var stripeEvent = createEvent(payment);
+        var paymentEvent = createEvent(payment);
         using var client = factory.CreateApiClient();
 
         using var response = await SendWebhookAsync(
             client,
-            BuildPaymentIntentEvent(stripeEvent));
+            BuildLahzaEvent(paymentEvent));
 
         await AssertAcknowledgementAsync(response);
         await using var verify = CreateContext(factory);
@@ -228,7 +225,7 @@ public sealed class Step17DeterministicPaymentHttpTests
         persisted.Status.Should().Be(PaymentStatus.Pending);
         persisted.CustomerBooking.IsPaid.Should().BeFalse();
         persisted.CustomerBooking.PaymentState.Should().Be("Unpaid");
-        var receipt = await verify.StripeWebhookEvents.AsNoTracking().SingleAsync();
+        var receipt = await verify.PaymentWebhookEvents.AsNoTracking().SingleAsync();
         receipt.EventId.Should().Be(eventId);
         receipt.State.Should().Be("Quarantined");
         receipt.DispositionReason.Should().Be(expectedDisposition);
@@ -236,18 +233,17 @@ public sealed class Step17DeterministicPaymentHttpTests
 
     private static CheckoutDraftApiFactory CreatePaymentFactory(
         CustomerFixture fixture,
-        IStripePaymentIntentGateway gateway,
-        bool stripeConfigured = true) =>
+        IPaymentGateway gateway,
+        bool lahzaConfigured = true) =>
         new(
             devices: [fixture.Device],
             settings: new Dictionary<string, string?>
             {
-                ["Stripe:PublishableKey"] = stripeConfigured ? "pk_test_step17_local" : string.Empty,
-                ["Stripe:SecretKey"] = stripeConfigured ? "sk_test_step17_local" : string.Empty
+                ["Lahza:SecretKey"] = lahzaConfigured ? "sk_test_step17_local" : string.Empty
             },
             configureTestServices: services =>
             {
-                services.RemoveAll<IStripePaymentIntentGateway>();
+                services.RemoveAll<IPaymentGateway>();
                 services.AddSingleton(gateway);
             });
 
@@ -255,7 +251,7 @@ public sealed class Step17DeterministicPaymentHttpTests
         new(
             settings: new Dictionary<string, string?>
             {
-                ["Stripe:WebhookSecret"] = "whsec_step17_local"
+                ["Lahza:SecretKey"] = "sk_test_step17_webhook"
             });
 
     private static async Task<BookingFixture> SeedBookingAsync(
@@ -295,8 +291,8 @@ public sealed class Step17DeterministicPaymentHttpTests
             Status = status,
             IdempotencyKey = $"step17-{Guid.NewGuid():N}",
             RequestHash = new string('A', 64),
-            StripeIdempotencyKey = $"ghseeli-step17-{Guid.NewGuid():N}",
-            PaymentIntentId = $"pi_step17_{Guid.NewGuid():N}",
+            Provider = PaymentProviders.Lahza,
+            ProviderReference = $"GHSEELI-{Guid.NewGuid():N}".ToUpperInvariant(),
             CreatedAtUtc = DateTimeOffset.UtcNow,
             UpdatedAtUtc = DateTimeOffset.UtcNow
         };
@@ -353,25 +349,19 @@ public sealed class Step17DeterministicPaymentHttpTests
             IsActive = true
         };
 
-    private static VerifiedStripeEvent Event(
+    private static VerifiedPaymentEvent Event(
         CustomerPayment payment,
         string eventId,
-        StripePaymentEventKind kind = StripePaymentEventKind.Succeeded,
-        string eventType = "payment_intent.succeeded") =>
+        PaymentEventKind kind = PaymentEventKind.Succeeded,
+        string eventType = "charge.success") =>
         new(
             eventId,
             eventType,
             kind,
-            payment.PaymentIntentId!,
+            payment.ProviderReference!,
             null,
             payment.MinorAmount,
-            payment.Currency,
-            new Dictionary<string, string>
-            {
-                ["payment_id"] = payment.Id.ToString("D"),
-                ["booking_id"] = payment.CustomerBookingId.ToString("D"),
-                ["booking_reference"] = payment.CustomerBooking.PublicReference.ToString("D")
-            });
+            payment.Currency);
 
     private static async Task<HttpResponseMessage> SendPaymentAsync(
         HttpClient client,
@@ -399,19 +389,18 @@ public sealed class Step17DeterministicPaymentHttpTests
         HttpClient client,
         string body)
     {
-        const string secret = "whsec_step17_local";
-        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        const string secret = "sk_test_step17_webhook";
         var signature = Convert.ToHexString(
                 HMACSHA256.HashData(
                     Encoding.UTF8.GetBytes(secret),
-                    Encoding.UTF8.GetBytes($"{timestamp}.{body}")))
+                    Encoding.UTF8.GetBytes(body)))
             .ToLowerInvariant();
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            "/api/stripe/webhook");
+            "/api/lahza/webhook");
         request.Headers.TryAddWithoutValidation(
-            "Stripe-Signature",
-            $"t={timestamp},v1={signature}");
+            "X-Lahza-Signature",
+            signature);
         request.Content = new StringContent(
             body,
             Encoding.UTF8,
@@ -419,23 +408,17 @@ public sealed class Step17DeterministicPaymentHttpTests
         return await client.SendAsync(request);
     }
 
-    private static string BuildPaymentIntentEvent(VerifiedStripeEvent stripeEvent) =>
+    private static string BuildLahzaEvent(VerifiedPaymentEvent paymentEvent) =>
         JsonSerializer.Serialize(new Dictionary<string, object?>
         {
-            ["id"] = stripeEvent.EventId,
-            ["object"] = "event",
-            ["type"] = stripeEvent.EventType,
+            ["id"] = paymentEvent.EventId,
+            ["event"] = paymentEvent.EventType,
             ["data"] = new Dictionary<string, object?>
             {
-                ["object"] = new Dictionary<string, object?>
-                {
-                    ["id"] = stripeEvent.PaymentIntentId,
-                    ["object"] = "payment_intent",
-                    ["amount"] = stripeEvent.Amount,
-                    ["currency"] = stripeEvent.Currency.ToLowerInvariant(),
-                    ["latest_charge"] = stripeEvent.ChargeId,
-                    ["metadata"] = stripeEvent.Metadata
-                }
+                ["id"] = paymentEvent.ProviderTransactionId,
+                ["reference"] = paymentEvent.ProviderReference,
+                ["amount"] = paymentEvent.Amount,
+                ["currency"] = paymentEvent.Currency
             }
         });
 
@@ -507,18 +490,28 @@ public sealed class Step17DeterministicPaymentHttpTests
     private sealed record BookingFixture(Guid Id, Guid PublicReference);
 
     private sealed class ScriptedGateway(
-        Func<StripeIntentCreateCommand, StripeIntentResult> action)
-        : IStripePaymentIntentGateway
+        Func<PaymentInitializationCommand, PaymentInitializationResult> action)
+        : IPaymentGateway
     {
-        public List<StripeIntentCreateCommand> Commands { get; } = [];
+        public List<PaymentInitializationCommand> Commands { get; } = [];
 
-        public Task<StripeIntentResult> CreateAsync(
-            StripeIntentCreateCommand command,
+        public Task<PaymentInitializationResult> InitializeAsync(
+            PaymentInitializationCommand command,
             CancellationToken cancellationToken)
         {
             Commands.Add(command);
             return Task.FromResult(action(command));
         }
+
+        public Task<PaymentVerificationResult> VerifyAsync(
+            string providerReference,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(new PaymentVerificationResult(
+                providerReference,
+                "pending",
+                null,
+                0,
+                "ILS"));
     }
 
 }

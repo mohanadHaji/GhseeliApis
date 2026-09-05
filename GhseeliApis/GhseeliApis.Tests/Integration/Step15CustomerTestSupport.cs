@@ -100,9 +100,7 @@ public sealed class Step15CustomerApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("CheckoutPricing:TaxRatePercent", "0");
         builder.UseSetting("CheckoutPricing:TaxAppliesToServiceFee", "false");
         builder.UseSetting("CheckoutPricing:ServiceFee:Mode", "None");
-        builder.UseSetting("Stripe:PublishableKey", "");
-        builder.UseSetting("Stripe:SecretKey", "");
-        builder.UseSetting("Stripe:WebhookSecret", "");
+        builder.UseSetting("Lahza:SecretKey", "");
 
         builder.ConfigureServices(services =>
         {

@@ -518,6 +518,8 @@ function Start-BusinessHost(
             'reservation_create'
         $environment['InternalServiceAuthentication__Services__0__AllowedOperations__3'] =
             'reservation_status_read'
+        $environment['InternalServiceAuthentication__Services__0__AllowedOperations__4'] =
+            'appointment_available_slots'
         $environment['InternalServiceAuthentication__Services__1__ServiceId'] =
             "$customerServiceId-catalog"
         $environment['InternalServiceAuthentication__Services__1__ActiveSecret'] =

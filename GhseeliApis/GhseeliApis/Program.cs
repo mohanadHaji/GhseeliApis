@@ -195,7 +195,7 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("HmacTimestamp", ApiKey("X-Timestamp"));
     options.AddSecurityDefinition("HmacNonce", ApiKey("X-Nonce"));
     options.AddSecurityDefinition("HmacSignature", ApiKey("X-Signature"));
-    options.AddSecurityDefinition("StripeSignature", ApiKey("Stripe-Signature"));
+    options.AddSecurityDefinition("LahzaSignature", ApiKey("X-Lahza-Signature"));
     options.OperationFilter<GhseeliApis.Filters.SwaggerAuthorizationOperationFilter>();
     options.DocumentFilter<GhseeliApis.Filters.Step15SwaggerDocumentFilter>();
 });
@@ -409,6 +409,7 @@ builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService
 builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationService>();
 builder.Services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRefreshCoordinator>();
 builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
+builder.Services.AddScoped<IAvailableSlotsQueryService, AvailableSlotsQueryService>();
 builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
@@ -436,17 +437,23 @@ if (step17TestFixtures.Enabled &&
         StringComparison.Ordinal))
 {
     builder.Services.AddScoped<
-        IStripePaymentIntentGateway,
-        Step17DeterministicPaymentIntentGateway>();
+        IPaymentGateway,
+        Step17DeterministicPaymentGateway>();
 }
 else
 {
-    builder.Services.AddScoped<
-        IStripePaymentIntentGateway,
-        StripePaymentIntentGateway>();
+    builder.Services.AddHttpClient<IPaymentGateway, LahzaPaymentGateway>(
+        (serviceProvider, client) =>
+    {
+        var options = serviceProvider
+            .GetRequiredService<
+                Microsoft.Extensions.Options.IOptions<LahzaConfigurationOptions>>()
+            .Value;
+        client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    });
 }
-builder.Services.AddScoped<IStripeWebhookService, StripeWebhookService>();
-builder.Services.AddSingleton<IStripeWebhookParser, StripeWebhookParser>();
+builder.Services.AddScoped<IPaymentWebhookService, PaymentWebhookService>();
+builder.Services.AddSingleton<IPaymentWebhookParser, LahzaWebhookParser>();
 builder.Services.AddScoped<
     ICustomerInternalIdempotencyCleanupService,
     CustomerInternalIdempotencyCleanupService>();
@@ -493,8 +500,12 @@ builder.Services.AddOptions<CheckoutDraftOptions>()
 builder.Services.AddOptions<CheckoutPricingOptions>()
     .Bind(builder.Configuration.GetSection(CheckoutPricingOptions.SectionName))
     .ValidateOnStart();
-builder.Services.Configure<StripeConfigurationOptions>(
-    builder.Configuration.GetSection(StripeConfigurationOptions.SectionName));
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<LahzaConfigurationOptions>,
+    LahzaConfigurationOptionsValidator>();
+builder.Services.AddOptions<LahzaConfigurationOptions>()
+    .Bind(builder.Configuration.GetSection(LahzaConfigurationOptions.SectionName))
+    .ValidateOnStart();
 builder.Services.Configure<BusinessApiClientOptions>(
     builder.Configuration.GetSection(BusinessApiClientOptions.SectionName));
 builder.Services.AddTransient<BusinessApiResilienceDelegatingHandler>();

@@ -37,7 +37,7 @@ public sealed class CustomerPaymentApiIntegrationTests
         var paths = root.GetProperty("paths");
         var create = paths.GetProperty("/api/v1/payments/intents").GetProperty("post");
         var read = paths.GetProperty("/api/v1/payments/{id}").GetProperty("get");
-        var webhook = paths.GetProperty("/api/stripe/webhook").GetProperty("post");
+        var webhook = paths.GetProperty("/api/lahza/webhook").GetProperty("post");
         var requestSchema = root.GetProperty("components").GetProperty("schemas")
             .GetProperty(nameof(CreateCustomerPaymentIntentRequest))
             .GetProperty("properties");
@@ -50,8 +50,8 @@ public sealed class CustomerPaymentApiIntegrationTests
         AssertBearerSecurity(create);
         AssertBearerSecurity(read);
         webhook.GetProperty("security")[0]
-            .TryGetProperty("StripeSignature", out var stripeScopes).Should().BeTrue();
-        stripeScopes.GetArrayLength().Should().Be(0);
+            .TryGetProperty("LahzaSignature", out var lahzaScopes).Should().BeTrue();
+        lahzaScopes.GetArrayLength().Should().Be(0);
 
         paths.EnumerateObject()
             .Where(path => path.Name.StartsWith("/api/payments", StringComparison.OrdinalIgnoreCase))
@@ -370,8 +370,9 @@ public sealed class CustomerPaymentApiIntegrationTests
                 Method = "Card",
                 Status = "Pending",
                 ProviderStatus = "requires_confirmation",
-                ClientSecret = "pi_safe_secret",
-                PublishableKey = "pk_test_safe",
+                Provider = PaymentProviders.Lahza,
+                ProviderReference = "GHSEELI-SAFE",
+                CheckoutUrl = "https://checkout.lahza.test/pay/GHSEELI-SAFE",
                 CreatedAtUtc = createdAt
             }
         };
@@ -400,7 +401,7 @@ public sealed class CustomerPaymentApiIntegrationTests
             .Should().ContainSingle("step14-safe-correlation");
         document.RootElement.EnumerateObject().Select(value => value.Name).Should().BeEquivalentTo(
             "id", "bookingId", "amount", "currency", "method", "status",
-            "providerStatus", "clientSecret", "publishableKey", "createdAtUtc");
+            "provider", "providerStatus", "providerReference", "checkoutUrl", "createdAtUtc");
         document.RootElement.GetProperty("id").GetGuid().Should().Be(paymentId);
         document.RootElement.GetProperty("amount").GetDecimal().Should().Be(12.34m);
         document.RootElement.GetProperty("currency").GetString().Should().Be("ILS");
@@ -408,7 +409,7 @@ public sealed class CustomerPaymentApiIntegrationTests
         body.Should().NotContain("pm_attacker")
             .And.NotContain("userId")
             .And.NotContain("paymentIntentId")
-            .And.NotContain("whsec_")
+            .And.NotContain("lahza_secret_")
             .And.NotContain("sk_test_");
         service.LastRequest!.BookingId.Should().Be(bookingId);
         service.LastRequest.Method.Should().Be("cArD");
@@ -437,8 +438,11 @@ public sealed class CustomerPaymentApiIntegrationTests
                 Method = "Card",
                 Status = status,
                 ProviderStatus = status == "Pending" ? "requires_confirmation" : null,
-                ClientSecret = confirmationExpected ? "client-secret" : null,
-                PublishableKey = confirmationExpected ? "pk_test_safe" : null,
+                Provider = PaymentProviders.Lahza,
+                ProviderReference = "GHSEELI-SAFE",
+                CheckoutUrl = confirmationExpected
+                    ? "https://checkout.lahza.test/pay/GHSEELI-SAFE"
+                    : null,
                 CreatedAtUtc = DateTimeOffset.UtcNow
             }
         };
@@ -464,16 +468,17 @@ public sealed class CustomerPaymentApiIntegrationTests
         document.RootElement.GetProperty("method").GetString().Should().Be("Card");
         if (confirmationExpected)
         {
-            document.RootElement.GetProperty("clientSecret").GetString().Should().NotBeNullOrWhiteSpace();
-            document.RootElement.GetProperty("publishableKey").GetString().Should().NotBeNullOrWhiteSpace();
+            document.RootElement.GetProperty("checkoutUrl").GetString()
+                .Should().StartWith("https://checkout.lahza.test/");
         }
         else
         {
-            document.RootElement.GetProperty("clientSecret").ValueKind.Should().Be(JsonValueKind.Null);
-            document.RootElement.GetProperty("publishableKey").ValueKind.Should().Be(JsonValueKind.Null);
+            document.RootElement.GetProperty("checkoutUrl").ValueKind.Should().Be(JsonValueKind.Null);
         }
-        body.Should().NotContain("paymentIntentId")
-            .And.NotContain("chargeId")
+        document.RootElement.GetProperty("provider").GetString().Should().Be(PaymentProviders.Lahza);
+        document.RootElement.GetProperty("providerReference").GetString()
+            .Should().Be("GHSEELI-SAFE");
+        body.Should().NotContain("providerTransactionId")
             .And.NotContain("userId")
             .And.NotContain("ownerDeviceId");
     }
@@ -629,7 +634,7 @@ public sealed class CustomerPaymentApiIntegrationTests
             Create = _ => throw new CustomerPaymentException(
                 status,
                 code,
-                "sk_test_leak whsec_leak customer@example.com")
+                "sk_test_leak lahza_secret_leak customer@example.com")
         };
         var token = CatalogTestSupport.CreateToken(94);
         var device = CatalogTestSupport.CreateDevice(token, DateTimeOffset.UtcNow.AddDays(1));
@@ -832,7 +837,7 @@ public sealed class CustomerPaymentApiIntegrationTests
         body.Should().NotContain("System.")
             .And.NotContain("Exception")
             .And.NotContain("sk_test_")
-            .And.NotContain("whsec_")
+            .And.NotContain("lahza_secret_")
             .And.NotContain("SELECT ");
         return root.Clone();
     }
@@ -953,5 +958,12 @@ public sealed class CustomerPaymentApiIntegrationTests
             GetCalls++;
             return Task.FromResult(Get?.Invoke(paymentId));
         }
+
+        public Task<CustomerPaymentResponse?> VerifyAsync(
+            Guid paymentId,
+            Guid userId,
+            Guid deviceId,
+            CancellationToken cancellationToken) =>
+            GetAsync(paymentId, userId, deviceId, cancellationToken);
     }
 }

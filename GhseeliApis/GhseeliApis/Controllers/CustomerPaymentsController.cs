@@ -27,6 +27,7 @@ public sealed class CustomerPaymentsController : ControllerBase
     }
 
     [HttpPost("intents")]
+    [ProducesResponseType(typeof(CustomerPaymentResponse), StatusCodes.Status200OK)]
     [EnforceJsonRequestContentType]
     [EnforceRequestBodySizeLimit(
         MaxIntentRequestBodyBytes,
@@ -122,6 +123,7 @@ public sealed class CustomerPaymentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(CustomerPaymentResponse), StatusCodes.Status200OK)]
     public async Task<IActionResult> Get(
         Guid id,
         [FromQuery] string? language,
@@ -142,6 +144,55 @@ public sealed class CustomerPaymentsController : ControllerBase
         return payment is null
             ? ProblemResult(404, CustomerPaymentErrorCodes.NotFound, language)
             : Ok(payment);
+    }
+
+    [HttpPost("{id:guid}/verify")]
+    [ProducesResponseType(typeof(CustomerPaymentResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Verify(
+        Guid id,
+        [FromQuery] string? language,
+        CancellationToken cancellationToken)
+    {
+        Response.Headers.CacheControl = "no-store";
+        if (Request.Query.ContainsKey("language") &&
+            !ConfigurationLanguageResolver.TryNormalizeOverride(language, out _))
+        {
+            return ProblemResult(
+                400,
+                CustomerPaymentErrorCodes.Invalid,
+                null);
+        }
+        if (!TryGetIdentity(out var userId, out var deviceId))
+        {
+            return ProblemResult(
+                401,
+                CustomerPaymentErrorCodes.Invalid,
+                language);
+        }
+
+        try
+        {
+            var payment = await _service.VerifyAsync(
+                id,
+                userId,
+                deviceId,
+                cancellationToken);
+            return payment is null
+                ? ProblemResult(
+                    404,
+                    CustomerPaymentErrorCodes.NotFound,
+                    language)
+                : Ok(payment);
+        }
+        catch (CustomerPaymentException exception)
+        {
+            _logger.LogWarning(
+                $"Customer payment verification rejected with code {exception.Code} for payment {id:D}.");
+            return ProblemResult(
+                exception.StatusCode,
+                exception.Code,
+                language);
+        }
     }
 
     private bool TryGetIdentity(out Guid userId, out Guid deviceId)

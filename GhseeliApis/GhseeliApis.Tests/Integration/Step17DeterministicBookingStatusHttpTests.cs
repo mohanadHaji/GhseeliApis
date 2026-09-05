@@ -1016,6 +1016,11 @@ public sealed class Step17DeterministicBookingStatusHttpTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<AvailableSlotsResponse> GetAvailableSlotsAsync(
+            AvailableSlotsRequest request,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<CreateReservationResponse> CreateReservationAsync(
             CreateReservationRequest request,
             string idempotencyKey,

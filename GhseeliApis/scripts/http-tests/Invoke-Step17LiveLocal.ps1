@@ -1,8 +1,8 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 [CmdletBinding()]
 param(
     [ValidateSet('Validate','Provision','Setup','Chain','OutageRecovery',
-        'Security','Inherited','Verify','Cleanup','All')]
+        'Security','Inherited','AvailableSlots','Verify','Cleanup','All')]
     [string]$Phase = 'Validate',
     [string]$RunId = ([guid]::NewGuid().ToString('N')),
     [string]$Server = '(localdb)\MSSQLLocalDB',
@@ -28,6 +28,8 @@ if ([string]::IsNullOrWhiteSpace($FixtureOverlayPath)) {
 }
 $manifest = Join-Path $PSScriptRoot `
     'plans\step-17-quality-gate.manifest.json'
+$step20Manifest = Join-Path $PSScriptRoot `
+    'plans\step-20-available-slots.manifest.json'
 $coverage = Join-Path $PSScriptRoot `
     'plans\step-17-quality-gate.coverage.json'
 $plan = Join-Path $solution 'STEP_17_HTTP_TEST_PLAN.md'
@@ -37,7 +39,6 @@ $step16Verifier = Join-Path $PSScriptRoot 'Verify-Step16DatabaseInvariants.ps1'
 $step16Cleanup = Join-Path $PSScriptRoot 'Remove-Step16Fixtures.ps1'
 $step16Runner = Join-Path $PSScriptRoot 'Invoke-Step16LiveLocal.ps1'
 $step13Initializer = Join-Path $PSScriptRoot 'Initialize-Step13Fixtures.ps1'
-$step14Initializer = Join-Path $PSScriptRoot 'Initialize-Step14Fixtures.ps1'
 $runtimeInitializer = Join-Path $PSScriptRoot `
     'Initialize-Step17LocalPrerequisites.ps1'
 $harnessModule = Join-Path $PSScriptRoot 'HttpTestHarness.psm1'
@@ -47,6 +48,16 @@ $proxyScript = Join-Path $PSScriptRoot 'Invoke-Step17LoopbackProxy.ps1'
 $runSuffix = if ($RunId.Length -ge 12) { $RunId.Substring(0,12) } else { $RunId }
 $processes = [Collections.Generic.List[Diagnostics.Process]]::new()
 $resultFiles = [Collections.Generic.List[string]]::new()
+$historicalStripeScenarioIds = @(
+    'STEP17-E2E-PAYMENT-026',
+    'STEP17-E2E-PAYMENT-027',
+    'STEP17-E2E-WEBHOOK-028',
+    'STEP17-E2E-WEBHOOK-029',
+    'STEP17-E2E-WEBHOOK-030',
+    'STEP17-E2E-WEBHOOK-031',
+    'STEP17-SEC-RATE-011',
+    'STEP17-SEC-BOUND-024'
+)
 
 function Resolve-LocalArtifactPath(
     [string]$Path,
@@ -122,7 +133,7 @@ function Assert-LiveOptIn {
     if ([Environment]::GetEnvironmentVariable(
             'STEP17_ENABLE_DETERMINISTIC_FAKE_PAYMENT_GATEWAY') -cne 'true') {
         throw ('Set STEP17_ENABLE_DETERMINISTIC_FAKE_PAYMENT_GATEWAY=true ' +
-            'to explicitly opt into the local fake; real Stripe is forbidden.')
+            'to explicitly opt into the local fake; real provider calls are forbidden.')
     }
     $customerProgram = Join-Path $solution 'GhseeliApis\Program.cs'
     $customerSource = Get-Content -LiteralPath $customerProgram -Raw `
@@ -131,7 +142,7 @@ function Assert-LiveOptIn {
         -not $customerSource.Contains('DeterministicFake')) {
         throw ('Customer host lacks Development-only Step17TestFixtures ' +
             'deterministic payment-gateway wiring. Live execution is blocked ' +
-            'instead of falling through to Stripe.')
+            'instead of falling through to Lahza.')
     }
     foreach ($name in @(
             'STEP17_CUSTOMER_JWT_SECRET','STEP17_BUSINESS_JWT_SECRET',
@@ -456,10 +467,10 @@ function Get-HostEnvironment([object]$State,[bool]$Customer) {
                 'booking_status_read'
             CustomerInternalServiceAuthentication__Services__1__AllowedOperations__2 =
                 '__disabled__'
-            Stripe__WebhookSecret = [Environment]::GetEnvironmentVariable(
+            Lahza__SecretKey = [Environment]::GetEnvironmentVariable(
                 'STEP17_WEBHOOK_SECRET')
-            Stripe__PublishableKey = 'pk_test_step17_local'
-            Stripe__SecretKey = 'sk_test_step17_local_no_network'
+            Lahza__BaseUrl = 'https://api.lahza.io'
+            Lahza__CallbackUrl = 'https://localhost.invalid/payment/callback'
             Step17TestFixtures__Enabled = 'true'
             Step17TestFixtures__PaymentGateway = 'DeterministicFake'
             RateLimiting__DeviceRegistrationPermitLimit =
@@ -474,12 +485,12 @@ function Get-HostEnvironment([object]$State,[bool]$Customer) {
             RateLimiting__AuthAggregatePermitLimit =
                 $(if ($inheritedMode) { '10000' } else { '6' })
             RateLimiting__AuthAggregateWindowSeconds = '60'
-            RateLimiting__ValidStripePermitLimit =
+            RateLimiting__ValidPaymentWebhookPermitLimit =
                 $(if ($inheritedMode) { '10000' } else { '5' })
-            RateLimiting__ValidStripeWindowSeconds = '60'
-            RateLimiting__InvalidStripePermitLimit =
+            RateLimiting__ValidPaymentWebhookWindowSeconds = '60'
+            RateLimiting__InvalidPaymentWebhookPermitLimit =
                 $(if ($inheritedMode) { '10000' } else { '3' })
-            RateLimiting__InvalidStripeWindowSeconds = '60'
+            RateLimiting__InvalidPaymentWebhookWindowSeconds = '60'
             RateLimiting__PaymentAggregatePermitLimit =
                 $(if ($inheritedMode) { '10000' } else { '2' })
             RateLimiting__PaymentAggregateWindowSeconds = '60'
@@ -532,6 +543,8 @@ function Get-HostEnvironment([object]$State,[bool]$Customer) {
             'reservation_create'
         InternalServiceAuthentication__Services__0__AllowedOperations__3 =
             'reservation_status_read'
+        InternalServiceAuthentication__Services__0__AllowedOperations__4 =
+            'appointment_available_slots'
         CustomerBookingStatusClient__BaseUrl = $State.customerBaseUrl
         CustomerBookingStatusClient__ServiceId =
             [Environment]::GetEnvironmentVariable(
@@ -934,10 +947,25 @@ function Invoke-ManifestTag([string]$Tag) {
     $state = Read-State
     $resultPath = Join-Path $artifacts (
         "step17-$Tag-$runSuffix.results.local.json")
+    $document = Get-Content -LiteralPath $manifest -Raw -Encoding UTF8 |
+        ConvertFrom-Json
+    $document.scenarios = @($document.scenarios | Where-Object {
+            @($_.tags) -ccontains $Tag -and
+            [string]$_.id -cnotin $historicalStripeScenarioIds
+        })
+    if (@($document.scenarios).Count -eq 0) {
+        Write-Host "Step 17 phase '$Tag' is historical-only after the Lahza migration; Step 18 owns payment execution."
+        return
+    }
+    $filteredPath = Join-Path $artifacts `
+        "step17-$Tag-$runSuffix.active.local.json"
+    $document | ConvertTo-Json -Depth 100 |
+        Set-Content -LiteralPath $filteredPath -Encoding UTF8
     Import-Module $harnessModule -Force
-    $result = Invoke-HttpTestHarness -ManifestPath $manifest `
+    $result = Invoke-HttpTestHarness -ManifestPath $filteredPath `
         -BaseUrl $state.customerBaseUrl -VariablesPath $StatePath `
-        -Tags $Tag -ResultsPath $resultPath
+        -ResultsPath $resultPath
+    Remove-Item -LiteralPath $filteredPath -Force -ErrorAction SilentlyContinue
     $resultFiles.Add($resultPath)
     if (-not $result.Summary.passedAll) {
         throw "Step 17 manifest phase '$Tag' failed."
@@ -954,6 +982,7 @@ function Invoke-ManifestScenarioId([string]$ScenarioId) {
     if ($selected.Count -ne 1) {
         throw "Expected one Step 17 scenario '$ScenarioId'."
     }
+
     $document.scenarios = $selected
     $filteredPath = Join-Path $artifacts `
         "step17-selected-$ScenarioId.local.json"
@@ -971,6 +1000,21 @@ function Invoke-ManifestScenarioId([string]$ScenarioId) {
     }
     Merge-RuntimeVariables $result.RuntimeVariables
     Remove-Item -LiteralPath $filteredPath -Force -ErrorAction SilentlyContinue
+}
+
+function Invoke-Step20Manifest {
+    $state = Read-State
+    $resultPath = Join-Path $artifacts `
+        "step20-available-slots-$runSuffix.results.local.json"
+    Import-Module $harnessModule -Force
+    $result = Invoke-HttpTestHarness -ManifestPath $step20Manifest `
+        -BaseUrl $state.customerBaseUrl -VariablesPath $StatePath `
+        -ResultsPath $resultPath
+    $resultFiles.Add($resultPath)
+    if (-not $result.Summary.passedAll) {
+        throw 'Step 20 available-slots manifest failed.'
+    }
+    Merge-RuntimeVariables $result.RuntimeVariables
 }
 
 function Invoke-SupportingStatusCallback(
@@ -1233,15 +1277,15 @@ function Invoke-RateLimitWarmup {
     $warmups = [Collections.Generic.List[object]]::new()
     for ($index = 1; $index -le 3; $index++) {
         $warmups.Add([ordered]@{
-            id = "STEP17-SUPPORT-INVALID-STRIPE-$index"
+            id = "STEP17-SUPPORT-INVALID-LAHZA-$index"
             feature = 'step17-support'
             tags = @('step17-support')
             method = 'POST'
-            url = "$($state.customerBaseUrl)/api/stripe/webhook"
+            url = "$($state.customerBaseUrl)/api/lahza/webhook"
             headers = [ordered]@{
                 Accept='application/json'
                 'Content-Type'='application/json'
-                'Stripe-Signature'='invalid-local-signature'
+                'X-Lahza-Signature'='invalid-local-signature'
             }
             jsonBody = [ordered]@{
                 id="evt_step17_rate_${runSuffix}_$index"
@@ -1251,10 +1295,10 @@ function Invoke-RateLimitWarmup {
             }
             expect = [ordered]@{
                 status=400
-                errorCode='stripe_signature_invalid'
+                errorCode='lahza_signature_invalid'
                 bodyNotContains=@(
                     'stack','SqlException','ConnectionString',
-                    'Stripe-Signature','whsec_')
+                    'X-Lahza-Signature','webhookSecret')
             }
         })
     }
@@ -1414,7 +1458,7 @@ function ConvertTo-SqlUnicodeLiteral([AllowNull()][string]$Value) {
 function Restore-Step17CanonicalCatalogState {
     $state = Read-State
     $row = Get-SqlRow $state $state.customerDatabase @"
-SELECT p.SourceCompanyId,p.CatalogVersion,
+SELECT p.Id AS BusinessLocalId,p.SourceCompanyId,p.CatalogVersion,
        b.Id AS BranchLocalId,b.SourceBranchId,
        c.Id AS CategoryLocalId,c.SourceCategoryId,
        o.Id AS OfferingLocalId,o.SourceOfferingId,
@@ -1445,6 +1489,7 @@ ORDER BY OverrideDate,StartLocalTime;
     }
     Merge-StateValues @{
         companyId = ([guid]$row.SourceCompanyId).ToString('D')
+        businessLocalId = ([guid]$row.BusinessLocalId).ToString('D')
         branchId = ([guid]$row.SourceBranchId).ToString('D')
         branchLocalId = ([guid]$row.BranchLocalId).ToString('D')
         categoryId = ([guid]$row.SourceCategoryId).ToString('D')
@@ -1464,6 +1509,8 @@ ORDER BY OverrideDate,StartLocalTime;
         catalogVersion = [long]$row.CatalogVersion
         slotStartUtc = [string]$slot.SlotStartUtc
         requestedSlotStartUtc = [string]$slot.SlotStartUtc
+        slotDate = ([string]$slot.SlotStartUtc).Substring(0, 10)
+        staleCatalogVersion = ([long]$row.CatalogVersion) - 1
     }
 }
 
@@ -2272,7 +2319,6 @@ function Invoke-Inherited {
         'step-11-pricing-reprice.manifest.json' = 27
         'step-12-booking-confirmation.manifest.json' = 64
         'step-13-booking-status.manifest.json' = 90
-        'step-14-payment-rebuild.manifest.json' = 130
         'step-15-localization-swagger.manifest.json' = 90
         'step-16-clean-schema-separation.manifest.json' = 790
     }
@@ -3236,8 +3282,8 @@ WHERE p.SourceCompanyId='$($state.companyId)'
             throw "Inherited manifest '$($item.Key)' failed."
         }
     }
-    if ($selected -ne 1294) {
-        throw "Inherited selection must be 1,294, found $selected."
+    if ($selected -ne 1165) {
+        throw "Inherited selection must be 1,165 after historical Step 14 payment exclusion, found $selected."
     }
 }
 
@@ -3395,10 +3441,7 @@ try {
             Invoke-SupportingStatusCallback 3 'Completed' 'event3Id'
             Invoke-ManifestScenarioId 'STEP17-E2E-RECONCILE-024'
             Invoke-ManifestScenarioId 'STEP17-E2E-RECONCILE-025'
-            Invoke-ManifestTag 'payment-create'
-            Hydrate-PaymentVariables
-            Initialize-FailurePaymentFixture
-            Invoke-ManifestTag 'payment-webhooks'
+            Write-Host 'Step 17 Stripe payment journey is historical; Step 18 owns Lahza payment execution.'
             Invoke-ManifestTag 'crossdb'
             Stop-AllOwnedProcesses
             & $step16Verifier -StatePath $StatePath -RequireRoles
@@ -3463,6 +3506,15 @@ try {
             Stop-AllOwnedProcesses
             Merge-StateValues @{ inheritedCompleted = $true }
         }
+        'AvailableSlots' {
+            Restore-Step17CanonicalCatalogState
+            $state = Read-State
+            $customer = Start-Customer $state
+            $business = Start-Business $state
+            Invoke-Step20Manifest
+            Stop-AllOwnedProcesses
+            Merge-StateValues @{ availableSlotsCompleted = $true }
+        }
         'Verify' {
             Stop-AllOwnedProcesses
             Assert-FinalIsolation
@@ -3496,10 +3548,7 @@ try {
             Invoke-SupportingStatusCallback 3 'Completed' 'event3Id'
             Invoke-ManifestScenarioId 'STEP17-E2E-RECONCILE-024'
             Invoke-ManifestScenarioId 'STEP17-E2E-RECONCILE-025'
-            Invoke-ManifestTag 'payment-create'
-            Hydrate-PaymentVariables
-            Initialize-FailurePaymentFixture
-            Invoke-ManifestTag 'payment-webhooks'
+            Write-Host 'Step 17 Stripe payment journey is historical; Step 18 owns Lahza payment execution.'
             Invoke-ManifestTag 'crossdb'
             Merge-StateValues @{ chainCompleted = $true }
             Invoke-ManifestScenarioId 'STEP17-E2E-CATALOG-007'

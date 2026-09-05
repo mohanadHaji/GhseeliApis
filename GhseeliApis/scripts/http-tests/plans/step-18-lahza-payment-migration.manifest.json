@@ -1,0 +1,848 @@
+{
+  "name": "Step 18 Lahza payment migration",
+  "description": "Safe local HTTP coverage for the provider-neutral Lahza contract. Secrets and credentials are generated only in ignored local artifacts.",
+  "sensitiveHeaders": [
+    "authorization",
+    "x-device-token",
+    "x-lahza-signature",
+    "idempotency-key"
+  ],
+  "scenarios": [
+    {
+      "id": "STEP18-LAHZA-CONTRACT-001",
+      "planScenarioId": "STEP18-LAHZA-CONTRACT-001",
+      "feature": "step18",
+      "tags": ["step18", "configured", "contract"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.provider", "exists": true },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.checkoutUrl", "exists": true },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.providerReference", "exists": true },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.clientSecret", "exists": false },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.publishableKey", "exists": false },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.paymentIntentId", "exists": false },
+          { "path": "$.components.schemas.CustomerPaymentResponse.properties.chargeId", "exists": false }
+        ]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-SWAGGER-030",
+      "planScenarioId": "STEP18-LAHZA-SWAGGER-030",
+      "feature": "step18",
+      "tags": ["step18", "configured", "contract"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "expect": {
+        "status": 200,
+        "json": [
+          { "path": "$.paths['/api/v1/payments/intents'].post", "exists": true },
+          { "path": "$.paths['/api/v1/payments/{id}'].get", "exists": true },
+          { "path": "$.paths['/api/v1/payments/{id}/verify'].post", "exists": true },
+          { "path": "$.paths['/api/lahza/webhook'].post", "exists": true },
+          { "path": "$.paths['/api/stripe/webhook']", "exists": false },
+          { "path": "$.paths['/api/lahza/webhook'].post.security[0].LahzaSignature", "exists": true },
+          { "path": "$.paths['/api/v1/payments/{id}/verify'].post.security[0].CustomerBearer", "exists": true }
+        ]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-STRIPE-ROUTE-REMOVED",
+      "planScenarioId": "STEP18-LAHZA-SWAGGER-030",
+      "feature": "step18",
+      "tags": ["step18", "configured", "route"],
+      "method": "POST",
+      "url": "/api/stripe/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {},
+      "expect": {
+        "status": 404,
+        "bodyNotContains": ["Stripe-Signature", "clientSecret", "paymentIntentId", "sk_", "exception", "stack"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-INIT-004",
+      "planScenarioId": "STEP18-LAHZA-INIT-004",
+      "feature": "step18",
+      "tags": ["step18", "configured", "payment-create"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents?language=ar",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-primary",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:primaryBookingId}}",
+        "method": "Card"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "jsonPropertyCount": 11,
+        "json": [
+          { "path": "$.bookingId", "equals": "{{var:primaryBookingId}}" },
+          { "path": "$.amount", "equals": 10.0 },
+          { "path": "$.currency", "equals": "ILS" },
+          { "path": "$.method", "equals": "Card" },
+          { "path": "$.status", "equals": "Pending" },
+          { "path": "$.provider", "equals": "Lahza" },
+          { "path": "$.providerReference", "matches": "^GHSEELI-[A-F0-9]{32}$" },
+          { "path": "$.checkoutUrl", "matches": "^https://checkout\\.lahza\\.test/" }
+        ],
+        "bodyNotContains": [
+          "clientSecret", "publishableKey", "paymentIntentId", "chargeId",
+          "Stripe", "sk_", "secret", "authorizationCode", "@example"
+        ]
+      },
+      "extract": {
+        "primaryPaymentId": "$.id",
+        "primaryProviderReference": "$.providerReference",
+        "primaryCheckoutUrl": "$.checkoutUrl"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-INIT-005",
+      "planScenarioId": "STEP18-LAHZA-INIT-005",
+      "feature": "step18",
+      "tags": ["step18", "configured", "payment-create"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-secondary",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:secondaryBookingId}}",
+        "method": "cArD",
+        "amount": 0,
+        "currency": "USD",
+        "status": "Completed",
+        "provider": "Stripe",
+        "paymentIntentId": "pi_forged",
+        "email": "attacker@example.invalid"
+      },
+      "expect": {
+        "status": 200,
+        "json": [
+          { "path": "$.bookingId", "equals": "{{var:secondaryBookingId}}" },
+          { "path": "$.amount", "equals": 10.0 },
+          { "path": "$.currency", "equals": "ILS" },
+          { "path": "$.provider", "equals": "Lahza" },
+          { "path": "$.status", "equals": "Pending" }
+        ],
+        "bodyNotContains": ["pi_forged", "attacker@example.invalid", "Stripe", "clientSecret"]
+      },
+      "extract": {
+        "secondaryPaymentId": "$.id",
+        "secondaryProviderReference": "$.providerReference"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-INIT-006",
+      "planScenarioId": "STEP18-LAHZA-INIT-006",
+      "feature": "step18",
+      "tags": ["step18", "configured", "idempotency"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-primary",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:primaryBookingId}}",
+        "method": "Card"
+      },
+      "expect": {
+        "status": 200,
+        "json": [
+          { "path": "$.id", "equals": "{{var:primaryPaymentId}}" },
+          { "path": "$.providerReference", "equals": "{{var:primaryProviderReference}}" },
+          { "path": "$.checkoutUrl", "equals": "{{var:primaryCheckoutUrl}}" }
+        ]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-INIT-006-CONFLICT",
+      "planScenarioId": "STEP18-LAHZA-INIT-006",
+      "feature": "step18",
+      "tags": ["step18", "configured", "idempotency"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-primary",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:secondaryBookingId}}",
+        "method": "Card"
+      },
+      "expect": {
+        "status": 409,
+        "errorCode": "idempotency_conflict",
+        "bodyNotContains": ["providerReference", "checkoutUrl", "exception", "stack"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-READ-OWNER",
+      "planScenarioId": "STEP18-LAHZA-CONTRACT-001",
+      "feature": "step18",
+      "tags": ["step18", "configured", "ownership"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:primaryPaymentId}}",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "json": [
+          { "path": "$.id", "equals": "{{var:primaryPaymentId}}" },
+          { "path": "$.provider", "equals": "Lahza" }
+        ],
+        "bodyNotContains": ["clientSecret", "publishableKey", "Stripe", "paymentIntentId"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-READ-MISSING-JWT",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "auth"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:primaryPaymentId}}",
+      "headers": { "X-Device-Token": "{{var:ownerDeviceToken}}" },
+      "expect": {
+        "status": 401,
+        "bodyNotContains": ["providerReference", "checkoutUrl", "exception", "stack"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-READ-MISSING-DEVICE",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "auth"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:primaryPaymentId}}",
+      "headers": { "Authorization": "{{var:ownerAuthorization}}" },
+      "expect": {
+        "status": 401,
+        "errorCode": "device_token_missing"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-READ-WRONG-ROLE",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "auth"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:primaryPaymentId}}",
+      "headers": {
+        "Authorization": "{{var:wrongRoleAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": { "status": 403 }
+    },
+    {
+      "id": "STEP18-LAHZA-PENDING-CREATE",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-014",
+      "feature": "step18",
+      "tags": ["step18", "configured", "payment-create"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-pending-verify",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:pendingVerifyBookingId}}",
+        "method": "Card"
+      },
+      "expect": { "status": 200 },
+      "extract": {
+        "pendingVerifyPaymentId": "$.id",
+        "pendingVerifyProviderReference": "$.providerReference"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-VERIFY-014",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-014",
+      "feature": "step18",
+      "tags": ["step18", "configured", "verify"],
+      "method": "POST",
+      "url": "/api/v1/payments/{{var:pendingVerifyPaymentId}}/verify",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 502,
+        "errorCode": "payment_gateway_ambiguous",
+        "bodyNotContains": ["providerReference", "checkoutUrl", "sk_", "exception", "stack"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-VERIFY-017-USER",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "verify", "ownership"],
+      "method": "POST",
+      "url": "/api/v1/payments/{{var:pendingVerifyPaymentId}}/verify",
+      "headers": {
+        "Authorization": "{{var:otherUserAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "errorCode": "payment_not_found"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-VERIFY-017-DEVICE",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "verify", "ownership"],
+      "method": "POST",
+      "url": "/api/v1/payments/{{var:pendingVerifyPaymentId}}/verify",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:otherDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "errorCode": "payment_not_found"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-VERIFY-017-UNKNOWN",
+      "planScenarioId": "STEP18-LAHZA-VERIFY-017",
+      "feature": "step18",
+      "tags": ["step18", "configured", "verify", "ownership"],
+      "method": "POST",
+      "url": "/api/v1/payments/{{var:unknownPaymentId}}/verify",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 404,
+        "errorCode": "payment_not_found"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-018",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-018",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-security"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {},
+      "expect": {
+        "status": 400,
+        "errorCode": "lahza_signature_missing"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-019",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-019",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-security"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Lahza-Signature": "00"
+      },
+      "jsonBody": {},
+      "expect": {
+        "status": 400,
+        "errorCode": "lahza_signature_invalid",
+        "bodyNotContains": ["X-Lahza-Signature", "webhookSecret", "sk_", "exception", "stack"]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-020",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-020",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-security"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:unknownEventId}}",
+        "event": "unknown.event",
+        "data": {
+          "reference": "GHSEELI-UNKNOWN",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 200,
+        "jsonPropertyCount": 1,
+        "json": [{ "path": "$.received", "equals": true }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-020-RAW-CHANGE",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-020",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-security"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "evt-step18-raw-change",
+        "event": "unknown.event",
+        "data": {
+          "reference": "GHSEELI-RAW-CHANGED",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": {
+        "secretVariable": "webhookSecret",
+        "signBody": "{}"
+      },
+      "expect": {
+        "status": 400,
+        "errorCode": "lahza_signature_invalid"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-021-MEDIA",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-021",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-transport"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": {
+        "Content-Type": "text/plain",
+        "X-Lahza-Signature": "00"
+      },
+      "repeatBody": {
+        "text": "x",
+        "count": 1,
+        "contentType": "text/plain",
+        "forceChunked": false
+      },
+      "expect": {
+        "status": 415,
+        "errorCode": "lahza_webhook_unsupported_media_type"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-021-SIZE",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-021",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-transport"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "repeatBody": {
+        "text": "x",
+        "count": 65537,
+        "contentType": "application/json",
+        "forceChunked": true
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 413,
+        "errorCode": "lahza_webhook_too_large"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-024",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-024",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:successEventId}}",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.received", "equals": true }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-022",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-022",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:successEventId}}",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.received", "equals": true }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-023",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-023",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:successEventId}}",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1001,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 409,
+        "errorCode": "lahza_webhook_conflict"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-WEBHOOK-025",
+      "planScenarioId": "STEP18-LAHZA-WEBHOOK-025",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "evt_step18_quarantine",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_unknown",
+          "reference": "GHSEELI-NOT-FOUND",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.received", "equals": true }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-026-PENDING",
+      "planScenarioId": "STEP18-LAHZA-REFUND-026",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:refundPendingEventId}}",
+        "event": "refund.pending",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-026-PROCESSING",
+      "planScenarioId": "STEP18-LAHZA-REFUND-026",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:refundProcessingEventId}}",
+        "event": "refund.processing",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-026-PROCESSED",
+      "planScenarioId": "STEP18-LAHZA-REFUND-026",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:refundProcessedEventId}}",
+        "event": "refund.processed",
+        "data": {
+          "id": "txn_step18_primary",
+          "reference": "{{var:primaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-026-READ",
+      "planScenarioId": "STEP18-LAHZA-REFUND-026",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:primaryPaymentId}}",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.status", "equals": "Refunded" }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-027-BEFORE-SUCCESS",
+      "planScenarioId": "STEP18-LAHZA-REFUND-027",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:deferredRefundEventId}}",
+        "event": "refund.processed",
+        "data": {
+          "id": "txn_step18_secondary",
+          "reference": "{{var:secondaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-027-SUCCESS",
+      "planScenarioId": "STEP18-LAHZA-REFUND-027",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:deferredSuccessEventId}}",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_secondary",
+          "reference": "{{var:secondaryProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-027-READ",
+      "planScenarioId": "STEP18-LAHZA-REFUND-027",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:secondaryPaymentId}}",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.status", "equals": "Refunded" }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-PARTIAL-CREATE",
+      "planScenarioId": "STEP18-LAHZA-REFUND-028",
+      "feature": "step18",
+      "tags": ["step18", "configured", "payment-create"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-partial",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:partialRefundBookingId}}",
+        "method": "Card"
+      },
+      "expect": { "status": 200 },
+      "extract": {
+        "partialPaymentId": "$.id",
+        "partialProviderReference": "$.providerReference"
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-028-SUCCESS",
+      "planScenarioId": "STEP18-LAHZA-REFUND-028",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:partialSuccessEventId}}",
+        "event": "charge.success",
+        "data": {
+          "id": "txn_step18_partial",
+          "reference": "{{var:partialProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-028-PARTIAL",
+      "planScenarioId": "STEP18-LAHZA-REFUND-028",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:partialRefundEventId}}",
+        "event": "refund.processed",
+        "data": {
+          "id": "txn_step18_partial",
+          "reference": "{{var:partialProviderReference}}",
+          "amount": 500,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-028-READ",
+      "planScenarioId": "STEP18-LAHZA-REFUND-028",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "GET",
+      "url": "/api/v1/payments/{{var:partialPaymentId}}",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "json": [{ "path": "$.status", "equals": "Completed" }]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-REFUND-028-FAILED",
+      "planScenarioId": "STEP18-LAHZA-REFUND-028",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-lifecycle"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "id": "{{var:refundFailedEventId}}",
+        "event": "refund.failed",
+        "data": {
+          "id": "txn_step18_partial",
+          "reference": "{{var:partialProviderReference}}",
+          "amount": 1000,
+          "currency": "ILS"
+        }
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": { "status": 200 }
+    },
+    {
+      "id": "STEP18-LAHZA-SECURITY-029",
+      "planScenarioId": "STEP18-LAHZA-SECURITY-029",
+      "feature": "step18",
+      "tags": ["step18", "configured", "webhook-security"],
+      "method": "POST",
+      "url": "/api/lahza/webhook",
+      "headers": { "Content-Type": "application/json" },
+      "jsonBody": {
+        "secret": "sk_test_must_not_echo",
+        "email": "private@example.invalid"
+      },
+      "lahzaSignature": { "secretVariable": "webhookSecret" },
+      "expect": {
+        "status": 400,
+        "errorCode": "lahza_event_invalid",
+        "bodyNotContains": [
+          "sk_test_must_not_echo", "private@example.invalid",
+          "X-Lahza-Signature", "exception", "stack", "JsonException"
+        ]
+      }
+    },
+    {
+      "id": "STEP18-LAHZA-CONFIG-002",
+      "planScenarioId": "STEP18-LAHZA-CONFIG-002",
+      "feature": "step18",
+      "tags": ["step18", "unconfigured"],
+      "method": "POST",
+      "url": "/api/v1/payments/intents",
+      "headers": {
+        "Authorization": "{{var:ownerAuthorization}}",
+        "X-Device-Token": "{{var:ownerDeviceToken}}",
+        "Idempotency-Key": "step18-unconfigured",
+        "Content-Type": "application/json"
+      },
+      "jsonBody": {
+        "bookingId": "{{var:unconfiguredBookingId}}",
+        "method": "Card"
+      },
+      "expect": {
+        "status": 503,
+        "errorCode": "payment_provider_unavailable",
+        "bodyNotContains": ["Lahza:SecretKey", "sk_", "checkoutUrl", "providerReference", "exception", "stack"]
+      }
+    }
+  ]
+}

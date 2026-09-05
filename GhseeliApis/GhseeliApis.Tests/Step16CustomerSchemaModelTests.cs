@@ -4,6 +4,7 @@ using GhseeliApis.Constants;
 using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 
 namespace GhseeliApis.Tests;
@@ -25,7 +26,7 @@ public sealed class Step16CustomerSchemaModelTests
         "CustomerBookingSelections", "CustomerBookings", "CustomerConfigurations",
         "CustomerDevices", "CustomerInternalIdempotencyRecords",
         "CustomerInternalServiceNonces", "CustomerPaymentIdempotencyRecords",
-        "CustomerPayments", "ProcessedBookingStatusMessages", "StripeWebhookEvents",
+        "CustomerPayments", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
         "UserAddresses", "Vehicles"
     ];
 
@@ -124,7 +125,7 @@ public sealed class Step16CustomerSchemaModelTests
         AssertForeignKey(foreignKeys, "CatalogOfferings", "CatalogBranches", DeleteBehavior.NoAction);
         AssertForeignKey(foreignKeys, "CustomerBookings", "AspNetUsers", DeleteBehavior.Restrict);
         AssertForeignKey(foreignKeys, "CustomerPayments", "CustomerBookings", DeleteBehavior.Restrict);
-        AssertForeignKey(foreignKeys, "StripeWebhookEvents", "CustomerPayments", DeleteBehavior.Restrict);
+        AssertForeignKey(foreignKeys, "PaymentWebhookEvents", "CustomerPayments", DeleteBehavior.Restrict);
 
         foreignKeys.Where(foreignKey =>
                 foreignKey.DeclaringEntityType.GetTableName() is
@@ -176,11 +177,45 @@ public sealed class Step16CustomerSchemaModelTests
         AssertIndex(context.Model, "CheckoutDrafts", true, null, "OrderGuid");
         AssertIndex(context.Model, "CustomerBookings", true, null, "PublicReference");
         AssertIndex(context.Model, "CustomerBookings", true, null, "OrderGuid");
-        AssertIndex(context.Model, "CustomerPayments", true, "[PaymentIntentId] IS NOT NULL", "PaymentIntentId");
+        AssertIndex(
+            context.Model,
+            "CustomerPayments",
+            true,
+            "[ProviderReference] IS NOT NULL",
+            "Provider",
+            "ProviderReference");
+        AssertIndex(
+            context.Model,
+            "CustomerPayments",
+            true,
+            "[ProviderTransactionId] IS NOT NULL",
+            "Provider",
+            "ProviderTransactionId");
         AssertIndex(context.Model, "CustomerPayments", true, null,
             "UserId", "OwnerDeviceId", "IdempotencyKey");
         AssertIndex(context.Model, "CustomerInternalIdempotencyRecords", true,
             "[OwnerToken] IS NOT NULL", "OwnerToken");
+
+        var designModel = context.GetService<IDesignTimeModel>().Model;
+        var payment = designModel.FindEntityType(typeof(CustomerPayment))!;
+        payment.FindProperty(nameof(CustomerPayment.ProviderReference))!.IsNullable
+            .Should().BeTrue();
+        payment.FindPrimaryKey()!.Properties.Select(property => property.Name)
+            .Should().Equal(nameof(CustomerPayment.Id));
+
+        var webhook = designModel.FindEntityType(typeof(PaymentWebhookEventRecord))!;
+        webhook.FindPrimaryKey()!.Properties.Select(property => property.Name)
+            .Should().Equal(
+                nameof(PaymentWebhookEventRecord.Provider),
+                nameof(PaymentWebhookEventRecord.EventId));
+
+        var constraints = payment.GetCheckConstraints()
+            .ToDictionary(constraint => constraint.Name!, constraint => constraint.Sql!);
+        constraints["CK_CustomerPayments_InitializationState"].Should().Be(
+            "[InitializationState] IN ('NotStarted','Initialized','Ambiguous','Legacy')");
+        constraints["CK_CustomerPayments_Currency"].Should().Be(
+            "([Provider] = 'Lahza' AND [Currency] IN ('ILS','JOD','USD')) OR " +
+            "([Provider] = 'Stripe' AND [Currency] IN ('ILS','USD','EUR'))");
     }
 
     [Fact]

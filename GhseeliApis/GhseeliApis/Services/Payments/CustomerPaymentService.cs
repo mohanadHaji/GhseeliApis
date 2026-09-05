@@ -6,10 +6,8 @@ using GhseeliApis.DTOs.Payment;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using GhseeliApis.Persistence;
-using GhseeliApis.Services.Checkout;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Stripe;
 
 namespace GhseeliApis.Services.Payments;
 
@@ -30,14 +28,14 @@ public static class CustomerPaymentErrorCodes
     public const string RequestTooLarge = "payment_request_too_large";
     public const string CurrencyUnsupported = "booking_currency_not_supported";
     public const string GatewayAmbiguous = "payment_gateway_ambiguous";
-    public const string SignatureMissing = "stripe_signature_missing";
-    public const string SignatureInvalid = "stripe_signature_invalid";
-    public const string EventInvalid = "stripe_event_invalid";
-    public const string WebhookConflict = "stripe_webhook_conflict";
-    public const string WebhookTooLarge = "stripe_webhook_too_large";
-    public const string WebhookConfiguration = "stripe_webhook_configuration_invalid";
+    public const string SignatureMissing = "lahza_signature_missing";
+    public const string SignatureInvalid = "lahza_signature_invalid";
+    public const string EventInvalid = "lahza_event_invalid";
+    public const string WebhookConflict = "lahza_webhook_conflict";
+    public const string WebhookTooLarge = "lahza_webhook_too_large";
+    public const string WebhookConfiguration = "lahza_webhook_configuration_invalid";
     public const string PaymentUnsupportedMediaType = "payment_unsupported_media_type";
-    public const string WebhookUnsupportedMediaType = "stripe_webhook_unsupported_media_type";
+    public const string WebhookUnsupportedMediaType = "lahza_webhook_unsupported_media_type";
 }
 
 public sealed class CustomerPaymentException : Exception
@@ -56,7 +54,7 @@ public sealed class CustomerPaymentException : Exception
 public static class CustomerPaymentMoney
 {
     private static readonly HashSet<string> SupportedCurrencies =
-        new(StringComparer.Ordinal) { "ILS", "USD", "EUR" };
+        new(StringComparer.Ordinal) { "ILS", "JOD", "USD" };
 
     public static long ToMinorUnits(decimal amount, string currency)
     {
@@ -84,99 +82,17 @@ public static class CustomerPaymentMoney
     }
 }
 
-public enum StripePaymentEventKind
-{
-    Succeeded,
-    Failed,
-    Canceled,
-    Refunded,
-    Ignored
-}
-
 public static class CustomerPaymentTransitions
 {
-    public static PaymentStatus Apply(PaymentStatus current, StripePaymentEventKind eventKind) =>
+    public static PaymentStatus Apply(PaymentStatus current, PaymentEventKind eventKind) =>
         (current, eventKind) switch
         {
-            (PaymentStatus.Pending, StripePaymentEventKind.Succeeded) => PaymentStatus.Completed,
-            (PaymentStatus.Failed, StripePaymentEventKind.Succeeded) => PaymentStatus.Completed,
-            (PaymentStatus.Pending, StripePaymentEventKind.Failed or StripePaymentEventKind.Canceled) =>
+            (PaymentStatus.Pending, PaymentEventKind.Succeeded) => PaymentStatus.Completed,
+            (PaymentStatus.Failed, PaymentEventKind.Succeeded) => PaymentStatus.Completed,
+            (PaymentStatus.Pending, PaymentEventKind.Failed or PaymentEventKind.Canceled) =>
                 PaymentStatus.Failed,
-            (PaymentStatus.Completed, StripePaymentEventKind.Refunded) => PaymentStatus.Refunded,
+            (PaymentStatus.Completed, PaymentEventKind.Refunded) => PaymentStatus.Refunded,
             _ => current
-        };
-}
-
-public sealed record StripeIntentCreateCommand(
-    Guid PaymentId,
-    Guid BookingId,
-    Guid BookingReference,
-    long Amount,
-    string Currency,
-    string IdempotencyKey);
-
-public sealed record StripeIntentResult(
-    string PaymentIntentId,
-    string Status,
-    string? ClientSecret,
-    string? ChargeId,
-    long Amount,
-    string Currency);
-
-public interface IStripePaymentIntentGateway
-{
-    Task<StripeIntentResult> CreateAsync(
-        StripeIntentCreateCommand command,
-        CancellationToken cancellationToken);
-}
-
-public sealed class StripePaymentIntentGateway : IStripePaymentIntentGateway
-{
-    private readonly IOptionsMonitor<StripeConfigurationOptions> _options;
-
-    public StripePaymentIntentGateway(IOptionsMonitor<StripeConfigurationOptions> options)
-    {
-        _options = options;
-    }
-
-    public async Task<StripeIntentResult> CreateAsync(
-        StripeIntentCreateCommand command,
-        CancellationToken cancellationToken)
-    {
-        var client = new StripeClient(_options.CurrentValue.SecretKey.Trim());
-        var service = new PaymentIntentService(client);
-        var intent = await service.CreateAsync(
-            BuildCreateOptions(command),
-            new RequestOptions { IdempotencyKey = command.IdempotencyKey },
-            cancellationToken);
-
-        return new StripeIntentResult(
-            intent.Id,
-            intent.Status,
-            intent.ClientSecret,
-            intent.LatestChargeId,
-            intent.Amount,
-            intent.Currency);
-    }
-
-    public static PaymentIntentCreateOptions BuildCreateOptions(
-        StripeIntentCreateCommand command) =>
-        new()
-        {
-            Amount = command.Amount,
-            Currency = command.Currency.ToLowerInvariant(),
-            Confirm = false,
-            AutomaticPaymentMethods = new PaymentIntentAutomaticPaymentMethodsOptions
-            {
-                Enabled = true,
-                AllowRedirects = "never"
-            },
-            Metadata = new Dictionary<string, string>
-            {
-                ["payment_id"] = command.PaymentId.ToString("D"),
-                ["booking_id"] = command.BookingId.ToString("D"),
-                ["booking_reference"] = command.BookingReference.ToString("D")
-            }
         };
 }
 
@@ -194,24 +110,30 @@ public interface ICustomerPaymentService
         Guid userId,
         Guid deviceId,
         CancellationToken cancellationToken);
+
+    Task<CustomerPaymentResponse?> VerifyAsync(
+        Guid paymentId,
+        Guid userId,
+        Guid deviceId,
+        CancellationToken cancellationToken);
 }
 
 public sealed class CustomerPaymentService : ICustomerPaymentService
 {
     public const int MaxIdempotencyKeyLength = 128;
-    private static readonly TimeSpan IntentLeaseDuration = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan IntentLeasePollInterval = TimeSpan.FromMilliseconds(50);
-    private const int MaxIntentLeasePolls = 120;
+    private static readonly TimeSpan InitializationLeaseDuration = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan InitializationLeasePollInterval = TimeSpan.FromMilliseconds(50);
+    private const int MaxInitializationLeasePolls = 120;
     private readonly ApplicationDbContext _db;
-    private readonly IStripePaymentIntentGateway _gateway;
-    private readonly IOptionsMonitor<StripeConfigurationOptions> _options;
+    private readonly IPaymentGateway _gateway;
+    private readonly IOptionsMonitor<LahzaConfigurationOptions> _options;
     private readonly IAppLogger _logger;
     private readonly TimeProvider _timeProvider;
 
     public CustomerPaymentService(
         ApplicationDbContext db,
-        IStripePaymentIntentGateway gateway,
-        IOptionsMonitor<StripeConfigurationOptions> options,
+        IPaymentGateway gateway,
+        IOptionsMonitor<LahzaConfigurationOptions> options,
         IAppLogger logger,
         TimeProvider timeProvider)
     {
@@ -269,7 +191,7 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
                 throw new CustomerPaymentException(409, CustomerPaymentErrorCodes.IdempotencyConflict);
             }
 
-            return await EnsureGatewayIntentAsync(
+            return await EnsureGatewayInitializationAsync(
                 existingKey.CustomerPayment,
                 cancellationToken);
         }
@@ -311,7 +233,7 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
                 userId,
                 deviceId,
                 cancellationToken);
-            return await EnsureGatewayIntentAsync(existingPayment, cancellationToken);
+            return await EnsureGatewayInitializationAsync(existingPayment, cancellationToken);
         }
 
         EnsureProviderConfigured();
@@ -330,8 +252,9 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             Status = PaymentStatus.Pending,
             IdempotencyKey = idempotencyKey,
             RequestHash = requestHash,
-            StripeIdempotencyKey = $"ghseeli-payment-{paymentId:N}",
-            ProviderPublishableKey = _options.CurrentValue.PublishableKey.Trim(),
+            Provider = PaymentProviders.Lahza,
+            ProviderReference = CreateProviderReference(paymentId),
+            InitializationState = PaymentInitializationStates.NotStarted,
             CreatedAtUtc = _timeProvider.GetUtcNow(),
             UpdatedAtUtc = _timeProvider.GetUtcNow()
         };
@@ -391,12 +314,12 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             }
         }
 
-        return await EnsureGatewayIntentAsync(payment, cancellationToken);
+        return await EnsureGatewayInitializationAsync(payment, cancellationToken);
     }
 
     private void EnsureProviderConfigured()
     {
-        if (!CheckoutPaymentCapabilitiesService.IsStripeConfigured(_options.CurrentValue))
+        if (!LahzaConfiguration.IsConfigured(_options.CurrentValue))
         {
             throw new CustomerPaymentException(
                 503,
@@ -425,16 +348,101 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
         return payment is null ? null : Map(payment);
     }
 
-    private async Task<CustomerPaymentResponse> EnsureGatewayIntentAsync(
+    public async Task<CustomerPaymentResponse?> VerifyAsync(
+        Guid paymentId,
+        Guid userId,
+        Guid deviceId,
+        CancellationToken cancellationToken)
+    {
+        var payment = await _db.Set<CustomerPayment>()
+            .Include(value => value.CustomerBooking)
+            .SingleOrDefaultAsync(
+                value => value.Id == paymentId &&
+                         value.UserId == userId &&
+                         value.OwnerDeviceId == deviceId,
+                cancellationToken);
+        if (payment is null)
+        {
+            return null;
+        }
+        if (!string.Equals(
+                payment.Provider,
+                PaymentProviders.Lahza,
+                StringComparison.Ordinal))
+        {
+            throw new CustomerPaymentException(
+                409,
+                CustomerPaymentErrorCodes.MethodUnavailable);
+        }
+
+        EnsureProviderConfigured();
+        var result = await _gateway.VerifyAsync(
+            payment.ProviderReference!,
+            cancellationToken);
+        if (!string.Equals(
+                result.ProviderReference,
+                payment.ProviderReference,
+                StringComparison.Ordinal) ||
+            result.Amount != payment.MinorAmount ||
+            !string.Equals(
+                result.Currency,
+                payment.Currency,
+                StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrWhiteSpace(payment.ProviderTransactionId) &&
+             !string.IsNullOrWhiteSpace(result.ProviderTransactionId) &&
+             !string.Equals(
+                 payment.ProviderTransactionId,
+                 result.ProviderTransactionId,
+                 StringComparison.Ordinal)))
+        {
+            throw new CustomerPaymentException(
+                502,
+                CustomerPaymentErrorCodes.GatewayAmbiguous);
+        }
+
+        payment.ProviderTransactionId ??= result.ProviderTransactionId;
+        payment.ProviderStatus = result.Status;
+        var kind = result.Status.ToLowerInvariant() switch
+        {
+            "success" => PaymentEventKind.Succeeded,
+            "failed" or "abandoned" => PaymentEventKind.Failed,
+            _ => PaymentEventKind.Ignored
+        };
+        var next = CustomerPaymentTransitions.Apply(payment.Status, kind);
+        if (next != payment.Status)
+        {
+            payment.Status = next;
+            payment.CustomerBooking.IsPaid = next == PaymentStatus.Completed;
+            payment.CustomerBooking.PaymentState = next.ToString();
+        }
+        payment.UpdatedAtUtc = _timeProvider.GetUtcNow();
+        await _db.SaveChangesAsync(cancellationToken);
+        return Map(payment);
+    }
+
+    private async Task<CustomerPaymentResponse> EnsureGatewayInitializationAsync(
         CustomerPayment payment,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < MaxIntentLeasePolls; attempt++)
+        for (var attempt = 0; attempt < MaxInitializationLeasePolls; attempt++)
         {
             var persisted = await _db.Set<CustomerPayment>().AsNoTracking()
                 .Include(value => value.CustomerBooking)
                 .SingleAsync(value => value.Id == payment.Id, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(persisted.PaymentIntentId))
+            if (!string.Equals(
+                    persisted.Provider,
+                    PaymentProviders.Lahza,
+                    StringComparison.Ordinal))
+            {
+                return Map(persisted);
+            }
+            if (persisted.InitializationState == PaymentInitializationStates.Ambiguous)
+            {
+                throw new CustomerPaymentException(
+                    503,
+                    CustomerPaymentErrorCodes.GatewayAmbiguous);
+            }
+            if (!string.IsNullOrWhiteSpace(persisted.CheckoutUrl))
             {
                 return Map(persisted);
             }
@@ -442,18 +450,18 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             EnsureProviderConfigured();
 
             var ownerToken = Guid.NewGuid();
-            if (await TryAcquireIntentLeaseAsync(
+            if (await TryAcquireInitializationLeaseAsync(
                     payment.Id,
                     ownerToken,
                     cancellationToken))
             {
-                return await CreateGatewayIntentAsLeaseOwnerAsync(
+                return await InitializeGatewayAsLeaseOwnerAsync(
                     persisted,
                     ownerToken,
                     cancellationToken);
             }
 
-            await Task.Delay(IntentLeasePollInterval, cancellationToken);
+            await Task.Delay(InitializationLeasePollInterval, cancellationToken);
         }
 
         throw new CustomerPaymentException(
@@ -461,27 +469,40 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             CustomerPaymentErrorCodes.GatewayAmbiguous);
     }
 
-    private async Task<CustomerPaymentResponse> CreateGatewayIntentAsLeaseOwnerAsync(
+    private async Task<CustomerPaymentResponse> InitializeGatewayAsLeaseOwnerAsync(
         CustomerPayment payment,
         Guid ownerToken,
         CancellationToken cancellationToken)
     {
-        StripeIntentResult result;
+        PaymentInitializationResult result;
         try
         {
-            result = await _gateway.CreateAsync(
-                new StripeIntentCreateCommand(
+            var customerEmail = await _db.Users
+                .Where(value => value.Id == payment.UserId)
+                .Select(value => value.Email)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (string.IsNullOrWhiteSpace(customerEmail))
+            {
+                await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
+                throw new CustomerPaymentException(
+                    409,
+                    CustomerPaymentErrorCodes.Ineligible);
+            }
+
+            result = await _gateway.InitializeAsync(
+                new PaymentInitializationCommand(
                     payment.Id,
                     payment.CustomerBookingId,
                     payment.CustomerBooking.PublicReference,
                     payment.MinorAmount,
                     payment.Currency,
-                    payment.StripeIdempotencyKey),
+                    customerEmail,
+                    payment.ProviderReference!),
                 cancellationToken);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
+            await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
             throw new CustomerPaymentException(
                 503,
                 CustomerPaymentErrorCodes.GatewayAmbiguous,
@@ -489,25 +510,27 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
         }
         catch (OperationCanceledException)
         {
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
+            await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
             throw;
         }
-        catch (StripeException exception)
+        catch (CustomerPaymentException exception)
         {
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
-            _logger.LogWarning(
-                $"Stripe intent creation was not confirmed for server payment {payment.Id:D}: {exception.GetType().Name}.");
-            throw new CustomerPaymentException(
-                503,
-                CustomerPaymentErrorCodes.GatewayAmbiguous,
-                inner: exception);
+            if (exception.Code == CustomerPaymentErrorCodes.GatewayAmbiguous)
+            {
+                await MarkInitializationAmbiguousAsync(payment.Id, ownerToken);
+            }
+            else
+            {
+                await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
+            }
+            throw;
         }
         catch (Exception exception) when (
             exception is HttpRequestException or IOException or TimeoutException)
         {
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
+            await MarkInitializationAmbiguousAsync(payment.Id, ownerToken);
             _logger.LogWarning(
-                $"Stripe intent creation outcome is ambiguous for server payment {payment.Id:D}: {exception.GetType().Name}.");
+                $"Lahza transaction initialization outcome is ambiguous for server payment {payment.Id:D}: {exception.GetType().Name}.");
             throw new CustomerPaymentException(
                 503,
                 CustomerPaymentErrorCodes.GatewayAmbiguous,
@@ -515,15 +538,19 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
         }
 
         if (result.Amount != payment.MinorAmount ||
-            !string.Equals(result.Currency, payment.Currency, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(result.Currency, payment.Currency, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(
+                result.ProviderReference,
+                payment.ProviderReference,
+                StringComparison.Ordinal))
         {
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
+            await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
             throw new CustomerPaymentException(502, CustomerPaymentErrorCodes.GatewayAmbiguous);
         }
 
         try
         {
-            var completed = await CompleteIntentLeaseAsync(
+            var completed = await CompleteInitializationLeaseAsync(
                 payment.Id,
                 ownerToken,
                 result,
@@ -533,7 +560,7 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
                 return Map(await LoadPaymentAsync(payment.Id, cancellationToken));
             }
 
-            return await WaitForCompletedIntentAsync(payment.Id, cancellationToken);
+            return await WaitForCompletedInitializationAsync(payment.Id, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -542,13 +569,13 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             var verified = await LoadPaymentAsync(payment.Id, cancellationToken);
             if (verified is not null)
             {
-                if (!string.IsNullOrWhiteSpace(verified.PaymentIntentId))
+                if (!string.IsNullOrWhiteSpace(verified.CheckoutUrl))
                 {
                     return Map(verified);
                 }
             }
 
-            await ReleaseIntentLeaseSafelyAsync(payment.Id, ownerToken);
+            await ReleaseInitializationLeaseSafelyAsync(payment.Id, ownerToken);
             throw new CustomerPaymentException(
                 503,
                 CustomerPaymentErrorCodes.GatewayAmbiguous,
@@ -557,38 +584,40 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
 
     }
 
-    private async Task<bool> TryAcquireIntentLeaseAsync(
+    private async Task<bool> TryAcquireInitializationLeaseAsync(
         Guid paymentId,
         Guid ownerToken,
         CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
-        var expires = now.Add(IntentLeaseDuration);
+        var expires = now.Add(InitializationLeaseDuration);
         if (_db.Database.IsRelational())
         {
             return await _db.Set<CustomerPayment>()
                 .Where(value =>
                     value.Id == paymentId &&
-                    value.PaymentIntentId == null &&
-                    (value.IntentLeaseOwnerToken == null ||
-                     value.IntentLeaseExpiresAtUtc <= now))
+                    value.CheckoutUrl == null &&
+                    value.InitializationState == PaymentInitializationStates.NotStarted &&
+                    (value.InitializationLeaseOwnerToken == null ||
+                     value.InitializationLeaseExpiresAtUtc <= now))
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(value => value.IntentLeaseOwnerToken, ownerToken)
-                    .SetProperty(value => value.IntentLeaseExpiresAtUtc, expires)
+                    .SetProperty(value => value.InitializationLeaseOwnerToken, ownerToken)
+                    .SetProperty(value => value.InitializationLeaseExpiresAtUtc, expires)
                     .SetProperty(value => value.UpdatedAtUtc, now),
                     cancellationToken) == 1;
         }
 
         var payment = await _db.Set<CustomerPayment>()
             .SingleAsync(value => value.Id == paymentId, cancellationToken);
-        if (payment.PaymentIntentId is not null ||
-            (payment.IntentLeaseOwnerToken is not null &&
-             payment.IntentLeaseExpiresAtUtc > now))
+        if (payment.CheckoutUrl is not null ||
+            payment.InitializationState != PaymentInitializationStates.NotStarted ||
+            (payment.InitializationLeaseOwnerToken is not null &&
+             payment.InitializationLeaseExpiresAtUtc > now))
         {
             return false;
         }
-        payment.IntentLeaseOwnerToken = ownerToken;
-        payment.IntentLeaseExpiresAtUtc = expires;
+        payment.InitializationLeaseOwnerToken = ownerToken;
+        payment.InitializationLeaseExpiresAtUtc = expires;
         try
         {
             await _db.SaveChangesAsync(cancellationToken);
@@ -599,7 +628,7 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             var persistedOwner = await _db.Set<CustomerPayment>()
                 .AsNoTracking()
                 .Where(value => value.Id == paymentId)
-                .Select(value => value.IntentLeaseOwnerToken)
+                .Select(value => value.InitializationLeaseOwnerToken)
                 .SingleAsync(cancellationToken);
             if (persistedOwner == ownerToken)
             {
@@ -610,10 +639,10 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
         return true;
     }
 
-    private async Task<bool> CompleteIntentLeaseAsync(
+    private async Task<bool> CompleteInitializationLeaseAsync(
         Guid paymentId,
         Guid ownerToken,
-        StripeIntentResult result,
+        PaymentInitializationResult result,
         CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
@@ -622,38 +651,40 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
             return await _db.Set<CustomerPayment>()
                 .Where(value =>
                     value.Id == paymentId &&
-                    value.PaymentIntentId == null &&
-                    value.IntentLeaseOwnerToken == ownerToken)
+                    value.CheckoutUrl == null &&
+                    value.InitializationLeaseOwnerToken == ownerToken)
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(value => value.PaymentIntentId, result.PaymentIntentId)
                     .SetProperty(value => value.ProviderStatus, result.Status)
-                    .SetProperty(value => value.ClientSecret, result.ClientSecret)
-                    .SetProperty(value => value.ChargeId, result.ChargeId)
-                    .SetProperty(value => value.IntentLeaseOwnerToken, (Guid?)null)
-                    .SetProperty(value => value.IntentLeaseExpiresAtUtc, (DateTimeOffset?)null)
+                    .SetProperty(value => value.CheckoutUrl, result.CheckoutUrl.ToString())
+                    .SetProperty(
+                        value => value.InitializationState,
+                        PaymentInitializationStates.Initialized)
+                    .SetProperty(value => value.InitializationLeaseOwnerToken, (Guid?)null)
+                    .SetProperty(value => value.InitializationLeaseExpiresAtUtc, (DateTimeOffset?)null)
                     .SetProperty(value => value.UpdatedAtUtc, now),
                     cancellationToken) == 1;
         }
 
         var payment = await _db.Set<CustomerPayment>()
             .SingleAsync(value => value.Id == paymentId, cancellationToken);
-        if (payment.IntentLeaseOwnerToken != ownerToken ||
-            payment.PaymentIntentId is not null)
+        if (payment.InitializationLeaseOwnerToken != ownerToken ||
+            payment.CheckoutUrl is not null)
         {
             return false;
         }
-        payment.PaymentIntentId = result.PaymentIntentId;
         payment.ProviderStatus = result.Status;
-        payment.ClientSecret = result.ClientSecret;
-        payment.ChargeId = result.ChargeId;
-        payment.IntentLeaseOwnerToken = null;
-        payment.IntentLeaseExpiresAtUtc = null;
+        payment.CheckoutUrl = result.CheckoutUrl.ToString();
+        payment.InitializationState = PaymentInitializationStates.Initialized;
+        payment.InitializationLeaseOwnerToken = null;
+        payment.InitializationLeaseExpiresAtUtc = null;
         payment.UpdatedAtUtc = now;
         await _db.SaveChangesAsync(cancellationToken);
         return true;
     }
 
-    private async Task ReleaseIntentLeaseSafelyAsync(Guid paymentId, Guid ownerToken)
+    private async Task ReleaseInitializationLeaseSafelyAsync(
+        Guid paymentId,
+        Guid ownerToken)
     {
         try
         {
@@ -662,44 +693,93 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
                 await _db.Set<CustomerPayment>()
                     .Where(value =>
                         value.Id == paymentId &&
-                        value.PaymentIntentId == null &&
-                        value.IntentLeaseOwnerToken == ownerToken)
+                        value.CheckoutUrl == null &&
+                        value.InitializationLeaseOwnerToken == ownerToken)
                     .ExecuteUpdateAsync(setters => setters
-                        .SetProperty(value => value.IntentLeaseOwnerToken, (Guid?)null)
-                        .SetProperty(value => value.IntentLeaseExpiresAtUtc, (DateTimeOffset?)null),
+                        .SetProperty(value => value.InitializationLeaseOwnerToken, (Guid?)null)
+                        .SetProperty(value => value.InitializationLeaseExpiresAtUtc, (DateTimeOffset?)null),
                         CancellationToken.None);
                 return;
             }
 
             var payment = await _db.Set<CustomerPayment>()
                 .SingleOrDefaultAsync(value => value.Id == paymentId);
-            if (payment?.IntentLeaseOwnerToken == ownerToken &&
-                payment.PaymentIntentId is null)
+            if (payment?.InitializationLeaseOwnerToken == ownerToken &&
+                payment.CheckoutUrl is null)
             {
-                payment.IntentLeaseOwnerToken = null;
-                payment.IntentLeaseExpiresAtUtc = null;
+                payment.InitializationLeaseOwnerToken = null;
+                payment.InitializationLeaseExpiresAtUtc = null;
                 await _db.SaveChangesAsync();
             }
         }
         catch (Exception exception)
         {
             _logger.LogWarning(
-                $"Could not release payment intent lease for server payment {paymentId:D}: {exception.GetType().Name}.");
+                $"Could not release payment initialization lease for server payment {paymentId:D}: {exception.GetType().Name}.");
         }
     }
 
-    private async Task<CustomerPaymentResponse> WaitForCompletedIntentAsync(
+    private async Task MarkInitializationAmbiguousAsync(
+        Guid paymentId,
+        Guid ownerToken)
+    {
+        try
+        {
+            if (_db.Database.IsRelational())
+            {
+                await _db.Set<CustomerPayment>()
+                    .Where(value =>
+                        value.Id == paymentId &&
+                        value.CheckoutUrl == null &&
+                        value.InitializationLeaseOwnerToken == ownerToken)
+                    .ExecuteUpdateAsync(setters => setters
+                        .SetProperty(
+                            value => value.InitializationState,
+                            PaymentInitializationStates.Ambiguous)
+                        .SetProperty(
+                            value => value.ProviderStatus,
+                            "initialization_ambiguous")
+                        .SetProperty(
+                            value => value.InitializationLeaseOwnerToken,
+                            (Guid?)null)
+                        .SetProperty(
+                            value => value.InitializationLeaseExpiresAtUtc,
+                            (DateTimeOffset?)null),
+                        CancellationToken.None);
+                return;
+            }
+
+            var payment = await _db.Set<CustomerPayment>()
+                .SingleOrDefaultAsync(value => value.Id == paymentId);
+            if (payment?.InitializationLeaseOwnerToken == ownerToken &&
+                payment.CheckoutUrl is null)
+            {
+                payment.InitializationState = PaymentInitializationStates.Ambiguous;
+                payment.ProviderStatus = "initialization_ambiguous";
+                payment.InitializationLeaseOwnerToken = null;
+                payment.InitializationLeaseExpiresAtUtc = null;
+                await _db.SaveChangesAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning(
+                $"Could not mark ambiguous initialization for server payment {paymentId:D}: {exception.GetType().Name}.");
+        }
+    }
+
+    private async Task<CustomerPaymentResponse> WaitForCompletedInitializationAsync(
         Guid paymentId,
         CancellationToken cancellationToken)
     {
-        for (var attempt = 0; attempt < MaxIntentLeasePolls; attempt++)
+        for (var attempt = 0; attempt < MaxInitializationLeasePolls; attempt++)
         {
             var payment = await LoadPaymentAsync(paymentId, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(payment.PaymentIntentId))
+            if (!string.IsNullOrWhiteSpace(payment.CheckoutUrl))
             {
                 return Map(payment);
             }
-            await Task.Delay(IntentLeasePollInterval, cancellationToken);
+            await Task.Delay(InitializationLeasePollInterval, cancellationToken);
         }
         throw new CustomerPaymentException(503, CustomerPaymentErrorCodes.GatewayAmbiguous);
     }
@@ -781,13 +861,15 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
                 ? "Card"
                 : payment.Method.ToString(),
             Status = payment.Status.ToString(),
+            Provider = payment.Provider,
             ProviderStatus = payment.ProviderStatus,
-            ClientSecret = payment.Status == PaymentStatus.Pending
-                ? payment.ClientSecret
-                : null,
-            PublishableKey = payment.Status == PaymentStatus.Pending
-                ? payment.ProviderPublishableKey
+            ProviderReference = payment.ProviderReference,
+            CheckoutUrl = payment.Status == PaymentStatus.Pending
+                ? payment.CheckoutUrl
                 : null,
             CreatedAtUtc = payment.CreatedAtUtc
         };
+
+    internal static string CreateProviderReference(Guid paymentId) =>
+        $"GHSEELI-{paymentId:N}".ToUpperInvariant();
 }

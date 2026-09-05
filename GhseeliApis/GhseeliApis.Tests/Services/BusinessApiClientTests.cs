@@ -380,6 +380,72 @@ public class BusinessApiClientTests
         response.Availability.RequestedSlotStartUtc.Should().Be(expectedResponse.Availability.RequestedSlotStartUtc);
     }
 
+    [Fact]
+    public async Task GetAvailableSlotsAsync_UsesSignedInternalRouteAndDeserializesCapacity()
+    {
+        var expected = new AvailableSlotsResponse
+        {
+            Valid = true,
+            CompanyId = Guid.NewGuid(),
+            BranchId = Guid.NewGuid(),
+            Date = new DateOnly(2026, 9, 7),
+            TimeZoneId = "Asia/Jerusalem",
+            CatalogVersion = 12,
+            Currency = "ILS",
+            TotalDurationMinutes = 60,
+            Slots =
+            [
+                new AvailableSlotResponse
+                {
+                    StartUtc = new DateTime(2026, 9, 6, 22, 0, 0, DateTimeKind.Utc),
+                    EndUtc = new DateTime(2026, 9, 6, 23, 0, 0, DateTimeKind.Utc),
+                    StartLocal = new DateTime(2026, 9, 7, 1, 0, 0, DateTimeKind.Unspecified),
+                    EndLocal = new DateTime(2026, 9, 7, 2, 0, 0, DateTimeKind.Unspecified),
+                    ConfiguredCapacity = 3,
+                    RemainingCapacity = 2,
+                    IsAvailable = true
+                }
+            ]
+        };
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(
+                        expected,
+                        BusinessCatalogContract.CreateJsonSerializerOptions()),
+                    Encoding.UTF8,
+                    "application/json")
+            }
+        ]);
+        var client = CreateClient(handler, "corr-step20-slots");
+
+        var response = await client.GetAvailableSlotsAsync(
+            new AvailableSlotsRequest
+            {
+                CompanyId = expected.CompanyId,
+                BranchId = expected.BranchId,
+                Date = expected.Date,
+                Currency = "ILS",
+                Items =
+                [
+                    new AvailableSlotsItemRequest { OfferingId = Guid.NewGuid() }
+                ]
+            });
+
+        response.Slots.Should().ContainSingle();
+        response.Slots.Single().RemainingCapacity.Should().Be(2);
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        request.Method.Should().Be(HttpMethod.Post);
+        request.RequestUri!.AbsolutePath.Should().Be(
+            "/api/v1/internal/appointments/available-slots");
+        request.Headers.Should().NotContain(header =>
+            header.Key == InternalServiceWireConstants.IdempotencyKeyHeaderName);
+        request.Headers.GetValues(InternalServiceWireConstants.SignatureHeaderName)
+            .Should().ContainSingle();
+    }
+
     private static IBusinessApiClient CreateClient(
         HttpMessageHandler innerHandler,
         string? correlationId = null,

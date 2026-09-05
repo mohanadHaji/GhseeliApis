@@ -2,6 +2,8 @@
 
 Set-StrictMode -Version Latest
 
+Add-Type -AssemblyName System.Net.Http
+
 function Test-IsSimpleValue {
     param(
         [object]$Value
@@ -883,6 +885,45 @@ function Apply-StripeSignatureHeader {
         -Secret ([string]$Variables[$secretVariable]) `
         -ValueBytes $signedBytes
     $ResolvedHeaders['Stripe-Signature'] = "t=$timestamp,v1=$signature"
+}
+
+function Apply-LahzaSignatureHeader {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Scenario,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$ResolvedHeaders,
+        [string]$BodyContent,
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Variables
+    )
+
+    $configuration = Get-ObjectPropertyValue -Object $Scenario -Name 'lahzaSignature'
+    if ($null -eq $configuration) {
+        return
+    }
+
+    $resolved = Resolve-TemplatedValue -Value $configuration -Variables $Variables
+    $secretVariable = [string](Get-ObjectPropertyValue -Object $resolved -Name 'secretVariable' -Required)
+    if (-not $Variables.ContainsKey($secretVariable) -or
+        [string]::IsNullOrWhiteSpace([string]$Variables[$secretVariable])) {
+        throw "Lahza signature variable '$secretVariable' is not set."
+    }
+
+    $signBody = Get-ObjectPropertyValue -Object $resolved -Name 'signBody'
+    $body = if ($null -ne $signBody) {
+        [string]$signBody
+    }
+    elseif ($null -eq $BodyContent) {
+        ''
+    }
+    else {
+        $BodyContent
+    }
+    $signature = Compute-HmacSha256HexBytes `
+        -Secret ([string]$Variables[$secretVariable]) `
+        -ValueBytes ([System.Text.Encoding]::UTF8.GetBytes($body))
+    $ResolvedHeaders['X-Lahza-Signature'] = $signature.ToLowerInvariant()
 }
 
 function Test-IsLocalBaseUrl {
@@ -2145,6 +2186,11 @@ function Invoke-HttpScenario {
             -ResolvedHeaders $resolvedHeaders `
             -BodyContent $body.Content `
             -Variables $Variables
+        Apply-LahzaSignatureHeader `
+            -Scenario $Scenario `
+            -ResolvedHeaders $resolvedHeaders `
+            -BodyContent $body.Content `
+            -Variables $Variables
 
         $httpMethod = New-Object System.Net.Http.HttpMethod -ArgumentList $method
         $request = New-Object System.Net.Http.HttpRequestMessage -ArgumentList $httpMethod, $requestUri
@@ -3141,6 +3187,69 @@ function Invoke-HttpTestHarnessSelfTest {
             [regex]::Match($generatedHeaders['Stripe-Signature'], '^t=(\d+),').Groups[1].Value)
         if ($generatedTimestamp -lt $before -or $generatedTimestamp -gt $after) {
             throw 'Stripe signature did not generate a current Unix timestamp.'
+        }
+    }
+
+    Add-SelfTestResult -Name 'Lahza signature signs exact raw UTF-8 body bytes' -Action {
+        $variables = @{
+            webhookSecret = 'lahza_local_self_test_secret'
+            signedBody = '{"event":"charge.success","text":"שלום مرحبا"}'
+        }
+        $headers = @{ 'X-Lahza-Signature' = 'caller-supplied' }
+        $scenario = [ordered]@{
+            lahzaSignature = [ordered]@{
+                secretVariable = 'webhookSecret'
+            }
+        }
+        Apply-LahzaSignatureHeader `
+            -Scenario $scenario `
+            -ResolvedHeaders $headers `
+            -BodyContent $variables.signedBody `
+            -Variables $variables
+        $expected = (Compute-HmacSha256HexBytes `
+            -Secret $variables.webhookSecret `
+            -ValueBytes ([Text.Encoding]::UTF8.GetBytes(
+                $variables.signedBody))).ToLowerInvariant()
+        if ($headers['X-Lahza-Signature'] -cne $expected) {
+            throw 'Lahza signature did not cover the exact transmitted UTF-8 bytes.'
+        }
+
+        $scenario.lahzaSignature.signBody = '{}'
+        Apply-LahzaSignatureHeader `
+            -Scenario $scenario `
+            -ResolvedHeaders $headers `
+            -BodyContent '{"changed":true}' `
+            -Variables $variables
+        $changedExpected = (Compute-HmacSha256HexBytes `
+            -Secret $variables.webhookSecret `
+            -ValueBytes ([Text.Encoding]::UTF8.GetBytes('{}'))).ToLowerInvariant()
+        if ($headers['X-Lahza-Signature'] -cne $changedExpected) {
+            throw 'Lahza signBody override did not preserve the originally signed bytes.'
+        }
+
+        foreach ($invalidVariables in @(
+            @{},
+            @{ webhookSecret = '' },
+            @{ webhookSecret = '   ' }
+        )) {
+            $threw = $false
+            try {
+                Apply-LahzaSignatureHeader `
+                    -Scenario ([ordered]@{
+                        lahzaSignature = [ordered]@{
+                            secretVariable = 'webhookSecret'
+                        }
+                    }) `
+                    -ResolvedHeaders @{} `
+                    -BodyContent '{}' `
+                    -Variables $invalidVariables
+            }
+            catch {
+                $threw = $true
+            }
+            if (-not $threw) {
+                throw 'A missing or blank Lahza signing secret was accepted.'
+            }
         }
     }
 

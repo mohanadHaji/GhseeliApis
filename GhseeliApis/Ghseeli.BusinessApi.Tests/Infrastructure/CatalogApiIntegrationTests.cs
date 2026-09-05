@@ -326,6 +326,7 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("InternalServiceAuthentication:Services:0:NextSecret", InternalServiceNextSecret);
         builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
         builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:1", InternalServiceOperationNames.AppointmentValidate);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:2", InternalServiceOperationNames.AppointmentAvailableSlots);
         builder.UseSetting("InternalServiceAuthentication:Services:1:ServiceId", SnapshotOnlyServiceId);
         builder.UseSetting("InternalServiceAuthentication:Services:1:ActiveSecret", SnapshotOnlySecret);
         builder.UseSetting("InternalServiceAuthentication:Services:1:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);

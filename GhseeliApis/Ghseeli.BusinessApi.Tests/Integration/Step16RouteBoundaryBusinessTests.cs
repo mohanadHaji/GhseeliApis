@@ -112,7 +112,7 @@ public sealed class Step16RouteBoundaryBusinessTests : IClassFixture<CatalogApiF
         BusinessOperations.Should().Contain(operation =>
             operation.Contains("/booking-status-outbox/", StringComparison.Ordinal));
         BusinessOperations.Count(operation =>
-            operation.Contains("/api/v1/internal/", StringComparison.Ordinal)).Should().Be(4);
+            operation.Contains("/api/v1/internal/", StringComparison.Ordinal)).Should().Be(5);
 
         using var client = _factory.CreateSecureClient();
         foreach (var method in new[] { HttpMethod.Get, HttpMethod.Head })
@@ -183,7 +183,9 @@ public sealed class Step16RouteBoundaryBusinessTests : IClassFixture<CatalogApiF
         "POST /api/v1/business/work-orders/{id}/transitions",
         "POST /api/v1/business/admin/booking-status-outbox/{eventId}/requeue",
         "GET /api/v1/internal/catalog/snapshot",
-        "POST /api/v1/internal/appointments/validate", "POST /api/v1/internal/reservations",
+        "POST /api/v1/internal/appointments/validate",
+        "POST /api/v1/internal/appointments/available-slots",
+        "POST /api/v1/internal/reservations",
         "GET /api/v1/internal/reservations/{reference}", "GET /api/health"
     ];
 

@@ -7,6 +7,7 @@ using GhseeliApis.Repositories;
 using GhseeliApis.Services.Business;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Checkout;
+using GhseeliApis.Services.Payments;
 using GhseeliApis.Tests.Support;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -475,16 +476,14 @@ public class CheckoutPricingServiceTests
     }
 
     [Fact]
-    public async Task RepriceAsync_WhenStripeConfigured_EnablesCreditCardCapability()
+    public async Task RepriceAsync_WhenLahzaConfigured_EnablesCreditCardCapability()
     {
         var snapshot = CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 9);
         await using var harness = await CreateHarnessAsync(
             snapshot,
-            stripeOptions: new StripeConfigurationOptions
+            lahzaOptions: new LahzaConfigurationOptions
             {
-                PublishableKey = "pk_test_step11",
-                SecretKey = "sk_test_step11",
-                WebhookSecret = "whsec_step11"
+                SecretKey = "sk_test_step11"
             });
 
         var response = await harness.PricingService.RepriceAsync(
@@ -505,7 +504,7 @@ public class CheckoutPricingServiceTests
     private static async Task<Harness> CreateHarnessAsync(
         CatalogSnapshotResponse snapshot,
         CheckoutPricingOptions? pricingOptions = null,
-        StripeConfigurationOptions? stripeOptions = null,
+        LahzaConfigurationOptions? lahzaOptions = null,
         DateTimeOffset? utcNow = null)
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
@@ -534,9 +533,9 @@ public class CheckoutPricingServiceTests
                 MaxStaleWindowSeconds = 3600,
                 LeaseDurationSeconds = 60
             });
-        var stripeOptionsMonitor = new Mock<IOptionsMonitor<StripeConfigurationOptions>>();
-        stripeOptionsMonitor.SetupGet(monitor => monitor.CurrentValue)
-            .Returns(stripeOptions ?? new StripeConfigurationOptions());
+        var lahzaOptionsMonitor = new Mock<IOptionsMonitor<LahzaConfigurationOptions>>();
+        lahzaOptionsMonitor.SetupGet(monitor => monitor.CurrentValue)
+            .Returns(lahzaOptions ?? new LahzaConfigurationOptions());
         var refreshCoordinator = new CatalogProviderRefreshCoordinator(
             new CatalogReadModelRepository(context),
             businessApiClient,
@@ -567,7 +566,7 @@ public class CheckoutPricingServiceTests
                 new CatalogReadModelRepository(context),
                 refreshCoordinator,
                 businessApiClient,
-                new CheckoutPaymentCapabilitiesService(stripeOptionsMonitor.Object),
+                new CheckoutPaymentCapabilitiesService(lahzaOptionsMonitor.Object),
                 httpContextAccessor,
                 timeProvider,
                 Options.Create(pricingOptions ?? new CheckoutPricingOptions()),

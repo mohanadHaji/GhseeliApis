@@ -85,12 +85,12 @@ public sealed class Step17DeterministicAuthorizationHttpTests
         var foreignDevice = CatalogTestSupport.CreateDevice(
             foreignToken,
             Step17CustomerHttpTestSupport.FixedNow.AddDays(1));
-        var gateway = new Mock<IStripePaymentIntentGateway>(MockBehavior.Strict);
+        var gateway = new Mock<IPaymentGateway>(MockBehavior.Strict);
         await using var factory = Step17CustomerHttpTestSupport.CreateFactory(
             [ownerDevice, foreignDevice],
             configureTestServices: services =>
             {
-                services.RemoveAll<IStripePaymentIntentGateway>();
+                services.RemoveAll<IPaymentGateway>();
                 services.AddSingleton(gateway.Object);
             });
         using var client = factory.CreateApiClient();
@@ -208,12 +208,12 @@ public sealed class Step17DeterministicAuthorizationHttpTests
         var device = CatalogTestSupport.CreateDevice(
             token,
             Step17CustomerHttpTestSupport.FixedNow.AddDays(1));
-        var gateway = new Mock<IStripePaymentIntentGateway>(MockBehavior.Strict);
+        var gateway = new Mock<IPaymentGateway>(MockBehavior.Strict);
         await using var factory = Step17CustomerHttpTestSupport.CreateFactory(
             [device],
             configureTestServices: services =>
             {
-                services.RemoveAll<IStripePaymentIntentGateway>();
+                services.RemoveAll<IPaymentGateway>();
                 services.AddSingleton(gateway.Object);
             });
         using var client = factory.CreateApiClient();

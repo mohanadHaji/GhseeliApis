@@ -12,20 +12,47 @@ namespace Ghseeli.BusinessApi.Controllers;
 
 [ApiController]
 [Route("api/v1/internal/appointments")]
-[Authorize(Policy = BusinessPolicies.InternalAppointmentValidate)]
 public class InternalAppointmentsController : ControllerBase
 {
     private static readonly JsonSerializerOptions ResponseJsonOptions =
         BusinessCatalogContract.CreateJsonSerializerOptions();
 
     private readonly IAppointmentValidationService _service;
+    private readonly IAvailableSlotsService _availableSlotsService;
 
-    public InternalAppointmentsController(IAppointmentValidationService service)
+    public InternalAppointmentsController(
+        IAppointmentValidationService service,
+        IAvailableSlotsService availableSlotsService)
     {
         _service = service;
+        _availableSlotsService = availableSlotsService;
+    }
+
+    [HttpPost("available-slots")]
+    [Authorize(Policy = BusinessPolicies.InternalAppointmentAvailableSlots)]
+    [InternalServiceOperation(InternalServiceOperationNames.AppointmentAvailableSlots)]
+    public async Task<IActionResult> GetAvailableSlots(
+        AvailableSlotsRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return JsonResponse(
+                StatusCodes.Status200OK,
+                await _availableSlotsService.GetAsync(request, cancellationToken));
+        }
+        catch (AvailabilityValidationException exception)
+        {
+            return JsonResponse(StatusCodes.Status400BadRequest, new
+            {
+                message = exception.Message,
+                errors = exception.Errors
+            });
+        }
     }
 
     [HttpPost("validate")]
+    [Authorize(Policy = BusinessPolicies.InternalAppointmentValidate)]
     [InternalServiceOperation(InternalServiceOperationNames.AppointmentValidate)]
     public async Task<IActionResult> Validate(ValidateAppointmentRequest request)
     {

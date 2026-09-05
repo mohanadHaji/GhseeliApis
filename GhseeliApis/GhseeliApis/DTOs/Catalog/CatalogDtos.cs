@@ -29,6 +29,61 @@ public sealed class GetCatalogResourceRequest
     public bool Refresh { get; set; }
 }
 
+public sealed class GetAvailableSlotsRequest
+{
+    public DateOnly Date { get; set; }
+    public long? ExpectedCatalogVersion { get; set; }
+    public CatalogAvailableSlotsLocationRequest? CustomerLocation { get; set; }
+    public IReadOnlyCollection<CatalogAvailableSlotsItemRequest> Items { get; set; } =
+        Array.Empty<CatalogAvailableSlotsItemRequest>();
+    public bool IncludeUnavailable { get; set; }
+    public string? Language { get; set; }
+}
+
+public sealed class CatalogAvailableSlotsLocationRequest
+{
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+}
+
+public sealed class CatalogAvailableSlotsItemRequest
+{
+    public Guid OfferingId { get; set; }
+    public IReadOnlyCollection<CatalogAvailableSlotsSelectionRequest> SelectedAddons { get; set; } =
+        Array.Empty<CatalogAvailableSlotsSelectionRequest>();
+}
+
+public sealed class CatalogAvailableSlotsSelectionRequest
+{
+    public Guid AddonChoiceId { get; set; }
+    public int Quantity { get; set; }
+}
+
+public sealed class CatalogAvailableSlotsResponse
+{
+    public Guid BusinessId { get; set; }
+    public Guid BranchId { get; set; }
+    public DateOnly Date { get; set; }
+    public string? TimeZoneId { get; set; }
+    public long CatalogVersion { get; set; }
+    public string Currency { get; set; } = string.Empty;
+    public int TotalDurationMinutes { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+    public IReadOnlyList<CatalogAvailableSlotResponse> Slots { get; set; } =
+        Array.Empty<CatalogAvailableSlotResponse>();
+}
+
+public sealed class CatalogAvailableSlotResponse
+{
+    public DateTime StartUtc { get; set; }
+    public DateTime EndUtc { get; set; }
+    public DateTime StartLocal { get; set; }
+    public DateTime EndLocal { get; set; }
+    public int ConfiguredCapacity { get; set; }
+    public int RemainingCapacity { get; set; }
+    public bool IsAvailable { get; set; }
+}
+
 public sealed class CatalogCategoriesResponse
 {
     public string Language { get; set; } = string.Empty;

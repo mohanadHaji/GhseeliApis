@@ -39,7 +39,7 @@ $customerTables = @(
     'CheckoutDraftPricingItemSnapshots','CheckoutDraftPricingSelectionSnapshots',
     'CustomerBookings','CustomerBookingItems','CustomerBookingSelections',
     'BookingConfirmationAttempts','CustomerPayments',
-    'CustomerPaymentIdempotencyRecords','StripeWebhookEvents',
+    'CustomerPaymentIdempotencyRecords','PaymentWebhookEvents',
     'CustomerInternalServiceNonces','CustomerInternalIdempotencyRecords',
     'ProcessedBookingStatusMessages','__EFMigrationsHistory')
 $businessTables = @(

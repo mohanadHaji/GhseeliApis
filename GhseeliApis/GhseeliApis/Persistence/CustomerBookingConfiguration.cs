@@ -90,7 +90,14 @@ internal static class CustomerBookingConfiguration
                 table.HasCheckConstraint("CK_CustomerPayments_MinorAmount", "[MinorAmount] > 0");
                 table.HasCheckConstraint(
                     "CK_CustomerPayments_Currency",
-                    "[Currency] IN ('ILS','USD','EUR')");
+                    "([Provider] = 'Lahza' AND [Currency] IN ('ILS','JOD','USD')) OR " +
+                    "([Provider] = 'Stripe' AND [Currency] IN ('ILS','USD','EUR'))");
+                table.HasCheckConstraint(
+                    "CK_CustomerPayments_Provider",
+                    "[Provider] IN ('Lahza','Stripe')");
+                table.HasCheckConstraint(
+                    "CK_CustomerPayments_InitializationState",
+                    "[InitializationState] IN ('NotStarted','Initialized','Ambiguous','Legacy')");
             });
             entity.HasKey(payment => payment.Id);
             entity.Property(payment => payment.Amount).HasPrecision(18, 2).IsRequired();
@@ -99,14 +106,16 @@ internal static class CustomerBookingConfiguration
             entity.Property(payment => payment.RequestHash)
                 .HasColumnType("char(64)")
                 .IsRequired();
-            entity.Property(payment => payment.StripeIdempotencyKey).HasMaxLength(128).IsRequired();
-            entity.Property(payment => payment.PaymentIntentId).HasMaxLength(200);
-            entity.Property(payment => payment.ChargeId).HasMaxLength(200);
+            entity.Property(payment => payment.Provider).HasMaxLength(32).IsRequired();
+            entity.Property(payment => payment.ProviderReference).HasMaxLength(200);
+            entity.Property(payment => payment.ProviderTransactionId).HasMaxLength(200);
             entity.Property(payment => payment.ProviderStatus).HasMaxLength(64);
-            entity.Property(payment => payment.ClientSecret).HasMaxLength(500);
-            entity.Property(payment => payment.ProviderPublishableKey).HasMaxLength(200);
-            entity.Property(payment => payment.IntentLeaseOwnerToken);
-            entity.Property(payment => payment.IntentLeaseExpiresAtUtc);
+            entity.Property(payment => payment.CheckoutUrl).HasMaxLength(1000);
+            entity.Property(payment => payment.InitializationState)
+                .HasMaxLength(16)
+                .IsRequired();
+            entity.Property(payment => payment.InitializationLeaseOwnerToken);
+            entity.Property(payment => payment.InitializationLeaseExpiresAtUtc);
             entity.Property(payment => payment.RowVersion).IsRowVersion();
             entity.HasOne(payment => payment.CustomerBooking)
                 .WithOne(booking => booking.Payment)
@@ -119,28 +128,39 @@ internal static class CustomerBookingConfiguration
                 payment.OwnerDeviceId,
                 payment.IdempotencyKey
             }).IsUnique();
-            entity.HasIndex(payment => payment.PaymentIntentId)
+            entity.HasIndex(payment => new
+                {
+                    payment.Provider,
+                    payment.ProviderReference
+                })
                 .IsUnique()
-                .HasFilter("[PaymentIntentId] IS NOT NULL");
-            entity.HasIndex(payment => payment.StripeIdempotencyKey).IsUnique();
+                .HasFilter("[ProviderReference] IS NOT NULL");
+            entity.HasIndex(payment => new
+                {
+                    payment.Provider,
+                    payment.ProviderTransactionId
+                })
+                .IsUnique()
+                .HasFilter("[ProviderTransactionId] IS NOT NULL");
             entity.HasIndex(payment => new { payment.UserId, payment.OwnerDeviceId, payment.Id });
-            entity.HasIndex(payment => payment.IntentLeaseExpiresAtUtc)
-                .HasFilter("[IntentLeaseOwnerToken] IS NOT NULL");
+            entity.HasIndex(payment => payment.InitializationLeaseExpiresAtUtc)
+                .HasFilter("[InitializationLeaseOwnerToken] IS NOT NULL");
         });
 
-        modelBuilder.Entity<StripeWebhookEventRecord>(entity =>
+        modelBuilder.Entity<PaymentWebhookEventRecord>(entity =>
         {
-            entity.ToTable("StripeWebhookEvents", table => table.HasCheckConstraint(
-                "CK_StripeWebhookEvents_State",
+            entity.ToTable("PaymentWebhookEvents", table => table.HasCheckConstraint(
+                "CK_PaymentWebhookEvents_State",
                 "[State] IN ('Processing','Completed','Quarantined','Deferred')"));
-            entity.HasKey(value => value.EventId);
+            entity.HasKey(value => new { value.Provider, value.EventId });
+            entity.Property(value => value.Provider).HasMaxLength(32);
             entity.Property(value => value.EventId).HasMaxLength(200);
             entity.Property(value => value.BodyHash).HasColumnType("char(64)").IsRequired();
             entity.Property(value => value.EventType).HasMaxLength(100).IsRequired();
             entity.Property(value => value.State).HasMaxLength(16).IsRequired();
             entity.Property(value => value.DispositionReason).HasMaxLength(100);
-            entity.Property(value => value.PaymentIntentId).HasMaxLength(200);
-            entity.Property(value => value.ChargeId).HasMaxLength(200);
+            entity.Property(value => value.ProviderReference).HasMaxLength(200);
+            entity.Property(value => value.ProviderTransactionId).HasMaxLength(200);
             entity.Property(value => value.Currency).HasMaxLength(3);
             entity.Property(value => value.RowVersion).IsRowVersion();
             entity.HasOne(value => value.CustomerPayment)
@@ -152,7 +172,7 @@ internal static class CustomerBookingConfiguration
             {
                 value.CustomerPaymentId,
                 value.State,
-                value.ChargeId
+                value.ProviderTransactionId
             });
         });
 

@@ -179,6 +179,32 @@ A separate successful-card diagnostic supplied a valid HTTPS callback URL.
 The checkout still terminated as `abandoned`, so the missing callback URL is
 not the cause of the observed test-card behavior.
 
+## Successful hosted-checkout retest
+
+Execution resumed on 2026-09-07 with a fresh ILS 1.00 test transaction using
+the same initialization contract as the Customer API.
+
+| Check | Result |
+|---|---|
+| Initialization | Passed; Lahza returned an HTTPS `checkout.lahza.io` URL |
+| Hosted checkout | Passed in an interactive browser using Lahza's documented successful Visa |
+| Customer-visible result | `Payment Successful` for ILS 1.00 |
+| Server verification | Passed with nested transaction status `success` |
+| Money verification | Passed: 100 minor units and exact `ILS` currency |
+| Identity verification | Passed: exact stored reference and a provider transaction ID |
+| Repeated verification | Passed; the provider status and transaction identity remained stable |
+
+The previously observed
+`https://lahza.io/public/test/cookie-support/start.html` resource still
+returned HTTP 403 with `X-Frame-Options: SAMEORIGIN` when probed directly.
+It did not prevent this fresh interactive checkout from completing, so the
+successful-card scenario is no longer blocked by that resource.
+
+This retest validates Lahza initialization, interactive hosted checkout, and
+owned server-side verification. It does not validate Ghseeli's public
+callback or webhook delivery because no publicly trusted HTTPS Customer API
+endpoint is currently available.
+
 ## Post-project-rename regression
 
 After renaming the Customer projects to `Ghseeli.CustomerApi` and

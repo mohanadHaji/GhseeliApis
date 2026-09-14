@@ -2,7 +2,7 @@
 
 Date: 2026-09-14
 
-Status: Reopened for test-mode POC release
+Status: Done - test-mode POC deployed and production smoke passed
 
 ## Goal
 
@@ -70,16 +70,26 @@ explicitly deferred rather than fabricating customer data.
 
 ## Results
 
-- Production-default and enabled-environment gate tests: 2 passed, 0 failed.
-- Deployment configuration tests: 2 passed, 0 failed.
-- Complete solution: 1,848 passed, 0 failed, 0 skipped.
+- Production-default, explicit-disable, and enabled-environment gate tests
+  passed.
+- Deployment configuration and production smoke regression tests: 3 passed,
+  0 failed.
+- Complete solution: 1,853 passed, 0 failed, 0 skipped.
 - Release build: 0 warnings, 0 errors.
 - Existing Lahza-enabled disposable HTTP suite: 40 passed, 0 failed.
-- Step 17, Step 18, and Step 20 asset validators passed.
-- Strict `404` commit: `dda4122`.
-- Deployment workflow run: `33972229263`, succeeded.
-- Production Swagger excludes initialization, verification, and webhook
-  operations while retaining `GET /api/v1/payments/{id}`.
-- Production canonical and trailing-slash variants for all three disabled
-  routes return `404`; an unauthenticated payment read returns `401`, proving
-  the read route remains active behind its normal authentication boundary.
+- Step 15 and Step 18 asset validators passed.
+- POC release commit: `3258580`.
+- Production smoke correction commit: `3c534d3`.
+- Deployment workflow run:
+  `34877519661`, succeeded.
+- Customer and Business database migrations, publishes, Web Deploy operations,
+  and HTTPS health checks passed.
+- Production Swagger publishes payment initialization, verification, read, and
+  Lahza webhook operations for the approved test-mode POC.
+- The workflow and an independent post-deployment rerun verified Customer
+  database health, Swagger publication, `401` rejection for anonymous payment
+  initialization and verification, and `400` rejection with
+  `lahza_signature_missing` for an unsigned webhook.
+- A fresh provider checkout tied to an owned production booking remains
+  deferred because no safe production fixture was available. No production
+  customer or booking data was fabricated for this check.

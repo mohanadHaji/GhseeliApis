@@ -23,8 +23,11 @@ public sealed class CustomerPaymentApiIntegrationTests
 {
     private const string JwtSecret = "CheckoutDraftApiTestsSecret_Minimum32Chars";
 
-    [Fact]
-    public async Task LahzaEndpoints_InProductionByDefault_AreNotMappedOrDocumented()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("false")]
+    public async Task LahzaEndpoints_InDisabledProduction_AreNotMappedOrDocumented(
+        string? explicitSetting)
     {
         var paymentId = Guid.NewGuid();
         var service = new ControlledPaymentService
@@ -36,6 +39,12 @@ public sealed class CustomerPaymentApiIntegrationTests
         await using var factory = CreateFactory(
             service,
             [device],
+            settings: explicitSetting is null
+                ? null
+                : new Dictionary<string, string?>
+                {
+                    ["Lahza:EndpointsEnabled"] = explicitSetting
+                },
             environmentName: "Production");
         using var client = factory.CreateApiClient();
 
@@ -77,6 +86,90 @@ public sealed class CustomerPaymentApiIntegrationTests
         using var readResponse = await client.SendAsync(readRequest);
         readResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         service.GetCalls.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task LahzaPaymentRoutes_InEnabledProductionOverHttp_RedirectBeforeService()
+    {
+        var service = new ControlledPaymentService();
+        await using var factory = CreateFactory(
+            service,
+            settings: new Dictionary<string, string?>
+            {
+                ["https_port"] = "443",
+                ["Lahza:EndpointsEnabled"] = "true",
+                ["Lahza:SecretKey"] = "test-only-lahza-secret"
+            },
+            environmentName: "Production");
+        using var client = factory.CreateClient(new()
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("http://localhost")
+        });
+
+        using var intentResponse = await client.PostAsync(
+            "/api/v1/payments/intents",
+            new StringContent("{}", Encoding.UTF8, "application/json"));
+        intentResponse.StatusCode.Should().Be(HttpStatusCode.TemporaryRedirect);
+        intentResponse.Headers.Location.Should().Be(
+            new Uri("https://localhost/api/v1/payments/intents"));
+
+        using var verifyResponse = await client.PostAsync(
+            $"/api/v1/payments/{Guid.NewGuid():D}/verify",
+            content: null);
+        verifyResponse.StatusCode.Should().Be(HttpStatusCode.TemporaryRedirect);
+        verifyResponse.Headers.Location!.Scheme.Should().Be(Uri.UriSchemeHttps);
+
+        service.CreateCalls.Should().Be(0);
+        service.GetCalls.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task LahzaEndpoints_InExplicitlyEnabledProduction_AreMappedAndProtected()
+    {
+        var service = new ControlledPaymentService();
+        await using var factory = CreateFactory(
+            service,
+            settings: new Dictionary<string, string?>
+            {
+                ["Lahza:EndpointsEnabled"] = "true",
+                ["Lahza:SecretKey"] = "test-only-lahza-secret"
+            },
+            environmentName: "Production");
+        using var client = factory.CreateApiClient();
+
+        using var swaggerResponse = await client.GetAsync("/swagger/v1/swagger.json");
+        using var document = JsonDocument.Parse(
+            await swaggerResponse.Content.ReadAsStringAsync());
+        var paths = document.RootElement.GetProperty("paths");
+
+        swaggerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        paths.TryGetProperty("/api/v1/payments/intents", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/v1/payments/{id}/verify", out _).Should().BeTrue();
+        paths.TryGetProperty("/api/lahza/webhook", out _).Should().BeTrue();
+
+        using var intentResponse = await client.PostAsync(
+            "/api/v1/payments/intents",
+            new StringContent("{}", Encoding.UTF8, "application/json"));
+        intentResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        service.CreateCalls.Should().Be(0);
+
+        using var verifyResponse = await client.PostAsync(
+            $"/api/v1/payments/{Guid.NewGuid():D}/verify",
+            content: null);
+        verifyResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        service.GetCalls.Should().Be(0);
+
+        using var webhookResponse = await client.PostAsync(
+            "/api/lahza/webhook",
+            new StringContent("{}", Encoding.UTF8, "application/json"));
+        webhookResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using var webhookDocument = JsonDocument.Parse(
+            await webhookResponse.Content.ReadAsStringAsync());
+        webhookDocument.RootElement.GetProperty("code").GetString()
+            .Should().Be(CustomerPaymentErrorCodes.SignatureMissing);
+        webhookDocument.RootElement.GetProperty("status").GetInt32()
+            .Should().Be((int)HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -845,9 +938,11 @@ public sealed class CustomerPaymentApiIntegrationTests
         ControlledPaymentService service,
         IEnumerable<GhseeliApis.Models.CustomerDevice>? devices = null,
         IAppLogger? logger = null,
+        IReadOnlyDictionary<string, string?>? settings = null,
         string environmentName = "Development") =>
         new(
             devices: devices,
+            settings: settings,
             environmentName: environmentName,
             configureTestServices: services =>
             {

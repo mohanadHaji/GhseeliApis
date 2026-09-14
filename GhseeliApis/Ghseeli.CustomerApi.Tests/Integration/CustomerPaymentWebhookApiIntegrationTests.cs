@@ -214,16 +214,59 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
             .And.NotContain("customer@example.com");
     }
 
+    [Fact]
+    public async Task Webhook_InEnabledProductionOverHttp_RedirectsBeforeParsing()
+    {
+        var parser = new ControlledWebhookParser();
+        var service = new ControlledWebhookService();
+        await using var factory = CreateFactory(
+            parser,
+            service,
+            environmentName: "Production",
+            additionalSettings: new Dictionary<string, string?>
+            {
+                ["https_port"] = "443",
+                ["Lahza:EndpointsEnabled"] = "true"
+            });
+        using var client = factory.CreateClient(new()
+        {
+            AllowAutoRedirect = false,
+            BaseAddress = new Uri("http://localhost")
+        });
+        using var request = CreateRequest("{}", "valid", "application/json");
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.TemporaryRedirect);
+        response.Headers.Location.Should().Be(
+            new Uri("https://localhost/api/lahza/webhook"));
+        parser.Calls.Should().Be(0);
+        service.Calls.Should().Be(0);
+    }
+
     private static CheckoutDraftApiFactory CreateFactory(
         ControlledWebhookParser parser,
         ControlledWebhookService service,
         string? secretKey = "sk_test_only",
-        IAppLogger? logger = null) =>
-        new(
-            settings: new Dictionary<string, string?>
+        IAppLogger? logger = null,
+        string environmentName = "Development",
+        IReadOnlyDictionary<string, string?>? additionalSettings = null)
+    {
+        var settings = new Dictionary<string, string?>
+        {
+            ["Lahza:SecretKey"] = secretKey
+        };
+        if (additionalSettings is not null)
+        {
+            foreach (var setting in additionalSettings)
             {
-                ["Lahza:SecretKey"] = secretKey
-            },
+                settings[setting.Key] = setting.Value;
+            }
+        }
+
+        return new CheckoutDraftApiFactory(
+            settings: settings,
+            environmentName: environmentName,
             configureTestServices: services =>
             {
                 services.RemoveAll<IPaymentWebhookParser>();
@@ -236,6 +279,7 @@ public sealed class CustomerPaymentWebhookApiIntegrationTests
                     services.AddSingleton(logger);
                 }
             });
+    }
 
     private sealed class FullExceptionCapturingLogger : IAppLogger
     {

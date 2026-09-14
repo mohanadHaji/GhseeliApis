@@ -297,12 +297,13 @@ checks their database-backed health endpoints.
 
 | API | Current host |
 |---|---|
-| Customer | `http://ghseelicustomer.runasp.net` |
-| Business | `http://ghseelibusiness.runasp.net` |
+| Customer | `https://ghseelicustomer.runasp.net` |
+| Business | `https://ghseelibusiness.runasp.net` |
 
-MonsterASP TLS is currently deferred. Cross-API production URLs intentionally
-remain HTTPS and must not be downgraded. Lahza initialization, verification,
-and webhook routes are hidden in Production until payment release approval.
+MonsterASP TLS and HTTP-to-HTTPS redirects are enabled for both APIs.
+Cross-API production URLs must remain HTTPS. Lahza initialization,
+verification, and webhook routes are enabled only for the approved test-mode
+POC; they must not be treated as live-payment capability.
 
 ## Documentation
 

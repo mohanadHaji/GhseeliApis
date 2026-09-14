@@ -45,9 +45,9 @@ Regenerate the frontend API client instead of inventing a compatibility layer.
    reports, screenshots, or source code.
 10. Do not expose internal HMAC credentials, internal routes, Lahza secret
     keys, database IDs, or cross-API implementation details.
-11. Production Lahza mutation routes are currently disabled. Hide payment
-    actions in Production regardless of capability output until the backend
-    release gate is explicitly enabled.
+11. Production Lahza mutation routes are enabled only for the approved
+    test-mode POC. Clearly label test payments, use only Lahza test cards, and
+    do not present the feature as accepting real customer payments.
 12. Do not infer unfinished features. Wallet, cash-on-arrival, and third-party
     payment methods are unavailable until the backend explicitly enables them.
 
@@ -494,12 +494,11 @@ Never submit or reuse a client-computed total as authoritative. If the catalog
 version changed, refresh catalog data and have the customer review the new
 quote before confirmation.
 
-Outside Production, payment buttons are driven by
+Payment buttons are driven by
 `paymentCapabilities.methods[]`. The capability discriminator is
-`CreditCard`; the payment-intent request method is `Card`. In Production, hide
-payment actions while the Lahza endpoint release gate is disabled even if a
-configured provider causes the current capability response to report
-`CreditCard` as enabled.
+`CreditCard`; the payment-intent request method is `Card`. The current deployed
+environment is an approved Lahza test-mode POC only. Label the payment flow as
+test mode and never request or accept a real customer's card details.
 
 ## Booking confirmation scenario
 
@@ -555,13 +554,13 @@ implemented.
 
 ## Payment scenario
 
-Payment initialization, verification, and webhook routes are currently hidden
-in Production. The authenticated `GET /api/v1/payments/{id}` status route
-remains available, but the frontend must hide actions that start or verify a
-Lahza payment in Production regardless of the current capability response.
-In an enabled environment, require a capability with
+Payment initialization, verification, and webhook routes are enabled in the
+current deployed environment for a Lahza test-mode POC. The authenticated
+`GET /api/v1/payments/{id}` status route also remains available. Require a
+capability with
 `method == "CreditCard"` and `enabled == true`; initialize the payment using
-the request method value `Card`.
+the request method value `Card`. Clearly identify the flow as test-only until
+the Lahza account and release configuration are switched to live mode.
 
 When enabled:
 
@@ -950,12 +949,12 @@ state in deep-link parameters.
 
 | Capability | Local development | Current deployed environment | Frontend rule |
 |---|---|---|---|
-| Customer/Business APIs | HTTPS launch profiles | HTTP health/Swagger host; TLS deferred | Never send real credentials over deployed HTTP |
+| Customer/Business APIs | HTTPS launch profiles | HTTPS with HTTP redirect | Use HTTPS only |
 | Browser direct API access | No CORS | No CORS | Use same-origin BFF |
 | Customer email/password auth | Available when configured DB/JWT are valid | Available | Approved current auth |
 | OAuth | Configurable but unsafe redirect contract | Disabled/unapproved | Do not expose |
-| Catalog/checkout/booking | Available with both APIs and HMAC config | Cross-API HTTPS blocked until TLS | Show unavailable state when dependencies fail |
-| Lahza payment routes | Enabled by default outside Production when configured | Explicitly hidden | Feature must remain hidden |
+| Catalog/checkout/booking | Available with both APIs and HMAC config | HTTPS integration enabled | Show unavailable state when dependencies fail |
+| Lahza payment routes | Enabled by default outside Production when configured | Enabled for test-mode POC | Label as test-only; never use real cards |
 | Wallet/cash/third party | Disabled | Disabled | Do not render enabled actions |
 
 Feature availability must come from environment configuration plus server
@@ -1164,7 +1163,7 @@ Each row is a backend dependency, not a frontend estimation task.
 | `FE-CUST-010` | Login is requested only when confirming booking |
 | `FE-CUST-011` | Booking confirmation handles ambiguous network outcome safely |
 | `FE-CUST-012` | Confirmation status is shown without calling internal booking routes; live customer status tracking remains unavailable |
-| `FE-CUST-013` | Payment button is absent while Production Lahza gate is disabled |
+| `FE-CUST-013` | Test-mode payment UI is clearly labeled and accepts only documented Lahza test cards |
 | `FE-CUST-014` | Enabled hosted payment verifies on backend after callback |
 | `FE-CUST-015` | Problem Details maps field errors and exposes correlation ID |
 | `FE-CUST-016` | Vehicle/address ownership failures do not leak other users' data |

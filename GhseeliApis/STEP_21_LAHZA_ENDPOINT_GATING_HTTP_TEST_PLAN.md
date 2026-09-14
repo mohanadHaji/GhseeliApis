@@ -1,24 +1,30 @@
 # Step 21 Lahza Endpoint Gating HTTP Test Plan
 
-Date: 2026-09-05
+Date: 2026-09-14
 
-Status: Completed and deployed
+Status: Reopened for test-mode POC release
 
 ## Goal
 
 Keep the deployed Lahza implementation and database migration intact while
-making all Lahza-facing mutation and verification routes unavailable until the
-payment release gate is complete.
+releasing the Lahza-facing mutation, verification, and webhook routes for a
+test-mode POC only after trusted HTTPS, test credentials, and the Lahza
+test-mode webhook are configured.
 
 ## Configuration
 
 `Lahza:EndpointsEnabled`
 
-- defaults to `false` in Production;
+- defaults to `false` in Production unless explicitly enabled;
 - defaults to `true` outside Production so deterministic test environments
   remain usable;
 - can be explicitly set to `false` in any environment;
-- is injected as `false` by the production deployment workflow.
+- is injected as `true` by the production deployment workflow for the approved
+  test-mode POC.
+
+The deployment must fail before publication when the Lahza secret is missing.
+The secret remains runtime-only in GitHub Actions and must never appear in
+retained artifacts, logs, source, or Swagger.
 
 ## Scenarios
 
@@ -30,16 +36,37 @@ payment release gate is complete.
 | `STEP21-LAHZA-GATE-004` | Disabled Swagger document | The three disabled operations are absent |
 | `STEP21-LAHZA-GATE-005` | Existing payment read route | `GET /api/v1/payments/{id}` remains mapped |
 | `STEP21-LAHZA-GATE-006` | Enabled non-production test host | Existing Lahza deterministic HTTP scenarios remain available |
-| `STEP21-LAHZA-GATE-007` | Production deployment configuration | Workflow injects `Lahza__EndpointsEnabled=false` |
+| `STEP21-LAHZA-GATE-007` | Production deployment configuration | Workflow injects `Lahza__EndpointsEnabled=true` for the Customer API |
 | `STEP21-LAHZA-GATE-008` | Disabled routes with trailing slashes | Canonical and trailing-slash variants return the same localized `404 resource_not_found` problem |
+| `STEP21-LAHZA-POC-009` | Explicit disabled override | A Production host with `Lahza:EndpointsEnabled=false` still hides all three operations |
+| `STEP21-LAHZA-POC-010` | HTTPS deployment URLs | Runtime cross-API URLs and deployment health probes use HTTPS |
+| `STEP21-LAHZA-POC-011` | Secret release gate | Customer deployment fails when `LAHZA_SECRET_KEY` is absent |
+| `STEP21-LAHZA-POC-012` | Enabled Production Swagger | Initialization, verification, and webhook operations are present |
+| `STEP21-LAHZA-POC-013` | Initialization auth boundary | Anonymous initialization is rejected without calling Lahza |
+| `STEP21-LAHZA-POC-014` | Verification auth boundary | Anonymous verification is rejected without calling Lahza |
+| `STEP21-LAHZA-POC-015` | Webhook signature boundary | Missing, malformed, or incorrect signatures are rejected without state mutation |
+| `STEP21-LAHZA-POC-016` | Correctly signed webhook | Exact-body HMAC is accepted and duplicate delivery is idempotent |
+| `STEP21-LAHZA-POC-017` | Local payment flow | Booking-owned initialization, hosted URL response, verification, and payment/booking convergence pass locally |
+| `STEP21-LAHZA-POC-018` | Production route exposure | Deployed Swagger contains all three operations over HTTPS |
+| `STEP21-LAHZA-POC-019` | Production security smoke | Anonymous initialization/verification and unsigned webhook calls are rejected safely |
+| `STEP21-LAHZA-POC-020` | Lahza test API smoke | Initialization and repeated verification against Lahza test mode preserve reference, amount, currency, and provider status |
+| `STEP21-LAHZA-POC-021` | Provider webhook delivery | A fresh hosted test payment produces a signed Lahza webhook accepted by the deployed Customer API and converges once |
 
 ## Execution level
 
 - TestServer integration tests for route mapping and Swagger visibility.
 - Existing Step 18 deterministic live-local HTTP suite with endpoints enabled.
-- Static deployment-workflow assertion for the production-disabled value.
+- Static deployment-workflow assertions for enabled Customer-only POC
+  configuration, HTTPS URLs, and the required secret.
+- Post-deployment HTTPS Swagger and unauthenticated security smoke tests.
+- Real Lahza test-mode initialization and verification without exposing
+  credentials.
+- Provider webhook delivery requires a fresh owned booking/payment and may be
+  completed manually if no safe production fixture exists.
 
-No production request is used as test evidence.
+No production database fixture may be inserted merely to satisfy this plan.
+If a fresh owned production booking is unavailable, scenario 021 remains
+explicitly deferred rather than fabricating customer data.
 
 ## Results
 

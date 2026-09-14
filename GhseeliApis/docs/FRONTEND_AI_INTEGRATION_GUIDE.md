@@ -223,6 +223,7 @@ The customer app begins with device registration:
 Persist:
 
 - `installationId`: stable per app installation;
+- current FCM registration token when available;
 - returned device `token`: secure platform storage only;
 - token expiry.
 
@@ -246,6 +247,9 @@ Customer auth is hosted by the Customer API:
 |---|---|---|
 | POST | `/api/Auth/register` | Approved customer registration route |
 | POST | `/api/Auth/login` | Email/password login |
+| POST | `/api/Auth/otp/request` | Send a six-digit email OTP |
+| POST | `/api/Auth/otp/confirm` | Confirm OTP and receive access/refresh tokens |
+| POST | `/api/Auth/refresh` | Rotate a refresh token and receive a new token pair |
 | GET | `/api/Auth/me` | Validate the current authenticated session and read identity |
 | GET | `/api/Auth/external-login` | Existing OAuth initiation; not approved for new frontend use |
 | GET | `/api/Auth/external-login-callback` | Existing controller callback; not approved for new frontend use |
@@ -254,8 +258,14 @@ Customer auth is hosted by the Customer API:
 | DELETE | `/api/Auth/external-login/{provider}` | Existing unlink operation |
 | GET | `/api/Auth/external-logins` | Existing linked-provider list |
 
+OTP and password authentication coexist. OTP confirmation returns
+`isNewUser=true` while profile information is incomplete; route the customer
+to profile completion before booking confirmation. Never persist or display
+the six-digit OTP after submission.
+
 Do not use `POST /api/Users` for customer signup. It is a legacy anonymous
-creation surface; new frontend registration uses `POST /api/Auth/register`.
+creation surface; new frontend registration uses OTP or
+`POST /api/Auth/register`.
 Do not use `/api/Auth/validate` for routine session management because it
 resubmits the raw bearer token in a JSON body. Check local token expiry and use
 authenticated `/api/Auth/me`.
@@ -268,9 +278,7 @@ callbacks:
 
 Do not expose the current external-login or account-linking redirect flows in a
 new frontend. Their return URLs are not yet allowlisted, and external login can
-place the Customer bearer token in a redirect query string. Use email/password
-authentication until the backend replaces this with an allowlisted,
-one-time-code or secure-cookie flow. When OAuth is hardened, use a system
+place the Customer bearer token in a redirect query string. Use email/password or email OTP authentication. When OAuth is hardened, use a system
 browser or secure web authentication session, never an embedded page that
 captures provider credentials.
 
@@ -287,14 +295,18 @@ authorization and ownership.
 
 ### Session lifecycle
 
-Neither API currently issues refresh tokens or exposes a server logout/revoke
-operation.
+The Customer API issues one-time rotating refresh tokens with a 30-day
+lifetime. The Business API does not currently issue refresh tokens. Neither
+API currently exposes a server logout/revoke operation.
 
 | Event | Required client behavior |
 |---|---|
-| Login succeeds | Store the correct Customer or Business JWT and its expiry in secure storage |
+| Customer login/OTP succeeds | Store the access token, refresh token, and both expiries in secure storage |
+| Customer JWT expires | Call `/api/Auth/refresh` once through a coordinated refresh flow and replace both tokens |
+| Refresh fails or a rotated token is reused | Clear the Customer session and require authentication |
+| Business login succeeds | Store the Business JWT and expiry in secure storage |
 | App resumes | Check expiry locally; optionally confirm with the authenticated identity/profile route |
-| JWT expires | Clear only that session and require full login |
+| Business JWT expires | Clear only that session and require full login |
 | One request returns `401` | Allow one coordinated reauthentication flow; do not start one flow per failed request |
 | Logout | Delete local credentials and sensitive in-memory state |
 | Customer/business account switch | Clear the old role-specific store before establishing the new session |
@@ -791,7 +803,7 @@ Business source IDs.
 | `id` on Customer catalog resources | Customer catalog URLs and operations that explicitly request Customer IDs |
 | `sourceId` | Checkout intent fields and operations whose OpenAPI schema explicitly says `*SourceId` |
 | `orderGuid` | Draft identity, draft reprice header, and booking confirmation identity |
-| Booking `reference` | Public cross-system booking reference |
+| Booking `referenceId` | Public cross-system booking reference |
 | Database entity IDs not returned by public DTOs | Never infer or request |
 
 Example:

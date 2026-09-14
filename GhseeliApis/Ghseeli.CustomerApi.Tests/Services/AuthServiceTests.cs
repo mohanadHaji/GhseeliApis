@@ -3,8 +3,11 @@ using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services;
+using GhseeliApis.Services.Auth;
+using GhseeliApis.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -17,6 +20,8 @@ public class AuthServiceTests
     private readonly Mock<SignInManager<User>> _signInManagerMock;
     private readonly Mock<IConfiguration> _configurationMock;
     private readonly Mock<IAppLogger> _loggerMock;
+    private readonly ApplicationDbContext _context;
+    private readonly Mock<ICustomerRefreshTokenService> _refreshTokensMock = new();
     private readonly AuthService _authService;
 
     public AuthServiceTests()
@@ -47,12 +52,24 @@ public class AuthServiceTests
         jwtSettingsSection.Setup(s => s["ExpirationMinutes"]).Returns("60");
 
         _loggerMock = new Mock<IAppLogger>();
+        _context = new ApplicationDbContext(
+            new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase($"AuthService-{Guid.NewGuid():N}")
+                .Options);
+        _refreshTokensMock.Setup(value => value.IssueAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IssuedRefreshToken(
+                "refresh-token",
+                DateTimeOffset.UtcNow.AddDays(30)));
 
         _authService = new AuthService(
             _userManagerMock.Object,
             _signInManagerMock.Object,
             _configurationMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _context,
+            _refreshTokensMock.Object);
     }
 
     #region RegisterAsync Tests
@@ -533,7 +550,9 @@ public class AuthServiceTests
             _userManagerMock.Object,
             _signInManagerMock.Object,
             expiredConfigMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _context,
+            _refreshTokensMock.Object);
 
         var userId = Guid.NewGuid();
         var user = new User { Id = userId };

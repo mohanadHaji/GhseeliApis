@@ -169,7 +169,7 @@ public sealed class Step14BookingRegressionIntegrationTests
         var expected = new ConfirmedBookingResponse
         {
             Id = Guid.NewGuid(),
-            Reference = Guid.NewGuid(),
+            ReferenceId = Guid.NewGuid(),
             OrderGuid = orderGuid,
             BusinessReservationId = Guid.NewGuid(),
             BusinessWorkOrderId = Guid.NewGuid(),
@@ -235,11 +235,12 @@ public sealed class Step14BookingRegressionIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         document.RootElement.EnumerateObject().Select(value => value.Name)
             .Should().BeEquivalentTo(
-                "id", "reference", "orderGuid", "businessReservationId",
+                "id", "referenceId", "orderGuid", "businessReservationId",
                 "businessWorkOrderId", "status", "draftVersion", "language",
                 "requestedSlotStartUtc", "requestedSlotEndUtc", "providerName",
                 "branchName", "currency", "grandTotal", "totalDurationMinutes", "items");
-        document.RootElement.GetProperty("reference").GetGuid().Should().Be(expected.Reference);
+        document.RootElement.TryGetProperty("reference", out _).Should().BeFalse();
+        document.RootElement.GetProperty("referenceId").GetGuid().Should().Be(expected.ReferenceId);
         document.RootElement.GetProperty("grandTotal").GetDecimal().Should().Be(123.45m);
         document.RootElement.GetProperty("items").GetArrayLength().Should().Be(1);
         service.VerifyAll();

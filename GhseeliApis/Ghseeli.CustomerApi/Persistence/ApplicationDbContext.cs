@@ -18,6 +18,8 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<CustomerDevice> CustomerDevices => Set<CustomerDevice>();
+    public DbSet<CustomerOtpChallenge> CustomerOtpChallenges => Set<CustomerOtpChallenge>();
+    public DbSet<CustomerRefreshToken> CustomerRefreshTokens => Set<CustomerRefreshToken>();
     public DbSet<CustomerConfiguration> CustomerConfigurations => Set<CustomerConfiguration>();
     public DbSet<CatalogProviderReadModel> CatalogProviders => Set<CatalogProviderReadModel>();
     public DbSet<CatalogBranchReadModel> CatalogBranches => Set<CatalogBranchReadModel>();
@@ -149,6 +151,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
             entity.Property(device => device.InstallationId).IsRequired();
             entity.Property(device => device.Platform).HasMaxLength(16).IsRequired();
             entity.Property(device => device.AppVersion).HasMaxLength(32);
+            entity.Property(device => device.FcmToken).HasMaxLength(4096);
             entity.Property(device => device.TokenHash)
                 .HasColumnType("binary(32)")
                 .IsRequired();
@@ -164,6 +167,32 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
                 .IsConcurrencyToken();
             entity.HasIndex(device => device.InstallationId).IsUnique();
             entity.HasIndex(device => device.TokenHash).IsUnique();
+        });
+
+        modelBuilder.Entity<CustomerOtpChallenge>(entity =>
+        {
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.NormalizedEmail).HasMaxLength(256).IsRequired();
+            entity.Property(value => value.CodeSalt).HasColumnType("binary(16)").IsRequired();
+            entity.Property(value => value.CodeHash).HasColumnType("binary(32)").IsRequired();
+            entity.Property(value => value.DeliveredAtUtc);
+            entity.Property(value => value.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasIndex(value => new { value.NormalizedEmail, value.CreatedAtUtc });
+            entity.HasIndex(value => value.ExpiresAtUtc);
+        });
+
+        modelBuilder.Entity<CustomerRefreshToken>(entity =>
+        {
+            entity.HasKey(value => value.Id);
+            entity.Property(value => value.TokenHash).HasColumnType("binary(32)").IsRequired();
+            entity.Property(value => value.RowVersion).IsRowVersion().IsConcurrencyToken();
+            entity.HasIndex(value => value.TokenHash).IsUnique();
+            entity.HasIndex(value => value.FamilyId);
+            entity.HasIndex(value => value.ExpiresAtUtc);
+            entity.HasOne(value => value.User)
+                .WithMany()
+                .HasForeignKey(value => value.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<CustomerConfiguration>(entity =>

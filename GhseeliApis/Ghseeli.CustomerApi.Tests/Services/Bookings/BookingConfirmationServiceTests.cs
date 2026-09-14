@@ -40,7 +40,7 @@ public class BookingConfirmationServiceTests
             null,
             CancellationToken.None);
 
-        first.Reference.Should().Be(second.Reference);
+        first.ReferenceId.Should().Be(second.ReferenceId);
         first.BusinessReservationId.Should().Be(second.BusinessReservationId);
         first.ProviderName.Should().Be("Provider HE");
         second.ProviderName.Should().Be("Provider AR");
@@ -181,7 +181,7 @@ public class BookingConfirmationServiceTests
             null,
             CancellationToken.None);
 
-        recovered.Reference.Should().Be(firstRequest.Request.BookingReference);
+        recovered.ReferenceId.Should().Be(firstRequest.Request.BookingReference);
         fixture.BusinessClient.ReservationRequests.Should().HaveCount(2);
         fixture.BusinessClient.ReservationRequests[1].IdempotencyKey
             .Should().Be(firstRequest.IdempotencyKey);
@@ -241,7 +241,7 @@ public class BookingConfirmationServiceTests
             null,
             CancellationToken.None);
 
-        first.Reference.Should().Be(replay.Reference);
+        first.ReferenceId.Should().Be(replay.ReferenceId);
         fixture.BusinessClient.CreateReservationRequests.Should().Be(1);
         var stored = await fixture.Context.CustomerBookings
             .AsNoTracking()
@@ -294,7 +294,7 @@ public class BookingConfirmationServiceTests
             null,
             CancellationToken.None);
 
-        recovered.Reference.Should().Be(claimedRequest.Request.BookingReference);
+        recovered.ReferenceId.Should().Be(claimedRequest.Request.BookingReference);
         (await fixture.Context.CustomerBookings.CountAsync()).Should().Be(1);
         fixture.BusinessClient.ReservationRequests.Should().HaveCount(2);
         fixture.BusinessClient.ReservationRequests[1].IdempotencyKey

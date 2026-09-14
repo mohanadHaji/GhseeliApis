@@ -884,7 +884,7 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
         return new ConfirmedBookingResponse
         {
             Id = booking.Id,
-            Reference = booking.PublicReference,
+            ReferenceId = booking.PublicReference,
             OrderGuid = booking.OrderGuid,
             BusinessReservationId = booking.BusinessReservationId,
             BusinessWorkOrderId = booking.BusinessWorkOrderId,

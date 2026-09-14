@@ -69,6 +69,9 @@ public sealed class Step15SwaggerCustomerContractTests :
         AssertNoSecurity(root, "/api/v1/devices/register", "post");
         AssertNoSecurity(root, "/api/Auth/register", "post");
         AssertNoSecurity(root, "/api/Auth/login", "post");
+        AssertNoSecurity(root, "/api/Auth/otp/request", "post");
+        AssertNoSecurity(root, "/api/Auth/otp/confirm", "post");
+        AssertNoSecurity(root, "/api/Auth/refresh", "post");
         AssertNoSecurity(root, "/api/Auth/external-login", "get");
         AssertNoSecurity(root, "/api/Auth/external-login-callback", "get");
         AssertNoSecurity(root, "/api/Health", "get");
@@ -321,6 +324,9 @@ public sealed class Step15SwaggerCustomerContractTests :
 
         AssertNoSecurity(root, "/api/Auth/register", "post");
         AssertNoSecurity(root, "/api/Auth/login", "post");
+        AssertNoSecurity(root, "/api/Auth/otp/request", "post");
+        AssertNoSecurity(root, "/api/Auth/otp/confirm", "post");
+        AssertNoSecurity(root, "/api/Auth/refresh", "post");
         foreach (var path in new[]
                  {
                      "/api/Auth/me",
@@ -378,6 +384,9 @@ public sealed class Step15SwaggerCustomerContractTests :
 
     private static readonly string[] CustomerOperations =
     [
+        "POST /api/Auth/otp/request",
+        "POST /api/Auth/otp/confirm",
+        "POST /api/Auth/refresh",
         "POST /api/v1/devices/register",
         "GET /api/v1/configuration",
         "GET /api/v1/catalog/categories",

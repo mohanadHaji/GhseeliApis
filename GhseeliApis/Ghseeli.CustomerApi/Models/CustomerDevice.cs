@@ -6,6 +6,7 @@ public sealed class CustomerDevice
     public Guid InstallationId { get; set; }
     public string Platform { get; set; } = string.Empty;
     public string? AppVersion { get; set; }
+    public string? FcmToken { get; set; }
     public byte[] TokenHash { get; set; } = [];
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

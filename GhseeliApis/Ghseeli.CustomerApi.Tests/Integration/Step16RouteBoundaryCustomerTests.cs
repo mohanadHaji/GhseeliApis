@@ -219,6 +219,9 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
 
     private static readonly string[] CustomerOpenApiOperations =
     [
+        "POST /api/Auth/otp/request",
+        "POST /api/Auth/otp/confirm",
+        "POST /api/Auth/refresh",
         "POST /api/Auth/register", "POST /api/Auth/login", "POST /api/Auth/validate",
         "GET /api/Auth/me", "GET /api/Auth/external-login",
         "GET /api/Auth/external-login-callback", "POST /api/Auth/link-external-login",
@@ -408,7 +411,9 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
         if (path.StartsWith("/api/v1/", StringComparison.Ordinal))
             return ["DeviceToken"];
         if (path is "/api/Health" or "/api/Health/db" or "/api/Auth/register" or
-            "/api/Auth/login" or "/api/Auth/validate" or "/api/Auth/external-login" or
+            "/api/Auth/login" or "/api/Auth/validate" or
+            "/api/Auth/otp/request" or "/api/Auth/otp/confirm" or
+            "/api/Auth/refresh" or "/api/Auth/external-login" or
             "/api/Auth/external-login-callback" ||
             (path == "/api/Users" && method == "POST"))
             return [];

@@ -147,9 +147,19 @@ dotnet user-secrets set "Authentication:Google:ClientId" "<client-id>" --project
 dotnet user-secrets set "Authentication:Google:ClientSecret" "<client-secret>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet user-secrets set "Authentication:Facebook:AppId" "<app-id>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet user-secrets set "Authentication:Facebook:AppSecret" "<app-secret>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:Enabled" "true" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:Host" "<smtp-host>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:Port" "587" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:UserName" "<smtp-user>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:Password" "<smtp-password>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
+dotnet user-secrets set "CustomerSmtp:FromAddress" "<verified-sender-email>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet user-secrets set "Lahza:SecretKey" "<test-secret>" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 dotnet user-secrets set "Lahza:CallbackUrl" "https://localhost:3000/payment/callback" --project .\Ghseeli.CustomerApi\Ghseeli.CustomerApi.csproj
 ```
+
+OTP email delivery remains unavailable until `CustomerSmtp:Enabled=true` and
+the SMTP host/from-address settings are configured. Store SMTP credentials
+only in user secrets or deployment secrets.
 
 `Lahza:CallbackUrl` is a frontend return URL or universal link. It is not a
 Customer API endpoint and does not prove payment success.

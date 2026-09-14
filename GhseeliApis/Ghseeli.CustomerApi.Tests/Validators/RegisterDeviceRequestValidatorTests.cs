@@ -11,6 +11,20 @@ public class RegisterDeviceRequestValidatorTests
 {
     private readonly RegisterDeviceRequestValidator _validator = new();
 
+    [Fact]
+    public void Validate_FcmTokenOverMaximumLength_IsInvalid()
+    {
+        var result = _validator.Validate(new RegisterDeviceRequest
+        {
+            InstallationId = Guid.NewGuid(),
+            Platform = "Android",
+            FcmToken = new string('x', 4097)
+        });
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.PropertyName == "FcmToken");
+    }
+
     [Theory]
     [InlineData("iOS")]
     [InlineData("ios")]

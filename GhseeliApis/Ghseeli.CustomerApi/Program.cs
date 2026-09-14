@@ -14,6 +14,7 @@ using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Internal;
 using GhseeliApis.Services.Payments;
+using GhseeliApis.Services.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using Ghseeli.IntegrationContracts.Bookings;
@@ -412,6 +413,25 @@ builder.Services.AddScoped<GhseeliApis.Services.Interfaces.IAuthService, Ghseeli
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IDeviceTokenGenerator, DeviceTokenGenerator>();
 builder.Services.AddScoped<IDeviceRegistrationService, DeviceRegistrationService>();
+builder.Services.Configure<CustomerOtpOptions>(
+    builder.Configuration.GetSection(CustomerOtpOptions.SectionName));
+builder.Services.Configure<CustomerRefreshTokenOptions>(
+    builder.Configuration.GetSection(CustomerRefreshTokenOptions.SectionName));
+builder.Services.Configure<CustomerSmtpOptions>(
+    builder.Configuration.GetSection(CustomerSmtpOptions.SectionName));
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CustomerOtpOptions>,
+    CustomerOtpOptionsValidator>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CustomerRefreshTokenOptions>,
+    CustomerRefreshTokenOptionsValidator>();
+builder.Services.AddSingleton<
+    Microsoft.Extensions.Options.IValidateOptions<CustomerSmtpOptions>,
+    CustomerSmtpOptionsValidator>();
+builder.Services.AddSingleton<IOtpCodeGenerator, OtpCodeGenerator>();
+builder.Services.AddScoped<ICustomerOtpEmailSender, SmtpCustomerOtpEmailSender>();
+builder.Services.AddScoped<ICustomerRefreshTokenService, CustomerRefreshTokenService>();
+builder.Services.AddScoped<ICustomerOtpAuthenticationService, CustomerOtpAuthenticationService>();
 builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationService>();
 builder.Services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRefreshCoordinator>();
 builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();

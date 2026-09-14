@@ -9,7 +9,7 @@ public sealed class ConfirmBookingFromDraftRequest
 public sealed class ConfirmedBookingResponse
 {
     public Guid Id { get; set; }
-    public Guid Reference { get; set; }
+    public Guid ReferenceId { get; set; }
     public Guid OrderGuid { get; set; }
     public Guid BusinessReservationId { get; set; }
     public Guid BusinessWorkOrderId { get; set; }

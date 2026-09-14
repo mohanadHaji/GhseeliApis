@@ -23,5 +23,8 @@ public sealed class RegisterDeviceRequestValidator : AbstractValidator<RegisterD
             .Matches(@"^[A-Za-z0-9][A-Za-z0-9._+\-]*$")
             .When(request => request.AppVersion is not null)
             .WithMessage("AppVersion contains unsupported characters.");
+
+        RuleFor(request => request.FcmToken)
+            .MaximumLength(4096);
     }
 }

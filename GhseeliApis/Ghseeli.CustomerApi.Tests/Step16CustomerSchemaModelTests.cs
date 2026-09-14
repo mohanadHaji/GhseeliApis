@@ -25,8 +25,9 @@ public sealed class Step16CustomerSchemaModelTests
         "CheckoutDraftSelections", "CheckoutDrafts", "CustomerBookingItems",
         "CustomerBookingSelections", "CustomerBookings", "CustomerConfigurations",
         "CustomerDevices", "CustomerInternalIdempotencyRecords",
-        "CustomerInternalServiceNonces", "CustomerPaymentIdempotencyRecords",
-        "CustomerPayments", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
+        "CustomerInternalServiceNonces", "CustomerOtpChallenges",
+        "CustomerPaymentIdempotencyRecords", "CustomerPayments",
+        "CustomerRefreshTokens", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
         "UserAddresses", "Vehicles"
     ];
 
@@ -119,6 +120,7 @@ public sealed class Step16CustomerSchemaModelTests
 
         AssertForeignKey(foreignKeys, "UserAddresses", "AspNetUsers", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "Vehicles", "AspNetUsers", DeleteBehavior.Cascade);
+        AssertForeignKey(foreignKeys, "CustomerRefreshTokens", "AspNetUsers", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogBranches", "CatalogProviders", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogCategories", "CatalogProviders", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogOfferings", "CatalogCategories", DeleteBehavior.Cascade);

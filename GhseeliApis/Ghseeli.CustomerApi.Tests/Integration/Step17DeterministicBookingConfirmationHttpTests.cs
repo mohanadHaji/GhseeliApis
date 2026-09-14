@@ -151,8 +151,8 @@ public sealed class Step17DeterministicBookingConfirmationHttpTests
 
         firstResponse.StatusCode.Should().Be(HttpStatusCode.OK, firstBody.RootElement.ToString());
         secondResponse.StatusCode.Should().Be(HttpStatusCode.OK, secondBody.RootElement.ToString());
-        secondBody.RootElement.GetProperty("reference").GetGuid()
-            .Should().Be(firstBody.RootElement.GetProperty("reference").GetGuid());
+        secondBody.RootElement.GetProperty("referenceId").GetGuid()
+            .Should().Be(firstBody.RootElement.GetProperty("referenceId").GetGuid());
         secondBody.RootElement.GetProperty("businessReservationId").GetGuid()
             .Should().Be(firstBody.RootElement.GetProperty("businessReservationId").GetGuid());
         secondBody.RootElement.GetProperty("businessWorkOrderId").GetGuid()
@@ -209,7 +209,7 @@ public sealed class Step17DeterministicBookingConfirmationHttpTests
 
         recovered.StatusCode.Should().Be(HttpStatusCode.OK, body.RootElement.ToString());
         var accepted = fixture.Backend.SingleReservation;
-        body.RootElement.GetProperty("reference").GetGuid().Should().Be(accepted.BookingReference);
+        body.RootElement.GetProperty("referenceId").GetGuid().Should().Be(accepted.BookingReference);
         body.RootElement.GetProperty("businessReservationId").GetGuid()
             .Should().Be(accepted.ReservationId);
         body.RootElement.GetProperty("businessWorkOrderId").GetGuid()

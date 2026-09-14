@@ -29,8 +29,9 @@ public sealed class Step16CustomerSchemaMigrationTests
         "CheckoutDraftSelections", "CheckoutDrafts", "CustomerBookingItems",
         "CustomerBookingSelections", "CustomerBookings", "CustomerConfigurations",
         "CustomerDevices", "CustomerInternalIdempotencyRecords",
-        "CustomerInternalServiceNonces", "CustomerPaymentIdempotencyRecords",
-        "CustomerPayments", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
+        "CustomerInternalServiceNonces", "CustomerOtpChallenges",
+        "CustomerPaymentIdempotencyRecords", "CustomerPayments",
+        "CustomerRefreshTokens", "ProcessedBookingStatusMessages", "PaymentWebhookEvents",
         "UserAddresses", "Vehicles"
     ];
 
@@ -105,7 +106,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(4);
+            firstHistory.Should().HaveCount(5);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")

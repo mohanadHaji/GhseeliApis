@@ -31,7 +31,13 @@ public class DeviceRegistrationServiceTests
         var service = CreateService();
 
         var response = await service.RegisterAsync(
-            new RegisterDeviceRequest { InstallationId = installationId, Platform = "ios", AppVersion = "1.2.3" },
+            new RegisterDeviceRequest
+            {
+                InstallationId = installationId,
+                Platform = "ios",
+                AppVersion = "1.2.3",
+                FcmToken = " fcm-token "
+            },
             null,
             default);
 
@@ -44,6 +50,7 @@ public class DeviceRegistrationServiceTests
         saved.TokenHash.Should().HaveCount(32);
         Convert.ToHexString(saved.TokenHash).Should().NotContain(response.Token);
         saved.ExpiresAt.Should().Be(Now.AddDays(90));
+        saved.FcmToken.Should().Be("fcm-token");
     }
 
     [Fact]
@@ -77,13 +84,19 @@ public class DeviceRegistrationServiceTests
         var service = CreateService();
 
         var response = await service.RegisterAsync(
-            new RegisterDeviceRequest { InstallationId = device.InstallationId, Platform = "android" },
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "android",
+                FcmToken = "replacement-fcm"
+            },
             oldToken,
             default);
 
         response.Token.Should().Be(rotatedToken);
         device.TokenHash.Should().NotEqual(oldHash);
         device.Platform.Should().Be("Android");
+        device.FcmToken.Should().Be("replacement-fcm");
         device.ExpiresAt.Should().Be(Now.AddDays(90));
         _repository.Verify(repository => repository.SaveChangesAsync(default), Times.Once);
     }

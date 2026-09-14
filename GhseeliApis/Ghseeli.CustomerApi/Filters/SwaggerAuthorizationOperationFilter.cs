@@ -381,7 +381,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
                 {
                     ["orderGuid"] = new OpenApiString(
                         "22222222-2222-2222-2222-222222222222"),
-                    ["reference"] = new OpenApiString(
+                    ["referenceId"] = new OpenApiString(
                         "33333333-3333-3333-3333-333333333333"),
                     ["currency"] = new OpenApiString("ILS"),
                     ["grandTotal"] = new OpenApiDouble(79.50)

@@ -202,6 +202,15 @@ public sealed class CustomerRateLimitPartitionMiddleware
                  "/api/Auth/validate",
                  StringComparison.OrdinalIgnoreCase) ||
              path.Equals(
+                 "/api/Auth/otp/request",
+                 StringComparison.OrdinalIgnoreCase) ||
+             path.Equals(
+                 "/api/Auth/otp/confirm",
+                 StringComparison.OrdinalIgnoreCase) ||
+             path.Equals(
+                 "/api/Auth/refresh",
+                 StringComparison.OrdinalIgnoreCase) ||
+             path.Equals(
                  "/api/v1/payments/intents",
                  StringComparison.OrdinalIgnoreCase)))
         {
@@ -318,6 +327,15 @@ public sealed class CustomerRateLimitPartitionMiddleware
                         ? "missing"
                         : normalized);
             }
+            else if (context.Request.Path.Equals(
+                         "/api/Auth/refresh",
+                         StringComparison.OrdinalIgnoreCase) &&
+                     TryGetProperty(root, "refreshToken", out var refreshElement) &&
+                     refreshElement.ValueKind == JsonValueKind.String)
+            {
+                context.Items[AuthAccountPartitionItemKey] =
+                    HashPartition(refreshElement.GetString() ?? "missing");
+            }
 
             if (context.Request.Path.Equals(
                     "/api/v1/payments/intents",
@@ -425,6 +443,9 @@ public sealed class CustomerRateLimitPartitionMiddleware
         path.Equals("/api/Auth/register", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/login", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/validate", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/otp/request", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/otp/confirm", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/refresh", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/external-login", StringComparison.OrdinalIgnoreCase) ||
         path.Equals(
             "/api/Auth/external-login-callback",
@@ -700,6 +721,9 @@ public static class CustomerRateLimitingExtensions
         path.Equals("/api/Auth/register", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/login", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/validate", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/otp/request", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/otp/confirm", StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/api/Auth/refresh", StringComparison.OrdinalIgnoreCase) ||
         path.Equals("/api/Auth/external-login", StringComparison.OrdinalIgnoreCase) ||
         path.Equals(
             "/api/Auth/external-login-callback",

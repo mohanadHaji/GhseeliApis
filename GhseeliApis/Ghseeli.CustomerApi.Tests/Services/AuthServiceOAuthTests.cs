@@ -4,8 +4,11 @@ using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services;
+using GhseeliApis.Services.Auth;
+using GhseeliApis.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using System.Security.Claims;
 
@@ -47,12 +50,18 @@ public class AuthServiceOAuthTests
         jwtSettingsSection.Setup(s => s["ExpirationMinutes"]).Returns("60");
 
         _loggerMock = new Mock<IAppLogger>();
+        var context = new ApplicationDbContext(
+            new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseInMemoryDatabase($"AuthOAuth-{Guid.NewGuid():N}")
+                .Options);
 
         _authService = new AuthService(
             _userManagerMock.Object,
             _signInManagerMock.Object,
             _configurationMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            context,
+            Mock.Of<ICustomerRefreshTokenService>());
     }
 
     private ExternalLoginInfo CreateExternalLoginInfo(string provider, string email, string name, string providerKey = "123456")

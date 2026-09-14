@@ -4,12 +4,15 @@ using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services.Interfaces;
+using GhseeliApis.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using System.Security.Claims;
 
@@ -21,6 +24,8 @@ public class AuthControllerTests
     private readonly Mock<SignInManager<User>> _signInManagerMock;
     private readonly Mock<UserManager<User>> _userManagerMock;
     private readonly Mock<IAppLogger> _loggerMock;
+    private readonly Mock<ICustomerOtpAuthenticationService> _otpAuthenticationMock = new();
+    private readonly Mock<ICustomerRefreshTokenService> _refreshTokensMock = new();
     private readonly AuthController _controller;
 
     public AuthControllerTests()
@@ -47,10 +52,106 @@ public class AuthControllerTests
             _authServiceMock.Object,
             _signInManagerMock.Object,
             _userManagerMock.Object,
-            _loggerMock.Object);
+            _loggerMock.Object,
+            _otpAuthenticationMock.Object,
+            _refreshTokensMock.Object);
+        var requestServices = new ServiceCollection()
+            .AddSingleton<IConfiguration>(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        ["JwtSettings:ExpirationMinutes"] = "60"
+                    })
+                    .Build())
+            .BuildServiceProvider();
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                RequestServices = requestServices
+            }
+        };
+        _refreshTokensMock
+            .Setup(value => value.IssueAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IssuedRefreshToken(
+                "refresh-token",
+                DateTimeOffset.UtcNow.AddDays(30)));
     }
 
     #region Register Tests
+
+    [Fact]
+    public async Task RequestOtp_ValidEmail_ReturnsAcceptedWithoutCode()
+    {
+        var result = await _controller.RequestOtp(
+            new RequestOtpRequest { Email = "user@example.com" },
+            default);
+
+        var accepted = result.Should().BeOfType<AcceptedResult>().Subject;
+        accepted.Value.Should().BeOfType<OtpRequestAcceptedResponse>();
+        accepted.Value!.ToString().Should().NotContain("123456");
+        _otpAuthenticationMock.Verify(value =>
+            value.RequestAsync("user@example.com", default), Times.Once);
+    }
+
+    [Fact]
+    public async Task ConfirmOtp_NewUser_ReturnsIsNewUserAndNoStore()
+    {
+        var expected = new AuthResponse
+        {
+            UserId = Guid.NewGuid(),
+            Email = "new@example.com",
+            Token = "access",
+            RefreshToken = "refresh",
+            IsNewUser = true
+        };
+        _otpAuthenticationMock.Setup(value => value.ConfirmAsync(
+                "new@example.com",
+                "123456",
+                default))
+            .ReturnsAsync(expected);
+
+        var result = await _controller.ConfirmOtp(
+            new ConfirmOtpRequest
+            {
+                Email = "new@example.com",
+                Code = "123456"
+            },
+            default);
+
+        result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().Be(expected);
+        _controller.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+    }
+
+    [Fact]
+    public async Task Refresh_ValidToken_RotatesAndReturnsNoStore()
+    {
+        var userId = Guid.NewGuid();
+        _refreshTokensMock.Setup(value => value.RotateAsync(
+                "old-refresh",
+                It.IsAny<Func<Guid, string, string, Task<string>>>(),
+                default))
+            .ReturnsAsync(new RotatedRefreshToken(
+                userId,
+                "user@example.com",
+                "User",
+                "new-access",
+                "new-refresh",
+                DateTimeOffset.UtcNow.AddDays(30)));
+
+        var result = await _controller.Refresh(
+            new RefreshTokenRequest { RefreshToken = "old-refresh" },
+            default);
+
+        var response = result.Should().BeOfType<OkObjectResult>()
+            .Which.Value.Should().BeOfType<AuthResponse>().Subject;
+        response.Token.Should().Be("new-access");
+        response.RefreshToken.Should().Be("new-refresh");
+        _controller.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+    }
 
     [Fact]
     public async Task Register_WithValidRequest_ShouldReturnOkWithAuthResponse()

@@ -102,6 +102,7 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
                 InstallationId = request.InstallationId,
                 Platform = NormalizePlatform(request.Platform),
                 AppVersion = request.AppVersion,
+                FcmToken = NormalizeOptional(request.FcmToken),
                 TokenHash = DeviceTokenHasher.Hash(token),
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -161,6 +162,7 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
 
         existing.Platform = NormalizePlatform(request.Platform);
         existing.AppVersion = request.AppVersion;
+        existing.FcmToken = NormalizeOptional(request.FcmToken);
         existing.TokenHash = DeviceTokenHasher.Hash(token);
         existing.UpdatedAt = now;
         existing.ExpiresAt = now.AddDays(_options.LifetimeDays);
@@ -236,6 +238,9 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
 
     private static string NormalizePlatform(string platform) =>
         platform.Equals("ios", StringComparison.OrdinalIgnoreCase) ? "iOS" : "Android";
+
+    private static string? NormalizeOptional(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private static bool IsUniqueConstraintViolation(Exception exception)
     {

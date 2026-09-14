@@ -2,6 +2,7 @@ using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services.Interfaces;
+using GhseeliApis.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -18,17 +19,23 @@ public class AuthController : ControllerBase
     private readonly SignInManager<User> _signInManager;
     private readonly UserManager<User> _userManager;
     private readonly IAppLogger _logger;
+    private readonly ICustomerOtpAuthenticationService _otpAuthentication;
+    private readonly ICustomerRefreshTokenService _refreshTokens;
 
     public AuthController(
         IAuthService authService, 
         SignInManager<User> signInManager,
         UserManager<User> userManager,
-        IAppLogger logger)
+        IAppLogger logger,
+        ICustomerOtpAuthenticationService otpAuthentication,
+        ICustomerRefreshTokenService refreshTokens)
     {
         _authService = authService;
         _signInManager = signInManager;
         _userManager = userManager;
         _logger = logger;
+        _otpAuthentication = otpAuthentication;
+        _refreshTokens = refreshTokens;
     }
 
     /// <summary>
@@ -52,6 +59,7 @@ public class AuthController : ControllerBase
                 return BadRequest(new { Message = "Registration failed. Email may already be in use or password doesn't meet requirements." });
             }
 
+            Response.Headers.CacheControl = "no-store";
             _logger.LogInfo($"User registered successfully: userId={result.UserId}");
             return Ok(result);
         }
@@ -83,6 +91,7 @@ public class AuthController : ControllerBase
                 return Unauthorized(new { Message = "Invalid email or password" });
             }
 
+            Response.Headers.CacheControl = "no-store";
             _logger.LogInfo($"User logged in successfully: userId={result.UserId}");
             return Ok(result);
         }
@@ -90,6 +99,85 @@ public class AuthController : ControllerBase
         {
             LogSanitizedError("login request", ex);
             return StatusCode(500, new { Message = "An error occurred during login" });
+        }
+    }
+
+    [HttpPost("otp/request")]
+    [ProducesResponseType<OtpRequestAcceptedResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> RequestOtp(
+        [FromBody] RequestOtpRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _otpAuthentication.RequestAsync(request.Email, cancellationToken);
+            return Accepted(new OtpRequestAcceptedResponse());
+        }
+        catch (CustomerOtpException exception)
+        {
+            return AuthProblem(exception.StatusCode, exception.Code, exception.Message);
+        }
+    }
+
+    [HttpPost("otp/confirm")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConfirmOtp(
+        [FromBody] ConfirmOtpRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            Response.Headers.CacheControl = "no-store";
+            return Ok(await _otpAuthentication.ConfirmAsync(
+                request.Email,
+                request.Code,
+                cancellationToken));
+        }
+        catch (CustomerOtpException exception)
+        {
+            return AuthProblem(exception.StatusCode, exception.Code, exception.Message);
+        }
+    }
+
+    [HttpPost("refresh")]
+    [ProducesResponseType<AuthResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Refresh(
+        [FromBody] RefreshTokenRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var rotated = await _refreshTokens.RotateAsync(
+                request.RefreshToken,
+                (userId, email, fullName) =>
+                    _authService.GenerateJwtTokenAsync(userId, email, fullName),
+                cancellationToken);
+            var expirationMinutes = int.Parse(
+                HttpContext.RequestServices.GetRequiredService<IConfiguration>()
+                    ["JwtSettings:ExpirationMinutes"] ?? "60");
+            Response.Headers.CacheControl = "no-store";
+            return Ok(new AuthResponse
+            {
+                UserId = rotated.UserId,
+                Email = rotated.Email,
+                FullName = rotated.FullName,
+                Token = rotated.AccessToken,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                RefreshToken = rotated.Token,
+                RefreshTokenExpiresAt = rotated.ExpiresAtUtc,
+                IsNewUser = false
+            });
+        }
+        catch (CustomerRefreshTokenException exception)
+        {
+            return AuthProblem(exception.StatusCode, exception.Code, exception.Message);
         }
     }
 
@@ -392,6 +480,43 @@ public class AuthController : ControllerBase
     }
 
     #endregion
+
+    private ObjectResult AuthProblem(int statusCode, string code, string detail)
+    {
+        var hebrew = Request.Headers.AcceptLanguage.ToString()
+            .StartsWith("he", StringComparison.OrdinalIgnoreCase);
+        var problem = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = hebrew ? "האימות נכשל." : "فشلت المصادقة.",
+            Detail = LocalizedAuthDetail(code, hebrew),
+            Type = $"https://api.ghseeli.example/errors/{code}"
+        };
+        problem.Extensions["code"] = code;
+        problem.Extensions["correlationId"] = HttpContext.TraceIdentifier;
+        return new ObjectResult(problem)
+        {
+            StatusCode = statusCode,
+            ContentTypes = { "application/problem+json" }
+        };
+    }
+
+    private static string LocalizedAuthDetail(string code, bool hebrew) =>
+        code switch
+        {
+            CustomerAuthProblemCodes.OtpAttemptLimit => hebrew
+                ? "בוצעו יותר מדי ניסיונות אימות שגויים."
+                : "تم إجراء عدد كبير جدًا من محاولات التحقق غير الصحيحة.",
+            CustomerAuthProblemCodes.OtpDeliveryUnavailable => hebrew
+                ? "לא ניתן לשלוח את קוד האימות כעת."
+                : "تعذر إرسال رمز التحقق حاليًا.",
+            CustomerAuthProblemCodes.RefreshTokenInvalid => hebrew
+                ? "אסימון הרענון אינו תקין או שפג תוקפו."
+                : "رمز التحديث غير صالح أو منتهي الصلاحية.",
+            _ => hebrew
+                ? "קוד האימות אינו תקין או שפג תוקפו."
+                : "رمز التحقق غير صالح أو منتهي الصلاحية."
+        };
 
     private void LogSanitizedError(string operation, Exception exception)
     {

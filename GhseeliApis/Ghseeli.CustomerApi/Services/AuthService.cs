@@ -3,11 +3,16 @@ using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services.Interfaces;
+using GhseeliApis.Services.Auth;
+using GhseeliApis.Persistence;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Data;
 
 namespace GhseeliApis.Services;
 
@@ -17,21 +22,34 @@ public class AuthService : IAuthService
     private readonly SignInManager<User> _signInManager;
     private readonly IConfiguration _configuration;
     private readonly IAppLogger _logger;
+    private readonly ApplicationDbContext _context;
+    private readonly ICustomerRefreshTokenService _refreshTokens;
 
     public AuthService(
         UserManager<User> userManager,
         SignInManager<User> signInManager,
         IConfiguration configuration,
-        IAppLogger logger)
+        IAppLogger logger,
+        ApplicationDbContext context,
+        ICustomerRefreshTokenService refreshTokens)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
         _logger = logger;
+        _context = context;
+        _refreshTokens = refreshTokens;
     }
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request, string role = "User")
     {
+        var strategy = _context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(() => RegisterCoreAsync(request, role));
+    }
+
+    private async Task<AuthResponse?> RegisterCoreAsync(RegisterRequest request, string role)
+    {
+        await using var transaction = await BeginSerializableAsync();
         try
         {
             // Check if user already exists
@@ -80,21 +98,28 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            _logger.LogInfo(
-                $"User registered successfully: userId={user.Id}, role='{role}'");
-
             // Generate JWT token
             var token = await GenerateJwtTokenAsync(user.Id, user.Email!, user.FullName);
             var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
+            var refresh = await _refreshTokens.IssueAsync(user.Id, default);
 
-            return new AuthResponse
+            var response = new AuthResponse
             {
                 UserId = user.Id,
                 Email = user.Email!,
                 FullName = user.FullName,
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                RefreshToken = refresh.Token,
+                RefreshTokenExpiresAt = refresh.ExpiresAtUtc
             };
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+            _logger.LogInfo(
+                $"User registered successfully: userId={user.Id}, role='{role}'");
+            return response;
         }
         catch (Exception ex)
         {
@@ -144,6 +169,7 @@ public class AuthService : IAuthService
             // Generate JWT token
             var token = await GenerateJwtTokenAsync(user.Id, user.Email!, user.FullName);
             var expirationMinutes = int.Parse(_configuration["JwtSettings:ExpirationMinutes"] ?? "60");
+            var refresh = await _refreshTokens.IssueAsync(user.Id, default);
 
             return new AuthResponse
             {
@@ -151,9 +177,12 @@ public class AuthService : IAuthService
                 Email = user.Email!,
                 FullName = user.FullName,
                 Token = token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes)
+                ExpiresAt = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                RefreshToken = refresh.Token,
+                RefreshTokenExpiresAt = refresh.ExpiresAtUtc
             };
         }
+
         catch (Exception ex)
         {
             _logger.LogError(
@@ -162,6 +191,11 @@ public class AuthService : IAuthService
             throw;
         }
     }
+
+    private async Task<IDbContextTransaction?> BeginSerializableAsync() =>
+        _context.Database.IsRelational()
+            ? await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable)
+            : null;
 
     public async Task<string> GenerateJwtTokenAsync(Guid userId, string email, string fullName)
     {

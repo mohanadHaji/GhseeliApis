@@ -391,7 +391,10 @@ summarize the cross-domain routes; they do not create compatibility aliases.
 
 | Method | Route | Device | Customer JWT | Purpose |
 |---|---|---:|---:|---|
-| POST | `/api/v1/devices/register` | No | No | Register/rotate a device token |
+| POST | `/api/Auth/otp/request` | No | No | Send a six-digit customer email OTP |
+| POST | `/api/Auth/otp/confirm` | No | No | Confirm OTP and issue access/refresh tokens |
+| POST | `/api/Auth/refresh` | No | No | Rotate a customer refresh token |
+| POST | `/api/v1/devices/register` | No | No | Register/rotate a device token and update its optional FCM token |
 | GET | `/api/v1/configuration` | Yes | No | Get localized active app configuration |
 | GET | `/api/v1/catalog/categories` | Yes | No | Browse localized categories |
 | GET | `/api/v1/catalog/businesses` | Yes | No | Browse eligible companies/branches |

@@ -42,12 +42,19 @@ function Assert-Status(
     Write-Host "[PASS] $Name"
 }
 
+function Read-ResponseText([object]$Response) {
+    if ($Response.Content -is [byte[]]) {
+        return [Text.Encoding]::UTF8.GetString($Response.Content)
+    }
+    return [string]$Response.Content
+}
+
 $health = Invoke-Request 'GET' '/api/Health/db'
 Assert-Status 'Customer HTTPS database health' $health 200
 
 $swagger = Invoke-Request 'GET' '/swagger/v1/swagger.json'
 Assert-Status 'Production Swagger' $swagger 200
-$document = $swagger.Content | ConvertFrom-Json
+$document = Read-ResponseText $swagger | ConvertFrom-Json
 foreach ($path in @(
     '/api/v1/payments/intents',
     '/api/v1/payments/{id}/verify',
@@ -68,7 +75,7 @@ Assert-Status 'Anonymous payment verification rejection' $verify 401
 
 $webhook = Invoke-Request 'POST' '/api/lahza/webhook' '{}'
 Assert-Status 'Unsigned webhook rejection' $webhook 400
-$problem = $webhook.Content | ConvertFrom-Json
+$problem = Read-ResponseText $webhook | ConvertFrom-Json
 if ($problem.code -ne 'lahza_signature_missing') {
     throw "Unsigned webhook returned unexpected code '$($problem.code)'."
 }

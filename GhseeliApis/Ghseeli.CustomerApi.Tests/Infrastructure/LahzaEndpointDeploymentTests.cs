@@ -51,6 +51,24 @@ public sealed class LahzaEndpointDeploymentTests
         workflow.Should().NotContain("health_url: http://");
     }
 
+    [Fact]
+    public void ProductionSmoke_DecodesBinaryHttpContentBeforeParsingJson()
+    {
+        var smokeScript = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            "GhseeliApis",
+            "scripts",
+            "http-tests",
+            "Invoke-Step21ProductionSmoke.ps1"));
+
+        smokeScript.Should().Contain(
+            "if ($Response.Content -is [byte[]])");
+        smokeScript.Should().Contain(
+            "[Text.Encoding]::UTF8.GetString($Response.Content)");
+        smokeScript.Should().Contain(
+            "$problem = Read-ResponseText $webhook | ConvertFrom-Json");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

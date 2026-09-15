@@ -1,0 +1,1197 @@
+{
+  "metadata": {
+    "datasetType": "demo",
+    "version": "frontend-demo-v1",
+    "localDevelopmentOnly": true,
+    "warning": "DEMO DATA ONLY - fictional records for local frontend development; never use in production.",
+    "generatedAtUtc": "2026-09-15T09:00:00+00:00"
+  },
+  "businessUsers": [
+    {
+      "id": "c02e8f2d-f67f-585c-cc7d-18c4eb90cb49",
+      "fullName": "[DEMO] Sparkle Owner",
+      "email": "owner.sparkle@example.test",
+      "password": "Demo123!",
+      "role": "Owner",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": null
+    },
+    {
+      "id": "8f697215-8adb-ca10-a499-0a4fccda8f7f",
+      "fullName": "[DEMO] Blue Wave Owner",
+      "email": "owner.bluewave@example.test",
+      "password": "Demo123!",
+      "role": "Owner",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": null
+    },
+    {
+      "id": "bcfaa041-61ce-132a-5692-cac1f33a42ba",
+      "fullName": "[DEMO] Green Garage Owner",
+      "email": "owner.green@example.test",
+      "password": "Demo123!",
+      "role": "Owner",
+      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "branchId": null
+    },
+    {
+      "id": "b101e547-9fa6-1916-9879-bf81ca9f523d",
+      "fullName": "[DEMO] Ramallah Employee",
+      "email": "employee.ramallah@example.test",
+      "password": "Demo123!",
+      "role": "Employee",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130"
+    },
+    {
+      "id": "c190d54b-6cd8-c601-510f-b734a5228a95",
+      "fullName": "[DEMO] Nablus Employee",
+      "email": "employee.nablus@example.test",
+      "password": "Demo123!",
+      "role": "Employee",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32"
+    }
+  ],
+  "companies": [
+    {
+      "id": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "nameEn": "[DEMO] Sparkle Mobile Wash",
+      "nameAr": "[DEMO] \u0633\u0628\u0627\u0631\u0643\u0644 \u0644\u0644\u063A\u0633\u064A\u0644 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+      "nameHe": "[DEMO] \u05E1\u05E4\u05D0\u05E8\u05E7\u05DC \u05E9\u05D8\u05D9\u05E4\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+      "catalogVersion": 11,
+      "branches": [
+        {
+          "id": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "nameEn": "[DEMO] Ramallah Center",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0631\u0627\u0645 \u0627\u0644\u0644\u0647 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05E8\u05DE\u05D0\u05DC\u05DC\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 1",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 1",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 1",
+          "latitude": 31.9038,
+          "longitude": 35.2034,
+          "serviceRadiusKm": 19,
+          "timeZoneId": "Asia/Jerusalem"
+        },
+        {
+          "id": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "nameEn": "[DEMO] Al-Bireh North",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0627\u0644\u0628\u064A\u0631\u0629 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05D0\u05DC-\u05D1\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 2",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 2",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 2",
+          "latitude": 31.91,
+          "longitude": 35.216,
+          "serviceRadiusKm": 20,
+          "timeZoneId": "Asia/Jerusalem"
+        }
+      ],
+      "categories": [
+        {
+          "id": "084f2805-80ae-0321-13b2-b04669a75482",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "nameEn": "Exterior",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA"
+        },
+        {
+          "id": "bfec0c6c-e8f9-f34f-896d-2031ae47d61c",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "nameEn": "Interior",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+        }
+      ],
+      "offerings": [
+        {
+          "id": "359c17dd-2229-18de-8dc8-30e0b0539f7c",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "categoryId": "084f2805-80ae-0321-13b2-b04669a75482",
+          "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+          "referenceCode": "DEMO-SVC-001",
+          "nameEn": "Quick Exterior",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 25,
+          "durationMinutes": 25,
+          "addonGroups": [
+            {
+              "id": "ad978b8f-f170-a36d-d3bd-475a1047dfd3",
+              "offeringId": "359c17dd-2229-18de-8dc8-30e0b0539f7c",
+              "nameEn": "Vehicle size",
+              "nameAr": "\u062D\u062C\u0645 \u0627\u0644\u0645\u0631\u0643\u0628\u0629",
+              "nameHe": "\u05D2\u05D5\u05D3\u05DC \u05D4\u05E8\u05DB\u05D1",
+              "selectionType": "SingleChoice",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "3525324d-8c1d-7267-cd45-5bb41d0aed56",
+                  "addonGroupId": "ad978b8f-f170-a36d-d3bd-475a1047dfd3",
+                  "nameEn": "Sedan",
+                  "nameAr": "\u0633\u064A\u062F\u0627\u0646",
+                  "nameHe": "\u05E1\u05D3\u05D0\u05DF",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "ef6f3677-d95c-5c45-615c-0496e5790129",
+                  "addonGroupId": "ad978b8f-f170-a36d-d3bd-475a1047dfd3",
+                  "nameEn": "SUV",
+                  "nameAr": "\u062F\u0641\u0639 \u0631\u0628\u0627\u0639\u064A",
+                  "nameHe": "\u05E8\u05DB\u05D1 \u05E9\u05D8\u05D7",
+                  "priceAdjustment": 8,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "e797b000-90d2-e518-18d9-7eb132e60ee4",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "categoryId": "084f2805-80ae-0321-13b2-b04669a75482",
+          "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+          "referenceCode": "DEMO-SVC-002",
+          "nameEn": "Premium Exterior",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u0641\u0627\u062E\u0631 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 45,
+          "durationMinutes": 40,
+          "addonGroups": [
+            {
+              "id": "22a01d0f-dfaf-e494-61ca-4b37431415fe",
+              "offeringId": "e797b000-90d2-e518-18d9-7eb132e60ee4",
+              "nameEn": "Finish",
+              "nameAr": "\u0637\u0628\u0642\u0629 \u0627\u0644\u062D\u0645\u0627\u064A\u0629",
+              "nameHe": "\u05E9\u05DB\u05D1\u05EA \u05D2\u05D9\u05DE\u05D5\u05E8",
+              "selectionType": "MultipleChoice",
+              "isRequired": false,
+              "minimumSelections": 0,
+              "maximumSelections": 2,
+              "choices": [
+                {
+                  "id": "8f2c525e-2ac4-649a-b53c-b646e58f1f26",
+                  "addonGroupId": "22a01d0f-dfaf-e494-61ca-4b37431415fe",
+                  "nameEn": "Wax",
+                  "nameAr": "\u0634\u0645\u0639",
+                  "nameHe": "\u05D5\u05D5\u05E7\u05E1",
+                  "priceAdjustment": 12,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "347e786c-0742-db92-97ab-b9d53d570b7d",
+                  "addonGroupId": "22a01d0f-dfaf-e494-61ca-4b37431415fe",
+                  "nameEn": "Tire shine",
+                  "nameAr": "\u062A\u0644\u0645\u064A\u0639 \u0627\u0644\u0625\u0637\u0627\u0631\u0627\u062A",
+                  "nameHe": "\u05D4\u05D1\u05E8\u05E7\u05EA \u05E6\u05DE\u05D9\u05D2\u05D9\u05DD",
+                  "priceAdjustment": 6,
+                  "durationAdjustmentMinutes": 5,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "e041d5cc-9e46-633f-fd99-f20e21bd8091",
+                  "addonGroupId": "22a01d0f-dfaf-e494-61ca-4b37431415fe",
+                  "nameEn": "Rain repellent",
+                  "nameAr": "\u0637\u0627\u0631\u062F \u0627\u0644\u0645\u0637\u0631",
+                  "nameHe": "\u05D3\u05D5\u05D7\u05D4 \u05D2\u05E9\u05DD",
+                  "priceAdjustment": 9,
+                  "durationAdjustmentMinutes": 5,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "65c06941-c3e6-5d8f-23d2-935e95dd6f2b",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "categoryId": "bfec0c6c-e8f9-f34f-896d-2031ae47d61c",
+          "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+          "referenceCode": "DEMO-SVC-003",
+          "nameEn": "Interior Refresh",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u062E\u0641\u064A\u0641 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E8\u05E2\u05E0\u05D5\u05DF \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 35,
+          "durationMinutes": 35,
+          "addonGroups": []
+        },
+        {
+          "id": "470891f2-bb36-3db3-d91c-dcdb370464cc",
+          "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+          "categoryId": "bfec0c6c-e8f9-f34f-896d-2031ae47d61c",
+          "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+          "referenceCode": "DEMO-SVC-004",
+          "nameEn": "Deep Interior",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u0639\u0645\u064A\u0642 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E2\u05DE\u05D5\u05E7 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 70,
+          "durationMinutes": 75,
+          "addonGroups": [
+            {
+              "id": "ec48444a-2a79-3066-2c0a-0881d9697a84",
+              "offeringId": "470891f2-bb36-3db3-d91c-dcdb370464cc",
+              "nameEn": "Seat rows",
+              "nameAr": "\u0635\u0641\u0648\u0641 \u0627\u0644\u0645\u0642\u0627\u0639\u062F",
+              "nameHe": "\u05E9\u05D5\u05E8\u05D5\u05EA \u05DE\u05D5\u05E9\u05D1\u05D9\u05DD",
+              "selectionType": "QuantityCounter",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 3,
+              "choices": [
+                {
+                  "id": "6c13202c-a739-e8bf-924f-1c92ae5ffb58",
+                  "addonGroupId": "ec48444a-2a79-3066-2c0a-0881d9697a84",
+                  "nameEn": "Seat row",
+                  "nameAr": "\u0635\u0641 \u0645\u0642\u0627\u0639\u062F",
+                  "nameHe": "\u05E9\u05D5\u05E8\u05EA \u05DE\u05D5\u05E9\u05D1\u05D9\u05DD",
+                  "priceAdjustment": 10,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "cc128d44-a751-3e9e-8a1b-6d7e13c5f2e5",
+                  "addonGroupId": "ec48444a-2a79-3066-2c0a-0881d9697a84",
+                  "nameEn": "Child seat",
+                  "nameAr": "\u0645\u0642\u0639\u062F \u0623\u0637\u0641\u0627\u0644",
+                  "nameHe": "\u05DE\u05D5\u05E9\u05D1 \u05D9\u05DC\u05D3\u05D9\u05DD",
+                  "priceAdjustment": 7,
+                  "durationAdjustmentMinutes": 8,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "8abfac68-5a60-c64a-f8aa-970d385037a3",
+                  "addonGroupId": "ec48444a-2a79-3066-2c0a-0881d9697a84",
+                  "nameEn": "Pet hair",
+                  "nameAr": "\u0625\u0632\u0627\u0644\u0629 \u0634\u0639\u0631 \u0627\u0644\u062D\u064A\u0648\u0627\u0646\u0627\u062A",
+                  "nameHe": "\u05D4\u05E1\u05E8\u05EA \u05E9\u05D9\u05E2\u05E8 \u05D1\u05E2\u05DC\u05D9 \u05D7\u05D9\u05D9\u05DD",
+                  "priceAdjustment": 15,
+                  "durationAdjustmentMinutes": 15,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "nameEn": "[DEMO] Blue Wave Auto Care",
+      "nameAr": "[DEMO] \u0627\u0644\u0645\u0648\u062C\u0629 \u0627\u0644\u0632\u0631\u0642\u0627\u0621 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+      "nameHe": "[DEMO] \u05D4\u05D2\u05DC \u05D4\u05DB\u05D7\u05D5\u05DC \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+      "catalogVersion": 7,
+      "branches": [
+        {
+          "id": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "nameEn": "[DEMO] Nablus East",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0646\u0627\u0628\u0644\u0633 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05E9\u05DB\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 3",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 3",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 3",
+          "latitude": 32.2211,
+          "longitude": 35.2544,
+          "serviceRadiusKm": 21,
+          "timeZoneId": "Asia/Jerusalem"
+        },
+        {
+          "id": "429081af-022f-f67c-c680-50ca7ad53945",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "nameEn": "[DEMO] Tulkarm",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0637\u0648\u0644\u0643\u0631\u0645 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05D8\u05D5\u05DC\u05DB\u05E8\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 4",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 4",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 4",
+          "latitude": 32.3104,
+          "longitude": 35.0286,
+          "serviceRadiusKm": 22,
+          "timeZoneId": "Asia/Jerusalem"
+        }
+      ],
+      "categories": [
+        {
+          "id": "34133f5d-e777-892f-9e9c-c7f5e929569f",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "nameEn": "Detailing",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0648\u062A\u0644\u0645\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+        }
+      ],
+      "offerings": [
+        {
+          "id": "5178c788-7ae8-eaff-f2c8-38c7d890a243",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "categoryId": "34133f5d-e777-892f-9e9c-c7f5e929569f",
+          "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+          "referenceCode": "DEMO-SVC-005",
+          "nameEn": "Express Detail",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0633\u0631\u064A\u0639\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 65,
+          "durationMinutes": 60,
+          "addonGroups": []
+        },
+        {
+          "id": "9ca4bd77-cef0-1c36-66c9-c8f9ffdd7776",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "categoryId": "34133f5d-e777-892f-9e9c-c7f5e929569f",
+          "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+          "referenceCode": "DEMO-SVC-006",
+          "nameEn": "Full Detail",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0643\u0627\u0645\u0644\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05DC\u05D0 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 140,
+          "durationMinutes": 150,
+          "addonGroups": [
+            {
+              "id": "574276b0-9bdf-7181-22dd-eda6b58b8433",
+              "offeringId": "9ca4bd77-cef0-1c36-66c9-c8f9ffdd7776",
+              "nameEn": "Paint protection",
+              "nameAr": "\u062D\u0645\u0627\u064A\u0629 \u0627\u0644\u0637\u0644\u0627\u0621",
+              "nameHe": "\u05D4\u05D2\u05E0\u05EA \u05E6\u05D1\u05E2",
+              "selectionType": "SegmentedSingleButtonChoice",
+              "isRequired": false,
+              "minimumSelections": 0,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "df49577e-7ffa-1083-423d-72a189e2a16a",
+                  "addonGroupId": "574276b0-9bdf-7181-22dd-eda6b58b8433",
+                  "nameEn": "Standard sealant",
+                  "nameAr": "\u062D\u0645\u0627\u064A\u0629 \u0639\u0627\u062F\u064A\u0629",
+                  "nameHe": "\u05D0\u05D9\u05D8\u05D5\u05DD \u05E8\u05D2\u05D9\u05DC",
+                  "priceAdjustment": 20,
+                  "durationAdjustmentMinutes": 15,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "743cd9c8-a82e-f7f6-bf2f-0a5b22a01514",
+                  "addonGroupId": "574276b0-9bdf-7181-22dd-eda6b58b8433",
+                  "nameEn": "Ceramic spray",
+                  "nameAr": "\u0631\u0630\u0627\u0630 \u0633\u064A\u0631\u0627\u0645\u064A\u0643",
+                  "nameHe": "\u05EA\u05E8\u05E1\u05D9\u05E1 \u05E7\u05E8\u05DE\u05D9",
+                  "priceAdjustment": 45,
+                  "durationAdjustmentMinutes": 25,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "feabb056-4d8e-0b3c-a813-929c61fd7411",
+                  "addonGroupId": "574276b0-9bdf-7181-22dd-eda6b58b8433",
+                  "nameEn": "Ceramic coating",
+                  "nameAr": "\u0637\u0644\u0627\u0621 \u0633\u064A\u0631\u0627\u0645\u064A\u0643",
+                  "nameHe": "\u05E6\u05D9\u05E4\u05D5\u05D9 \u05E7\u05E8\u05DE\u05D9",
+                  "priceAdjustment": 180,
+                  "durationAdjustmentMinutes": 120,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "4ee1753b-bd10-8bd0-9d42-496b5412593e",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "categoryId": "34133f5d-e777-892f-9e9c-c7f5e929569f",
+          "branchId": "429081af-022f-f67c-c680-50ca7ad53945",
+          "referenceCode": "DEMO-SVC-007",
+          "nameEn": "Headlight Polish",
+          "nameAr": "\u062A\u0644\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0627\u0628\u064A\u062D \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05DC\u05D9\u05D8\u05D5\u05E9 \u05E4\u05E0\u05E1\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 40,
+          "durationMinutes": 35,
+          "addonGroups": []
+        },
+        {
+          "id": "f5afcb8f-3bce-6367-0fd9-6c64ead8de00",
+          "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+          "categoryId": "34133f5d-e777-892f-9e9c-c7f5e929569f",
+          "branchId": "429081af-022f-f67c-c680-50ca7ad53945",
+          "referenceCode": "DEMO-SVC-008",
+          "nameEn": "Engine Bay Clean",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062D\u062C\u0631\u0629 \u0627\u0644\u0645\u062D\u0631\u0643 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05EA\u05D0 \u05DE\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 55,
+          "durationMinutes": 45,
+          "addonGroups": [
+            {
+              "id": "6651a3c9-5d28-84f1-3f44-928d75b8e97e",
+              "offeringId": "f5afcb8f-3bce-6367-0fd9-6c64ead8de00",
+              "nameEn": "Included inspection",
+              "nameAr": "\u0641\u062D\u0635 \u0645\u0634\u0645\u0648\u0644",
+              "nameHe": "\u05D1\u05D3\u05D9\u05E7\u05D4 \u05DB\u05DC\u05D5\u05DC\u05D4",
+              "selectionType": "FixedIncludedChoice",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "c2d4a335-0ef2-5cd8-bbcc-0a6d8443a391",
+                  "addonGroupId": "6651a3c9-5d28-84f1-3f44-928d75b8e97e",
+                  "nameEn": "Visual inspection",
+                  "nameAr": "\u0641\u062D\u0635 \u0628\u0635\u0631\u064A",
+                  "nameHe": "\u05D1\u05D3\u05D9\u05E7\u05D4 \u05D7\u05D6\u05D5\u05EA\u05D9\u05EA",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 5,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "69cf00fc-bc85-f0f2-ad5d-f20ae6afbc6f",
+                  "addonGroupId": "6651a3c9-5d28-84f1-3f44-928d75b8e97e",
+                  "nameEn": "Protective dressing",
+                  "nameAr": "\u0637\u0628\u0642\u0629 \u062D\u0645\u0627\u064A\u0629",
+                  "nameHe": "\u05D7\u05D5\u05DE\u05E8 \u05D4\u05D2\u05E0\u05D4",
+                  "priceAdjustment": 10,
+                  "durationAdjustmentMinutes": 5,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "nameEn": "[DEMO] Green Garage Wash",
+      "nameAr": "[DEMO] \u0645\u063A\u0633\u0644\u0629 \u0627\u0644\u0645\u0631\u0622\u0628 \u0627\u0644\u0623\u062E\u0636\u0631 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+      "nameHe": "[DEMO] \u05DE\u05D5\u05E1\u05DA \u05D9\u05E8\u05D5\u05E7 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+      "catalogVersion": 4,
+      "branches": [
+        {
+          "id": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "nameEn": "[DEMO] Hebron South",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0627\u0644\u062E\u0644\u064A\u0644 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05D7\u05D1\u05E8\u05D5\u05DF \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 5",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 5",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 5",
+          "latitude": 31.5326,
+          "longitude": 35.0998,
+          "serviceRadiusKm": 23,
+          "timeZoneId": "Asia/Jerusalem"
+        }
+      ],
+      "categories": [
+        {
+          "id": "2f16ff86-3a1c-2492-f7a8-1c8e3fb5423a",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "nameEn": "Eco Wash",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0635\u062F\u064A\u0642 \u0644\u0644\u0628\u064A\u0626\u0629 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D0\u05E7\u05D5\u05DC\u05D5\u05D2\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA"
+        }
+      ],
+      "offerings": [
+        {
+          "id": "fb55699d-bb2a-1faa-cbbe-9e42564b4381",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "categoryId": "2f16ff86-3a1c-2492-f7a8-1c8e3fb5423a",
+          "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+          "referenceCode": "DEMO-SVC-009",
+          "nameEn": "Waterless Wash",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0628\u062F\u0648\u0646 \u0645\u0627\u0621 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DC\u05DC\u05D0 \u05DE\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 38,
+          "durationMinutes": 35,
+          "addonGroups": []
+        },
+        {
+          "id": "d01c4421-2562-c899-eb1c-79311269953f",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "categoryId": "2f16ff86-3a1c-2492-f7a8-1c8e3fb5423a",
+          "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+          "referenceCode": "DEMO-SVC-010",
+          "nameEn": "Steam Clean",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u0628\u0627\u0644\u0628\u062E\u0627\u0631 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D1\u05E7\u05D9\u05D8\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 58,
+          "durationMinutes": 50,
+          "addonGroups": [
+            {
+              "id": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+              "offeringId": "d01c4421-2562-c899-eb1c-79311269953f",
+              "nameEn": "Fragrance",
+              "nameAr": "\u0627\u0644\u0631\u0627\u0626\u062D\u0629",
+              "nameHe": "\u05E8\u05D9\u05D7",
+              "selectionType": "SingleChoice",
+              "isRequired": false,
+              "minimumSelections": 0,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "c35c8096-828f-300d-0a00-5630e387aa34",
+                  "addonGroupId": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+                  "nameEn": "No fragrance",
+                  "nameAr": "\u0628\u062F\u0648\u0646 \u0631\u0627\u0626\u062D\u0629",
+                  "nameHe": "\u05DC\u05DC\u05D0 \u05E8\u05D9\u05D7",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "f2b925ed-82c2-e2c8-d465-af508d126936",
+                  "addonGroupId": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+                  "nameEn": "Citrus",
+                  "nameAr": "\u062D\u0645\u0636\u064A\u0627\u062A",
+                  "nameHe": "\u05D4\u05D3\u05E8\u05D9\u05DD",
+                  "priceAdjustment": 3,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "b8c31403-08e3-5ec5-d227-9961c579a362",
+                  "addonGroupId": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+                  "nameEn": "Ocean",
+                  "nameAr": "\u0645\u062D\u064A\u0637",
+                  "nameHe": "\u05D0\u05D5\u05E7\u05D9\u05D9\u05E0\u05D5\u05E1",
+                  "priceAdjustment": 3,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "cefbecf6-73a8-20dd-1c54-03f4d5423993",
+                  "addonGroupId": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+                  "nameEn": "New car",
+                  "nameAr": "\u0633\u064A\u0627\u0631\u0629 \u062C\u062F\u064A\u062F\u0629",
+                  "nameHe": "\u05E8\u05DB\u05D1 \u05D7\u05D3\u05E9",
+                  "priceAdjustment": 3,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "495a6f0f-15a5-a04e-6a42-d319b6cdfc45",
+                  "addonGroupId": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
+                  "nameEn": "Lavender",
+                  "nameAr": "\u0644\u0627\u0641\u0646\u062F\u0631",
+                  "nameHe": "\u05DC\u05D1\u05E0\u05D3\u05E8",
+                  "priceAdjustment": 3,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "18ea7e62-83ff-2743-22cb-ac1f987b2fbc",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "categoryId": "2f16ff86-3a1c-2492-f7a8-1c8e3fb5423a",
+          "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+          "referenceCode": "DEMO-SVC-011",
+          "nameEn": "Fleet Basic",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0623\u0633\u0637\u0648\u0644 \u0623\u0633\u0627\u0633\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05EA \u05E6\u05D9 \u05D1\u05E1\u05D9\u05E1\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 22,
+          "durationMinutes": 20,
+          "addonGroups": []
+        },
+        {
+          "id": "974c4b70-f25f-cf9f-b492-b66cf8d95372",
+          "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+          "categoryId": "2f16ff86-3a1c-2492-f7a8-1c8e3fb5423a",
+          "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+          "referenceCode": "DEMO-SVC-012",
+          "nameEn": "Motorcycle Care",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u062F\u0631\u0627\u062C\u0629 \u0646\u0627\u0631\u064A\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D0\u05D5\u05E4\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 30,
+          "durationMinutes": 30,
+          "addonGroups": []
+        }
+      ]
+    }
+  ],
+  "customers": [
+    {
+      "id": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "fullName": "[DEMO] Maya Demo",
+      "email": "maya.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000101",
+      "devices": [
+        {
+          "id": "e8df0595-27fb-97c6-d128-351b3499e96e",
+          "installationId": "89f4f715-cbe8-dc42-1683-fcc2afe3efc5",
+          "platform": "android",
+          "appVersion": "1.1.1",
+          "token": "LgidmxXzLYNVtE2mZ53e16wylIlPGsttB6HGC8IxUTs",
+          "isActive": true
+        },
+        {
+          "id": "e93755b3-f023-a25c-1a91-10a7b6c6ff27",
+          "installationId": "e851471f-3f60-3e40-fc69-b0952b877eb6",
+          "platform": "ios",
+          "appVersion": "1.1.2",
+          "token": "dKbdTu4GOyu765rfhCXMuziuUn-oAPYYeqc9blHr730",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "b16ea563-5164-3833-a5ed-eea13c6e526a",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2022",
+          "licensePlate": "DEMO-101",
+          "color": "Blue"
+        },
+        {
+          "id": "fabe5b9b-ae6e-3ec8-4052-b249a756c2d6",
+          "make": "Toyota",
+          "model": "Corolla",
+          "year": "2023",
+          "licensePlate": "DEMO-102",
+          "color": "White"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "c285ae07-bf19-a405-f769-e29236dec6cd",
+          "addressLine": "[DEMO] Street 1, Building 1",
+          "city": "Al-Bireh",
+          "area": "Demo Area",
+          "latitude": 31.901,
+          "longitude": 35.201,
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "id": "f900064f-c029-6a15-1f74-e2a343595ae4",
+      "fullName": "[DEMO] Omar Demo",
+      "email": "omar.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000102",
+      "devices": [
+        {
+          "id": "f0184f42-4a79-2df1-466c-fe79e79e7bfd",
+          "installationId": "ac91f832-5471-fe9d-1ff9-dcb9c7423045",
+          "platform": "android",
+          "appVersion": "1.2.1",
+          "token": "W2afo7daJr_wiuobcpN7J3YUusJ0CKGRtUrTdNGiXFo",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "5952781d-786d-6d28-c2ba-4d22a0999d49",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2023",
+          "licensePlate": "DEMO-201",
+          "color": "Blue"
+        },
+        {
+          "id": "19cf58ba-0b47-86a8-af83-e9ca812dd77e",
+          "make": "Toyota",
+          "model": "Corolla",
+          "year": "2024",
+          "licensePlate": "DEMO-202",
+          "color": "White"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "43ecc912-5111-6358-dbc7-069e11da1170",
+          "addressLine": "[DEMO] Street 2, Building 1",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.901999999999997,
+          "longitude": 35.201,
+          "isPrimary": true
+        },
+        {
+          "id": "1a3a9c43-5d7e-c4ce-df5c-ddaca19ae07b",
+          "addressLine": "[DEMO] Street 2, Building 2",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.901999999999997,
+          "longitude": 35.202000000000005,
+          "isPrimary": false
+        }
+      ]
+    },
+    {
+      "id": "c6917760-c203-1f15-7b60-53b4894da8de",
+      "fullName": "[DEMO] Lina Demo",
+      "email": "lina.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000103",
+      "devices": [
+        {
+          "id": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
+          "installationId": "e38f9036-6647-1065-0321-635e57fcd2eb",
+          "platform": "android",
+          "appVersion": "1.3.1",
+          "token": "ecl1DvOIAP7EGFFqEsfB3q-NY07nNBDv1F34NAoeuMk",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "2249227a-576e-87e9-ab71-57225421e861",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2024",
+          "licensePlate": "DEMO-301",
+          "color": "Blue"
+        },
+        {
+          "id": "cdeeb591-0ef7-2a9b-1134-d051692b3d2e",
+          "make": "Toyota",
+          "model": "Corolla",
+          "year": "2025",
+          "licensePlate": "DEMO-302",
+          "color": "White"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "17f07a36-de89-54b3-6b90-91832ec111e3",
+          "addressLine": "[DEMO] Street 3, Building 1",
+          "city": "Al-Bireh",
+          "area": "Demo Area",
+          "latitude": 31.903,
+          "longitude": 35.201,
+          "isPrimary": true
+        },
+        {
+          "id": "f1aba1f0-b85d-d8cd-f891-74edbf46e2b6",
+          "addressLine": "[DEMO] Street 3, Building 2",
+          "city": "Al-Bireh",
+          "area": "Demo Area",
+          "latitude": 31.903,
+          "longitude": 35.202000000000005,
+          "isPrimary": false
+        }
+      ]
+    },
+    {
+      "id": "47c09aba-1a7f-3093-a59a-b79506fe30e0",
+      "fullName": "[DEMO] Sami Demo",
+      "email": "sami.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000104",
+      "devices": [
+        {
+          "id": "6cf87d4f-d506-5081-95cf-14ec6a30cab9",
+          "installationId": "e4085c23-3ae0-df55-33f8-ab4eb0cc3ec2",
+          "platform": "android",
+          "appVersion": "1.4.1",
+          "token": "8s2mhmmHOw_siMmzj-gU6E3WiIXyB4l_a-T1AKe_RsE",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "85781618-9182-9cdb-87f5-f038de119023",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2025",
+          "licensePlate": "DEMO-401",
+          "color": "Blue"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "3006a4e9-a104-0b07-84d4-e3ca103c79b6",
+          "addressLine": "[DEMO] Street 4, Building 1",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.904,
+          "longitude": 35.201,
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "id": "49879090-5875-c455-de5a-932f82bb337c",
+      "fullName": "[DEMO] Noor Demo",
+      "email": "noor.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000105",
+      "devices": [
+        {
+          "id": "78938afb-cd80-0406-02f2-7ada01af6c81",
+          "installationId": "6c652227-f9e7-7855-ea48-d62bc725b982",
+          "platform": "android",
+          "appVersion": "1.5.1",
+          "token": "ZiC21hRd2Oq2kc1iSRO70qf1IDF65oY4J0b7UESXVWc",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "38f8cdff-19b1-6779-f434-1839fc03724b",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2020",
+          "licensePlate": "DEMO-501",
+          "color": "Blue"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "ea4b7bcf-ba42-dc89-4392-ffbe2860a17f",
+          "addressLine": "[DEMO] Street 5, Building 1",
+          "city": "Al-Bireh",
+          "area": "Demo Area",
+          "latitude": 31.904999999999998,
+          "longitude": 35.201,
+          "isPrimary": true
+        }
+      ]
+    }
+  ],
+  "drafts": [
+    {
+      "id": "462afbc5-3560-9a36-cdf4-a3375ef962fc",
+      "orderGuid": "cd39a27c-0434-ba30-7792-fcf61263a093",
+      "deviceId": "e8df0595-27fb-97c6-d128-351b3499e96e",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+      "state": "priced",
+      "requiresReprice": false,
+      "requestedSlotStartUtc": "2026-09-16T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-18T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "359c17dd-2229-18de-8dc8-30e0b0539f7c",
+          "quantity": 1,
+          "selections": []
+        },
+        {
+          "offeringId": "65c06941-c3e6-5d8f-23d2-935e95dd6f2b",
+          "quantity": 2,
+          "selections": []
+        }
+      ]
+    },
+    {
+      "id": "13e8b639-faa2-182c-8c07-86282e3e618a",
+      "orderGuid": "5b08bdf4-6ebc-5df8-7aa7-fbcc67f77bea",
+      "deviceId": "f0184f42-4a79-2df1-466c-fe79e79e7bfd",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+      "state": "needsReprice",
+      "requiresReprice": true,
+      "requestedSlotStartUtc": "2026-09-17T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-19T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "9ca4bd77-cef0-1c36-66c9-c8f9ffdd7776",
+          "quantity": 1,
+          "selections": []
+        }
+      ]
+    },
+    {
+      "id": "0088ae94-d04a-a72c-5add-98a9d8192ae3",
+      "orderGuid": "13e8f8e4-a6a2-273e-03b3-a7665fd815a0",
+      "deviceId": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
+      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+      "state": "active",
+      "requiresReprice": true,
+      "requestedSlotStartUtc": "2026-09-18T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-20T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "d01c4421-2562-c899-eb1c-79311269953f",
+          "quantity": 1,
+          "selections": []
+        }
+      ]
+    },
+    {
+      "id": "1a22831b-48df-a5e3-51a4-74e0cd0827d0",
+      "orderGuid": "df4e876a-35fe-079f-c9a7-0d330f45d078",
+      "deviceId": "6cf87d4f-d506-5081-95cf-14ec6a30cab9",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+      "state": "expired",
+      "requiresReprice": true,
+      "requestedSlotStartUtc": "2026-09-13T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-12T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "470891f2-bb36-3db3-d91c-dcdb370464cc",
+          "quantity": 1,
+          "selections": []
+        }
+      ]
+    }
+  ],
+  "bookings": [
+    {
+      "customerReferenceId": "003e678a-c5c1-42e3-93b4-973b35aaa357",
+      "businessReservationId": "a4a66ac5-1053-91ac-2d0e-cde17f9577ea",
+      "businessWorkOrderId": "7932f160-03b0-1586-209c-25eb8e140de2",
+      "orderGuid": "f93cec1c-0aea-6597-66e6-2f91129f64c9",
+      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "deviceId": "e8df0595-27fb-97c6-d128-351b3499e96e",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+      "status": "Pending",
+      "requestedSlotStartUtc": "2026-09-11T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 25,
+      "serviceFee": 5,
+      "tax": 4.80,
+      "grandTotal": 34.80,
+      "items": [
+        {
+          "offeringId": "359c17dd-2229-18de-8dc8-30e0b0539f7c",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 25,
+          "durationMinutes": 25,
+          "selections": []
+        }
+      ],
+      "payment": null
+    },
+    {
+      "customerReferenceId": "befd9188-86f9-f65b-9042-1adc90f0f186",
+      "businessReservationId": "4c4c38a0-441b-9232-6a4c-e43f5fee4f21",
+      "businessWorkOrderId": "5a14b0b8-179c-d3e5-0f1b-57e134d256db",
+      "orderGuid": "57334522-847d-d54f-78b5-0f2e5805e5b0",
+      "customerId": "f900064f-c029-6a15-1f74-e2a343595ae4",
+      "deviceId": "f0184f42-4a79-2df1-466c-fe79e79e7bfd",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "429081af-022f-f67c-c680-50ca7ad53945",
+      "status": "Confirmed",
+      "requestedSlotStartUtc": "2026-09-12T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 140,
+      "serviceFee": 5,
+      "tax": 23.20,
+      "grandTotal": 168.20,
+      "items": [
+        {
+          "offeringId": "9ca4bd77-cef0-1c36-66c9-c8f9ffdd7776",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0643\u0627\u0645\u0644\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05DC\u05D0 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 140,
+          "durationMinutes": 150,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "79adf6b1-c782-167c-e043-ee24e757df8b",
+        "status": "Pending",
+        "amount": 168.20,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-002",
+        "providerTransactionId": null
+      }
+    },
+    {
+      "customerReferenceId": "33e1bc4d-ac11-6d89-9659-fccf02c0f75f",
+      "businessReservationId": "52b4aecc-cd6b-7763-2a72-987fc889cb61",
+      "businessWorkOrderId": "c8b7e65d-df92-2bdf-32bb-2d99d737e565",
+      "orderGuid": "9e7f6d17-e2d5-66ba-67f6-e41e858178ff",
+      "customerId": "c6917760-c203-1f15-7b60-53b4894da8de",
+      "deviceId": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
+      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+      "status": "InProgress",
+      "requestedSlotStartUtc": "2026-09-13T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 22,
+      "serviceFee": 5,
+      "tax": 4.32,
+      "grandTotal": 31.32,
+      "items": [
+        {
+          "offeringId": "18ea7e62-83ff-2743-22cb-ac1f987b2fbc",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0623\u0633\u0637\u0648\u0644 \u0623\u0633\u0627\u0633\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05EA \u05E6\u05D9 \u05D1\u05E1\u05D9\u05E1\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 22,
+          "durationMinutes": 20,
+          "selections": []
+        }
+      ],
+      "payment": null
+    },
+    {
+      "customerReferenceId": "e8fe5aab-91b7-3fdc-66f6-9d2912e7c62f",
+      "businessReservationId": "fd7d5ef4-3ee4-3163-788d-64e6400bb7e6",
+      "businessWorkOrderId": "8d677599-fec1-f7ed-33fe-68386403213f",
+      "orderGuid": "1aecea5b-34bd-6e6f-466c-000d08ad27cf",
+      "customerId": "47c09aba-1a7f-3093-a59a-b79506fe30e0",
+      "deviceId": "6cf87d4f-d506-5081-95cf-14ec6a30cab9",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+      "status": "Completed",
+      "requestedSlotStartUtc": "2026-09-14T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 70,
+      "serviceFee": 5,
+      "tax": 12.00,
+      "grandTotal": 87.00,
+      "items": [
+        {
+          "offeringId": "470891f2-bb36-3db3-d91c-dcdb370464cc",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u0639\u0645\u064A\u0642 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E2\u05DE\u05D5\u05E7 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 70,
+          "durationMinutes": 75,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "052931bc-a4fe-623d-d117-9a43c2d0e54a",
+        "status": "Completed",
+        "amount": 87.00,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-004",
+        "providerTransactionId": "DEMO-TXN-004"
+      }
+    },
+    {
+      "customerReferenceId": "e5a1ec5f-b4c7-ba88-d14c-355bbc73ce68",
+      "businessReservationId": "13df529f-f27a-43e2-b741-107fd2466ded",
+      "businessWorkOrderId": "2e5446ff-b4fc-3ae1-516c-8f82b1a4ff7e",
+      "orderGuid": "26c8cb3a-3ee2-56cb-ceb7-5f2ddf93aad6",
+      "customerId": "49879090-5875-c455-de5a-932f82bb337c",
+      "deviceId": "78938afb-cd80-0406-02f2-7ada01af6c81",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+      "status": "Cancelled",
+      "requestedSlotStartUtc": "2026-09-15T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 65,
+      "serviceFee": 5,
+      "tax": 11.20,
+      "grandTotal": 81.20,
+      "items": [
+        {
+          "offeringId": "5178c788-7ae8-eaff-f2c8-38c7d890a243",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0633\u0631\u064A\u0639\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 65,
+          "durationMinutes": 60,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "b27b1dd0-06ca-5da6-2047-26dd69210248",
+        "status": "Failed",
+        "amount": 81.20,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-005",
+        "providerTransactionId": null
+      }
+    },
+    {
+      "customerReferenceId": "fe471397-bded-23da-71e7-748d9e21f63d",
+      "businessReservationId": "cd0d4b0d-690d-1644-e0e3-8685b6a68328",
+      "businessWorkOrderId": "3300e49c-2fcd-b1d5-79d6-7785e74a8032",
+      "orderGuid": "9c620c82-d922-94db-f0d3-2de0597ed0f2",
+      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "deviceId": "e8df0595-27fb-97c6-d128-351b3499e96e",
+      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+      "status": "NoShow",
+      "requestedSlotStartUtc": "2026-09-16T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 58,
+      "serviceFee": 5,
+      "tax": 10.08,
+      "grandTotal": 73.08,
+      "items": [
+        {
+          "offeringId": "d01c4421-2562-c899-eb1c-79311269953f",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u0628\u0627\u0644\u0628\u062E\u0627\u0631 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D1\u05E7\u05D9\u05D8\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 58,
+          "durationMinutes": 50,
+          "selections": []
+        }
+      ],
+      "payment": null
+    },
+    {
+      "customerReferenceId": "7ff968ef-83fc-658b-614b-8d5f802ddab0",
+      "businessReservationId": "618059ac-c359-b2e9-ae26-57c7c089da1c",
+      "businessWorkOrderId": "654876a7-45cc-e400-adab-28daca887f8b",
+      "orderGuid": "7ddcf759-5389-cdec-2ed5-f5f8c6eeb28b",
+      "customerId": "f900064f-c029-6a15-1f74-e2a343595ae4",
+      "deviceId": "f0184f42-4a79-2df1-466c-fe79e79e7bfd",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
+      "status": "Completed",
+      "requestedSlotStartUtc": "2026-09-17T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 35,
+      "serviceFee": 5,
+      "tax": 6.40,
+      "grandTotal": 46.40,
+      "items": [
+        {
+          "offeringId": "65c06941-c3e6-5d8f-23d2-935e95dd6f2b",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u062E\u0641\u064A\u0641 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E8\u05E2\u05E0\u05D5\u05DF \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 35,
+          "durationMinutes": 35,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "7a02e01d-b944-0898-eba7-3c8e20cad9ec",
+        "status": "Refunded",
+        "amount": 46.40,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-007",
+        "providerTransactionId": "DEMO-TXN-007"
+      }
+    },
+    {
+      "customerReferenceId": "2350eb42-0b42-bb2c-d4e4-bb145cdb181f",
+      "businessReservationId": "b2ba8b9b-9b73-c82f-c748-575ea3ec9a71",
+      "businessWorkOrderId": "ac5c80dc-6ed8-c9ff-1566-00048904b936",
+      "orderGuid": "8b913cb5-d548-506a-e234-7b1d16b46b7e",
+      "customerId": "c6917760-c203-1f15-7b60-53b4894da8de",
+      "deviceId": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "429081af-022f-f67c-c680-50ca7ad53945",
+      "status": "Confirmed",
+      "requestedSlotStartUtc": "2026-09-18T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 55,
+      "serviceFee": 5,
+      "tax": 9.60,
+      "grandTotal": 69.60,
+      "items": [
+        {
+          "offeringId": "f5afcb8f-3bce-6367-0fd9-6c64ead8de00",
+          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062D\u062C\u0631\u0629 \u0627\u0644\u0645\u062D\u0631\u0643 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05EA\u05D0 \u05DE\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 55,
+          "durationMinutes": 45,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "636cca5c-5c41-bdc3-fee8-96f0239fb6ad",
+        "status": "Completed",
+        "amount": 69.60,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-008",
+        "providerTransactionId": "DEMO-TXN-008"
+      }
+    }
+  ]
+}

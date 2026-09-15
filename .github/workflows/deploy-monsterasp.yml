@@ -117,9 +117,6 @@ jobs:
           CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
           BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
           LAHZA_SECRET_KEY: ${{ secrets.LAHZA_SECRET_KEY }}
-          CUSTOMER_SMTP_USERNAME: ${{ secrets.CUSTOMER_SMTP_USERNAME }}
-          CUSTOMER_SMTP_PASSWORD: ${{ secrets.CUSTOMER_SMTP_PASSWORD }}
-          CUSTOMER_SMTP_FROM_ADDRESS: ${{ secrets.CUSTOMER_SMTP_FROM_ADDRESS }}
         run: |
           foreach ($name in @(
             "APP_CONNECTION",
@@ -211,6 +208,9 @@ jobs:
           CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
           BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
           LAHZA_SECRET_KEY: ${{ secrets.LAHZA_SECRET_KEY }}
+          CUSTOMER_SMTP_USERNAME: ${{ secrets.CUSTOMER_SMTP_USERNAME }}
+          CUSTOMER_SMTP_PASSWORD: ${{ secrets.CUSTOMER_SMTP_PASSWORD }}
+          CUSTOMER_SMTP_FROM_ADDRESS: ${{ secrets.CUSTOMER_SMTP_FROM_ADDRESS }}
         run: |
           $webConfigPath = Join-Path "${{ github.workspace }}" "${{ matrix.output }}\web.config"
           [xml]$webConfig = Get-Content -LiteralPath $webConfigPath -Raw

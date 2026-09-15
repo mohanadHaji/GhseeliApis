@@ -82,6 +82,22 @@ public sealed class LahzaEndpointDeploymentTests
             "\"CustomerSmtp__FromAddress\" = $env:CUSTOMER_SMTP_FROM_ADDRESS");
         workflow.Should().Contain(
             "\"CustomerSmtp__FromName\" = \"Ghseeli\"");
+
+        var injectionStep = workflow.IndexOf(
+            "- name: Inject ${{ matrix.name }} runtime configuration",
+            StringComparison.Ordinal);
+        var installStep = workflow.IndexOf(
+            "- name: Install Web Deploy",
+            StringComparison.Ordinal);
+        injectionStep.Should().BeGreaterThan(-1);
+        installStep.Should().BeGreaterThan(injectionStep);
+        var injectionBlock = workflow[injectionStep..installStep];
+        injectionBlock.Should().Contain(
+            "CUSTOMER_SMTP_USERNAME: ${{ secrets.CUSTOMER_SMTP_USERNAME }}");
+        injectionBlock.Should().Contain(
+            "CUSTOMER_SMTP_PASSWORD: ${{ secrets.CUSTOMER_SMTP_PASSWORD }}");
+        injectionBlock.Should().Contain(
+            "CUSTOMER_SMTP_FROM_ADDRESS: ${{ secrets.CUSTOMER_SMTP_FROM_ADDRESS }}");
     }
 
     [Fact]

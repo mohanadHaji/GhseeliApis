@@ -4,6 +4,7 @@ using GhseeliApis.DTOs.Devices;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
 using GhseeliApis.Services.Devices;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.WebUtilities;
 using Moq;
@@ -39,6 +40,7 @@ public class DeviceRegistrationServiceTests
                 FcmToken = " fcm-token "
             },
             null,
+            null,
             default);
 
         response.Token.Should().Be(issuedToken);
@@ -63,6 +65,7 @@ public class DeviceRegistrationServiceTests
 
         var action = () => service.RegisterAsync(
             new RegisterDeviceRequest { InstallationId = device.InstallationId, Platform = "Android" },
+            null,
             null,
             default);
 
@@ -91,6 +94,7 @@ public class DeviceRegistrationServiceTests
                 FcmToken = "replacement-fcm"
             },
             oldToken,
+            null,
             default);
 
         response.Token.Should().Be(rotatedToken);
@@ -112,6 +116,7 @@ public class DeviceRegistrationServiceTests
         var action = () => service.RegisterAsync(
             new RegisterDeviceRequest { InstallationId = device.InstallationId, Platform = "iOS" },
             Token(5),
+            null,
             default);
 
         await action.Should().ThrowAsync<DeviceRegistrationException>()
@@ -131,6 +136,7 @@ public class DeviceRegistrationServiceTests
         var action = () => service.RegisterAsync(
             new RegisterDeviceRequest { InstallationId = device.InstallationId, Platform = "iOS" },
             token,
+            null,
             default);
 
         await action.Should().ThrowAsync<DeviceRegistrationException>()
@@ -208,6 +214,7 @@ public class DeviceRegistrationServiceTests
                 Platform = "Android"
             },
             token,
+            null,
             default);
 
         await action.Should().ThrowAsync<DeviceRegistrationException>()
@@ -215,6 +222,204 @@ public class DeviceRegistrationServiceTests
         _repository.Verify(
             repository => repository.SaveChangesAsync(It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-BIND-002")]
+    public async Task RegisterAsync_AuthenticatedNewInstallation_BindsCustomer()
+    {
+        var installationId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(installationId, default))
+            .ReturnsAsync((CustomerDevice?)null);
+        _tokenGenerator.Setup(generator => generator.Generate()).Returns(Token(11));
+        var service = CreateService();
+
+        await service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = installationId,
+                Platform = "Android"
+            },
+            null,
+            userId,
+            default);
+
+        _repository.Verify(repository => repository.AddAsync(
+            It.Is<CustomerDevice>(device => device.UserId == userId),
+            default));
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-LEGACY-003")]
+    public async Task RegisterAsync_AuthenticatedLegacyInstallationWithoutToken_BindsAndRecovers()
+    {
+        var device = CreateDevice(DeviceTokenHasher.Hash(Token(12)));
+        var userId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var replacement = Token(13);
+        _tokenGenerator.Setup(generator => generator.Generate()).Returns(replacement);
+        var service = CreateService();
+
+        var response = await service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android",
+                FcmToken = "new-fcm"
+            },
+            null,
+            userId,
+            default);
+
+        response.Token.Should().Be(replacement);
+        device.UserId.Should().Be(userId);
+        device.FcmToken.Should().Be("new-fcm");
+        DeviceTokenHasher.Matches(device.TokenHash, replacement).Should().BeTrue();
+        _repository.Verify(repository => repository.SaveChangesAsync(default), Times.Once);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-OWNER-004")]
+    public async Task RegisterAsync_OwnerWithoutCurrentToken_RecoversInstallation()
+    {
+        var userId = Guid.NewGuid();
+        var device = CreateDevice(DeviceTokenHasher.Hash(Token(14)));
+        device.UserId = userId;
+        device.ExpiresAt = Now.AddDays(-1);
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var replacement = Token(15);
+        _tokenGenerator.Setup(generator => generator.Generate()).Returns(replacement);
+        var service = CreateService();
+
+        var response = await service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "iOS"
+            },
+            null,
+            userId,
+            default);
+
+        response.Token.Should().Be(replacement);
+        device.ExpiresAt.Should().Be(Now.AddDays(90));
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-CROSS-005")]
+    public async Task RegisterAsync_DifferentAuthenticatedCustomer_IsRejectedWithoutMutation()
+    {
+        var device = CreateDevice(DeviceTokenHasher.Hash(Token(16)));
+        device.UserId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var originalHash = device.TokenHash.ToArray();
+        var service = CreateService();
+
+        var action = () => service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            null,
+            Guid.NewGuid(),
+            default);
+
+        await action.Should().ThrowAsync<DeviceRegistrationException>()
+            .Where(exception =>
+                exception.Code == DeviceProblemCodes.OwnerConflict &&
+                exception.StatusCode == StatusCodes.Status403Forbidden);
+        device.TokenHash.Should().Equal(originalHash);
+        _repository.Verify(repository =>
+            repository.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_DifferentCustomerWithCurrentDeviceToken_CannotRebindOwner()
+    {
+        var currentToken = Token(20);
+        var device = CreateDevice(DeviceTokenHasher.Hash(currentToken));
+        device.UserId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var service = CreateService();
+
+        var action = () => service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            currentToken,
+            Guid.NewGuid(),
+            default);
+
+        await action.Should().ThrowAsync<DeviceRegistrationException>()
+            .Where(exception => exception.Code == DeviceProblemCodes.OwnerConflict);
+        _repository.Verify(repository =>
+            repository.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-INACTIVE-007")]
+    public async Task RegisterAsync_InactiveOwnedDevice_CannotBeRecovered()
+    {
+        var userId = Guid.NewGuid();
+        var device = CreateDevice(DeviceTokenHasher.Hash(Token(17)));
+        device.UserId = userId;
+        device.IsActive = false;
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var service = CreateService();
+
+        var action = () => service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            null,
+            userId,
+            default);
+
+        await action.Should().ThrowAsync<DeviceRegistrationException>()
+            .Where(exception => exception.Code == DeviceProblemCodes.TokenInactive);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-ROTATE-BIND-008")]
+    public async Task RegisterAsync_CurrentTokenAndCustomer_BindsUnownedInstallation()
+    {
+        var currentToken = Token(18);
+        var device = CreateDevice(DeviceTokenHasher.Hash(currentToken));
+        var userId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        _tokenGenerator.Setup(generator => generator.Generate()).Returns(Token(19));
+        var service = CreateService();
+
+        await service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            currentToken,
+            userId,
+            default);
+
+        device.UserId.Should().Be(userId);
     }
 
     private DeviceRegistrationService CreateService() =>

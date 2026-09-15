@@ -167,6 +167,11 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
                 .IsConcurrencyToken();
             entity.HasIndex(device => device.InstallationId).IsUnique();
             entity.HasIndex(device => device.TokenHash).IsUnique();
+            entity.HasIndex(device => device.UserId);
+            entity.HasOne(device => device.User)
+                .WithMany()
+                .HasForeignKey(device => device.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<CustomerOtpChallenge>(entity =>

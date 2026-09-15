@@ -28,5 +28,11 @@ public class CustomerDeviceModelTests
             .IsUnique.Should().BeTrue();
         entity.FindProperty(nameof(CustomerDevice.RowVersion))!
             .IsConcurrencyToken.Should().BeTrue();
+        entity.FindProperty(nameof(CustomerDevice.UserId))!.IsNullable.Should().BeTrue();
+        entity.GetIndexes().Should().ContainSingle(index =>
+            index.Properties.Single().Name == nameof(CustomerDevice.UserId));
+        entity.GetForeignKeys().Should().ContainSingle(foreignKey =>
+            foreignKey.Properties.Single().Name == nameof(CustomerDevice.UserId) &&
+            foreignKey.PrincipalEntityType.ClrType == typeof(User));
     }
 }

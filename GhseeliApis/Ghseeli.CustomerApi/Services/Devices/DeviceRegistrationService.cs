@@ -13,6 +13,7 @@ public interface IDeviceRegistrationService
     Task<RegisterDeviceResponse> RegisterAsync(
         RegisterDeviceRequest request,
         string? currentToken,
+        Guid? currentUserId,
         CancellationToken cancellationToken);
 
     Task<DeviceAuthenticationResult> AuthenticateAsync(
@@ -86,6 +87,7 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
     public async Task<RegisterDeviceResponse> RegisterAsync(
         RegisterDeviceRequest request,
         string? currentToken,
+        Guid? currentUserId,
         CancellationToken cancellationToken)
     {
         var now = _timeProvider.GetUtcNow();
@@ -100,6 +102,7 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
             {
                 Id = Guid.NewGuid(),
                 InstallationId = request.InstallationId,
+                UserId = currentUserId,
                 Platform = NormalizePlatform(request.Platform),
                 AppVersion = request.AppVersion,
                 FcmToken = NormalizeOptional(request.FcmToken),
@@ -128,22 +131,6 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
             return Map(device, token);
         }
 
-        if (string.IsNullOrWhiteSpace(currentToken))
-        {
-            throw new DeviceRegistrationException(
-                DeviceProblemCodes.RegistrationConflict,
-                StatusCodes.Status409Conflict,
-                "This installation is already registered. Supply its current device token to rotate it.");
-        }
-
-        if (existing.ExpiresAt <= now)
-        {
-            throw new DeviceRegistrationException(
-                DeviceProblemCodes.TokenExpired,
-                StatusCodes.Status401Unauthorized,
-                "The current device token has expired.");
-        }
-
         if (!existing.IsActive)
         {
             throw new DeviceRegistrationException(
@@ -152,14 +139,44 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
                 "The device is inactive.");
         }
 
-        if (!DeviceTokenHasher.Matches(existing.TokenHash, currentToken))
+        if (currentUserId.HasValue &&
+            existing.UserId.HasValue &&
+            existing.UserId.Value != currentUserId.Value)
         {
             throw new DeviceRegistrationException(
-                DeviceProblemCodes.RotationUnauthorized,
-                StatusCodes.Status401Unauthorized,
-                "The current device token is invalid for this installation.");
+                DeviceProblemCodes.OwnerConflict,
+                StatusCodes.Status403Forbidden,
+                "This device installation belongs to another customer.");
         }
 
+        if (!currentUserId.HasValue)
+        {
+            if (string.IsNullOrWhiteSpace(currentToken))
+            {
+                throw new DeviceRegistrationException(
+                    DeviceProblemCodes.RegistrationConflict,
+                    StatusCodes.Status409Conflict,
+                    "This installation is already registered. Supply its current device token or authenticate to recover it.");
+            }
+
+            if (existing.ExpiresAt <= now)
+            {
+                throw new DeviceRegistrationException(
+                    DeviceProblemCodes.TokenExpired,
+                    StatusCodes.Status401Unauthorized,
+                    "The current device token has expired.");
+            }
+
+            if (!DeviceTokenHasher.Matches(existing.TokenHash, currentToken))
+            {
+                throw new DeviceRegistrationException(
+                    DeviceProblemCodes.RotationUnauthorized,
+                    StatusCodes.Status401Unauthorized,
+                    "The current device token is invalid for this installation.");
+            }
+        }
+
+        existing.UserId ??= currentUserId;
         existing.Platform = NormalizePlatform(request.Platform);
         existing.AppVersion = request.AppVersion;
         existing.FcmToken = NormalizeOptional(request.FcmToken);
@@ -179,7 +196,10 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
                 "The device token was rotated concurrently.");
         }
 
-        _logger.LogInfo($"Rotated device token for installation {request.InstallationId}.");
+        _logger.LogInfo(
+            currentUserId.HasValue
+                ? $"Recovered or rotated device installation {request.InstallationId} for customer {currentUserId.Value}."
+                : $"Rotated device token for installation {request.InstallationId}.");
         return Map(existing, token);
     }
 

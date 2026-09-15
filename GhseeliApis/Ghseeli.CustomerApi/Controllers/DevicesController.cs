@@ -6,6 +6,7 @@ using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace GhseeliApis.Controllers;
 
@@ -31,17 +32,25 @@ public sealed class DevicesController : ControllerBase
     [ProducesResponseType<RegisterDeviceResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Register(
         [FromBody] RegisterDeviceRequest request,
         CancellationToken cancellationToken)
     {
         var currentToken = Request.Headers[DeviceTokenDefaults.HeaderName].ToString();
+        var currentUserId = Guid.TryParse(
+            User.FindFirstValue(ClaimTypes.NameIdentifier),
+            out var parsedUserId) &&
+            parsedUserId != Guid.Empty
+                ? parsedUserId
+                : (Guid?)null;
         try
         {
             var response = await _deviceService.RegisterAsync(
                 request,
                 string.IsNullOrWhiteSpace(currentToken) ? null : currentToken,
+                currentUserId,
                 cancellationToken);
             return Ok(response);
         }

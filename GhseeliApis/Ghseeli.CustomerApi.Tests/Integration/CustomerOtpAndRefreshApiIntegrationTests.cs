@@ -2,10 +2,12 @@ using FluentAssertions;
 using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using GhseeliApis.Services.Auth;
+using GhseeliApis.Services.Devices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -428,6 +430,89 @@ public sealed class CustomerOtpAndRefreshApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-LEGACY-003")]
+    [Trait("ScenarioId", "STEP24-DEVICE-CROSS-005")]
+    [Trait("ScenarioId", "STEP24-DEVICE-OLD-TOKEN-009")]
+    public async Task AuthenticatedCustomer_RecoversLegacyDevice_AndOtherCustomerCannotTakeIt()
+    {
+        var sender = new RecordingSender();
+        await using var factory = CreateFactory(sender);
+        using var client = factory.CreateApiClient();
+        var installationId = Guid.NewGuid();
+
+        using var anonymousRegistration = await client.PostAsJsonAsync(
+            "/api/v1/devices/register",
+            new { installationId, platform = "Android" });
+        var anonymousContent = await anonymousRegistration.Content.ReadAsStringAsync();
+        anonymousRegistration.StatusCode.Should().Be(
+            HttpStatusCode.OK,
+            anonymousContent);
+        using var anonymousBody = JsonDocument.Parse(anonymousContent);
+        var oldDeviceToken = anonymousBody.RootElement.GetProperty("token").GetString()!;
+
+        var owner = await AuthenticateNewOtpUserAsync(
+            client,
+            sender,
+            $"owner-{Guid.NewGuid():N}@example.test");
+        using var recoveryRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/devices/register")
+        {
+            Content = JsonContent.Create(new
+            {
+                installationId,
+                platform = "iOS",
+                appVersion = "2.0.0",
+                fcmToken = "replacement-fcm"
+            })
+        };
+        recoveryRequest.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", owner.Token);
+        using var recovered = await client.SendAsync(recoveryRequest);
+
+        recovered.StatusCode.Should().Be(HttpStatusCode.OK);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var stored = await scope.ServiceProvider
+                .GetRequiredService<ApplicationDbContext>()
+                .CustomerDevices.SingleAsync(device =>
+                    device.InstallationId == installationId);
+            stored.UserId.Should().Be(owner.UserId);
+            stored.FcmToken.Should().Be("replacement-fcm");
+        }
+
+        var other = await AuthenticateNewOtpUserAsync(
+            client,
+            sender,
+            $"other-{Guid.NewGuid():N}@example.test");
+        using var crossOwnerRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/devices/register")
+        {
+            Content = JsonContent.Create(new { installationId, platform = "Android" })
+        };
+        crossOwnerRequest.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", other.Token);
+        using var crossOwner = await client.SendAsync(crossOwnerRequest);
+        using var crossOwnerProblem = JsonDocument.Parse(
+            await crossOwner.Content.ReadAsStringAsync());
+
+        crossOwner.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        crossOwnerProblem.RootElement.GetProperty("code").GetString()
+            .Should().Be(DeviceProblemCodes.OwnerConflict);
+
+        using var oldTokenRequest = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/devices/register")
+        {
+            Content = JsonContent.Create(new { installationId, platform = "Android" })
+        };
+        oldTokenRequest.Headers.Add("X-Device-Token", oldDeviceToken);
+        using var oldTokenResponse = await client.SendAsync(oldTokenRequest);
+        oldTokenResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "STEP23-SWAGGER-019")]
     public async Task Swagger_PublishesNewAuthRoutesAndChangedFields()
     {
@@ -443,6 +528,19 @@ public sealed class CustomerOtpAndRefreshApiIntegrationTests
         paths.TryGetProperty("/api/Auth/otp/request", out _).Should().BeTrue();
         paths.TryGetProperty("/api/Auth/otp/confirm", out _).Should().BeTrue();
         paths.TryGetProperty("/api/Auth/refresh", out _).Should().BeTrue();
+        var deviceRegistration = paths
+            .GetProperty("/api/v1/devices/register")
+            .GetProperty("post");
+        deviceRegistration.GetProperty("responses")
+            .TryGetProperty("403", out _).Should().BeTrue();
+        deviceRegistration.GetProperty("description").GetString()
+            .Should().Contain("optional Customer Bearer token");
+        deviceRegistration.GetProperty("security").GetArrayLength()
+            .Should().Be(0);
+        deviceRegistration.GetProperty("parameters").EnumerateArray()
+            .Should().Contain(parameter =>
+                parameter.GetProperty("name").GetString() == "X-Device-Token" &&
+                parameter.GetProperty("required").GetBoolean() == false);
         var schemas = document.RootElement.GetProperty("components")
             .GetProperty("schemas");
         schemas.GetProperty("RegisterDeviceRequest").GetProperty("properties")
@@ -466,6 +564,26 @@ public sealed class CustomerOtpAndRefreshApiIntegrationTests
                     new FixedOtpCodeGenerator());
                 configure?.Invoke(services);
             });
+
+    private static async Task<(Guid UserId, string Token)> AuthenticateNewOtpUserAsync(
+        HttpClient client,
+        RecordingSender sender,
+        string email)
+    {
+        using var request = await client.PostAsJsonAsync(
+            "/api/Auth/otp/request",
+            new { email });
+        request.EnsureSuccessStatusCode();
+        using var confirmation = await client.PostAsJsonAsync(
+            "/api/Auth/otp/confirm",
+            new { email, code = sender.LastCode });
+        confirmation.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(
+            await confirmation.Content.ReadAsStringAsync());
+        return (
+            body.RootElement.GetProperty("userId").GetGuid(),
+            body.RootElement.GetProperty("token").GetString()!);
+    }
 
     private sealed class FixedOtpCodeGenerator : IOtpCodeGenerator
     {

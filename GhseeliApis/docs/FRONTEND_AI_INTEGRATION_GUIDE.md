@@ -231,6 +231,20 @@ Send the token as `X-Device-Token`. Re-registering an existing installation
 rotates the token; replace the stored value immediately because the old token
 stops working.
 
+After Customer authentication succeeds, call the same registration endpoint
+with `Authorization: Bearer <customer-token>`:
+
+- a new phone/installation is created and bound to that customer;
+- an existing unowned installation is bound and recovered;
+- an installation already owned by the same customer is recovered even when
+  its old device token was lost or expired;
+- an installation owned by another customer returns
+  `403 device_owner_conflict`;
+- an inactive device remains blocked and is not automatically reactivated.
+
+Always replace the locally stored device token with the returned value. Do not
+send a different account's Customer JWT while rotating a device.
+
 Recommended storage:
 
 | Platform | Storage |
@@ -301,7 +315,7 @@ API currently exposes a server logout/revoke operation.
 
 | Event | Required client behavior |
 |---|---|
-| Customer login/OTP succeeds | Store the access token, refresh token, and both expiries in secure storage |
+| Customer login/OTP succeeds | Store the access token, refresh token, and both expiries, then re-register the installation with the Customer JWT to bind/recover the device |
 | Customer JWT expires | Call `/api/Auth/refresh` once through a coordinated refresh flow and replace both tokens |
 | Refresh fails or a rotated token is reused | Clear the Customer session and require authentication |
 | Business login succeeds | Store the Business JWT and expiry in secure storage |
@@ -342,12 +356,14 @@ Recommended major areas:
    - support contact details;
    - legal links;
    - display name and customer-visible display content.
-6. If an existing installation token is invalid, expired, inactive, or already
-   rotated, stop retrying. The current backend requires the still-valid token
-   to rotate an existing installation, so self-service recovery is not
-   available. Show a recoverable support/app-reset state until a backend
-   recovery flow is implemented.
-7. If maintenance mode is enabled, block normal journeys but retain support
+6. If anonymous registration reports an existing-installation conflict and the
+   old device token is unavailable, complete Customer OTP/login and retry
+   registration with the Customer JWT. Store the replacement device token.
+7. If recovery returns `device_owner_conflict`, do not retry with that account.
+   Clear mismatched local account state or ask the customer to use the owning
+   account. If it returns `device_token_inactive`, show a support state because
+   authentication cannot reactivate an administratively disabled device.
+8. If maintenance mode is enabled, block normal journeys but retain support
    and retry affordances.
 
 Do not require customer login for browsing, draft creation, or repricing.
@@ -1165,7 +1181,7 @@ Each row is a backend dependency, not a frontend estimation task.
 |---|---|
 | `FE-CUST-001` | First launch registers device and loads Arabic configuration |
 | `FE-CUST-002` | Hebrew selection produces RTL Hebrew/fallback content |
-| `FE-CUST-003` | Invalid/expired/rotated existing device token stops retrying and shows the documented recovery limitation |
+| `FE-CUST-003` | Invalid/expired/rotated device token recovers after OTP/login, while a different account receives `device_owner_conflict` |
 | `FE-CUST-004` | Customer browses business, branch, offering, and add-ons |
 | `FE-CUST-005` | Slot picker displays branch-local capacity-aware slots |
 | `FE-CUST-006` | Anonymous user creates, reads, and updates own draft |

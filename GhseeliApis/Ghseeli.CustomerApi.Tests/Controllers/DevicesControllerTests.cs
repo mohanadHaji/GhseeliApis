@@ -6,6 +6,7 @@ using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using System.Security.Claims;
 
 namespace GhseeliApis.Tests.Controllers;
 
@@ -33,7 +34,7 @@ public class DevicesControllerTests
             Token = "token",
             ExpiresAt = DateTimeOffset.UtcNow.AddDays(90)
         };
-        _service.Setup(service => service.RegisterAsync(request, null, default))
+        _service.Setup(service => service.RegisterAsync(request, null, null, default))
             .ReturnsAsync(expected);
         var controller = CreateController();
 
@@ -52,14 +53,44 @@ public class DevicesControllerTests
             InstallationId = Guid.NewGuid(),
             Platform = "Android"
         };
-        _service.Setup(service => service.RegisterAsync(request, "current-token", default))
+        _service.Setup(service => service.RegisterAsync(request, "current-token", null, default))
             .ReturnsAsync(new RegisterDeviceResponse());
         var controller = CreateController();
         controller.Request.Headers[DeviceTokenDefaults.HeaderName] = "current-token";
 
         await controller.Register(request, default);
 
-        _service.Verify(service => service.RegisterAsync(request, "current-token", default));
+        _service.Verify(service => service.RegisterAsync(
+            request,
+            "current-token",
+            null,
+            default));
+    }
+
+    [Fact]
+    public async Task Register_AuthenticatedCustomer_ForwardsCustomerIdentity()
+    {
+        var userId = Guid.NewGuid();
+        var request = new RegisterDeviceRequest
+        {
+            InstallationId = Guid.NewGuid(),
+            Platform = "Android"
+        };
+        _service.Setup(service => service.RegisterAsync(request, null, userId, default))
+            .ReturnsAsync(new RegisterDeviceResponse());
+        var controller = CreateController();
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+                "TestAuth"));
+
+        await controller.Register(request, default);
+
+        _service.Verify(service => service.RegisterAsync(
+            request,
+            null,
+            userId,
+            default));
     }
 
     [Fact]
@@ -70,7 +101,7 @@ public class DevicesControllerTests
             InstallationId = Guid.NewGuid(),
             Platform = "iOS"
         };
-        _service.Setup(service => service.RegisterAsync(request, null, default))
+        _service.Setup(service => service.RegisterAsync(request, null, null, default))
             .ThrowsAsync(new DeviceRegistrationException(
                 DeviceProblemCodes.RegistrationConflict,
                 StatusCodes.Status409Conflict,
@@ -85,6 +116,34 @@ public class DevicesControllerTests
         problem.Extensions["code"].Should().Be(DeviceProblemCodes.RegistrationConflict);
         problem.Extensions["correlationId"].Should().Be("corr-step7-controller");
         problem.Extensions["language"].Should().Be("ar");
+    }
+
+    [Fact]
+    public async Task Register_OwnerConflict_ReturnsForbiddenStableProblem()
+    {
+        var request = new RegisterDeviceRequest
+        {
+            InstallationId = Guid.NewGuid(),
+            Platform = "iOS"
+        };
+        var userId = Guid.NewGuid();
+        _service.Setup(service => service.RegisterAsync(request, null, userId, default))
+            .ThrowsAsync(new DeviceRegistrationException(
+                DeviceProblemCodes.OwnerConflict,
+                StatusCodes.Status403Forbidden,
+                "Owned by another customer."));
+        var controller = CreateController();
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(
+            new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.ToString())],
+                "TestAuth"));
+
+        var result = await controller.Register(request, default);
+
+        var forbidden = result.Should().BeOfType<ObjectResult>().Subject;
+        forbidden.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        var problem = forbidden.Value.Should().BeOfType<ProblemDetails>().Subject;
+        problem.Extensions["code"].Should().Be(DeviceProblemCodes.OwnerConflict);
     }
 
     private DevicesController CreateController()

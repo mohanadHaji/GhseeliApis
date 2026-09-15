@@ -1,4 +1,5 @@
 using GhseeliApis.Services.Internal;
+using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
@@ -44,7 +45,7 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
 
         var metadata = context.ApiDescription.ActionDescriptor.EndpointMetadata;
         if (metadata.OfType<IAllowAnonymous>().Any() ||
-            path is "/api/v1/devices/register" or "/api/Health" or "/api/Health/db" or
+            path is "/api/Health" or "/api/Health/db" or
                 "/api/Auth/external-login" or "/api/Auth/external-login-callback")
         {
             return [];
@@ -113,6 +114,15 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         {
             AddParameter(operation, "X-Order-Guid", ParameterLocation.Header, true,
                 schema => schema.Format = "uuid");
+        }
+
+        if (IsDeviceRegistration(path) && method == "POST")
+        {
+            AddParameter(operation, "X-Device-Token", ParameterLocation.Header, false,
+                schema => schema.MaxLength = DeviceTokenDefaults.EncodedTokenLength);
+            operation.Description =
+                "Registers a new installation anonymously, rotates it with its current " +
+                "device token, or securely recovers it with an optional Customer Bearer token.";
         }
 
         if (path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
@@ -525,6 +535,11 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         !path.StartsWith("/api/lahza", StringComparison.OrdinalIgnoreCase) &&
         !path.StartsWith("/api/v1/internal/", StringComparison.Ordinal) &&
         path != "/api/v1/devices/register";
+
+    private static bool IsDeviceRegistration(string path) =>
+        path.TrimEnd('/').EndsWith(
+            "/api/v1/devices/register",
+            StringComparison.OrdinalIgnoreCase);
 
     private static string Tag(string path) =>
         path.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "Customer";

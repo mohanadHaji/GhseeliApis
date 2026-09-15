@@ -50,6 +50,7 @@ public sealed class Step16CustomerSchemaMigrationTests
 
         migrationNames.Should().StartWith("InitialCustomerDatabase");
         migrationNames.Should().Contain("AddCustomerDeviceActiveState");
+        migrationNames.Should().Contain("AddCustomerDeviceOwnership");
         migrations.Keys.Should().BeInAscendingOrder();
         context.Database.HasPendingModelChanges().Should().BeFalse();
     }
@@ -106,7 +107,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(5);
+            firstHistory.Should().HaveCount(6);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")
@@ -123,6 +124,62 @@ public sealed class Step16CustomerSchemaMigrationTests
 
             secondHistory.Should().Equal(firstHistory);
             secondCatalog.Should().Equal(firstCatalog);
+        }
+        finally
+        {
+            await DropDatabaseAsync();
+        }
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP24-DEVICE-MIGRATION-011")]
+    public async Task Customer_device_ownership_migration_preserves_existing_devices_as_unowned()
+    {
+        await DropDatabaseAsync();
+        try
+        {
+            await using var context = CreateContext();
+            var migrator = context.GetService<IMigrator>();
+            await migrator.MigrateAsync("20260914202323_AddCustomerOtpRefreshAndFcm");
+            var deviceId = Guid.NewGuid();
+            var installationId = Guid.NewGuid();
+            var now = new DateTimeOffset(2026, 9, 15, 12, 0, 0, TimeSpan.Zero);
+            var tokenHash = Enumerable.Repeat((byte)24, 32).ToArray();
+            await context.Database.ExecuteSqlInterpolatedAsync($"""
+                INSERT INTO [dbo].[CustomerDevices]
+                    ([Id], [InstallationId], [Platform], [AppVersion], [FcmToken],
+                     [TokenHash], [CreatedAt], [UpdatedAt], [LastSeenAt], [ExpiresAt],
+                     [IsActive])
+                VALUES
+                    ({deviceId}, {installationId}, {"Android"}, {"1.0.0"}, {null},
+                     {tokenHash}, {now}, {now}, {null}, {now.AddDays(30)}, {true});
+                """);
+
+            await context.Database.MigrateAsync();
+
+            var values = await ReadStringsAsync(
+                context,
+                $"""
+                SELECT
+                    CASE WHEN [UserId] IS NULL THEN 'unowned' ELSE 'owned' END
+                FROM [dbo].[CustomerDevices]
+                WHERE [Id] = '{deviceId:D}'
+                UNION ALL
+                SELECT [name]
+                FROM sys.indexes
+                WHERE [object_id] = OBJECT_ID('[dbo].[CustomerDevices]')
+                  AND [name] = 'IX_CustomerDevices_UserId'
+                UNION ALL
+                SELECT [name]
+                FROM sys.foreign_keys
+                WHERE [parent_object_id] = OBJECT_ID('[dbo].[CustomerDevices]')
+                  AND [name] = 'FK_CustomerDevices_AspNetUsers_UserId'
+                """);
+            values.Should().BeEquivalentTo(
+                "unowned",
+                "IX_CustomerDevices_UserId",
+                "FK_CustomerDevices_AspNetUsers_UserId");
+            (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
         }
         finally
         {

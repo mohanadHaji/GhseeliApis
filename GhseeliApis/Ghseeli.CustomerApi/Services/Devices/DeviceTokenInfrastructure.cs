@@ -19,6 +19,7 @@ public static class DeviceProblemCodes
     public const string TokenInactive = "device_token_inactive";
     public const string RegistrationConflict = "device_registration_conflict";
     public const string RotationUnauthorized = "device_rotation_unauthorized";
+    public const string OwnerConflict = "device_owner_conflict";
     public const string ConcurrencyConflict = "device_registration_concurrency_conflict";
 }
 

@@ -1,0 +1,214 @@
+{
+  "name": "Step 24 authenticated customer device recovery",
+  "sensitiveFields": ["token", "refreshToken", "authorization", "x-device-token"],
+  "setupVariables": {
+    "installationId": "{{gen:guid}}",
+    "newPhoneInstallationId": "{{gen:guid}}",
+    "ownerEmail": "step24-owner-{{gen:guid}}@example.test",
+    "otherEmail": "step24-other-{{gen:guid}}@example.test",
+    "password": "Step24Test123!"
+  },
+  "scenarios": [
+    {
+      "id": "STEP24-DEVICE-ANON-001",
+      "feature": "step24",
+      "tags": ["step24", "device", "anonymous"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android",
+        "appVersion": "1.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      },
+      "extract": { "anonymousDeviceToken": "$.token" }
+    },
+    {
+      "id": "STEP24-OWNER-REGISTER-SETUP",
+      "feature": "step24",
+      "tags": ["step24", "setup"],
+      "method": "POST",
+      "url": "/api/Auth/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "email": "{{var:ownerEmail}}",
+        "password": "{{var:password}}",
+        "confirmPassword": "{{var:password}}",
+        "fullName": "Step 24 Owner"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      },
+      "extract": { "ownerJwt": "$.token" }
+    },
+    {
+      "id": "STEP24-DEVICE-LEGACY-003",
+      "feature": "step24",
+      "tags": ["step24", "device", "recovery"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:ownerJwt}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android",
+        "appVersion": "2.0.0",
+        "fcmToken": "step24-owner-fcm"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      },
+      "extract": { "recoveredDeviceToken": "$.token" }
+    },
+    {
+      "id": "STEP24-DEVICE-BIND-002",
+      "feature": "step24",
+      "tags": ["step24", "device", "new-phone"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:ownerJwt}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:newPhoneInstallationId}}",
+        "platform": "iOS",
+        "appVersion": "2.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      }
+    },
+    {
+      "id": "STEP24-OTHER-REGISTER-SETUP",
+      "feature": "step24",
+      "tags": ["step24", "setup"],
+      "method": "POST",
+      "url": "/api/Auth/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "email": "{{var:otherEmail}}",
+        "password": "{{var:password}}",
+        "confirmPassword": "{{var:password}}",
+        "fullName": "Step 24 Other"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      },
+      "extract": { "otherJwt": "$.token" }
+    },
+    {
+      "id": "STEP24-DEVICE-CROSS-005",
+      "feature": "step24",
+      "tags": ["step24", "device", "ownership", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:otherJwt}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android"
+      },
+      "expect": {
+        "status": 403,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_owner_conflict" }]
+      }
+    },
+    {
+      "id": "STEP24-DEVICE-OWNER-004",
+      "feature": "step24",
+      "tags": ["step24", "device", "recovery"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer {{var:ownerJwt}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "iOS",
+        "appVersion": "3.0.0"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [{ "path": "$.token", "exists": true }]
+      }
+    },
+    {
+      "id": "STEP24-DEVICE-OLD-TOKEN-009",
+      "feature": "step24",
+      "tags": ["step24", "device", "rotation", "security"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Device-Token": "{{var:anonymousDeviceToken}}"
+      },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android"
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_rotation_unauthorized" }]
+      }
+    },
+    {
+      "id": "STEP24-DEVICE-ANON-CONFLICT-006",
+      "feature": "step24",
+      "tags": ["step24", "device", "compatibility"],
+      "method": "POST",
+      "url": "/api/v1/devices/register",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "installationId": "{{var:installationId}}",
+        "platform": "Android"
+      },
+      "expect": {
+        "status": 409,
+        "contentType": "application/problem+json",
+        "json": [{ "path": "$.code", "equals": "device_registration_conflict" }]
+      }
+    },
+    {
+      "id": "STEP24-DEVICE-SWAGGER-010",
+      "feature": "step24",
+      "tags": ["step24", "swagger", "contract"],
+      "method": "GET",
+      "url": "/swagger/v1/swagger.json",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.paths['/api/v1/devices/register'].post.responses['403']", "exists": true }
+        ]
+      }
+    }
+  ]
+}

@@ -4,6 +4,8 @@ public sealed class CustomerDevice
 {
     public Guid Id { get; set; }
     public Guid InstallationId { get; set; }
+    public Guid? UserId { get; set; }
+    public User? User { get; set; }
     public string Platform { get; set; } = string.Empty;
     public string? AppVersion { get; set; }
     public string? FcmToken { get; set; }

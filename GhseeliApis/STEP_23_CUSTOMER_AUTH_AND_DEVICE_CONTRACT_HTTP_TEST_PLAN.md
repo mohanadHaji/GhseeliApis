@@ -98,9 +98,9 @@ new user, rename the booking confirmation response field from `reference` to
   relational, controller, and TestServer coverage.
 - Targeted OTP, refresh-token, FCM, booking serialization, schema, route, and
   Swagger regressions: 188 passed, 0 failed.
-- Customer API project: 1,295 passed, 0 failed, 0 skipped.
+- Customer API project: 1,296 passed, 0 failed, 0 skipped.
 - Business API project: 584 passed, 0 failed, 0 skipped.
-- Complete solution: 1,879 passed, 0 failed, 0 skipped. The solution was run
+- Complete solution: 1,880 passed, 0 failed, 0 skipped. The solution was run
   sequentially with `-m:1` to prevent the existing cross-project reflection
   test from racing the Business test build over the same assembly file.
 - Release build: 0 warnings, 0 errors.
@@ -111,6 +111,9 @@ new user, rename the booking confirmation response field from `reference` to
 - Customer migration-from-empty, repeated migration, compiled model, exact
   route inventory, and Swagger ownership tests passed.
 - Step 15 and Step 18 HTTP asset validators passed.
+- The Production workflow is covered by a static regression test and injects
+  Gmail SMTP settings only from `CUSTOMER_SMTP_USERNAME`,
+  `CUSTOMER_SMTP_PASSWORD`, and `CUSTOMER_SMTP_FROM_ADDRESS` GitHub secrets.
 - Live SMTP delivery is deferred because no SMTP host, credential, or verified
   sender has been supplied. OTP request safely returns
   `otp_delivery_unavailable` while SMTP is disabled; deployment must not enable

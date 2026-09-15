@@ -117,6 +117,9 @@ jobs:
           CUSTOMER_TO_BUSINESS_SECRET: ${{ secrets.CUSTOMER_TO_BUSINESS_HMAC_SECRET }}
           BUSINESS_TO_CUSTOMER_SECRET: ${{ secrets.BUSINESS_TO_CUSTOMER_HMAC_SECRET }}
           LAHZA_SECRET_KEY: ${{ secrets.LAHZA_SECRET_KEY }}
+          CUSTOMER_SMTP_USERNAME: ${{ secrets.CUSTOMER_SMTP_USERNAME }}
+          CUSTOMER_SMTP_PASSWORD: ${{ secrets.CUSTOMER_SMTP_PASSWORD }}
+          CUSTOMER_SMTP_FROM_ADDRESS: ${{ secrets.CUSTOMER_SMTP_FROM_ADDRESS }}
         run: |
           foreach ($name in @(
             "APP_CONNECTION",
@@ -225,6 +228,19 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($env:LAHZA_SECRET_KEY)) {
               throw "Missing Production secret 'LAHZA_SECRET_KEY'."
             }
+            $missingCustomerSecrets = @()
+            foreach ($name in @(
+              "CUSTOMER_SMTP_USERNAME",
+              "CUSTOMER_SMTP_PASSWORD",
+              "CUSTOMER_SMTP_FROM_ADDRESS")) {
+              if ([string]::IsNullOrWhiteSpace(
+                  [Environment]::GetEnvironmentVariable($name))) {
+                $missingCustomerSecrets += $name
+              }
+            }
+            if ($missingCustomerSecrets.Count -gt 0) {
+              throw "Missing Customer Production secrets: $($missingCustomerSecrets -join ', ')"
+            }
             $values = [ordered]@{
               "ASPNETCORE_ENVIRONMENT" = "Production"
               "ConnectionStrings__CustomerConnection" = $env:CUSTOMER_CONNECTION
@@ -247,6 +263,14 @@ jobs:
               "Lahza__CallbackUrl" = ""
               "Lahza__EndpointsEnabled" = "true"
               "Lahza__TimeoutSeconds" = "15"
+              "CustomerSmtp__Enabled" = "true"
+              "CustomerSmtp__Host" = "smtp.gmail.com"
+              "CustomerSmtp__Port" = "587"
+              "CustomerSmtp__EnableSsl" = "true"
+              "CustomerSmtp__UserName" = $env:CUSTOMER_SMTP_USERNAME
+              "CustomerSmtp__Password" = $env:CUSTOMER_SMTP_PASSWORD
+              "CustomerSmtp__FromAddress" = $env:CUSTOMER_SMTP_FROM_ADDRESS
+              "CustomerSmtp__FromName" = "Ghseeli"
               "Swagger__Enabled" = "true"
             }
           }

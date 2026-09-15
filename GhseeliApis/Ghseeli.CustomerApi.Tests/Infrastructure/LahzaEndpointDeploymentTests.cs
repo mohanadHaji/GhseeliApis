@@ -52,6 +52,39 @@ public sealed class LahzaEndpointDeploymentTests
     }
 
     [Fact]
+    public void ProductionWorkflow_InjectsCustomerSmtpFromSecrets()
+    {
+        var workflow = File.ReadAllText(Path.Combine(
+            FindRepositoryRoot(),
+            ".github",
+            "workflows",
+            "deploy-monsterasp.yml"));
+
+        workflow.Should().Contain(
+            "CUSTOMER_SMTP_USERNAME: ${{ secrets.CUSTOMER_SMTP_USERNAME }}");
+        workflow.Should().Contain(
+            "CUSTOMER_SMTP_PASSWORD: ${{ secrets.CUSTOMER_SMTP_PASSWORD }}");
+        workflow.Should().Contain(
+            "CUSTOMER_SMTP_FROM_ADDRESS: ${{ secrets.CUSTOMER_SMTP_FROM_ADDRESS }}");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__Enabled\" = \"true\"");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__Host\" = \"smtp.gmail.com\"");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__Port\" = \"587\"");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__EnableSsl\" = \"true\"");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__UserName\" = $env:CUSTOMER_SMTP_USERNAME");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__Password\" = $env:CUSTOMER_SMTP_PASSWORD");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__FromAddress\" = $env:CUSTOMER_SMTP_FROM_ADDRESS");
+        workflow.Should().Contain(
+            "\"CustomerSmtp__FromName\" = \"Ghseeli\"");
+    }
+
+    [Fact]
     public void ProductionSmoke_DecodesBinaryHttpContentBeforeParsingJson()
     {
         var smokeScript = File.ReadAllText(Path.Combine(

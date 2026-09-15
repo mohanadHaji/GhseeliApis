@@ -24,11 +24,44 @@ public sealed class DemoDatabaseSeederTests
 
             Assert.False(first.AlreadySeeded);
             Assert.True(second.AlreadySeeded);
-            Assert.Equal(3, first.CompanyCount);
-            Assert.Equal(5, first.CustomerCount);
-            Assert.Equal(8, first.CustomerBookingCount);
-            Assert.Equal(8, first.BusinessReservationCount);
+            Assert.Equal(5, first.CompanyCount);
+            Assert.Equal(8, first.CustomerCount);
+            Assert.Equal(12, first.CustomerBookingCount);
+            Assert.Equal(12, first.BusinessReservationCount);
             Assert.Equal(first.CustomerBookingCount, first.BusinessReservationCount);
+        }
+        finally
+        {
+            await DropDatabaseAsync(customerDatabase);
+            await DropDatabaseAsync(businessDatabase);
+        }
+    }
+
+    [Fact]
+    public async Task CleanupAsync_DeletesOnlyManifestDatasetAndAllowsReseeding()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var customerDatabase = $"GhseeliCustomer_FrontendDemo_{suffix}";
+        var businessDatabase = $"GhseeliBusiness_FrontendDemo_{suffix}";
+        var customerConnection = Connection(customerDatabase);
+        var businessConnection = Connection(businessDatabase);
+
+        try
+        {
+            await DemoDatabaseSeeder.SeedAsync(customerConnection, businessConnection);
+
+            var cleanup = await DemoDatabaseSeeder.CleanupAsync(
+                customerConnection,
+                businessConnection);
+            var reseed = await DemoDatabaseSeeder.SeedAsync(
+                customerConnection,
+                businessConnection);
+
+            Assert.Equal(8, cleanup.CustomerCount);
+            Assert.Equal(5, cleanup.CompanyCount);
+            Assert.Equal(12, cleanup.CustomerBookingCount);
+            Assert.Equal(12, cleanup.BusinessReservationCount);
+            Assert.False(reseed.AlreadySeeded);
         }
         finally
         {

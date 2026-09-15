@@ -1,4 +1,5 @@
 using Ghseeli.Common.Logging;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +50,8 @@ public sealed class DeviceTokenMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        IDeviceRegistrationService deviceService)
+        IDeviceRegistrationService deviceService,
+        ICustomerDataPartitionContext dataPartition)
     {
         if (!RequiresDeviceToken(context))
         {
@@ -82,6 +84,7 @@ public sealed class DeviceTokenMiddleware
             }
 
             deviceId = result.DeviceId!.Value;
+            dataPartition.SetTrustedPartition(result.DataPartition!);
             context.SetDeviceIdentity(deviceId, result.InstallationId!.Value);
         }
 

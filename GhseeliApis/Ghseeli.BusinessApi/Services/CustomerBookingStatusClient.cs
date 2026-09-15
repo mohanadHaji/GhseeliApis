@@ -1,4 +1,6 @@
 using Ghseeli.IntegrationContracts.InternalHttp;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
@@ -80,15 +82,19 @@ public sealed class CustomerBookingStatusClient : ICustomerBookingStatusClient
     private readonly HttpClient _client;
     private readonly CustomerBookingStatusClientOptions _options;
     private readonly IWebHostEnvironment _environment;
+    private readonly IBusinessDataPartitionContext _dataPartition;
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
     public CustomerBookingStatusClient(
         HttpClient client,
         IOptions<CustomerBookingStatusClientOptions> options,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IBusinessDataPartitionContext dataPartition)
     {
         _client = client;
         _options = options.Value;
         _environment = environment;
+        _dataPartition = dataPartition;
     }
 
     public async Task DeliverAsync(
@@ -103,7 +109,10 @@ public sealed class CustomerBookingStatusClient : ICustomerBookingStatusClient
         {
             throw new ArgumentException("The callback transport identity is invalid.");
         }
-        var uri = ResolveUri();
+        var uri = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            ResolveUri().ToString(),
+            DataPartitionNames.QueryParameter,
+            _dataPartition.Partition);
         var body = Encoding.UTF8.GetBytes(requestJson);
         var timestamp = DateTime.UtcNow.ToString("O");
         var nonce = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(
@@ -111,8 +120,10 @@ public sealed class CustomerBookingStatusClient : ICustomerBookingStatusClient
         var canonical = InternalServiceCanonicalRequest.Build(
             _options.ServiceId,
             "POST",
-            uri.AbsolutePath,
-            Array.Empty<KeyValuePair<string, string?>>(),
+            new Uri(uri).AbsolutePath,
+            [new KeyValuePair<string, string?>(
+                DataPartitionNames.QueryParameter,
+                _dataPartition.Partition)],
             timestamp,
             nonce,
             idempotencyKey,

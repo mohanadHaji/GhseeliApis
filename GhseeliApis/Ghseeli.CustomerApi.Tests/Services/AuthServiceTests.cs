@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
@@ -401,6 +402,36 @@ public class AuthServiceTests
         jwtToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Email && c.Value == email);
         jwtToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Name && c.Value == fullName);
         jwtToken.Claims.Should().Contain(c => c.Type == ClaimTypes.Role && c.Value == "User");
+        jwtToken.Claims.Should().Contain(c =>
+            c.Type == DataPartitionNames.ClaimType &&
+            c.Value == DataPartitionNames.Production);
+    }
+
+    [Fact]
+    public async Task GenerateJwtTokenAsync_ForDemoUser_IncludesDemoPartitionClaim()
+    {
+        var userId = Guid.NewGuid();
+        var user = new User
+        {
+            Id = userId,
+            Email = "customer@demo.test",
+            FullName = "Demo Customer",
+            IsDemo = true
+        };
+        _userManagerMock.Setup(x => x.FindByIdAsync(userId.ToString()))
+            .ReturnsAsync(user);
+        _userManagerMock.Setup(x => x.GetRolesAsync(user))
+            .ReturnsAsync(["User"]);
+
+        var token = await _authService.GenerateJwtTokenAsync(
+            userId,
+            user.Email,
+            user.FullName);
+
+        var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(token);
+        jwtToken.Claims.Should().Contain(c =>
+            c.Type == DataPartitionNames.ClaimType &&
+            c.Value == DataPartitionNames.Demo);
     }
 
     [Fact]

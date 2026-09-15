@@ -1,4 +1,6 @@
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.DTOs.Devices;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
@@ -29,24 +31,30 @@ public sealed class DeviceAuthenticationResult
         bool isAuthenticated,
         Guid? deviceId,
         Guid? installationId,
+        string? dataPartition,
         string? code)
     {
         IsAuthenticated = isAuthenticated;
         DeviceId = deviceId;
         InstallationId = installationId;
+        DataPartition = dataPartition;
         Code = code;
     }
 
     public bool IsAuthenticated { get; }
     public Guid? DeviceId { get; }
     public Guid? InstallationId { get; }
+    public string? DataPartition { get; }
     public string? Code { get; }
 
-    public static DeviceAuthenticationResult Success(Guid deviceId, Guid installationId) =>
-        new(true, deviceId, installationId, null);
+    public static DeviceAuthenticationResult Success(
+        Guid deviceId,
+        Guid installationId,
+        string dataPartition = DataPartitionNames.Production) =>
+        new(true, deviceId, installationId, dataPartition, null);
 
     public static DeviceAuthenticationResult Failure(string code) =>
-        new(false, null, null, code);
+        new(false, null, null, null, code);
 }
 
 public sealed class DeviceRegistrationException : Exception
@@ -69,19 +77,22 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
     private readonly TimeProvider _timeProvider;
     private readonly DeviceTokenOptions _options;
     private readonly IAppLogger _logger;
+    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public DeviceRegistrationService(
         IDeviceRepository repository,
         IDeviceTokenGenerator tokenGenerator,
         TimeProvider timeProvider,
         IOptions<DeviceTokenOptions> options,
-        IAppLogger logger)
+        IAppLogger logger,
+        ICustomerDataPartitionContext dataPartition)
     {
         _repository = repository;
         _tokenGenerator = tokenGenerator;
         _timeProvider = timeProvider;
         _options = options.Value;
         _logger = logger;
+        _dataPartition = dataPartition;
     }
 
     public async Task<RegisterDeviceResponse> RegisterAsync(
@@ -147,6 +158,15 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
                 DeviceProblemCodes.OwnerConflict,
                 StatusCodes.Status403Forbidden,
                 "This device installation belongs to another customer.");
+        }
+
+        if (currentUserId.HasValue &&
+            existing.IsDemo != _dataPartition.IsDemo)
+        {
+            throw new DeviceRegistrationException(
+                DeviceProblemCodes.OwnerConflict,
+                StatusCodes.Status403Forbidden,
+                "This device installation belongs to a different data partition.");
         }
 
         if (!currentUserId.HasValue)
@@ -230,7 +250,10 @@ public sealed class DeviceRegistrationService : IDeviceRegistrationService
             return DeviceAuthenticationResult.Failure(DeviceProblemCodes.TokenInactive);
         }
 
-        return DeviceAuthenticationResult.Success(device.Id, device.InstallationId);
+        return DeviceAuthenticationResult.Success(
+            device.Id,
+            device.InstallationId,
+            device.IsDemo ? DataPartitionNames.Demo : DataPartitionNames.Production);
     }
 
     public async Task UpdateLastSeenAsync(Guid deviceId, CancellationToken cancellationToken)

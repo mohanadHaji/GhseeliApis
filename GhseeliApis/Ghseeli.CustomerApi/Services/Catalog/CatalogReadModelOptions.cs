@@ -8,6 +8,7 @@ public sealed class CatalogReadModelOptions
     public double MaxStaleWindowSeconds { get; set; } = 3600;
     public double LeaseDurationSeconds { get; set; } = 60;
     public List<CatalogProviderRegistrationOptions> Providers { get; set; } = [];
+    public List<CatalogProviderRegistrationOptions> DemoProviders { get; set; } = [];
 }
 
 public sealed class CatalogProviderRegistrationOptions

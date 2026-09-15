@@ -1,3 +1,4 @@
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -7,9 +8,19 @@ namespace Ghseeli.BusinessApi.Persistence;
 
 public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Guid>, Guid>
 {
+    private readonly IBusinessDataPartitionContext _dataPartition;
+
     public BusinessDbContext(DbContextOptions<BusinessDbContext> options)
+        : this(options, new BusinessDataPartitionContext())
+    {
+    }
+
+    public BusinessDbContext(
+        DbContextOptions<BusinessDbContext> options,
+        IBusinessDataPartitionContext dataPartition)
         : base(options)
     {
+        _dataPartition = dataPartition;
     }
 
     public DbSet<Company> Companies => Set<Company>();
@@ -46,12 +57,14 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
 
     public override int SaveChanges()
     {
+        ApplyDataPartition();
         ApplyBusinessVerticalInvariants();
         return base.SaveChanges();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ApplyDataPartition();
         ApplyBusinessVerticalInvariants();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -59,6 +72,7 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     public override Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
     {
+        ApplyDataPartition();
         ApplyBusinessVerticalInvariants();
         return base.SaveChangesAsync(cancellationToken);
     }
@@ -67,8 +81,86 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        ApplyDataPartition();
         ApplyBusinessVerticalInvariants();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    private void ApplyDataPartition()
+    {
+        foreach (var entry in ChangeTracker.Entries<BusinessUser>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<BookingStatusOutboxMessage>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<Company>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<AppointmentReservation>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+    }
+
+    private void ConfigureDataPartitionFilters(ModelBuilder builder)
+    {
+        builder.Entity<BusinessUser>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<Company>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<CompanyBusinessVertical>()
+            .HasQueryFilter(entity => entity.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<Branch>()
+            .HasQueryFilter(entity => entity.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<BranchAvailabilitySettings>()
+            .HasQueryFilter(entity => entity.Branch.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<BranchRecurringSchedule>()
+            .HasQueryFilter(entity => entity.Branch.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<BranchAvailabilityOverride>()
+            .HasQueryFilter(entity => entity.Branch.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<BranchServiceArea>()
+            .HasQueryFilter(entity => entity.Branch.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<ServiceCategory>()
+            .HasQueryFilter(entity => entity.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<ServiceOffering>()
+            .HasQueryFilter(entity => entity.Category.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<AddonGroup>()
+            .HasQueryFilter(entity =>
+                entity.ServiceOffering.Category.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<AddonChoice>()
+            .HasQueryFilter(entity =>
+                entity.AddonGroup.ServiceOffering.Category.Company.IsDemo ==
+                _dataPartition.IsDemo);
+        builder.Entity<BusinessUserAssignment>()
+            .HasQueryFilter(entity => entity.Company.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<AppointmentReservation>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<WorkOrder>()
+            .HasQueryFilter(entity =>
+                entity.AppointmentReservation.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<VehicleWorkOrderDetails>()
+            .HasQueryFilter(entity =>
+                entity.WorkOrder.AppointmentReservation.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<WorkOrderItem>()
+            .HasQueryFilter(entity =>
+                entity.WorkOrder.AppointmentReservation.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<WorkOrderSelection>()
+            .HasQueryFilter(entity =>
+                entity.WorkOrderItem.WorkOrder.AppointmentReservation.IsDemo ==
+                _dataPartition.IsDemo);
+        builder.Entity<BookingStatusOutboxMessage>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        builder.Entity<BookingStatusRequeueHistory>()
+            .HasQueryFilter(entity =>
+                entity.BookingStatusOutboxMessage.IsDemo == _dataPartition.IsDemo);
     }
 
     private void ApplyBusinessVerticalInvariants()
@@ -181,6 +273,11 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
     {
         base.OnModelCreating(builder);
         builder.HasDefaultSchema(BusinessSchemaOptions.OwnedDefaultSchema);
+        builder.Entity<BusinessUser>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        builder.Entity<Company>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        builder.Entity<AppointmentReservation>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        builder.Entity<BookingStatusOutboxMessage>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        ConfigureDataPartitionFilters(builder);
 
         builder.Entity<BusinessUser>(entity =>
         {
@@ -229,6 +326,7 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                     CreatedAtUtc = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc)
                 });
             }
+
         });
 
         builder.Entity<CompanyBusinessVertical>(entity =>

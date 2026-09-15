@@ -1,3 +1,4 @@
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -10,9 +11,19 @@ namespace GhseeliApis.Persistence;
 /// </summary>
 public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<Guid>, Guid>
 {
+    private readonly ICustomerDataPartitionContext _dataPartition;
+
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+        : this(options, new CustomerDataPartitionContext())
+    {
+    }
+
+    public ApplicationDbContext(
+        DbContextOptions<ApplicationDbContext> options,
+        ICustomerDataPartitionContext dataPartition)
         : base(options)
     {
+        _dataPartition = dataPartition;
     }
 
     public DbSet<UserAddress> UserAddresses => Set<UserAddress>();
@@ -51,12 +62,14 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
 
     public override int SaveChanges()
     {
+        ApplyDataPartition();
         ValidateBusinessVerticalSnapshots();
         return base.SaveChanges();
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        ApplyDataPartition();
         ValidateBusinessVerticalSnapshots();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -64,6 +77,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
     public override Task<int> SaveChangesAsync(
         CancellationToken cancellationToken = default)
     {
+        ApplyDataPartition();
         ValidateBusinessVerticalSnapshots();
         return base.SaveChangesAsync(cancellationToken);
     }
@@ -72,6 +86,7 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        ApplyDataPartition();
         ValidateBusinessVerticalSnapshots();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
@@ -244,6 +259,13 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         modelBuilder.ConfigureCatalogReadModel();
         modelBuilder.ConfigureCheckoutDrafts();
         modelBuilder.ConfigureCustomerBookings();
+        modelBuilder.Entity<User>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<CustomerDevice>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<CustomerOtpChallenge>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<CatalogProviderReadModel>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<CheckoutDraft>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<CustomerBooking>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        ConfigureDataPartitionFilters(modelBuilder);
 
         // ============================================
         // User -> Addresses Relationship
@@ -267,5 +289,100 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         modelBuilder.Entity<Vehicle>()
             .HasIndex(v => new { v.UserId, v.LicensePlate });
 
+    }
+
+    private void ApplyDataPartition()
+    {
+        foreach (var entry in ChangeTracker.Entries<User>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<CustomerDevice>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<CustomerOtpChallenge>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<CatalogProviderReadModel>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<CheckoutDraft>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<CustomerBooking>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+    }
+
+    private void ConfigureDataPartitionFilters(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<User>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<Vehicle>()
+            .HasQueryFilter(entity => entity.Owner.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<UserAddress>()
+            .HasQueryFilter(entity => entity.User.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerDevice>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerOtpChallenge>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerRefreshToken>()
+            .HasQueryFilter(entity => entity.User.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogProviderReadModel>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogBranchReadModel>()
+            .HasQueryFilter(entity => entity.Provider.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogCategoryReadModel>()
+            .HasQueryFilter(entity => entity.Provider.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogOfferingReadModel>()
+            .HasQueryFilter(entity => entity.Category.Provider.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogAddonGroupReadModel>()
+            .HasQueryFilter(entity =>
+                entity.Offering.Category.Provider.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CatalogAddonChoiceReadModel>()
+            .HasQueryFilter(entity =>
+                entity.AddonGroup.Offering.Category.Provider.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraft>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraftItem>()
+            .HasQueryFilter(entity => entity.CheckoutDraft.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraftSelection>()
+            .HasQueryFilter(entity =>
+                entity.CheckoutDraftItem.CheckoutDraft.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraftPricingSnapshot>()
+            .HasQueryFilter(entity => entity.CheckoutDraft.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraftPricingItemSnapshot>()
+            .HasQueryFilter(entity =>
+                entity.PricingSnapshot.CheckoutDraft.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CheckoutDraftPricingSelectionSnapshot>()
+            .HasQueryFilter(entity =>
+                entity.PricingItemSnapshot.PricingSnapshot.CheckoutDraft.IsDemo ==
+                _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerBooking>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerBookingItem>()
+            .HasQueryFilter(entity => entity.CustomerBooking.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerBookingSelection>()
+            .HasQueryFilter(entity =>
+                entity.CustomerBookingItem.CustomerBooking.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<ProcessedBookingStatusMessage>()
+            .HasQueryFilter(entity =>
+                entity.CustomerBooking.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerPayment>()
+            .HasQueryFilter(entity => entity.CustomerBooking.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<CustomerPaymentIdempotencyRecord>()
+            .HasQueryFilter(entity =>
+                entity.CustomerPayment.CustomerBooking.IsDemo == _dataPartition.IsDemo);
     }
 }

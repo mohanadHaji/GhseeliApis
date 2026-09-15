@@ -2,6 +2,7 @@ using Ghseeli.Common.Logging;
 using GhseeliApis.Constants;
 using GhseeliApis.DTOs.Auth;
 using GhseeliApis.Models;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Persistence;
 using GhseeliApis.Services.Interfaces;
 using Microsoft.AspNetCore.WebUtilities;
@@ -222,15 +223,18 @@ public sealed class CustomerRefreshTokenService : ICustomerRefreshTokenService
     private readonly ApplicationDbContext _context;
     private readonly TimeProvider _timeProvider;
     private readonly CustomerRefreshTokenOptions _options;
+    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public CustomerRefreshTokenService(
         ApplicationDbContext context,
         TimeProvider timeProvider,
-        IOptions<CustomerRefreshTokenOptions> options)
+        IOptions<CustomerRefreshTokenOptions> options,
+        ICustomerDataPartitionContext? dataPartition = null)
     {
         _context = context;
         _timeProvider = timeProvider;
         _options = options.Value;
+        _dataPartition = dataPartition ?? new CustomerDataPartitionContext();
     }
 
     public async Task<IssuedRefreshToken> IssueAsync(
@@ -275,15 +279,26 @@ public sealed class CustomerRefreshTokenService : ICustomerRefreshTokenService
     {
         await using var transaction = await BeginSerializableAsync(cancellationToken);
         var hash = Hash(token);
+        var isDemo = await _context.CustomerRefreshTokens
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(value => value.TokenHash.SequenceEqual(hash))
+            .Select(value => (bool?)value.User.IsDemo)
+            .SingleOrDefaultAsync(cancellationToken);
+        if (!isDemo.HasValue)
+        {
+            throw Invalid();
+        }
+        _dataPartition.SetTrustedPartition(
+            isDemo.Value
+                ? Ghseeli.IntegrationContracts.DataPartitioning.DataPartitionNames.Demo
+                : Ghseeli.IntegrationContracts.DataPartitioning.DataPartitionNames.Production);
         var record = await _context.CustomerRefreshTokens
             .Include(value => value.User)
             .SingleOrDefaultAsync(
                 value => value.TokenHash.SequenceEqual(hash),
                 cancellationToken);
-        if (record is null)
-        {
-            throw Invalid();
-        }
+        if (record is null) throw Invalid();
 
         var now = _timeProvider.GetUtcNow();
         if (record.UsedAtUtc is not null || record.RevokedAtUtc is not null)
@@ -416,6 +431,8 @@ public sealed class CustomerOtpAuthenticationService : ICustomerOtpAuthenticatio
     private readonly CustomerOtpOptions _options;
     private readonly IConfiguration _configuration;
     private readonly IAppLogger _logger;
+    private readonly ICustomerDataPartitionResolver? _dataPartitionResolver;
+    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public CustomerOtpAuthenticationService(
         ApplicationDbContext context,
@@ -427,7 +444,9 @@ public sealed class CustomerOtpAuthenticationService : ICustomerOtpAuthenticatio
         TimeProvider timeProvider,
         IOptions<CustomerOtpOptions> options,
         IConfiguration configuration,
-        IAppLogger logger)
+        IAppLogger logger,
+        ICustomerDataPartitionResolver? dataPartitionResolver = null,
+        ICustomerDataPartitionContext? dataPartition = null)
     {
         _context = context;
         _userManager = userManager;
@@ -439,13 +458,24 @@ public sealed class CustomerOtpAuthenticationService : ICustomerOtpAuthenticatio
         _options = options.Value;
         _configuration = configuration;
         _logger = logger;
+        _dataPartitionResolver = dataPartitionResolver;
+        _dataPartition = dataPartition ?? new CustomerDataPartitionContext();
     }
 
     public async Task RequestAsync(string email, CancellationToken cancellationToken)
     {
+        _dataPartitionResolver?.SetForTrustedDemoEmail(email);
         var strategy = _context.Database.CreateExecutionStrategy();
         var issued = await strategy.ExecuteAsync(
             () => CreateChallengeAsync(email, cancellationToken));
+
+        if (_dataPartition.IsDemo)
+        {
+            var activationStrategy = _context.Database.CreateExecutionStrategy();
+            await activationStrategy.ExecuteAsync(
+                () => ActivateChallengeAsync(issued.Challenge.Id, cancellationToken));
+            return;
+        }
 
         try
         {
@@ -488,7 +518,9 @@ public sealed class CustomerOtpAuthenticationService : ICustomerOtpAuthenticatio
         await using var transaction = await BeginSerializableAsync(cancellationToken);
         var normalizedEmail = _userManager.NormalizeEmail(email);
         var now = _timeProvider.GetUtcNow();
-        var code = _codeGenerator.Generate();
+        var code = _dataPartition.IsDemo
+            ? _configuration["DemoData:OtpCode"] ?? "111111"
+            : _codeGenerator.Generate();
         var salt = OtpCodeHasher.CreateSalt();
         var current = new CustomerOtpChallenge
         {
@@ -549,6 +581,7 @@ public sealed class CustomerOtpAuthenticationService : ICustomerOtpAuthenticatio
         string code,
         CancellationToken cancellationToken)
     {
+        _dataPartitionResolver?.SetForTrustedDemoEmail(email);
         var strategy = _context.Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(
             () => ConfirmCoreAsync(email, code, cancellationToken));

@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using GhseeliApis.Extensions;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Filters;
 using GhseeliApis.Middleware;
 using GhseeliApis.Persistence;
@@ -394,6 +395,8 @@ builder.Services.AddAuthorization(options =>
 
 // Register Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICustomerDataPartitionContext, CustomerDataPartitionContext>();
+builder.Services.AddScoped<ICustomerDataPartitionResolver, CustomerDataPartitionResolver>();
 builder.Services.AddScoped<IHealthRepository, HealthRepository>();
 builder.Services.AddScoped<IVehicleRepository, VehicleRepository>();
 builder.Services.AddScoped<IUserAddressRepository, UserAddressRepository>();
@@ -698,6 +701,7 @@ app.UseMiddleware<DeviceTokenMiddleware>();
 
 // Add Authentication & Authorization middleware
 app.UseAuthentication();
+app.UseMiddleware<CustomerDataPartitionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();

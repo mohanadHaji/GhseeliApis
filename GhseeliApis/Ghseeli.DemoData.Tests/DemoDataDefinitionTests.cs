@@ -14,19 +14,25 @@ public sealed class DemoDataDefinitionTests
         var data = DemoDataDefinition.Create();
 
         Assert.Equal("demo", data.Metadata.DatasetType);
-        Assert.True(data.Metadata.LocalDevelopmentOnly);
+        Assert.False(data.Metadata.LocalDevelopmentOnly);
         Assert.Contains("DEMO", data.Metadata.Warning, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(3, data.Companies.Count);
-        Assert.Equal(5, data.BusinessUsers.Count);
-        Assert.Equal(5, data.Companies.Sum(company => company.Branches.Count));
-        Assert.Equal(12, data.Companies.Sum(company => company.Offerings.Count));
-        Assert.Equal(5, data.Customers.Count);
-        Assert.Equal(6, data.Customers.Sum(customer => customer.Devices.Count));
-        Assert.Equal(8, data.Customers.Sum(customer => customer.Vehicles.Count));
-        Assert.Equal(7, data.Customers.Sum(customer => customer.Addresses.Count));
-        Assert.Equal(4, data.Drafts.Count);
-        Assert.Equal(8, data.Bookings.Count);
-        Assert.Equal(5, data.Bookings.Count(booking => booking.Payment is not null));
+        Assert.Equal(5, data.Companies.Count);
+        Assert.Equal(8, data.BusinessUsers.Count);
+        Assert.Equal(8, data.Companies.Sum(company => company.Branches.Count));
+        Assert.Equal(6, data.Companies.Sum(company => company.Categories.Count));
+        Assert.Equal(20, data.Companies.Sum(company => company.Offerings.Count));
+        Assert.Equal(10, data.Companies.Sum(company =>
+            company.Offerings.Sum(offering => offering.AddonGroups.Count)));
+        Assert.Equal(30, data.Companies.Sum(company =>
+            company.Offerings.Sum(offering =>
+                offering.AddonGroups.Sum(group => group.Choices.Count))));
+        Assert.Equal(8, data.Customers.Count);
+        Assert.Equal(10, data.Customers.Sum(customer => customer.Devices.Count));
+        Assert.Equal(13, data.Customers.Sum(customer => customer.Vehicles.Count));
+        Assert.Equal(12, data.Customers.Sum(customer => customer.Addresses.Count));
+        Assert.Equal(6, data.Drafts.Count);
+        Assert.Equal(12, data.Bookings.Count);
+        Assert.Equal(8, data.Bookings.Count(booking => booking.Payment is not null));
     }
 
     [Fact]

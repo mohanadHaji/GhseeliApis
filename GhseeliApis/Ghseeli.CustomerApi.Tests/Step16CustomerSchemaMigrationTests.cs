@@ -51,6 +51,7 @@ public sealed class Step16CustomerSchemaMigrationTests
         migrationNames.Should().StartWith("InitialCustomerDatabase");
         migrationNames.Should().Contain("AddCustomerDeviceActiveState");
         migrationNames.Should().Contain("AddCustomerDeviceOwnership");
+        migrationNames.Should().Contain("AddCustomerDemoDataPartition");
         migrations.Keys.Should().BeInAscendingOrder();
         context.Database.HasPendingModelChanges().Should().BeFalse();
     }
@@ -107,7 +108,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(6);
+            firstHistory.Should().HaveCount(7);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")

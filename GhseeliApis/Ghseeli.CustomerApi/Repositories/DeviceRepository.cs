@@ -20,14 +20,14 @@ public sealed class DeviceRepository : IDeviceRepository
     public Task<CustomerDevice?> GetByInstallationIdAsync(
         Guid installationId,
         CancellationToken cancellationToken) =>
-        _context.CustomerDevices.SingleOrDefaultAsync(
+        _context.CustomerDevices.IgnoreQueryFilters().SingleOrDefaultAsync(
             device => device.InstallationId == installationId,
             cancellationToken);
 
     public Task<CustomerDevice?> GetByTokenHashAsync(
         byte[] tokenHash,
         CancellationToken cancellationToken) =>
-        _context.CustomerDevices.SingleOrDefaultAsync(
+        _context.CustomerDevices.IgnoreQueryFilters().SingleOrDefaultAsync(
             device => device.TokenHash.SequenceEqual(tokenHash),
             cancellationToken);
 

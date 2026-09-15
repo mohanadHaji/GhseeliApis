@@ -3,6 +3,7 @@ namespace GhseeliApis.Models;
 public sealed class CustomerOtpChallenge
 {
     public Guid Id { get; set; }
+    public bool IsDemo { get; set; }
     public string NormalizedEmail { get; set; } = string.Empty;
     public byte[] CodeSalt { get; set; } = [];
     public byte[] CodeHash { get; set; } = [];

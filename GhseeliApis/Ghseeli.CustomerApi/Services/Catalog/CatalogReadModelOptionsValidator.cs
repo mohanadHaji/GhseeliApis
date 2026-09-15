@@ -36,8 +36,19 @@ public sealed class CatalogReadModelOptionsValidator :
             failures.Add("CatalogReadModel:LeaseDurationSeconds must be less than or equal to MaxStaleWindowSeconds.");
         }
 
-        var providers = (IReadOnlyCollection<CatalogProviderRegistrationOptions>)
-            (options.Providers ?? []);
+        ValidateProviders("Providers", options.Providers ?? [], failures);
+        ValidateProviders("DemoProviders", options.DemoProviders ?? [], failures);
+
+        return failures.Count == 0
+            ? ValidateOptionsResult.Success
+            : ValidateOptionsResult.Fail(failures);
+    }
+
+    private static void ValidateProviders(
+        string section,
+        IReadOnlyCollection<CatalogProviderRegistrationOptions> providers,
+        ICollection<string> failures)
+    {
         var duplicateProviders = providers
             .GroupBy(provider => provider.SourceCompanyId)
             .Where(group => group.Key == Guid.Empty || group.Count() > 1)
@@ -46,12 +57,12 @@ public sealed class CatalogReadModelOptionsValidator :
 
         if (duplicateProviders.Any(providerId => providerId == Guid.Empty))
         {
-            failures.Add("CatalogReadModel:Providers entries must use a non-empty SourceCompanyId.");
+            failures.Add($"CatalogReadModel:{section} entries must use a non-empty SourceCompanyId.");
         }
 
         foreach (var duplicateProviderId in duplicateProviders.Where(providerId => providerId != Guid.Empty))
         {
-            failures.Add($"CatalogReadModel:Providers contains a duplicate SourceCompanyId '{duplicateProviderId:D}'.");
+            failures.Add($"CatalogReadModel:{section} contains a duplicate SourceCompanyId '{duplicateProviderId:D}'.");
         }
 
         var duplicateOrders = providers
@@ -62,16 +73,12 @@ public sealed class CatalogReadModelOptionsValidator :
 
         foreach (var duplicateOrder in duplicateOrders)
         {
-            failures.Add($"CatalogReadModel:Providers contains a duplicate Order value '{duplicateOrder}'.");
+            failures.Add($"CatalogReadModel:{section} contains a duplicate Order value '{duplicateOrder}'.");
         }
 
         if (providers.Any(provider => provider.Order < 0))
         {
-            failures.Add("CatalogReadModel:Providers entries must use a non-negative Order value.");
+            failures.Add($"CatalogReadModel:{section} entries must use a non-negative Order value.");
         }
-
-        return failures.Count == 0
-            ? ValidateOptionsResult.Success
-            : ValidateOptionsResult.Fail(failures);
     }
 }

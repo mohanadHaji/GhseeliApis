@@ -17,6 +17,7 @@ public sealed class AppointmentReservation
     public DateTime RequestedSlotStartUtc { get; set; }
     public DateTime RequestedSlotEndUtc { get; set; }
     public string Status { get; set; } = string.Empty;
+    public bool IsDemo { get; set; }
     public long StatusSequence { get; set; }
     public DateTimeOffset StatusChangedAtUtc { get; set; }
     public DateTime CreatedAtUtc { get; set; }

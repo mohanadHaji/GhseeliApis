@@ -389,7 +389,8 @@ public sealed class CustomerInternalIdempotencyLeaseRelationalTests
                 ICustomerInternalIdempotencyCleanupService>(),
             scope.ServiceProvider.GetRequiredService<
                 ICustomerInternalIdempotencyLeaseService>(),
-            provider.GetRequiredService<IServiceScopeFactory>());
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            new GhseeliApis.DataPartitioning.CustomerDataPartitionContext());
         context.Response.Body.Position = 0;
         using var reader = new StreamReader(context.Response.Body);
         return (context.Response.StatusCode, await reader.ReadToEndAsync());

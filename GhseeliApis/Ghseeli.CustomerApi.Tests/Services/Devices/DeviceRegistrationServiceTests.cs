@@ -1,5 +1,7 @@
 using FluentAssertions;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.DTOs.Devices;
 using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
@@ -422,13 +424,46 @@ public class DeviceRegistrationServiceTests
         device.UserId.Should().Be(userId);
     }
 
-    private DeviceRegistrationService CreateService() =>
+    [Fact]
+    public async Task RegisterAsync_AuthenticatedCustomerCannotClaimOppositePartitionDevice()
+    {
+        var device = CreateDevice(DeviceTokenHasher.Hash(Token(21)));
+        var userId = Guid.NewGuid();
+        _repository.Setup(repository =>
+                repository.GetByInstallationIdAsync(device.InstallationId, default))
+            .ReturnsAsync(device);
+        var partition = new CustomerDataPartitionContext();
+        partition.SetTrustedPartition(DataPartitionNames.Demo);
+        var service = CreateService(partition);
+
+        var action = () => service.RegisterAsync(
+            new RegisterDeviceRequest
+            {
+                InstallationId = device.InstallationId,
+                Platform = "Android"
+            },
+            null,
+            userId,
+            default);
+
+        await action.Should().ThrowAsync<DeviceRegistrationException>()
+            .Where(exception =>
+                exception.Code == DeviceProblemCodes.OwnerConflict &&
+                exception.StatusCode == StatusCodes.Status403Forbidden);
+        device.UserId.Should().BeNull();
+        _repository.Verify(repository =>
+            repository.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private DeviceRegistrationService CreateService(
+        ICustomerDataPartitionContext? partition = null) =>
         new(
             _repository.Object,
             _tokenGenerator.Object,
             new TestTimeProvider(Now),
             Options.Create(new DeviceTokenOptions { LifetimeDays = 90 }),
-            _logger.Object);
+            _logger.Object,
+            partition ?? new CustomerDataPartitionContext());
 
     private static CustomerDevice CreateDevice(byte[]? tokenHash = null) =>
         new()

@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Infrastructure;
 using Ghseeli.BusinessApi.Models;
@@ -358,6 +359,8 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
+builder.Services.AddScoped<IBusinessDataPartitionContext, BusinessDataPartitionContext>();
+builder.Services.AddScoped<IBusinessDataPartitionResolver, BusinessDataPartitionResolver>();
 builder.Services.AddScoped<ICatalogRepository, CatalogRepository>();
 builder.Services.AddScoped<IAvailabilityRepository, AvailabilityRepository>();
 builder.Services.AddScoped<IInternalServiceNonceStore, InternalServiceNonceStore>();
@@ -434,6 +437,7 @@ app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/api/v1/internal", StringComparison.OrdinalIgnoreCase),
     branch => branch.UseHttpsRedirection());
 app.UseAuthentication();
+app.UseMiddleware<BusinessDataPartitionMiddleware>();
 app.UseMiddleware<BusinessRateLimitPartitionMiddleware>();
 app.UseRateLimiter();
 app.UseMiddleware<InternalRequestIdempotencyMiddleware>();

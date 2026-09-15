@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using FluentValidation;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DTOs.Auth;
@@ -117,6 +118,9 @@ public class BusinessAuthServiceTests
             claim.Value == capturedCompany.Id.ToString());
         token.Claims.Should().Contain(claim =>
             claim.Type == ClaimTypes.Role && claim.Value == BusinessRoles.Owner);
+        token.Claims.Should().Contain(claim =>
+            claim.Type == DataPartitionNames.ClaimType &&
+            claim.Value == DataPartitionNames.Production);
         _logger.Verify(logger => logger.LogInfo(
             It.Is<string>(message =>
                 message.Contains("registration succeeded", StringComparison.OrdinalIgnoreCase) &&
@@ -228,6 +232,47 @@ public class BusinessAuthServiceTests
                 message.Contains("login succeeded", StringComparison.OrdinalIgnoreCase) &&
                 message.Contains(user.Id.ToString(), StringComparison.OrdinalIgnoreCase))),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task LoginAsync_ForDemoUser_IncludesDemoPartitionClaim()
+    {
+        var user = new BusinessUser
+        {
+            Id = Guid.NewGuid(),
+            Email = "owner@demo.test",
+            UserName = "owner@demo.test",
+            FullName = "Demo Owner",
+            IsActive = true,
+            IsDemo = true
+        };
+        _userManager.Setup(manager => manager.FindByEmailAsync(user.Email))
+            .ReturnsAsync(user);
+        _signInManager.Setup(manager => manager.CheckPasswordSignInAsync(
+                user,
+                "Password1",
+                true))
+            .ReturnsAsync(SignInResult.Success);
+        _userManager.Setup(manager => manager.GetRolesAsync(user))
+            .ReturnsAsync([BusinessRoles.Owner]);
+        _companyRepository.Setup(repository => repository.GetAssignmentForUserAsync(user.Id))
+            .ReturnsAsync(new BusinessUserAssignment
+            {
+                UserId = user.Id,
+                CompanyId = Guid.NewGuid(),
+                IsActive = true
+            });
+
+        var result = await _service.LoginAsync(new BusinessLoginRequest
+        {
+            Email = user.Email,
+            Password = "Password1"
+        });
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(result.Token);
+        token.Claims.Should().Contain(claim =>
+            claim.Type == DataPartitionNames.ClaimType &&
+            claim.Value == DataPartitionNames.Demo);
     }
 
     [Fact]

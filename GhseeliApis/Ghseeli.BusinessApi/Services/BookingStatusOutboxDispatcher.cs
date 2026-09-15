@@ -1,6 +1,8 @@
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Net;
@@ -307,12 +309,8 @@ public sealed class BookingStatusOutboxWorker : BackgroundService
             {
                 if (!_clientOptions.Value.DisableDeliveryInTesting)
                 {
-                    using var scope = _scopeFactory.CreateScope();
-                    var dispatcher = scope.ServiceProvider
-                        .GetRequiredService<IBookingStatusOutboxDispatcher>();
-                    while (await dispatcher.DeliverNextAsync(stoppingToken))
-                    {
-                    }
+                    await DrainPartitionAsync(DataPartitionNames.Production, stoppingToken);
+                    await DrainPartitionAsync(DataPartitionNames.Demo, stoppingToken);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -336,6 +334,21 @@ public sealed class BookingStatusOutboxWorker : BackgroundService
             {
                 break;
             }
+        }
+    }
+
+    private async Task DrainPartitionAsync(
+        string partition,
+        CancellationToken cancellationToken)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        scope.ServiceProvider
+            .GetRequiredService<IBusinessDataPartitionContext>()
+            .SetTrustedPartition(partition);
+        var dispatcher = scope.ServiceProvider
+            .GetRequiredService<IBookingStatusOutboxDispatcher>();
+        while (await dispatcher.DeliverNextAsync(cancellationToken))
+        {
         }
     }
 }

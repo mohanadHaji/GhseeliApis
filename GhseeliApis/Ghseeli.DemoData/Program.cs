@@ -22,8 +22,19 @@ if (args[0].Equals("seed", StringComparison.OrdinalIgnoreCase) && args.Length ==
     return;
 }
 
+if (args[0].Equals("cleanup", StringComparison.OrdinalIgnoreCase) && args.Length == 3)
+{
+    var result = await DemoDatabaseSeeder.CleanupAsync(args[1], args[2]);
+    Console.WriteLine(
+        $"Deleted {result.CompanyCount} demo companies, {result.CustomerCount} demo customers, " +
+        $"{result.CustomerBookingCount} customer bookings, and " +
+        $"{result.BusinessReservationCount} business reservations.");
+    return;
+}
+
 Console.Error.WriteLine(
     "Usage:\n" +
     "  dotnet run --project Ghseeli.DemoData -- export [output-path]\n" +
-    "  dotnet run --project Ghseeli.DemoData -- seed <customer-connection> <business-connection>");
+    "  dotnet run --project Ghseeli.DemoData -- seed <customer-connection> <business-connection>\n" +
+    "  dotnet run --project Ghseeli.DemoData -- cleanup <customer-connection> <business-connection>");
 Environment.ExitCode = 2;

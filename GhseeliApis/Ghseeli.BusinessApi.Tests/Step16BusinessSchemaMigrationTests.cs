@@ -53,9 +53,9 @@ public class Step16BusinessSchemaMigrationTests
     {
         using var context = CreateContext("Step16BusinessMigrationMetadata");
 
-        context.Database.GetMigrations().Should().HaveCount(2);
+        context.Database.GetMigrations().Should().HaveCount(3);
         context.Database.GetMigrations().First().Should().EndWith("_InitialBusinessDatabase");
-        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessVerticalReadiness");
+        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessDemoDataPartition");
     }
 
     [Fact]
@@ -67,11 +67,11 @@ public class Step16BusinessSchemaMigrationTests
         try
         {
             await context.Database.EnsureDeletedAsync();
-            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(2);
+            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(3);
 
             await context.Database.MigrateAsync();
 
-            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(2);
+            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(3);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
             context.Database.HasPendingModelChanges().Should().BeFalse();
 

@@ -21,8 +21,8 @@ public static class DemoDataDefinition
             new DemoMetadata(
                 "demo",
                 "frontend-demo-v1",
-                true,
-                "DEMO DATA ONLY - fictional records for local frontend development; never use in production.",
+                false,
+                "DEMO DATA ONLY - fictional records isolated in the Demo partition; never use as real customer data.",
                 BaseTime),
             CreateBusinessUsers(companies),
             companies,
@@ -117,7 +117,62 @@ public static class DemoDataDefinition
                 Offering(12, 3, 4, 5, "Motorcycle Care", "عناية دراجة نارية تجريبية", "טיפול באופנוע ניסיוני", 30m, 30)
             ]);
 
-        return [company1, company2, company3];
+        var company4 = new DemoCompany(
+            Id('c', 4),
+            "[DEMO] City Shine Express",
+            "[DEMO] سيتي شاين إكسبرس التجريبية",
+            "[DEMO] סיטי שיין אקספרס ניסיוני",
+            9,
+            [
+                Branch(6, 4, "[DEMO] Jenin Center", "[DEMO] فرع جنين التجريبي", "[DEMO] סניף ג'נין ניסיוני", 32.4618, 35.3009),
+                Branch(7, 4, "[DEMO] Qalqilya West", "[DEMO] فرع قلقيلية التجريبي", "[DEMO] סניף קלקיליה ניסיוני", 32.1892, 34.9706)
+            ],
+            [
+                Category(5, 4, "Express Care", "عناية سريعة تجريبية", "טיפול מהיר ניסיוני")
+            ],
+            [
+                Offering(13, 4, 5, 6, "Express Wash", "غسيل سريع تجريبي", "שטיפה מהירה ניסיונית", 22m, 20),
+                Offering(14, 4, 5, 6, "Wash and Vacuum", "غسيل وشفط تجريبي", "שטיפה ושאיבה ניסיונית", 42m, 40,
+                    Group(7, 14, "Vacuum level", "مستوى الشفط", "רמת שאיבה", "SingleChoice", true, 1, 1,
+                        Choice(19, 7, "Standard", "عادي", "רגיל", 0m, 0),
+                        Choice(20, 7, "Deep", "عميق", "עמוק", 10m, 10),
+                        Choice(21, 7, "Pet hair", "شعر حيوانات", "שיער בעלי חיים", 18m, 15))),
+                Offering(15, 4, 5, 7, "Dashboard Care", "عناية لوحة القيادة تجريبية", "טיפול בלוח מחוונים ניסיוני", 28m, 25),
+                Offering(16, 4, 5, 7, "Family Car Package", "باقة السيارة العائلية التجريبية", "חבילת רכב משפחתי ניסיונית", 82m, 85,
+                    Group(8, 16, "Family extras", "إضافات عائلية", "תוספות משפחתיות", "MultipleChoice", false, 0, 3,
+                        Choice(22, 8, "Child seat clean", "تنظيف مقعد طفل", "ניקוי מושב ילד", 8m, 10),
+                        Choice(23, 8, "Trunk vacuum", "شفط الصندوق", "שאיבת תא מטען", 7m, 8),
+                        Choice(24, 8, "Sanitizing", "تعقيم", "חיטוי", 12m, 10)))
+            ]);
+
+        var company5 = new DemoCompany(
+            Id('c', 5),
+            "[DEMO] Royal Auto Spa",
+            "[DEMO] رويال أوتو سبا التجريبية",
+            "[DEMO] רויאל אוטו ספא ניסיוני",
+            6,
+            [
+                Branch(8, 5, "[DEMO] Bethlehem", "[DEMO] فرع بيت لحم التجريبي", "[DEMO] סניף בית לחם ניסיוני", 31.7054, 35.2024)
+            ],
+            [
+                Category(6, 5, "Premium Care", "عناية فاخرة تجريبية", "טיפול פרימיום ניסיוני")
+            ],
+            [
+                Offering(17, 5, 6, 8, "Executive Wash", "غسيل تنفيذي تجريبي", "שטיפה מנהלים ניסיונית", 75m, 70),
+                Offering(18, 5, 6, 8, "Leather Treatment", "معالجة جلد تجريبية", "טיפול עור ניסיוני", 95m, 80,
+                    Group(9, 18, "Leather condition", "حالة الجلد", "מצב העור", "SegmentedSingleButtonChoice", true, 1, 1,
+                        Choice(25, 9, "Light care", "عناية خفيفة", "טיפול קל", 0m, 0),
+                        Choice(26, 9, "Conditioning", "ترطيب", "ריכוך", 20m, 15),
+                        Choice(27, 9, "Restoration", "ترميم", "שיקום", 55m, 40))),
+                Offering(19, 5, 6, 8, "Paint Correction", "تصحيح طلاء تجريبي", "תיקון צבע ניסיוני", 210m, 240),
+                Offering(20, 5, 6, 8, "Event Ready Package", "باقة جاهزية للمناسبات التجريبية", "חבילת הכנה לאירוע ניסיונית", 165m, 170,
+                    Group(10, 20, "Final finish", "اللمسة النهائية", "גימור סופי", "SingleChoice", true, 1, 1,
+                        Choice(28, 10, "Gloss", "لامع", "מבריק", 0m, 0),
+                        Choice(29, 10, "Satin", "ساتان", "סאטן", 10m, 5),
+                        Choice(30, 10, "Show finish", "لمسة عرض", "גימור תצוגה", 30m, 20)))
+            ]);
+
+        return [company1, company2, company3, company4, company5];
     }
 
     private static List<DemoCustomer> CreateCustomers() =>
@@ -126,7 +181,10 @@ public static class DemoDataDefinition
         Customer(2, "Omar Demo", "omar.demo@example.test", "+972555000102", 1, 2, 2),
         Customer(3, "Lina Demo", "lina.demo@example.test", "+972555000103", 1, 2, 2),
         Customer(4, "Sami Demo", "sami.demo@example.test", "+972555000104", 1, 1, 1),
-        Customer(5, "Noor Demo", "noor.demo@example.test", "+972555000105", 1, 1, 1)
+        Customer(5, "Noor Demo", "noor.demo@example.test", "+972555000105", 1, 1, 1),
+        Customer(6, "Yousef Demo", "yousef.demo@example.test", "+972555000106", 2, 2, 2),
+        Customer(7, "Rana Demo", "rana.demo@example.test", "+972555000107", 1, 2, 1),
+        Customer(8, "Adam Demo", "adam.demo@example.test", "+972555000108", 1, 1, 2)
     ];
 
     private static List<DemoBusinessUser> CreateBusinessUsers(IReadOnlyList<DemoCompany> companies) =>
@@ -135,7 +193,10 @@ public static class DemoDataDefinition
         new(Id('q', 2), "[DEMO] Blue Wave Owner", "owner.bluewave@example.test", "Demo123!", "Owner", companies[1].Id, null),
         new(Id('q', 3), "[DEMO] Green Garage Owner", "owner.green@example.test", "Demo123!", "Owner", companies[2].Id, null),
         new(Id('q', 4), "[DEMO] Ramallah Employee", "employee.ramallah@example.test", "Demo123!", "Employee", companies[0].Id, companies[0].Branches[0].Id),
-        new(Id('q', 5), "[DEMO] Nablus Employee", "employee.nablus@example.test", "Demo123!", "Employee", companies[1].Id, companies[1].Branches[0].Id)
+        new(Id('q', 5), "[DEMO] Nablus Employee", "employee.nablus@example.test", "Demo123!", "Employee", companies[1].Id, companies[1].Branches[0].Id),
+        new(Id('q', 6), "[DEMO] City Shine Owner", "owner.cityshine@example.test", "Demo123!", "Owner", companies[3].Id, null),
+        new(Id('q', 7), "[DEMO] Royal Auto Spa Owner", "owner.royal@example.test", "Demo123!", "Owner", companies[4].Id, null),
+        new(Id('q', 8), "[DEMO] Jenin Employee", "employee.jenin@example.test", "Demo123!", "Employee", companies[3].Id, companies[3].Branches[0].Id)
     ];
 
     private static List<DemoDraft> CreateDrafts(
@@ -148,7 +209,9 @@ public static class DemoDataDefinition
             Draft(1, customers[0].Devices[0].Id, companies[0].Id, companies[0].Branches[0].Id, "priced", false, BaseTime.AddDays(1), offeringIds[0], offeringIds[2]),
             Draft(2, customers[1].Devices[0].Id, companies[1].Id, companies[1].Branches[0].Id, "needsReprice", true, BaseTime.AddDays(2), offeringIds[5]),
             Draft(3, customers[2].Devices[0].Id, companies[2].Id, companies[2].Branches[0].Id, "active", true, BaseTime.AddDays(3), offeringIds[9]),
-            Draft(4, customers[3].Devices[0].Id, companies[0].Id, companies[0].Branches[1].Id, "expired", true, BaseTime.AddDays(-2), offeringIds[3])
+            Draft(4, customers[3].Devices[0].Id, companies[0].Id, companies[0].Branches[1].Id, "expired", true, BaseTime.AddDays(-2), offeringIds[3]),
+            Draft(5, customers[5].Devices[0].Id, companies[3].Id, companies[3].Branches[0].Id, "priced", false, BaseTime.AddDays(4), offeringIds[13], offeringIds[15]),
+            Draft(6, customers[7].Devices[0].Id, companies[4].Id, companies[4].Branches[0].Id, "active", true, BaseTime.AddDays(5), offeringIds[17])
         ];
     }
 
@@ -156,8 +219,8 @@ public static class DemoDataDefinition
         IReadOnlyList<DemoCompany> companies,
         IReadOnlyList<DemoCustomer> customers)
     {
-        var statuses = new[] { "Pending", "Confirmed", "InProgress", "Completed", "Cancelled", "NoShow", "Completed", "Confirmed" };
-        var paymentStatuses = new string?[] { null, "Pending", null, "Completed", "Failed", null, "Refunded", "Completed" };
+        var statuses = new[] { "Pending", "Confirmed", "InProgress", "Completed", "Cancelled", "NoShow", "Completed", "Confirmed", "Pending", "InProgress", "Completed", "Cancelled" };
+        var paymentStatuses = new string?[] { null, "Pending", null, "Completed", "Failed", null, "Refunded", "Completed", "Pending", null, "Completed", "Failed" };
         var result = new List<DemoBooking>();
         for (var index = 0; index < statuses.Length; index++)
         {

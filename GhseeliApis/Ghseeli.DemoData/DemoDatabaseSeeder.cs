@@ -1,10 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
 using GhseeliApis.Constants;
+using GhseeliApis.DataPartitioning;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using GhseeliApis.Models;
 using GhseeliApis.Models.Enums;
 using GhseeliApis.Persistence;
@@ -21,6 +24,12 @@ public sealed record DemoSeedResult(
     bool AlreadySeeded,
     int CompanyCount,
     int CustomerCount,
+    int CustomerBookingCount,
+    int BusinessReservationCount);
+
+public sealed record DemoCleanupResult(
+    int CustomerCount,
+    int CompanyCount,
     int CustomerBookingCount,
     int BusinessReservationCount);
 
@@ -42,8 +51,12 @@ public static class DemoDatabaseSeeder
             .UseSqlServer(customerConnectionString)
             .Options;
 
-        await using var business = new BusinessDbContext(businessOptions);
-        await using var customer = new ApplicationDbContext(customerOptions);
+        var businessPartition = new BusinessDataPartitionContext();
+        businessPartition.SetTrustedPartition(DataPartitionNames.Demo);
+        var customerPartition = new CustomerDataPartitionContext();
+        customerPartition.SetTrustedPartition(DataPartitionNames.Demo);
+        await using var business = new BusinessDbContext(businessOptions, businessPartition);
+        await using var customer = new ApplicationDbContext(customerOptions, customerPartition);
         await business.Database.MigrateAsync(cancellationToken);
         await customer.Database.MigrateAsync(cancellationToken);
 
@@ -113,6 +126,83 @@ public static class DemoDatabaseSeeder
             customerCount,
             customerReferences.Count,
             businessReferences.Count);
+    }
+
+    public static async Task<DemoCleanupResult> CleanupAsync(
+        string customerConnectionString,
+        string businessConnectionString,
+        CancellationToken cancellationToken = default)
+    {
+        DemoConnectionGuard.Validate(customerConnectionString);
+        DemoConnectionGuard.Validate(businessConnectionString);
+        var data = DemoDataDefinition.Create();
+        var businessPartition = new BusinessDataPartitionContext();
+        businessPartition.SetTrustedPartition(DataPartitionNames.Demo);
+        var customerPartition = new CustomerDataPartitionContext();
+        customerPartition.SetTrustedPartition(DataPartitionNames.Demo);
+        await using var business = new BusinessDbContext(
+            new DbContextOptionsBuilder<BusinessDbContext>()
+                .UseSqlServer(businessConnectionString)
+                .Options,
+            businessPartition);
+        await using var customer = new ApplicationDbContext(
+            new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(customerConnectionString)
+                .Options,
+            customerPartition);
+
+        var customerBookingIds = data.Bookings
+            .Select(value => StableId("customer-booking", value.CustomerReferenceId))
+            .ToArray();
+        var draftIds = data.Drafts.Select(value => value.Id).ToArray();
+        var providerIds = data.Companies.Select(value => value.Id).ToArray();
+        var deviceIds = data.Customers
+            .SelectMany(value => value.Devices)
+            .Select(value => value.Id)
+            .ToArray();
+        var customerIds = data.Customers.Select(value => value.Id).ToArray();
+        var reservationIds = data.Bookings
+            .Select(value => value.BusinessReservationId)
+            .ToArray();
+        var businessUserIds = data.BusinessUsers.Select(value => value.Id).ToArray();
+
+        await customer.CustomerPayments
+            .Where(value => customerBookingIds.Contains(value.CustomerBookingId))
+            .ExecuteDeleteAsync(cancellationToken);
+        var deletedCustomerBookings = await customer.CustomerBookings
+            .Where(value => value.IsDemo && customerBookingIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        await customer.CheckoutDrafts
+            .Where(value => value.IsDemo && draftIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        await customer.CatalogProviders
+            .Where(value => value.IsDemo && providerIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        await customer.CustomerOtpChallenges
+            .Where(value => value.IsDemo)
+            .ExecuteDeleteAsync(cancellationToken);
+        await customer.CustomerDevices
+            .Where(value => value.IsDemo && deviceIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        var deletedCustomers = await customer.Users
+            .Where(value => value.IsDemo && customerIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        var deletedReservations = await business.AppointmentReservations
+            .Where(value => value.IsDemo && reservationIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        var deletedCompanies = await business.Companies
+            .Where(value => value.IsDemo && providerIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+        await business.Users
+            .Where(value => value.IsDemo && businessUserIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        return new(
+            deletedCustomers,
+            deletedCompanies,
+            deletedCustomerBookings,
+            deletedReservations);
     }
 
     private static async Task SeedBusinessAsync(
@@ -301,14 +391,25 @@ public static class DemoDatabaseSeeder
             [BusinessRoles.Owner] = StableId("business-role", Guid.Parse("00000000-0000-0000-0000-000000000001")),
             [BusinessRoles.Employee] = StableId("business-role", Guid.Parse("00000000-0000-0000-0000-000000000002"))
         };
-        foreach (var role in businessRoles)
+        foreach (var roleName in businessRoles.Keys.ToArray())
         {
+            var normalizedName = roleName.ToUpperInvariant();
+            var existingRoleId = await context.Roles
+                .Where(value => value.NormalizedName == normalizedName)
+                .Select(value => (Guid?)value.Id)
+                .SingleOrDefaultAsync(cancellationToken);
+            if (existingRoleId.HasValue)
+            {
+                businessRoles[roleName] = existingRoleId.Value;
+                continue;
+            }
+            var roleId = businessRoles[roleName];
             context.Roles.Add(new IdentityRole<Guid>
             {
-                Id = role.Value,
-                Name = role.Key,
-                NormalizedName = role.Key.ToUpperInvariant(),
-                ConcurrencyStamp = StableId("business-role-stamp", role.Value).ToString("N")
+                Id = roleId,
+                Name = roleName,
+                NormalizedName = normalizedName,
+                ConcurrencyStamp = StableId("business-role-stamp", roleId).ToString("N")
             });
         }
 
@@ -413,14 +514,24 @@ public static class DemoDatabaseSeeder
         var now = data.Metadata.GeneratedAtUtc;
         var refreshedAt = DateTimeOffset.UtcNow;
         var passwordHasher = new PasswordHasher<CustomerUser>();
-        var roleId = StableId("customer-role", Guid.Parse("00000000-0000-0000-0000-000000000001"));
-        context.Roles.Add(new IdentityRole<Guid>
+        var normalizedRoleName = AppRoles.User.ToUpperInvariant();
+        var roleId = await context.Roles
+            .Where(value => value.NormalizedName == normalizedRoleName)
+            .Select(value => (Guid?)value.Id)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? StableId(
+                "customer-role",
+                Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        if (!await context.Roles.AnyAsync(value => value.Id == roleId, cancellationToken))
         {
-            Id = roleId,
-            Name = AppRoles.User,
-            NormalizedName = AppRoles.User.ToUpperInvariant(),
-            ConcurrencyStamp = StableId("customer-role-stamp", roleId).ToString("N")
-        });
+            context.Roles.Add(new IdentityRole<Guid>
+            {
+                Id = roleId,
+                Name = AppRoles.User,
+                NormalizedName = normalizedRoleName,
+                ConcurrencyStamp = StableId("customer-role-stamp", roleId).ToString("N")
+            });
+        }
 
         foreach (var customer in data.Customers)
         {

@@ -1,10 +1,12 @@
 using Ghseeli.Common.Logging;
 using Ghseeli.IntegrationContracts.Bookings;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.DataPartitioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Data;
@@ -66,7 +68,8 @@ public sealed class CustomerInternalServiceMiddleware
         IAppLogger logger,
         ICustomerInternalIdempotencyCleanupService cleanupService,
         ICustomerInternalIdempotencyLeaseService leaseService,
-        IServiceScopeFactory scopeFactory)
+        IServiceScopeFactory scopeFactory,
+        ICustomerDataPartitionContext dataPartition)
     {
         var operation = context.GetEndpoint()?
             .Metadata.GetMetadata<CustomerInternalOperationAttribute>()?.Operation;
@@ -190,6 +193,22 @@ public sealed class CustomerInternalServiceMiddleware
             await RejectAsync(context, 401, InternalServiceProblemCodes.InvalidSignature, operation);
             return;
         }
+
+        var partition = context.Request.Query.TryGetValue(
+            DataPartitionNames.QueryParameter,
+            out var partitionValues)
+            ? partitionValues.ToString()
+            : DataPartitionNames.Production;
+        if (!DataPartitionNames.IsSupported(partition))
+        {
+            await RejectAsync(
+                context,
+                400,
+                InternalServiceProblemCodes.InvalidSignature,
+                operation);
+            return;
+        }
+        dataPartition.SetTrustedPartition(partition);
 
         if (!await TryAcceptNonceAsync(
                 dbContext, serviceId, nonce, now, options, context.RequestAborted))

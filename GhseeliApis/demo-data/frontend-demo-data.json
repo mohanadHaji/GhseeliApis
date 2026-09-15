@@ -2,8 +2,8 @@
   "metadata": {
     "datasetType": "demo",
     "version": "frontend-demo-v1",
-    "localDevelopmentOnly": true,
-    "warning": "DEMO DATA ONLY - fictional records for local frontend development; never use in production.",
+    "localDevelopmentOnly": false,
+    "warning": "DEMO DATA ONLY - fictional records isolated in the Demo partition; never use as real customer data.",
     "generatedAtUtc": "2026-09-15T09:00:00+00:00"
   },
   "businessUsers": [
@@ -51,6 +51,33 @@
       "role": "Employee",
       "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
       "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32"
+    },
+    {
+      "id": "34817a72-ee36-2a7d-e34b-43315dede7b1",
+      "fullName": "[DEMO] City Shine Owner",
+      "email": "owner.cityshine@example.test",
+      "password": "Demo123!",
+      "role": "Owner",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "branchId": null
+    },
+    {
+      "id": "8da73e41-dd82-c307-281e-35f82cda9155",
+      "fullName": "[DEMO] Royal Auto Spa Owner",
+      "email": "owner.royal@example.test",
+      "password": "Demo123!",
+      "role": "Owner",
+      "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "branchId": null
+    },
+    {
+      "id": "1cbdfae4-f474-8b81-e2e7-e2c21353e869",
+      "fullName": "[DEMO] Jenin Employee",
+      "email": "employee.jenin@example.test",
+      "password": "Demo123!",
+      "role": "Employee",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "branchId": "62af6257-081e-c787-e9a6-0347b995bedf"
     }
   ],
   "companies": [
@@ -610,6 +637,368 @@
           "addonGroups": []
         }
       ]
+    },
+    {
+      "id": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "nameEn": "[DEMO] City Shine Express",
+      "nameAr": "[DEMO] \u0633\u064A\u062A\u064A \u0634\u0627\u064A\u0646 \u0625\u0643\u0633\u0628\u0631\u0633 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+      "nameHe": "[DEMO] \u05E1\u05D9\u05D8\u05D9 \u05E9\u05D9\u05D9\u05DF \u05D0\u05E7\u05E1\u05E4\u05E8\u05E1 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+      "catalogVersion": 9,
+      "branches": [
+        {
+          "id": "62af6257-081e-c787-e9a6-0347b995bedf",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "nameEn": "[DEMO] Jenin Center",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u062C\u0646\u064A\u0646 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05D2\u0027\u05E0\u05D9\u05DF \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 6",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 6",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 6",
+          "latitude": 32.4618,
+          "longitude": 35.3009,
+          "serviceRadiusKm": 24,
+          "timeZoneId": "Asia/Jerusalem"
+        },
+        {
+          "id": "37381b43-f2bc-bf10-b80f-470b6fcdccc4",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "nameEn": "[DEMO] Qalqilya West",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0642\u0644\u0642\u064A\u0644\u064A\u0629 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05E7\u05DC\u05E7\u05D9\u05DC\u05D9\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 7",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 7",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 7",
+          "latitude": 32.1892,
+          "longitude": 34.9706,
+          "serviceRadiusKm": 25,
+          "timeZoneId": "Asia/Jerusalem"
+        }
+      ],
+      "categories": [
+        {
+          "id": "8385ada5-b3f9-ce32-39bc-9daee8b76aa5",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "nameEn": "Express Care",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0633\u0631\u064A\u0639\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+        }
+      ],
+      "offerings": [
+        {
+          "id": "834b47c2-b4da-ef89-c521-4e79b645f6a1",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "categoryId": "8385ada5-b3f9-ce32-39bc-9daee8b76aa5",
+          "branchId": "62af6257-081e-c787-e9a6-0347b995bedf",
+          "referenceCode": "DEMO-SVC-013",
+          "nameEn": "Express Wash",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 22,
+          "durationMinutes": 20,
+          "addonGroups": []
+        },
+        {
+          "id": "6f587072-bbfa-681e-b8ca-23cf406987c1",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "categoryId": "8385ada5-b3f9-ce32-39bc-9daee8b76aa5",
+          "branchId": "62af6257-081e-c787-e9a6-0347b995bedf",
+          "referenceCode": "DEMO-SVC-014",
+          "nameEn": "Wash and Vacuum",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0648\u0634\u0641\u0637 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D5\u05E9\u05D0\u05D9\u05D1\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 42,
+          "durationMinutes": 40,
+          "addonGroups": [
+            {
+              "id": "b761bb4c-8fb0-db52-bac1-87728656d656",
+              "offeringId": "6f587072-bbfa-681e-b8ca-23cf406987c1",
+              "nameEn": "Vacuum level",
+              "nameAr": "\u0645\u0633\u062A\u0648\u0649 \u0627\u0644\u0634\u0641\u0637",
+              "nameHe": "\u05E8\u05DE\u05EA \u05E9\u05D0\u05D9\u05D1\u05D4",
+              "selectionType": "SingleChoice",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "b9173756-55fc-e4fe-a968-916d7fb79423",
+                  "addonGroupId": "b761bb4c-8fb0-db52-bac1-87728656d656",
+                  "nameEn": "Standard",
+                  "nameAr": "\u0639\u0627\u062F\u064A",
+                  "nameHe": "\u05E8\u05D2\u05D9\u05DC",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "28560789-0ee8-247f-397b-06210945cfdd",
+                  "addonGroupId": "b761bb4c-8fb0-db52-bac1-87728656d656",
+                  "nameEn": "Deep",
+                  "nameAr": "\u0639\u0645\u064A\u0642",
+                  "nameHe": "\u05E2\u05DE\u05D5\u05E7",
+                  "priceAdjustment": 10,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "ff12fca7-be59-a701-c361-72316a145626",
+                  "addonGroupId": "b761bb4c-8fb0-db52-bac1-87728656d656",
+                  "nameEn": "Pet hair",
+                  "nameAr": "\u0634\u0639\u0631 \u062D\u064A\u0648\u0627\u0646\u0627\u062A",
+                  "nameHe": "\u05E9\u05D9\u05E2\u05E8 \u05D1\u05E2\u05DC\u05D9 \u05D7\u05D9\u05D9\u05DD",
+                  "priceAdjustment": 18,
+                  "durationAdjustmentMinutes": 15,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "1556239c-b75d-853f-a72f-4c2ae5250d37",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "categoryId": "8385ada5-b3f9-ce32-39bc-9daee8b76aa5",
+          "branchId": "37381b43-f2bc-bf10-b80f-470b6fcdccc4",
+          "referenceCode": "DEMO-SVC-015",
+          "nameEn": "Dashboard Care",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0644\u0648\u062D\u0629 \u0627\u0644\u0642\u064A\u0627\u062F\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05DC\u05D5\u05D7 \u05DE\u05D7\u05D5\u05D5\u05E0\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 28,
+          "durationMinutes": 25,
+          "addonGroups": []
+        },
+        {
+          "id": "d79d2f52-fa9a-e95c-501c-f81a017df02b",
+          "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+          "categoryId": "8385ada5-b3f9-ce32-39bc-9daee8b76aa5",
+          "branchId": "37381b43-f2bc-bf10-b80f-470b6fcdccc4",
+          "referenceCode": "DEMO-SVC-016",
+          "nameEn": "Family Car Package",
+          "nameAr": "\u0628\u0627\u0642\u0629 \u0627\u0644\u0633\u064A\u0627\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D7\u05D1\u05D9\u05DC\u05EA \u05E8\u05DB\u05D1 \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 82,
+          "durationMinutes": 85,
+          "addonGroups": [
+            {
+              "id": "4824352e-2e5b-1f27-d33e-7cd76a7236d2",
+              "offeringId": "d79d2f52-fa9a-e95c-501c-f81a017df02b",
+              "nameEn": "Family extras",
+              "nameAr": "\u0625\u0636\u0627\u0641\u0627\u062A \u0639\u0627\u0626\u0644\u064A\u0629",
+              "nameHe": "\u05EA\u05D5\u05E1\u05E4\u05D5\u05EA \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9\u05D5\u05EA",
+              "selectionType": "MultipleChoice",
+              "isRequired": false,
+              "minimumSelections": 0,
+              "maximumSelections": 3,
+              "choices": [
+                {
+                  "id": "00b7f9eb-4eea-0d98-ae91-3db1309c5082",
+                  "addonGroupId": "4824352e-2e5b-1f27-d33e-7cd76a7236d2",
+                  "nameEn": "Child seat clean",
+                  "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u0645\u0642\u0639\u062F \u0637\u0641\u0644",
+                  "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05DE\u05D5\u05E9\u05D1 \u05D9\u05DC\u05D3",
+                  "priceAdjustment": 8,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "8a6aebdb-d5d1-5a84-e512-8401c79262bd",
+                  "addonGroupId": "4824352e-2e5b-1f27-d33e-7cd76a7236d2",
+                  "nameEn": "Trunk vacuum",
+                  "nameAr": "\u0634\u0641\u0637 \u0627\u0644\u0635\u0646\u062F\u0648\u0642",
+                  "nameHe": "\u05E9\u05D0\u05D9\u05D1\u05EA \u05EA\u05D0 \u05DE\u05D8\u05E2\u05DF",
+                  "priceAdjustment": 7,
+                  "durationAdjustmentMinutes": 8,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "a22e71c6-d5a2-7e65-9310-f91590b12f3a",
+                  "addonGroupId": "4824352e-2e5b-1f27-d33e-7cd76a7236d2",
+                  "nameEn": "Sanitizing",
+                  "nameAr": "\u062A\u0639\u0642\u064A\u0645",
+                  "nameHe": "\u05D7\u05D9\u05D8\u05D5\u05D9",
+                  "priceAdjustment": 12,
+                  "durationAdjustmentMinutes": 10,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "nameEn": "[DEMO] Royal Auto Spa",
+      "nameAr": "[DEMO] \u0631\u0648\u064A\u0627\u0644 \u0623\u0648\u062A\u0648 \u0633\u0628\u0627 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+      "nameHe": "[DEMO] \u05E8\u05D5\u05D9\u05D0\u05DC \u05D0\u05D5\u05D8\u05D5 \u05E1\u05E4\u05D0 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+      "catalogVersion": 6,
+      "branches": [
+        {
+          "id": "e29577ec-f755-dd14-0074-b399963e3567",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "nameEn": "[DEMO] Bethlehem",
+          "nameAr": "[DEMO] \u0641\u0631\u0639 \u0628\u064A\u062A \u0644\u062D\u0645 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "[DEMO] \u05E1\u05E0\u05D9\u05E3 \u05D1\u05D9\u05EA \u05DC\u05D7\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "addressEn": "[DEMO] Address 8",
+          "addressAr": "\u0639\u0646\u0648\u0627\u0646 \u062A\u062C\u0631\u064A\u0628\u064A 8",
+          "addressHe": "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA 8",
+          "latitude": 31.7054,
+          "longitude": 35.2024,
+          "serviceRadiusKm": 26,
+          "timeZoneId": "Asia/Jerusalem"
+        }
+      ],
+      "categories": [
+        {
+          "id": "7be9b034-ec98-d436-ebcd-c4e0f36b8073",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "nameEn": "Premium Care",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0641\u0627\u062E\u0631\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+        }
+      ],
+      "offerings": [
+        {
+          "id": "767050d2-4f42-5075-eb90-035032c21a4f",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "categoryId": "7be9b034-ec98-d436-ebcd-c4e0f36b8073",
+          "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+          "referenceCode": "DEMO-SVC-017",
+          "nameEn": "Executive Wash",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062A\u0646\u0641\u064A\u0630\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05E0\u05D4\u05DC\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 75,
+          "durationMinutes": 70,
+          "addonGroups": []
+        },
+        {
+          "id": "113a4a49-cd94-a8a2-859d-f105a79bcc8b",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "categoryId": "7be9b034-ec98-d436-ebcd-c4e0f36b8073",
+          "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+          "referenceCode": "DEMO-SVC-018",
+          "nameEn": "Leather Treatment",
+          "nameAr": "\u0645\u0639\u0627\u0644\u062C\u0629 \u062C\u0644\u062F \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E2\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 95,
+          "durationMinutes": 80,
+          "addonGroups": [
+            {
+              "id": "35dab202-3943-c6b9-5b14-c6f5f4edf4cd",
+              "offeringId": "113a4a49-cd94-a8a2-859d-f105a79bcc8b",
+              "nameEn": "Leather condition",
+              "nameAr": "\u062D\u0627\u0644\u0629 \u0627\u0644\u062C\u0644\u062F",
+              "nameHe": "\u05DE\u05E6\u05D1 \u05D4\u05E2\u05D5\u05E8",
+              "selectionType": "SegmentedSingleButtonChoice",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "570c655f-1094-c851-3897-0f27df5bbcad",
+                  "addonGroupId": "35dab202-3943-c6b9-5b14-c6f5f4edf4cd",
+                  "nameEn": "Light care",
+                  "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u062E\u0641\u064A\u0641\u0629",
+                  "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E7\u05DC",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "eeeddc68-a178-3843-072b-621e416df3f2",
+                  "addonGroupId": "35dab202-3943-c6b9-5b14-c6f5f4edf4cd",
+                  "nameEn": "Conditioning",
+                  "nameAr": "\u062A\u0631\u0637\u064A\u0628",
+                  "nameHe": "\u05E8\u05D9\u05DB\u05D5\u05DA",
+                  "priceAdjustment": 20,
+                  "durationAdjustmentMinutes": 15,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "230cd194-a3cc-ed52-ffa2-329f498dac82",
+                  "addonGroupId": "35dab202-3943-c6b9-5b14-c6f5f4edf4cd",
+                  "nameEn": "Restoration",
+                  "nameAr": "\u062A\u0631\u0645\u064A\u0645",
+                  "nameHe": "\u05E9\u05D9\u05E7\u05D5\u05DD",
+                  "priceAdjustment": 55,
+                  "durationAdjustmentMinutes": 40,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "f9c64b73-bc91-37ed-8071-273d2f8ebec9",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "categoryId": "7be9b034-ec98-d436-ebcd-c4e0f36b8073",
+          "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+          "referenceCode": "DEMO-SVC-019",
+          "nameEn": "Paint Correction",
+          "nameAr": "\u062A\u0635\u062D\u064A\u062D \u0637\u0644\u0627\u0621 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05EA\u05D9\u05E7\u05D5\u05DF \u05E6\u05D1\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "basePrice": 210,
+          "durationMinutes": 240,
+          "addonGroups": []
+        },
+        {
+          "id": "8de380f7-bfb1-428f-4eac-7435bfa94c2f",
+          "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+          "categoryId": "7be9b034-ec98-d436-ebcd-c4e0f36b8073",
+          "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+          "referenceCode": "DEMO-SVC-020",
+          "nameEn": "Event Ready Package",
+          "nameAr": "\u0628\u0627\u0642\u0629 \u062C\u0627\u0647\u0632\u064A\u0629 \u0644\u0644\u0645\u0646\u0627\u0633\u0628\u0627\u062A \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D7\u05D1\u05D9\u05DC\u05EA \u05D4\u05DB\u05E0\u05D4 \u05DC\u05D0\u05D9\u05E8\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "basePrice": 165,
+          "durationMinutes": 170,
+          "addonGroups": [
+            {
+              "id": "d75bae8d-2e72-4d35-6abd-f7b3837645ee",
+              "offeringId": "8de380f7-bfb1-428f-4eac-7435bfa94c2f",
+              "nameEn": "Final finish",
+              "nameAr": "\u0627\u0644\u0644\u0645\u0633\u0629 \u0627\u0644\u0646\u0647\u0627\u0626\u064A\u0629",
+              "nameHe": "\u05D2\u05D9\u05DE\u05D5\u05E8 \u05E1\u05D5\u05E4\u05D9",
+              "selectionType": "SingleChoice",
+              "isRequired": true,
+              "minimumSelections": 1,
+              "maximumSelections": 1,
+              "choices": [
+                {
+                  "id": "7585a094-a2d1-bd3b-c5a3-c67444d574de",
+                  "addonGroupId": "d75bae8d-2e72-4d35-6abd-f7b3837645ee",
+                  "nameEn": "Gloss",
+                  "nameAr": "\u0644\u0627\u0645\u0639",
+                  "nameHe": "\u05DE\u05D1\u05E8\u05D9\u05E7",
+                  "priceAdjustment": 0,
+                  "durationAdjustmentMinutes": 0,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "f88f61a5-6bf1-7217-65b9-7af0421b2544",
+                  "addonGroupId": "d75bae8d-2e72-4d35-6abd-f7b3837645ee",
+                  "nameEn": "Satin",
+                  "nameAr": "\u0633\u0627\u062A\u0627\u0646",
+                  "nameHe": "\u05E1\u05D0\u05D8\u05DF",
+                  "priceAdjustment": 10,
+                  "durationAdjustmentMinutes": 5,
+                  "defaultQuantity": 1
+                },
+                {
+                  "id": "d891141d-1b0c-31f5-5de2-7ff16ef6e777",
+                  "addonGroupId": "d75bae8d-2e72-4d35-6abd-f7b3837645ee",
+                  "nameEn": "Show finish",
+                  "nameAr": "\u0644\u0645\u0633\u0629 \u0639\u0631\u0636",
+                  "nameHe": "\u05D2\u05D9\u05DE\u05D5\u05E8 \u05EA\u05E6\u05D5\u05D2\u05D4",
+                  "priceAdjustment": 30,
+                  "durationAdjustmentMinutes": 20,
+                  "defaultQuantity": 1
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "customers": [
@@ -852,6 +1241,162 @@
           "isPrimary": true
         }
       ]
+    },
+    {
+      "id": "290aa022-a173-7486-00dd-0ad4f18875d9",
+      "fullName": "[DEMO] Yousef Demo",
+      "email": "yousef.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000106",
+      "devices": [
+        {
+          "id": "c1c2ebea-d3d0-58bd-af2e-a87db20bc30f",
+          "installationId": "d9d9eefc-a6bc-a3bd-379f-11e1f5feaeea",
+          "platform": "android",
+          "appVersion": "1.6.1",
+          "token": "ZcF_Bv9rTsDVqepWCSQ6MYQAG252A1KEbrKHIEoat-4",
+          "isActive": true
+        },
+        {
+          "id": "7a5427db-eb6d-53cc-63dc-a09bd203fac1",
+          "installationId": "035d3ea1-a931-8dcb-6fc3-5af54b41b852",
+          "platform": "ios",
+          "appVersion": "1.6.2",
+          "token": "C66ztZVliH3dPqN0lkGm4fLYp1-9KqRbnzdcq2oWiII",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "e1a6356d-d5de-7e01-7ca3-5aa8dc6c4322",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2021",
+          "licensePlate": "DEMO-601",
+          "color": "Blue"
+        },
+        {
+          "id": "59dd34fd-dd5b-74c9-9d80-865fe0f17211",
+          "make": "Toyota",
+          "model": "Corolla",
+          "year": "2022",
+          "licensePlate": "DEMO-602",
+          "color": "White"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "f6245253-3684-d4e9-04e1-81e3e8b5b26b",
+          "addressLine": "[DEMO] Street 6, Building 1",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.906,
+          "longitude": 35.201,
+          "isPrimary": true
+        },
+        {
+          "id": "db3fcec3-0f04-fe17-6bef-98598e14071f",
+          "addressLine": "[DEMO] Street 6, Building 2",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.906,
+          "longitude": 35.202000000000005,
+          "isPrimary": false
+        }
+      ]
+    },
+    {
+      "id": "65091379-6448-fa18-ecc3-1f2c40abbc93",
+      "fullName": "[DEMO] Rana Demo",
+      "email": "rana.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000107",
+      "devices": [
+        {
+          "id": "34f253f9-3354-5cfc-1a35-3be889554749",
+          "installationId": "81ccfe3b-6788-c355-f815-e4f53aab42a2",
+          "platform": "android",
+          "appVersion": "1.7.1",
+          "token": "w_yVPRfryV0Qtmeuipd-t__Gv_e-fJhRGerFuwE5Vi4",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "ab653ba6-48f2-df31-6ac0-1566888b5324",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2022",
+          "licensePlate": "DEMO-701",
+          "color": "Blue"
+        },
+        {
+          "id": "2fa8ed8a-7f19-cf6e-6788-8ef946253485",
+          "make": "Toyota",
+          "model": "Corolla",
+          "year": "2023",
+          "licensePlate": "DEMO-702",
+          "color": "White"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "7bb14056-e842-8be2-30e5-da7b75dc624e",
+          "addressLine": "[DEMO] Street 7, Building 1",
+          "city": "Al-Bireh",
+          "area": "Demo Area",
+          "latitude": 31.907,
+          "longitude": 35.201,
+          "isPrimary": true
+        }
+      ]
+    },
+    {
+      "id": "9836eecb-7934-b871-3d4a-fb91e85c181c",
+      "fullName": "[DEMO] Adam Demo",
+      "email": "adam.demo@example.test",
+      "password": "Demo123!",
+      "phone": "\u002B972555000108",
+      "devices": [
+        {
+          "id": "3470b92c-a861-75c2-9c6f-fccd89b5282a",
+          "installationId": "42f40217-2e6a-50a0-8a1c-80b06561fc85",
+          "platform": "android",
+          "appVersion": "1.8.1",
+          "token": "jaS6XnGyFm7NQGovIIII31MjqiEG00mE6tw9LRADMZA",
+          "isActive": true
+        }
+      ],
+      "vehicles": [
+        {
+          "id": "f6db34f8-1889-bbf9-ffe8-41297170f7b5",
+          "make": "Hyundai",
+          "model": "Tucson",
+          "year": "2023",
+          "licensePlate": "DEMO-801",
+          "color": "Blue"
+        }
+      ],
+      "addresses": [
+        {
+          "id": "92dca1ac-fce6-0803-df81-72d837a45d40",
+          "addressLine": "[DEMO] Street 8, Building 1",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.907999999999998,
+          "longitude": 35.201,
+          "isPrimary": true
+        },
+        {
+          "id": "745f07fe-3911-de8a-5283-d9ae43ac59de",
+          "addressLine": "[DEMO] Street 8, Building 2",
+          "city": "Ramallah",
+          "area": "Demo Area",
+          "latitude": 31.907999999999998,
+          "longitude": 35.202000000000005,
+          "isPrimary": false
+        }
+      ]
     }
   ],
   "drafts": [
@@ -927,6 +1472,47 @@
       "items": [
         {
           "offeringId": "470891f2-bb36-3db3-d91c-dcdb370464cc",
+          "quantity": 1,
+          "selections": []
+        }
+      ]
+    },
+    {
+      "id": "6a4d1436-8ec9-0f12-508b-6b819081a2cf",
+      "orderGuid": "02d678c5-5431-fbc3-a159-19d17bcaaf53",
+      "deviceId": "c1c2ebea-d3d0-58bd-af2e-a87db20bc30f",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "branchId": "62af6257-081e-c787-e9a6-0347b995bedf",
+      "state": "priced",
+      "requiresReprice": false,
+      "requestedSlotStartUtc": "2026-09-19T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-21T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "6f587072-bbfa-681e-b8ca-23cf406987c1",
+          "quantity": 1,
+          "selections": []
+        },
+        {
+          "offeringId": "d79d2f52-fa9a-e95c-501c-f81a017df02b",
+          "quantity": 2,
+          "selections": []
+        }
+      ]
+    },
+    {
+      "id": "9e4f0077-234f-f17f-938a-17614abc9fd0",
+      "orderGuid": "374bf46b-dd90-4511-656a-0577eeab208c",
+      "deviceId": "3470b92c-a861-75c2-9c6f-fccd89b5282a",
+      "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+      "state": "active",
+      "requiresReprice": true,
+      "requestedSlotStartUtc": "2026-09-20T09:00:00+00:00",
+      "expiresAtUtc": "2026-09-22T09:00:00+00:00",
+      "items": [
+        {
+          "offeringId": "113a4a49-cd94-a8a2-859d-f105a79bcc8b",
           "quantity": 1,
           "selections": []
         }
@@ -1032,29 +1618,29 @@
       "orderGuid": "1aecea5b-34bd-6e6f-466c-000d08ad27cf",
       "customerId": "47c09aba-1a7f-3093-a59a-b79506fe30e0",
       "deviceId": "6cf87d4f-d506-5081-95cf-14ec6a30cab9",
-      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
-      "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "branchId": "37381b43-f2bc-bf10-b80f-470b6fcdccc4",
       "status": "Completed",
       "requestedSlotStartUtc": "2026-09-14T09:00:00+00:00",
       "currency": "ILS",
-      "itemSubtotal": 70,
+      "itemSubtotal": 82,
       "serviceFee": 5,
-      "tax": 12.00,
-      "grandTotal": 87.00,
+      "tax": 13.92,
+      "grandTotal": 100.92,
       "items": [
         {
-          "offeringId": "470891f2-bb36-3db3-d91c-dcdb370464cc",
-          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u0639\u0645\u064A\u0642 \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E2\u05DE\u05D5\u05E7 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
-          "itemSubtotal": 70,
-          "durationMinutes": 75,
+          "offeringId": "d79d2f52-fa9a-e95c-501c-f81a017df02b",
+          "nameAr": "\u0628\u0627\u0642\u0629 \u0627\u0644\u0633\u064A\u0627\u0631\u0629 \u0627\u0644\u0639\u0627\u0626\u0644\u064A\u0629 \u0627\u0644\u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D7\u05D1\u05D9\u05DC\u05EA \u05E8\u05DB\u05D1 \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 82,
+          "durationMinutes": 85,
           "selections": []
         }
       ],
       "payment": {
         "id": "052931bc-a4fe-623d-d117-9a43c2d0e54a",
         "status": "Completed",
-        "amount": 87.00,
+        "amount": 100.92,
         "currency": "ILS",
         "providerReference": "DEMO-LAHZA-004",
         "providerTransactionId": "DEMO-TXN-004"
@@ -1067,29 +1653,29 @@
       "orderGuid": "26c8cb3a-3ee2-56cb-ceb7-5f2ddf93aad6",
       "customerId": "49879090-5875-c455-de5a-932f82bb337c",
       "deviceId": "78938afb-cd80-0406-02f2-7ada01af6c81",
-      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
-      "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+      "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
       "status": "Cancelled",
       "requestedSlotStartUtc": "2026-09-15T09:00:00+00:00",
       "currency": "ILS",
-      "itemSubtotal": 65,
+      "itemSubtotal": 75,
       "serviceFee": 5,
-      "tax": 11.20,
-      "grandTotal": 81.20,
+      "tax": 12.80,
+      "grandTotal": 92.80,
       "items": [
         {
-          "offeringId": "5178c788-7ae8-eaff-f2c8-38c7d890a243",
-          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0633\u0631\u064A\u0639\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
-          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
-          "itemSubtotal": 65,
-          "durationMinutes": 60,
+          "offeringId": "767050d2-4f42-5075-eb90-035032c21a4f",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062A\u0646\u0641\u064A\u0630\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05E0\u05D4\u05DC\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 75,
+          "durationMinutes": 70,
           "selections": []
         }
       ],
       "payment": {
         "id": "b27b1dd0-06ca-5da6-2047-26dd69210248",
         "status": "Failed",
-        "amount": 81.20,
+        "amount": 92.80,
         "currency": "ILS",
         "providerReference": "DEMO-LAHZA-005",
         "providerTransactionId": null
@@ -1100,24 +1686,24 @@
       "businessReservationId": "cd0d4b0d-690d-1644-e0e3-8685b6a68328",
       "businessWorkOrderId": "3300e49c-2fcd-b1d5-79d6-7785e74a8032",
       "orderGuid": "9c620c82-d922-94db-f0d3-2de0597ed0f2",
-      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
-      "deviceId": "e8df0595-27fb-97c6-d128-351b3499e96e",
-      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
-      "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+      "customerId": "290aa022-a173-7486-00dd-0ad4f18875d9",
+      "deviceId": "c1c2ebea-d3d0-58bd-af2e-a87db20bc30f",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "branchId": "fc460982-f690-8e15-f2d0-c471cc9c16a2",
       "status": "NoShow",
       "requestedSlotStartUtc": "2026-09-16T09:00:00+00:00",
       "currency": "ILS",
-      "itemSubtotal": 58,
+      "itemSubtotal": 45,
       "serviceFee": 5,
-      "tax": 10.08,
-      "grandTotal": 73.08,
+      "tax": 8.00,
+      "grandTotal": 58.00,
       "items": [
         {
-          "offeringId": "d01c4421-2562-c899-eb1c-79311269953f",
-          "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u0628\u0627\u0644\u0628\u062E\u0627\u0631 \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D1\u05E7\u05D9\u05D8\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
-          "itemSubtotal": 58,
-          "durationMinutes": 50,
+          "offeringId": "e797b000-90d2-e518-18d9-7eb132e60ee4",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u0641\u0627\u062E\u0631 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 45,
+          "durationMinutes": 40,
           "selections": []
         }
       ],
@@ -1128,12 +1714,145 @@
       "businessReservationId": "618059ac-c359-b2e9-ae26-57c7c089da1c",
       "businessWorkOrderId": "654876a7-45cc-e400-adab-28daca887f8b",
       "orderGuid": "7ddcf759-5389-cdec-2ed5-f5f8c6eeb28b",
+      "customerId": "65091379-6448-fa18-ecc3-1f2c40abbc93",
+      "deviceId": "34f253f9-3354-5cfc-1a35-3be889554749",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "branchId": "6b2b7ff6-bc49-cce1-e571-16f4e1589c32",
+      "status": "Completed",
+      "requestedSlotStartUtc": "2026-09-17T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 40,
+      "serviceFee": 5,
+      "tax": 7.20,
+      "grandTotal": 52.20,
+      "items": [
+        {
+          "offeringId": "4ee1753b-bd10-8bd0-9d42-496b5412593e",
+          "nameAr": "\u062A\u0644\u0645\u064A\u0639 \u0627\u0644\u0645\u0635\u0627\u0628\u064A\u062D \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05DC\u05D9\u05D8\u05D5\u05E9 \u05E4\u05E0\u05E1\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 40,
+          "durationMinutes": 35,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "7a02e01d-b944-0898-eba7-3c8e20cad9ec",
+        "status": "Refunded",
+        "amount": 52.20,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-007",
+        "providerTransactionId": "DEMO-TXN-007"
+      }
+    },
+    {
+      "customerReferenceId": "2350eb42-0b42-bb2c-d4e4-bb145cdb181f",
+      "businessReservationId": "b2ba8b9b-9b73-c82f-c748-575ea3ec9a71",
+      "businessWorkOrderId": "ac5c80dc-6ed8-c9ff-1566-00048904b936",
+      "orderGuid": "8b913cb5-d548-506a-e234-7b1d16b46b7e",
+      "customerId": "9836eecb-7934-b871-3d4a-fb91e85c181c",
+      "deviceId": "3470b92c-a861-75c2-9c6f-fccd89b5282a",
+      "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
+      "branchId": "aac02171-ad40-cdfa-7fac-ddca24d202b1",
+      "status": "Confirmed",
+      "requestedSlotStartUtc": "2026-09-18T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 30,
+      "serviceFee": 5,
+      "tax": 5.60,
+      "grandTotal": 40.60,
+      "items": [
+        {
+          "offeringId": "974c4b70-f25f-cf9f-b492-b66cf8d95372",
+          "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u062F\u0631\u0627\u062C\u0629 \u0646\u0627\u0631\u064A\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D0\u05D5\u05E4\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 30,
+          "durationMinutes": 30,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "636cca5c-5c41-bdc3-fee8-96f0239fb6ad",
+        "status": "Completed",
+        "amount": 40.60,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-008",
+        "providerTransactionId": "DEMO-TXN-008"
+      }
+    },
+    {
+      "customerReferenceId": "09258997-0bc1-3d6b-15b7-c8bebf0f395d",
+      "businessReservationId": "244dbecf-dcb6-2263-79b4-ac2347eafc52",
+      "businessWorkOrderId": "0468a4a1-6f74-b4fd-2c2d-68f338cce32f",
+      "orderGuid": "6e525479-fe44-3972-4058-9c2cb5497d94",
+      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "deviceId": "e8df0595-27fb-97c6-d128-351b3499e96e",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "branchId": "62af6257-081e-c787-e9a6-0347b995bedf",
+      "status": "Pending",
+      "requestedSlotStartUtc": "2026-09-19T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 22,
+      "serviceFee": 5,
+      "tax": 4.32,
+      "grandTotal": 31.32,
+      "items": [
+        {
+          "offeringId": "834b47c2-b4da-ef89-c521-4e79b645f6a1",
+          "nameAr": "\u063A\u0633\u064A\u0644 \u0633\u0631\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "itemSubtotal": 22,
+          "durationMinutes": 20,
+          "selections": []
+        }
+      ],
+      "payment": {
+        "id": "100de323-25ae-85bd-cc42-7ea8fe00e574",
+        "status": "Pending",
+        "amount": 31.32,
+        "currency": "ILS",
+        "providerReference": "DEMO-LAHZA-009",
+        "providerTransactionId": null
+      }
+    },
+    {
+      "customerReferenceId": "f30a6be7-4dec-394f-0f27-45476fa1934b",
+      "businessReservationId": "15b1725e-8fd2-79b6-9464-1f41c3a1baee",
+      "businessWorkOrderId": "7324325d-e91e-9e29-18ac-2844a40d43b7",
+      "orderGuid": "7d623a4a-5c46-513c-dd08-816ff31e620f",
       "customerId": "f900064f-c029-6a15-1f74-e2a343595ae4",
       "deviceId": "f0184f42-4a79-2df1-466c-fe79e79e7bfd",
+      "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "branchId": "e29577ec-f755-dd14-0074-b399963e3567",
+      "status": "InProgress",
+      "requestedSlotStartUtc": "2026-09-20T09:00:00+00:00",
+      "currency": "ILS",
+      "itemSubtotal": 95,
+      "serviceFee": 5,
+      "tax": 16.00,
+      "grandTotal": 116.00,
+      "items": [
+        {
+          "offeringId": "113a4a49-cd94-a8a2-859d-f105a79bcc8b",
+          "nameAr": "\u0645\u0639\u0627\u0644\u062C\u0629 \u062C\u0644\u062F \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E2\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "itemSubtotal": 95,
+          "durationMinutes": 80,
+          "selections": []
+        }
+      ],
+      "payment": null
+    },
+    {
+      "customerReferenceId": "c01ecad0-dd10-674f-b87d-d793cc863710",
+      "businessReservationId": "5e95a266-47c2-0fa0-8883-b30649ad9957",
+      "businessWorkOrderId": "dafff5b4-fd9a-1311-3075-fffab0a5a6d9",
+      "orderGuid": "59ae7434-cf32-eab9-b49d-14d13990f2c9",
+      "customerId": "c6917760-c203-1f15-7b60-53b4894da8de",
+      "deviceId": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
       "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
       "branchId": "9bd6cb28-15b7-9ddb-6868-6115ff420130",
       "status": "Completed",
-      "requestedSlotStartUtc": "2026-09-17T09:00:00+00:00",
+      "requestedSlotStartUtc": "2026-09-21T09:00:00+00:00",
       "currency": "ILS",
       "itemSubtotal": 35,
       "serviceFee": 5,
@@ -1150,25 +1869,25 @@
         }
       ],
       "payment": {
-        "id": "7a02e01d-b944-0898-eba7-3c8e20cad9ec",
-        "status": "Refunded",
+        "id": "671360a2-979d-3743-7c79-47164308a4f3",
+        "status": "Completed",
         "amount": 46.40,
         "currency": "ILS",
-        "providerReference": "DEMO-LAHZA-007",
-        "providerTransactionId": "DEMO-TXN-007"
+        "providerReference": "DEMO-LAHZA-011",
+        "providerTransactionId": "DEMO-TXN-011"
       }
     },
     {
-      "customerReferenceId": "2350eb42-0b42-bb2c-d4e4-bb145cdb181f",
-      "businessReservationId": "b2ba8b9b-9b73-c82f-c748-575ea3ec9a71",
-      "businessWorkOrderId": "ac5c80dc-6ed8-c9ff-1566-00048904b936",
-      "orderGuid": "8b913cb5-d548-506a-e234-7b1d16b46b7e",
-      "customerId": "c6917760-c203-1f15-7b60-53b4894da8de",
-      "deviceId": "413e6e1c-c7d7-e9b4-6e3b-149513cdca66",
+      "customerReferenceId": "8c5646a7-95b0-541d-c6e5-37050da2c8db",
+      "businessReservationId": "3d810a5e-bc3d-b886-0bfc-10abc008f525",
+      "businessWorkOrderId": "cc963bdf-d799-ed7b-d50d-f3fb2970863b",
+      "orderGuid": "5f06a932-778f-aacc-9d91-1a7bb8609b5f",
+      "customerId": "47c09aba-1a7f-3093-a59a-b79506fe30e0",
+      "deviceId": "6cf87d4f-d506-5081-95cf-14ec6a30cab9",
       "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
       "branchId": "429081af-022f-f67c-c680-50ca7ad53945",
-      "status": "Confirmed",
-      "requestedSlotStartUtc": "2026-09-18T09:00:00+00:00",
+      "status": "Cancelled",
+      "requestedSlotStartUtc": "2026-09-22T09:00:00+00:00",
       "currency": "ILS",
       "itemSubtotal": 55,
       "serviceFee": 5,
@@ -1185,12 +1904,12 @@
         }
       ],
       "payment": {
-        "id": "636cca5c-5c41-bdc3-fee8-96f0239fb6ad",
-        "status": "Completed",
+        "id": "886c2d02-54da-8e43-d67c-51cfda37919e",
+        "status": "Failed",
         "amount": 69.60,
         "currency": "ILS",
-        "providerReference": "DEMO-LAHZA-008",
-        "providerTransactionId": "DEMO-TXN-008"
+        "providerReference": "DEMO-LAHZA-012",
+        "providerTransactionId": null
       }
     }
   ]

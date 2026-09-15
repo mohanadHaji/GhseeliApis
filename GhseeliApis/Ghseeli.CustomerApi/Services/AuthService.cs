@@ -1,10 +1,12 @@
 using GhseeliApis.Constants;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using GhseeliApis.DTOs.Auth;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using GhseeliApis.Services.Interfaces;
 using GhseeliApis.Services.Auth;
 using GhseeliApis.Persistence;
+using GhseeliApis.DataPartitioning;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -24,6 +26,7 @@ public class AuthService : IAuthService
     private readonly IAppLogger _logger;
     private readonly ApplicationDbContext _context;
     private readonly ICustomerRefreshTokenService _refreshTokens;
+    private readonly ICustomerDataPartitionResolver? _dataPartitionResolver;
 
     public AuthService(
         UserManager<User> userManager,
@@ -31,7 +34,8 @@ public class AuthService : IAuthService
         IConfiguration configuration,
         IAppLogger logger,
         ApplicationDbContext context,
-        ICustomerRefreshTokenService refreshTokens)
+        ICustomerRefreshTokenService refreshTokens,
+        ICustomerDataPartitionResolver? dataPartitionResolver = null)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -39,6 +43,7 @@ public class AuthService : IAuthService
         _logger = logger;
         _context = context;
         _refreshTokens = refreshTokens;
+        _dataPartitionResolver = dataPartitionResolver;
     }
 
     public async Task<AuthResponse?> RegisterAsync(RegisterRequest request, string role = "User")
@@ -134,6 +139,7 @@ public class AuthService : IAuthService
     {
         try
         {
+            _dataPartitionResolver?.SetForTrustedDemoEmail(request.Email);
             // Find user by email
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
@@ -218,7 +224,12 @@ public class AuthService : IAuthService
             new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.Name, fullName),
             new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
+            new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            new Claim(
+                DataPartitionNames.ClaimType,
+                user?.IsDemo == true
+                    ? DataPartitionNames.Demo
+                    : DataPartitionNames.Production)
         };
 
         // Add role claims

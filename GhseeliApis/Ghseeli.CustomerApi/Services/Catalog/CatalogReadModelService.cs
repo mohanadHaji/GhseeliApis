@@ -6,6 +6,7 @@ using GhseeliApis.Models;
 using GhseeliApis.Repositories.Interfaces;
 using GhseeliApis.Services.Business;
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.DataPartitioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
@@ -65,6 +66,7 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     private readonly IOptionsMonitor<CatalogReadModelOptions> _optionsMonitor;
     private readonly TimeProvider _timeProvider;
     private readonly IAppLogger _logger;
+    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public CatalogReadModelService(
         ICatalogReadModelRepository repository,
@@ -72,7 +74,8 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         ICatalogProviderRefreshCoordinator refreshCoordinator,
         IOptionsMonitor<CatalogReadModelOptions> optionsMonitor,
         TimeProvider timeProvider,
-        IAppLogger logger)
+        IAppLogger logger,
+        ICustomerDataPartitionContext? dataPartition = null)
     {
         _repository = repository;
         _businessApiClient = businessApiClient;
@@ -80,6 +83,7 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         _optionsMonitor = optionsMonitor;
         _timeProvider = timeProvider;
         _logger = logger;
+        _dataPartition = dataPartition ?? new CustomerDataPartitionContext();
     }
 
     public async Task<CatalogCategoriesResponse> GetCategoriesAsync(
@@ -417,7 +421,9 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     private async Task SynchronizeConfiguredProvidersAsync(CancellationToken cancellationToken)
     {
         await _repository.SynchronizeConfiguredProvidersAsync(
-            _optionsMonitor.CurrentValue.Providers,
+            _dataPartition.IsDemo
+                ? _optionsMonitor.CurrentValue.DemoProviders
+                : _optionsMonitor.CurrentValue.Providers,
             cancellationToken);
     }
 

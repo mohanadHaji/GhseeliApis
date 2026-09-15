@@ -205,6 +205,10 @@ public sealed class CustomerPaymentService : ICustomerPaymentService
         {
             throw new CustomerPaymentException(404, CustomerPaymentErrorCodes.BookingNotFound);
         }
+        if (booking.IsDemo)
+        {
+            throw new CustomerPaymentException(409, CustomerPaymentErrorCodes.Ineligible);
+        }
 
         if (!string.Equals(booking.Status, "Pending", StringComparison.OrdinalIgnoreCase) &&
             !string.Equals(booking.Status, "Confirmed", StringComparison.OrdinalIgnoreCase))

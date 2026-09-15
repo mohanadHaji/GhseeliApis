@@ -1,4 +1,6 @@
 using Ghseeli.BusinessApi.Constants;
+using Ghseeli.BusinessApi.DataPartitioning;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
@@ -10,15 +12,18 @@ public sealed class InternalServiceAuthenticationHandler :
     AuthenticationHandler<AuthenticationSchemeOptions>
 {
     private readonly InternalServiceRequestValidator _validator;
+    private readonly IBusinessDataPartitionContext _dataPartition;
 
     public InternalServiceAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        InternalServiceRequestValidator validator)
+        InternalServiceRequestValidator validator,
+        IBusinessDataPartitionContext dataPartition)
         : base(options, logger, encoder)
     {
         _validator = validator;
+        _dataPartition = dataPartition;
     }
 
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
@@ -35,9 +40,21 @@ public sealed class InternalServiceAuthenticationHandler :
             return AuthenticateResult.Fail(validationResult.Failure!.Code);
         }
 
+        var partition = Context.Request.Query.TryGetValue(
+            DataPartitionNames.QueryParameter,
+            out var partitionValues)
+            ? partitionValues.ToString()
+            : DataPartitionNames.Production;
+        if (!DataPartitionNames.IsSupported(partition))
+        {
+            return AuthenticateResult.Fail("The signed data partition is invalid.");
+        }
+        _dataPartition.SetTrustedPartition(partition);
+
         var claims = new List<Claim>
         {
-            new(BusinessClaimTypes.InternalServiceId, validationResult.Service!.ServiceId)
+            new(BusinessClaimTypes.InternalServiceId, validationResult.Service!.ServiceId),
+            new(DataPartitionNames.ClaimType, partition)
         };
         claims.AddRange(validationResult.Service.AllowedOperations.Select(operation =>
             new Claim(BusinessClaimTypes.InternalAllowedOperation, operation)));

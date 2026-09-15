@@ -1,6 +1,8 @@
 using FluentAssertions;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Services;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -106,10 +108,63 @@ public sealed class BookingStatusOutboxWorkerTests
             Times.Never);
     }
 
+    [Fact]
+    public async Task Worker_DispatchesProductionAndDemoPartitionsInSeparateScopes()
+    {
+        var observed = new List<string>();
+        var bothObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var services = new ServiceCollection();
+        services.AddScoped<IBusinessDataPartitionContext, BusinessDataPartitionContext>();
+        services.AddScoped<IBookingStatusOutboxDispatcher>(provider =>
+            new PartitionRecordingDispatcher(
+                provider.GetRequiredService<IBusinessDataPartitionContext>(),
+                observed,
+                bothObserved));
+        using var provider = services.BuildServiceProvider();
+        var worker = new BookingStatusOutboxWorker(
+            provider.GetRequiredService<IServiceScopeFactory>(),
+            Options.Create(new CustomerBookingStatusClientOptions { BaseUrl = "https://customer.test" }),
+            Options.Create(new BookingStatusOutboxOptions
+            {
+                PollIntervalMilliseconds = 5
+            }),
+            Mock.Of<IAppLogger>());
+
+        await worker.StartAsync(CancellationToken.None);
+        await bothObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await worker.StopAsync(CancellationToken.None);
+
+        observed.Should().ContainInOrder(
+            DataPartitionNames.Production,
+            DataPartitionNames.Demo);
+    }
+
     private static ServiceProvider CreateProvider(IBookingStatusOutboxDispatcher dispatcher)
     {
         var services = new ServiceCollection();
+        services.AddScoped<IBusinessDataPartitionContext, BusinessDataPartitionContext>();
         services.AddScoped(_ => dispatcher);
         return services.BuildServiceProvider();
+    }
+
+    private sealed class PartitionRecordingDispatcher(
+        IBusinessDataPartitionContext partition,
+        List<string> observed,
+        TaskCompletionSource bothObserved) : IBookingStatusOutboxDispatcher
+    {
+        public Task<bool> DeliverNextAsync(CancellationToken cancellationToken)
+        {
+            lock (observed)
+            {
+                observed.Add(partition.Partition);
+                if (observed.Contains(DataPartitionNames.Production) &&
+                    observed.Contains(DataPartitionNames.Demo))
+                {
+                    bothObserved.TrySetResult();
+                }
+            }
+
+            return Task.FromResult(false);
+        }
     }
 }

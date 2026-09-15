@@ -7,6 +7,7 @@ public sealed class CatalogProviderReadModel
     public string BusinessVerticalCode { get; set; } =
         BusinessVerticalSnapshotDefaults.CarWashCode;
     public bool IsEnabled { get; set; }
+    public bool IsDemo { get; set; }
     public int DisplayOrder { get; set; }
     public string NameAr { get; set; } = string.Empty;
     public string? NameHe { get; set; }

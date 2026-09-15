@@ -1,5 +1,7 @@
 using FluentAssertions;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Middleware;
 using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Http;
@@ -25,7 +27,10 @@ public class DeviceTokenMiddlewareTests
         var context = CreateContext("/api/auth/login");
         var middleware = CreateMiddleware(_ => { called = true; return Task.CompletedTask; });
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         called.Should().BeTrue();
         _service.VerifyNoOtherCalls();
@@ -42,7 +47,10 @@ public class DeviceTokenMiddlewareTests
             "register"));
         var middleware = CreateMiddleware(_ => { called = true; return Task.CompletedTask; });
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         called.Should().BeTrue();
         _service.VerifyNoOtherCalls();
@@ -55,7 +63,10 @@ public class DeviceTokenMiddlewareTests
         context.Request.Headers["Accept-Language"] = "ar";
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         using var document = await ReadResponseBodyAsJsonAsync(context);
         AssertProblem(
@@ -73,7 +84,10 @@ public class DeviceTokenMiddlewareTests
         context.Request.Headers["Accept-Language"] = "-, ;q=1, he-IL;q=0.8";
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         using var document = await ReadResponseBodyAsJsonAsync(context);
         AssertProblem(
@@ -97,12 +111,33 @@ public class DeviceTokenMiddlewareTests
             .ReturnsAsync(DeviceAuthenticationResult.Success(deviceId, installationId));
         var middleware = CreateMiddleware(_ => { called = true; return Task.CompletedTask; });
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         called.Should().BeTrue();
         context.GetDeviceId().Should().Be(deviceId);
         context.GetInstallationId().Should().Be(installationId);
         _service.Verify(service => service.UpdateLastSeenAsync(deviceId, default), Times.Once);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DemoToken_AssignsTrustedDemoPartition()
+    {
+        var partition = new CustomerDataPartitionContext();
+        var context = CreateProtectedContext();
+        context.Request.Headers[DeviceTokenDefaults.HeaderName] = Token(12);
+        _service.Setup(service => service.AuthenticateAsync(It.IsAny<string>(), default))
+            .ReturnsAsync(DeviceAuthenticationResult.Success(
+                Guid.NewGuid(),
+                Guid.NewGuid(),
+                DataPartitionNames.Demo));
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
+        await middleware.InvokeAsync(context, _service.Object, partition);
+
+        partition.Partition.Should().Be(DataPartitionNames.Demo);
     }
 
     [Fact]
@@ -115,7 +150,10 @@ public class DeviceTokenMiddlewareTests
             .ReturnsAsync(DeviceAuthenticationResult.Failure(DeviceProblemCodes.TokenExpired));
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         using var document = await ReadResponseBodyAsJsonAsync(context);
         AssertProblem(
@@ -136,7 +174,10 @@ public class DeviceTokenMiddlewareTests
             .ReturnsAsync(DeviceAuthenticationResult.Failure(DeviceProblemCodes.TokenInvalid));
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
 
-        await middleware.InvokeAsync(context, _service.Object);
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
 
         using var document = await ReadResponseBodyAsJsonAsync(context);
         AssertProblem(

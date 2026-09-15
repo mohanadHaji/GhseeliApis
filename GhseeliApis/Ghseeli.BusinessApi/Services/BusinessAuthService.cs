@@ -5,6 +5,8 @@ using Ghseeli.BusinessApi.Repositories.Interfaces;
 using Ghseeli.BusinessApi.Services.Interfaces;
 using Ghseeli.BusinessApi.Services.Validation.Auth;
 using Ghseeli.Common.Logging;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -22,6 +24,7 @@ public class BusinessAuthService : IBusinessAuthService
     private readonly IBusinessAuthRequestValidator _requestValidator;
     private readonly IConfiguration _configuration;
     private readonly IAppLogger _logger;
+    private readonly IBusinessDataPartitionResolver? _dataPartitionResolver;
 
     public BusinessAuthService(
         UserManager<BusinessUser> userManager,
@@ -30,7 +33,8 @@ public class BusinessAuthService : IBusinessAuthService
         ICompanyRepository companyRepository,
         IBusinessAuthRequestValidator requestValidator,
         IConfiguration configuration,
-        IAppLogger logger)
+        IAppLogger logger,
+        IBusinessDataPartitionResolver? dataPartitionResolver = null)
     {
         _userManager = userManager;
         _signInManager = signInManager;
@@ -39,6 +43,7 @@ public class BusinessAuthService : IBusinessAuthService
         _requestValidator = requestValidator;
         _configuration = configuration;
         _logger = logger;
+        _dataPartitionResolver = dataPartitionResolver;
     }
 
     public async Task<BusinessAuthResponse> RegisterOwnerAsync(
@@ -140,6 +145,7 @@ public class BusinessAuthService : IBusinessAuthService
         _requestValidator.Validate(request);
 
         var email = BusinessTextNormalizer.NormalizeRequired(request.Email);
+        _dataPartitionResolver?.SetForTrustedDemoEmail(email);
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
         {
@@ -208,7 +214,10 @@ public class BusinessAuthService : IBusinessAuthService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Name, user.FullName),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(
+                DataPartitionNames.ClaimType,
+                user.IsDemo ? DataPartitionNames.Demo : DataPartitionNames.Production)
         };
         claims.AddRange(roleList.Select(role => new Claim(ClaimTypes.Role, role)));
         if (companyId.HasValue)

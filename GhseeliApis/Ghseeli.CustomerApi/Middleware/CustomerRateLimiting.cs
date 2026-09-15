@@ -1,4 +1,5 @@
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Services.Checkout;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Payments;
@@ -182,10 +183,11 @@ public sealed class CustomerRateLimitPartitionMiddleware
         HttpContext context,
         IPaymentWebhookParser paymentWebhookParser,
         IOptionsMonitor<LahzaConfigurationOptions> lahzaOptions,
-        IDeviceRegistrationService deviceService)
+        IDeviceRegistrationService deviceService,
+        ICustomerDataPartitionContext dataPartition)
     {
         await TryAuthenticateBearerAsync(context);
-        await TryAuthenticateDeviceAsync(context, deviceService);
+        await TryAuthenticateDeviceAsync(context, deviceService, dataPartition);
 
         var path = context.Request.Path;
         if (HttpMethods.IsPost(context.Request.Method) &&
@@ -243,7 +245,8 @@ public sealed class CustomerRateLimitPartitionMiddleware
 
     private static async Task TryAuthenticateDeviceAsync(
         HttpContext context,
-        IDeviceRegistrationService deviceService)
+        IDeviceRegistrationService deviceService,
+        ICustomerDataPartitionContext dataPartition)
     {
         if (!RequiresDeviceToken(context))
         {
@@ -267,6 +270,7 @@ public sealed class CustomerRateLimitPartitionMiddleware
         context.SetDeviceIdentity(
             result.DeviceId!.Value,
             result.InstallationId!.Value);
+        dataPartition.SetTrustedPartition(result.DataPartition!);
         context.Items[ValidDeviceTokenPartitionItemKey] = HashPartition(token);
     }
 

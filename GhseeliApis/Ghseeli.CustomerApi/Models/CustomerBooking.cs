@@ -49,6 +49,7 @@ public sealed class CustomerBooking
     public decimal Tax { get; set; }
     public decimal GrandTotal { get; set; }
     public bool IsPaid { get; set; }
+    public bool IsDemo { get; set; }
     public string PaymentState { get; set; } = "Unpaid";
     public int TotalDurationMinutes { get; set; }
     public DateTimeOffset QuotedAtUtc { get; set; }

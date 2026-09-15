@@ -23,6 +23,7 @@ public class User : IdentityUser<Guid>, IValidatable
     public string? PendingEmail { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public bool IsDemo { get; set; }
 
     // Navigation properties
     public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();

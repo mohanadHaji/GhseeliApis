@@ -11,6 +11,7 @@ public static class BookingStatusOutboxStates
 public sealed class BookingStatusOutboxMessage
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+    public bool IsDemo { get; set; }
     public Guid AppointmentReservationId { get; set; }
     public AppointmentReservation AppointmentReservation { get; set; } = null!;
     public string RequestJson { get; set; } = string.Empty;

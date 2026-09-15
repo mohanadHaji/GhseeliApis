@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Ghseeli.BusinessApi.Services;
+using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
@@ -28,7 +29,8 @@ public sealed class CustomerBookingStatusClientTests
         var client = new CustomerBookingStatusClient(
             httpClient,
             options,
-            new TestEnvironment());
+            new TestEnvironment(),
+            new BusinessDataPartitionContext());
         var eventId = Guid.NewGuid();
         var idempotencyKey = $"booking-status-{Guid.NewGuid():N}";
         const string body = "{\"contractVersion\":\"v1\"}";

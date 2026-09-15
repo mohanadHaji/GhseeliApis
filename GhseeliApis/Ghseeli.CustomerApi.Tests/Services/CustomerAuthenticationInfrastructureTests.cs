@@ -47,6 +47,37 @@ public sealed class CustomerAuthenticationInfrastructureTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "STEP23-OTP-EMAIL-020")]
+    public void SmtpSender_ComposesArabicAndEnglishMessageWithoutHebrew()
+    {
+        var sender = new SmtpCustomerOtpEmailSender(
+            Options.Create(new CustomerSmtpOptions
+            {
+                Enabled = true,
+                Host = "smtp.example.com",
+                FromAddress = "noreply@example.com",
+                FromName = "Ghseeli"
+            }),
+            Options.Create(new CustomerOtpOptions
+            {
+                LifetimeMinutes = 5
+            }));
+
+        using var message = sender.CreateMessage("user@example.com", "123456");
+
+        message.Subject.Should().Be(
+            "رمز التحقق من غسيلي | Ghseeli verification code");
+        message.Body.Should().Be(
+            "رمز التحقق الخاص بك هو 123456. تنتهي صلاحيته خلال 5 دقائق." +
+            Environment.NewLine +
+            "Your verification code is 123456. It expires in 5 minutes.");
+        (message.Subject + message.Body)
+            .Should().NotMatchRegex("[\\u0590-\\u05FF]");
+        message.To.Should().ContainSingle()
+            .Which.Address.Should().Be("user@example.com");
+    }
+
+    [Fact]
     [Trait("ScenarioId", "STEP23-OTP-REQUEST-003")]
     public async Task RequestAsync_StoresOnlyHashAndInvalidatesPreviousCode()
     {

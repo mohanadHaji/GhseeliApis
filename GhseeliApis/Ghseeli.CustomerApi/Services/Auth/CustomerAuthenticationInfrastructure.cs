@@ -149,17 +149,7 @@ public sealed class SmtpCustomerOtpEmailSender : ICustomerOtpEmailSender
             throw new InvalidOperationException("Customer OTP email delivery is not configured.");
         }
 
-        using var message = new MailMessage
-        {
-            From = new MailAddress(_options.FromAddress, _options.FromName),
-            Subject = "رمز التحقق من غسيلي | קוד האימות של Ghseeli",
-            Body =
-                $"رمز التحقق الخاص بك هو {code}. تنتهي صلاحيته خلال {_otpOptions.LifetimeMinutes} دقائق." +
-                Environment.NewLine +
-                $"קוד האימות שלך הוא {code}. תוקפו יפוג בעוד {_otpOptions.LifetimeMinutes} דקות.",
-            IsBodyHtml = false
-        };
-        message.To.Add(email);
+        using var message = CreateMessage(email, code);
 
         using var client = new SmtpClient(_options.Host, _options.Port)
         {
@@ -174,6 +164,22 @@ public sealed class SmtpCustomerOtpEmailSender : ICustomerOtpEmailSender
 
         cancellationToken.ThrowIfCancellationRequested();
         await client.SendMailAsync(message, cancellationToken);
+    }
+
+    internal MailMessage CreateMessage(string email, string code)
+    {
+        var message = new MailMessage
+        {
+            From = new MailAddress(_options.FromAddress, _options.FromName),
+            Subject = "رمز التحقق من غسيلي | Ghseeli verification code",
+            Body =
+                $"رمز التحقق الخاص بك هو {code}. تنتهي صلاحيته خلال {_otpOptions.LifetimeMinutes} دقائق." +
+                Environment.NewLine +
+                $"Your verification code is {code}. It expires in {_otpOptions.LifetimeMinutes} minutes.",
+            IsBodyHtml = false
+        };
+        message.To.Add(email);
+        return message;
     }
 }
 

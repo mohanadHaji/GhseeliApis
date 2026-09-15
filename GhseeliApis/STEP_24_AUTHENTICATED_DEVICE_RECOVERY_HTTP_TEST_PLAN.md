@@ -2,7 +2,7 @@
 
 Date: 2026-09-15
 
-Status: Implemented and passed locally - production deployment pending
+Status: Done - deployed and live-tested
 
 ## Goal
 
@@ -84,7 +84,22 @@ device.
 - All six Customer migrations applied from an empty disposable LocalDB.
 - Live local HTTPS manifest: 10 passed, 0 failed, 0 deferred.
 - The dedicated local database was removed after the run.
-- Production deployment and a user-approved live OTP/device recovery smoke are
-  pending.
+- Production workflow run `34985340168` deployed commit `ab64092`
+  successfully. Validation, the Customer migration, Customer deployment,
+  Business deployment, and both database-backed HTTPS health checks passed.
+- Production Swagger documents optional Customer Bearer recovery, the optional
+  current device-token header, and the `403` response.
+- A user-approved production smoke created one unique test installation,
+  confirmed OTP for the selected Customer account, recovered the unowned
+  installation without its old device token, verified a different token was
+  issued, verified FCM was not echoed, rejected the old token with `401`, and
+  recovered the owned installation a second time without a device token while
+  rotating the token again.
+- The production account returned `isNewUser=true` because its required
+  profile details remain incomplete; the frontend should continue profile
+  completion until that signal becomes false.
+- Cross-customer takeover was not performed with a second real production
+  identity. It is covered by unit, TestServer, and live-local HTTPS scenarios
+  returning `403 device_owner_conflict` without mutation.
 - Detailed local evidence:
   `scripts/http-tests/plans/step-24-device-recovery.results.md`.

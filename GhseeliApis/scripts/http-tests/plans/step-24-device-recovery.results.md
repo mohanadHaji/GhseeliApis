@@ -21,4 +21,26 @@
   was dropped after execution.
 - Security: JWTs, refresh tokens, device tokens, and authorization headers were
   redacted by the harness and are not committed.
-- Production deployment and smoke: pending.
+- Production deployment:
+  - commit: `ab64092`
+  - workflow run: `34985340168`
+  - test/build, Customer migration/deployment, and Business deployment passed
+  - Customer and Business database-backed HTTPS health returned `200`
+- User-approved production smoke:
+  - anonymous installation registration: `200`
+  - OTP confirmation: `200` with `Cache-Control: no-store`
+  - authenticated recovery without old device token: `200`
+  - replacement device token differed from the old token
+  - FCM token was not echoed
+  - old device token retry: `401`
+  - second authenticated recovery without a device token: `200` and rotated
+    the token again
+- The unique production test installation remains linked to the selected
+  incomplete-profile Customer account because no customer-facing device-delete
+  endpoint exists.
+- A second real production customer was not created solely to test takeover.
+  Cross-owner `403 device_owner_conflict` and no-mutation behavior passed in
+  unit, TestServer, and live-local HTTPS coverage.
+- Post-smoke Customer health remained `200`. Business health returned one
+  transient `503`, then six consecutive `200 Healthy` responses; no persistent
+  deployment or database failure was present.

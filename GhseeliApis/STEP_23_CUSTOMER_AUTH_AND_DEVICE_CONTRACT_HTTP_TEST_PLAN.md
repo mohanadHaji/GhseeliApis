@@ -2,7 +2,7 @@
 
 Date: 2026-09-14
 
-Status: In progress - correcting the production OTP email language
+Status: Done - deployed and live-tested
 
 ## Goal
 
@@ -127,7 +127,13 @@ new user, rename the booking confirmation response field from `reference` to
   `isNewUser=true`. Refresh rotation returned `200`, changed the refresh token,
   and reuse of the old token returned `401`; all token responses were
   `no-store`.
-- The live email exposed a content defect: its subject and body contained
-  Hebrew instead of English. Scenario `STEP23-OTP-EMAIL-020` now requires
-  Arabic and English only, and the corrected template is awaiting production
-  redeployment and one final user-approved delivery check.
+- The first live email exposed a content defect: its subject and body contained
+  Hebrew instead of English. Scenario `STEP23-OTP-EMAIL-020` requires Arabic
+  and English only and rejects Hebrew Unicode characters.
+- Production workflow run `34980075278` deployed the corrected template from
+  commit `992d8cd`; validation, Customer deployment, Business deployment, and
+  both database-backed HTTPS health checks passed.
+- A second user-approved OTP request returned `202` with `accepted=true` and
+  `Cache-Control: no-store`. The user verified that the delivered subject and
+  body contain Arabic and English only, with no Hebrew. No OTP value was
+  required or recorded for this content check.

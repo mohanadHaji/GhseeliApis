@@ -1,0 +1,65 @@
+name: Seed hosted Demo partition
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type SEED HOSTED DEMO
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monsterasp-production
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed deterministic Demo records
+    runs-on: windows-latest
+    environment: Production
+    steps:
+      - name: Check confirmation
+        shell: pwsh
+        run: |
+          if ("${{ inputs.confirmation }}" -cne "SEED HOSTED DEMO") {
+            throw "The exact confirmation 'SEED HOSTED DEMO' is required."
+          }
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore Demo seeder
+        run: dotnet restore GhseeliApis/Ghseeli.DemoData/Ghseeli.DemoData.csproj
+
+      - name: Seed hosted Demo partition
+        shell: pwsh
+        env:
+          CUSTOMER_CONNECTION: ${{ secrets.CUSTOMER_DB_CONNECTION }}
+          BUSINESS_CONNECTION: ${{ secrets.BUSINESS_DB_CONNECTION }}
+          GHSEELI_HOSTED_DEMO_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          foreach ($name in @("CUSTOMER_CONNECTION", "BUSINESS_CONNECTION")) {
+            if ([string]::IsNullOrWhiteSpace(
+                [Environment]::GetEnvironmentVariable($name))) {
+              throw "Missing Production secret '$name'."
+            }
+          }
+
+          dotnet run `
+            --project GhseeliApis/Ghseeli.DemoData/Ghseeli.DemoData.csproj `
+            --configuration Release `
+            --no-restore `
+            -- seed-hosted `
+            "$env:CUSTOMER_CONNECTION" `
+            "$env:BUSINESS_CONNECTION"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Hosted Demo seeding failed."
+          }

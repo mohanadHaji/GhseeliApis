@@ -39,8 +39,8 @@
 |---|---:|---:|---:|
 | Ghseeli.BusinessApi.Tests | 586 | 0 | 0 |
 | Ghseeli.CustomerApi.Tests | 1,311 | 0 | 0 |
-| Ghseeli.DemoData.Tests | 16 | 0 | 0 |
-| Total | 1,913 | 0 | 0 |
+| Ghseeli.DemoData.Tests | 23 | 0 | 0 |
+| Total | 1,920 | 0 | 0 |
 
 Release build completed with 0 warnings and 0 errors.
 

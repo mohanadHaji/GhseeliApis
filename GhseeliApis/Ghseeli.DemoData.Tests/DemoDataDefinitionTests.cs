@@ -120,4 +120,60 @@ public sealed class DemoDataDefinitionTests
     {
         Assert.Throws<InvalidOperationException>(() => DemoConnectionGuard.Validate(connectionString));
     }
+
+    [Fact]
+    public void ValidateHostedSeed_AcceptsOnlyExplicitMasterWorkflowAuthorization()
+    {
+        HostedDemoConnectionGuard.Validate(
+            "Server=customer.sql.example;Database=GhseeliCustomer;User Id=app;Password=test;",
+            "Server=business.sql.example;Database=GhseeliBusiness;User Id=app;Password=test;",
+            "mohanadHaji/GhseeliApis",
+            "refs/heads/master",
+            "true",
+            HostedDemoConnectionGuard.RequiredConfirmation);
+    }
+
+    [Theory]
+    [InlineData("other/repository", "refs/heads/master", "true", "SEED HOSTED DEMO")]
+    [InlineData("mohanadHaji/GhseeliApis", "refs/heads/feature", "true", "SEED HOSTED DEMO")]
+    [InlineData("mohanadHaji/GhseeliApis", "refs/heads/master", "false", "SEED HOSTED DEMO")]
+    [InlineData("mohanadHaji/GhseeliApis", "refs/heads/master", "true", "seed hosted demo")]
+    public void ValidateHostedSeed_RejectsInvalidWorkflowAuthorization(
+        string repository,
+        string reference,
+        string githubActions,
+        string confirmation)
+    {
+        var action = () => HostedDemoConnectionGuard.Validate(
+            "Server=customer.sql.example;Database=GhseeliCustomer;User Id=app;Password=test;",
+            "Server=business.sql.example;Database=GhseeliBusiness;User Id=app;Password=test;",
+            repository,
+            reference,
+            githubActions,
+            confirmation);
+
+        Assert.Throws<InvalidOperationException>(action);
+    }
+
+    [Theory]
+    [InlineData(
+        "Server=localhost;Database=GhseeliCustomer;Integrated Security=True;",
+        "Server=business.sql.example;Database=GhseeliBusiness;User Id=app;Password=test;")]
+    [InlineData(
+        "Server=shared.sql.example;Database=Ghseeli;User Id=app;Password=test;",
+        "Server=shared.sql.example;Database=Ghseeli;User Id=app;Password=test;")]
+    public void ValidateHostedSeed_RejectsLocalOrDuplicateTargets(
+        string customerConnection,
+        string businessConnection)
+    {
+        var action = () => HostedDemoConnectionGuard.Validate(
+            customerConnection,
+            businessConnection,
+            "mohanadHaji/GhseeliApis",
+            "refs/heads/master",
+            "true",
+            HostedDemoConnectionGuard.RequiredConfirmation);
+
+        Assert.Throws<InvalidOperationException>(action);
+    }
 }

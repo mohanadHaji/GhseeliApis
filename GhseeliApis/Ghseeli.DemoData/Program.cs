@@ -22,6 +22,23 @@ if (args[0].Equals("seed", StringComparison.OrdinalIgnoreCase) && args.Length ==
     return;
 }
 
+if (args[0].Equals("seed-hosted", StringComparison.OrdinalIgnoreCase) && args.Length == 3)
+{
+    var result = await DemoDatabaseSeeder.SeedHostedAsync(
+        args[1],
+        args[2],
+        Environment.GetEnvironmentVariable("GITHUB_REPOSITORY"),
+        Environment.GetEnvironmentVariable("GITHUB_REF"),
+        Environment.GetEnvironmentVariable("GITHUB_ACTIONS"),
+        Environment.GetEnvironmentVariable("GHSEELI_HOSTED_DEMO_CONFIRMATION"));
+    Console.WriteLine(
+        result.AlreadySeeded
+            ? "Hosted databases already contained the complete deterministic Demo dataset; no duplicates were added."
+            : $"Seeded {result.CompanyCount} hosted Demo companies, {result.CustomerCount} Demo customers, " +
+              $"{result.CustomerBookingCount} Customer bookings, and {result.BusinessReservationCount} Business reservations.");
+    return;
+}
+
 if (args[0].Equals("cleanup", StringComparison.OrdinalIgnoreCase) && args.Length == 3)
 {
     var result = await DemoDatabaseSeeder.CleanupAsync(args[1], args[2]);
@@ -36,5 +53,6 @@ Console.Error.WriteLine(
     "Usage:\n" +
     "  dotnet run --project Ghseeli.DemoData -- export [output-path]\n" +
     "  dotnet run --project Ghseeli.DemoData -- seed <customer-connection> <business-connection>\n" +
+    "  dotnet run --project Ghseeli.DemoData -- seed-hosted <customer-connection> <business-connection>\n" +
     "  dotnet run --project Ghseeli.DemoData -- cleanup <customer-connection> <business-connection>");
 Environment.ExitCode = 2;

@@ -42,7 +42,39 @@ public static class DemoDatabaseSeeder
     {
         DemoConnectionGuard.Validate(customerConnectionString);
         DemoConnectionGuard.Validate(businessConnectionString);
+        return await SeedCoreAsync(
+            customerConnectionString,
+            businessConnectionString,
+            cancellationToken);
+    }
 
+    public static async Task<DemoSeedResult> SeedHostedAsync(
+        string customerConnectionString,
+        string businessConnectionString,
+        string? repository,
+        string? reference,
+        string? githubActions,
+        string? confirmation,
+        CancellationToken cancellationToken = default)
+    {
+        HostedDemoConnectionGuard.Validate(
+            customerConnectionString,
+            businessConnectionString,
+            repository,
+            reference,
+            githubActions,
+            confirmation);
+        return await SeedCoreAsync(
+            customerConnectionString,
+            businessConnectionString,
+            cancellationToken);
+    }
+
+    private static async Task<DemoSeedResult> SeedCoreAsync(
+        string customerConnectionString,
+        string businessConnectionString,
+        CancellationToken cancellationToken)
+    {
         var data = DemoDataDefinition.Create();
         var businessOptions = new DbContextOptionsBuilder<BusinessDbContext>()
             .UseSqlServer(businessConnectionString)

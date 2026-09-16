@@ -14,7 +14,8 @@ to live only in the APIs' isolated `Demo` data partition.
 - All account emails use the reserved `example.test` domain.
 - The seeder accepts only LocalDB/localhost databases whose names contain
   `Demo`, and rejects names containing `Production`. Hosted seeding remains a
-  separate controlled operation and is never enabled by weakening this guard.
+  separate manual GitHub Actions operation and is never enabled by weakening
+  this guard.
 - The seeder is not called by either API startup or any deployment workflow.
 - Public API request bodies, headers, and query strings cannot select the Demo
   partition. It is derived from seeded demo devices/accounts and signed
@@ -97,3 +98,14 @@ providers, and Demo requests never synchronize Production providers.
 
 The committed IDs are also the cleanup manifest. Future cleanup or migration
 must target only IDs present in this file and must retain all Production rows.
+
+## Hosted Demo seeding
+
+`.github/workflows/seed-hosted-demo.yml` is the only supported remote seeding
+path. It requires the protected `Production` environment, the repository's
+existing Customer and Business database secrets, the `master` branch, GitHub
+Actions, and the exact manual confirmation `SEED HOSTED DEMO`.
+
+The hosted command supports seeding only. Remote cleanup is intentionally not
+available. The local `seed` and `cleanup` commands retain their strict
+localhost/LocalDB `Demo` database guard.

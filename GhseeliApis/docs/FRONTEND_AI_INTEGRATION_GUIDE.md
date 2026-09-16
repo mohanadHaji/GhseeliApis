@@ -1230,8 +1230,7 @@ A frontend feature is complete only when:
 
 | Document | Use |
 |---|---|
+| [`../../README.md`](../../README.md) | Service overview, databases, relationships, configuration, deployment, and Demo access |
 | [`../API_BOUNDARIES.md`](../API_BOUNDARIES.md) | Deep ownership, HMAC, state, idempotency, and route rules |
 | [`../HTTP_TEST_PLAN_STANDARD.md`](../HTTP_TEST_PLAN_STANDARD.md) | Backend HTTP testing requirements |
-| [`../STEP_18_LAHZA_PAYMENT_MIGRATION_HTTP_TEST_RESULTS.md`](../STEP_18_LAHZA_PAYMENT_MIGRATION_HTTP_TEST_RESULTS.md) | Lahza deterministic and external-provider evidence |
-| [`../STEP_20_AVAILABLE_SLOTS_HTTP_TEST_RESULTS.md`](../STEP_20_AVAILABLE_SLOTS_HTTP_TEST_RESULTS.md) | Available-slot implementation evidence |
-| [`../STEP_21_LAHZA_ENDPOINT_GATING_HTTP_TEST_PLAN.md`](../STEP_21_LAHZA_ENDPOINT_GATING_HTTP_TEST_PLAN.md) | Current Production payment-route gate |
+| [`../demo-data/FRONTEND_DEMO_HANDOFF.md`](../demo-data/FRONTEND_DEMO_HANDOFF.md) | Hosted Demo credentials, expected records, and frontend behavior |

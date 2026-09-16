@@ -549,9 +549,6 @@ some mappings. Sanitized aggregate evidence is committed. Raw responses,
 generated credentials, database names, logs, backups, and other ignored local
 runtime artifacts are not committed.
 
-Detailed sanitized evidence is recorded in
-`scripts/http-tests/plans/step-15-localization-swagger.results.md`.
-
 Step 15 implementation is not complete until every applicable scenario is
 automated and passed, exact totals/evidence are recorded, no required scenario
 is merely planned/automated/failed, and any deferral meets the repository's

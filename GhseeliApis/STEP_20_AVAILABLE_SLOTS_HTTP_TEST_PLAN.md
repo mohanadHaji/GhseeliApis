@@ -4,9 +4,6 @@ Date: 2026-09-04
 
 Status: Completed
 
-Execution evidence:
-`STEP_20_AVAILABLE_SLOTS_HTTP_TEST_RESULTS.md`
-
 ## Observable behavior
 
 Customers can select one catalog business and branch, submit a branch-local

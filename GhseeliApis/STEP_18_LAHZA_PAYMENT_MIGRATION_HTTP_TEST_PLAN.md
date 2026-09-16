@@ -1,14 +1,11 @@
 # Step 18 HTTP Test Plan - Lahza Payment Migration
 
-Status: deterministic implementation passed; real Lahza test-mode and public
-HTTPS execution pending.
+Status: completed. Deterministic, real Lahza test-mode, hosted checkout,
+deployment, and Production security smoke coverage passed. Provider-controlled
+outcomes that could not safely be forced remain explicitly non-shipping test
+limitations rather than fabricated successes.
 
-The complete release matrix is maintained in
-`STEP_18_LAHZA_EXHAUSTIVE_TEST_SCENARIOS.md`. The stable scenarios below are
-the original core contract; the exhaustive catalog adds request permutations,
-provider transport failures, mobile/WebView lifecycles, unknown provider
-states, exact-byte attacks, migration variants, operations, and every
-documented Lahza test-card outcome.
+The stable scenarios below remain the active manifest mapping contract.
 
 HTTP required: **Yes** - this change replaces the Stripe-specific customer
 payment contract with Lahza hosted checkout, server-side verification, and

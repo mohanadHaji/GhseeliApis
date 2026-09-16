@@ -4,6 +4,9 @@
 frontend development. Every record is fictional, visibly marked, and intended
 to live only in the APIs' isolated `Demo` data partition.
 
+For a concise file to send directly to the frontend team, use
+`FRONTEND_DEMO_HANDOFF.md`.
+
 ## Safety
 
 - The dataset metadata says `datasetType: "demo"` and

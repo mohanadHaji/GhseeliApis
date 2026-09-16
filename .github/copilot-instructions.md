@@ -1,5 +1,21 @@
 # Copilot Instructions — GhseeliApis
 
+## Agent Handoff and Production Readiness
+
+Before answering questions such as "what is left?", "is this production
+ready?", or "what should we build next?", read:
+
+1. `README.md` at the repository root for the service and database design.
+2. `GhseeliApis/README.md` for completed work, known gaps, testing evidence,
+   and the production-readiness ledger.
+3. `GhseeliApis/API_BOUNDARIES.md` for ownership and security invariants.
+
+Verify the handoff against current code and deployment state when making new
+changes. Keep its production-readiness statuses current. Do not present
+conditional features such as SMS, OAuth, browser CORS, FCM, or alternative
+payment methods as unconditional blockers unless the user says the product
+requires them.
+
 ## Application Boundaries
 
 The solution is being split into independently deployed backends:

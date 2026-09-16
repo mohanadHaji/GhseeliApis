@@ -351,11 +351,13 @@ Remote Demo cleanup is intentionally unavailable.
 
 ## Documentation retained
 
-Only one file is named `README.md`. Additional retained Markdown files have
-active, non-overlapping purposes:
+The root README describes the system and databases. The solution-level README
+is a working handoff for future coding agents. Other retained Markdown files
+have active, non-overlapping purposes:
 
 | Document | Purpose |
 |---|---|
+| `GhseeliApis/README.md` | Completed work, known gaps, future improvements, and testing handoff for agents |
 | `GhseeliApis/API_BOUNDARIES.md` | Detailed ownership, security, and integration invariants |
 | `GhseeliApis/HTTP_TEST_PLAN_STANDARD.md` | Required test-first HTTP process |
 | `GhseeliApis/docs/FRONTEND_AI_INTEGRATION_GUIDE.md` | Detailed frontend implementation contract |

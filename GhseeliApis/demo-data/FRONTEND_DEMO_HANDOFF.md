@@ -40,6 +40,70 @@ records, drafts, bookings, and payment examples is available in:
 demo-data/frontend-demo-data.json
 ```
 
+The JSON is the canonical description of the seeded records. It is not a
+mocked API response: the frontend should still use the hosted APIs and compare
+the returned IDs, relationships, states, and values with this file.
+
+## What the frontend should expect
+
+| Action | Expected result |
+|---|---|
+| Customer password login with a listed Demo account | `200`; JWT partition is `Demo` |
+| Customer OTP request | `202`; no email is sent |
+| Customer OTP confirmation with `111111` | `200` |
+| Business login with a listed Demo account | `200`; JWT partition is `Demo` |
+| Catalog browse with a Demo device | `200`; 5 Demo businesses |
+| Catalog browse with `?refresh=true` | `200`; 5 Demo businesses |
+| Read a draft owned by the supplied Demo device | `200` |
+| Read a draft owned by another partition/device | `404` or authorization rejection |
+| Use a Demo JWT with a Production device, or the reverse | `403` |
+| Initialize card payment for a Demo booking | `409`, code `booking_not_payable` |
+| Send `dataPartition` from a public client | It does not select or override the partition |
+
+The catalog contains five businesses. Each has four offerings:
+
+| Business | Branches | Categories | Offerings |
+|---|---:|---:|---:|
+| `[DEMO] Sparkle Mobile Wash` | 2 | 2 | 4 |
+| `[DEMO] Blue Wave Auto Care` | 2 | 1 | 4 |
+| `[DEMO] Green Garage Wash` | 1 | 1 | 4 |
+| `[DEMO] City Shine Express` | 2 | 1 | 4 |
+| `[DEMO] Royal Auto Spa` | 1 | 1 | 4 |
+
+Expected booking-state distribution:
+
+| State | Count |
+|---|---:|
+| Pending | 2 |
+| Confirmed | 2 |
+| InProgress | 2 |
+| Completed | 3 |
+| Cancelled | 2 |
+| NoShow | 1 |
+
+Expected payment-state distribution:
+
+| State | Count |
+|---|---:|
+| Pending | 2 |
+| Completed | 3 |
+| Failed | 2 |
+| Refunded | 1 |
+
+Expected checkout-draft distribution:
+
+| State | Count |
+|---|---:|
+| active | 2 |
+| priced | 2 |
+| needsReprice | 1 |
+| expired | 1 |
+
+The recommended Customer, `maya.demo@example.test`, owns two devices, two
+vehicles, one address, one checkout draft, and two bookings. Other customers
+have different combinations so list, empty-state, ownership, status, and
+detail screens can be tested.
+
 ## Customer API usage
 
 Customer routes that require a device must include:
@@ -189,4 +253,3 @@ owner.cityshine@example.test
 owner.royal@example.test
 employee.jenin@example.test
 ```
-

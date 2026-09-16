@@ -61,6 +61,17 @@ are listed under `businessUsers`. The JSON also includes valid device tokens
 for `X-Device-Token`. Customer password login uses `Demo123!`; email OTP login
 uses `111111`. These credentials can access only Demo records.
 
+Hosted frontend endpoints:
+
+```text
+Customer API: https://ghseelicustomer.runasp.net
+Business API: https://ghseelibusiness.runasp.net
+```
+
+For a quick Customer test, use `maya.demo@example.test`, password `Demo123!`,
+and that customer's first `devices[].token` from the JSON. For a quick
+Business test, use `owner.sparkle@example.test` with the same password.
+
 ## Generate and seed
 
 From the solution directory:

@@ -9,7 +9,7 @@
 - Business database: `GhseeliBusiness_HostedDemoHttp`
 - Dataset: `demo-data/frontend-demo-data.json`
 - Result: 17 passed, 0 failed, 0 deferred locally
-- Hosted execution: pending deployment and controlled hosted seeding
+- Hosted execution: 11 passed, 0 failed, 6 deferred with local automated coverage
 
 ## Scenario results
 
@@ -46,6 +46,32 @@ Release build completed with 0 warnings and 0 errors.
 
 ## Hosted status
 
-No hosted schema, application, or data was changed during this execution. The
-same scenarios must be rerun against the hosted URLs after explicit approval,
-deployment, and guarded insertion of the canonical Demo records.
+Approved hosted deployment and Demo seeding completed successfully:
+
+- Deployment and migrations:
+  <https://github.com/mohanadHaji/GhseeliApis/actions/runs/35060916869>
+- Initial deterministic Demo seed:
+  <https://github.com/mohanadHaji/GhseeliApis/actions/runs/35061785329>
+- Idempotency seed:
+  <https://github.com/mohanadHaji/GhseeliApis/actions/runs/35063764171>
+- Customer health: `200`
+- Business health: `200`
+
+Live hosted checks passed for:
+
+- Demo Customer and Business password login with `Demo` JWT claims.
+- Demo Customer OTP request and fixed-code confirmation without SMTP.
+- Five-company Demo catalog browse and forced signed refresh.
+- Demo draft, Business company, and Business offering reads.
+- Production Customer JWT with Demo device rejection (`403`).
+- Unsigned internal Demo partition rejection (`401`).
+- Demo Lahza initialization suppression (`409`, `booking_not_payable`).
+- Repeat hosted seed with no duplicate insertion.
+
+Hosted scenarios STEP25A-DEMO-001, 005, 007, and 010 were not repeated
+because doing so required creating persistent Production test devices/accounts
+or unavailable valid Production Business credentials. Their local HTTP and
+automated partition coverage passed. STEP25A-DEMO-016 and 017 remain
+intentionally local-only because deleting the newly published hosted Demo
+dataset would defeat the frontend handoff; exact cleanup and Production
+sentinel preservation passed against the disposable local databases.

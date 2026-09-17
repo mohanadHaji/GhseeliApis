@@ -20,8 +20,9 @@ repository root [`README.md`](../README.md).
 - Business tests: 588.
 - Demo-data tests: 23.
 - Release build: 0 warnings and 0 errors.
-- The Customer-to-Business Demo partition propagation fix is validated locally
-  but is not present on the hosted APIs until the next manual deployment.
+- The Customer-to-Business Demo partition propagation fix was deployed and
+  hosted-verified on 2026-09-17: the seeded Demo catalog returned five fresh
+  businesses with no stale providers.
 
 ## Production-readiness ledger
 

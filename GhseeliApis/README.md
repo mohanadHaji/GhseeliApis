@@ -15,11 +15,13 @@ repository root [`README.md`](../README.md).
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
-- Current verified automated baseline: **1,920 passed, 0 failed, 0 skipped**.
-- Customer tests: 1,311.
-- Business tests: 586.
+- Current verified automated baseline: **1,937 passed, 0 failed, 0 skipped**.
+- Customer tests: 1,326.
+- Business tests: 588.
 - Demo-data tests: 23.
 - Release build: 0 warnings and 0 errors.
+- The Customer-to-Business Demo partition propagation fix is validated locally
+  but is not present on the hosted APIs until the next manual deployment.
 
 ## Production-readiness ledger
 

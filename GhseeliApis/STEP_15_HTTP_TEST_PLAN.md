@@ -438,6 +438,7 @@ route's earlier frozen replay contract says otherwise.
 | `STEP15-HEADERS-SWAGGER-CSP-170` | Contract + live-local | Swagger UI uses only its documented narrow CSP/resources, cannot frame or gain browser capabilities, and JSON remains nosniff/no-store. |
 | `STEP15-HEADERS-PIPELINE-FALLBACK-171` | TestServer | Middleware-generated auth failures, status-code fallback, model binding, exception mapping, and unknown routes all receive correlation/cache/security headers without duplicate writes. |
 | `STEP15-HEADERS-HEALTH-172` | TestServer + live-local | Health and DB-health success/failure carry correlation/security and the documented cache policy, disclose no database/configuration details, and remain language-neutral. |
+| `STEP15-CUSTOMER-CATALOG-DEMO-REFRESH-173` | TestServer + live-local | `GET /api/v1/catalog/businesses` with a trusted Demo device and an aged snapshot sends the signed internal catalog request with `dataPartition=Demo`, refreshes from the Demo Business partition, returns `200`, and changes `catalog.isStale` to `false`; Production devices continue to send `dataPartition=Production`. |
 
 ## 4. Route-to-behavior/test coverage matrix
 

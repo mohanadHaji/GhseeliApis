@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Services.Business;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -287,6 +289,77 @@ public class BusinessApiClientTests
         handler.Requests.Should().HaveCount(1);
     }
 
+    [Theory]
+    [InlineData("catalog", DataPartitionNames.Production)]
+    [InlineData("catalog", DataPartitionNames.Demo)]
+    [InlineData("validate", DataPartitionNames.Production)]
+    [InlineData("validate", DataPartitionNames.Demo)]
+    [InlineData("slots", DataPartitionNames.Production)]
+    [InlineData("slots", DataPartitionNames.Demo)]
+    [InlineData("reservation", DataPartitionNames.Production)]
+    [InlineData("reservation", DataPartitionNames.Demo)]
+    [InlineData("status", DataPartitionNames.Production)]
+    [InlineData("status", DataPartitionNames.Demo)]
+    public async Task InternalOperations_SignAssignedPartition(
+        string operation,
+        string dataPartition)
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = new StringContent(
+                    "{\"detail\":\"not found\"}",
+                    Encoding.UTF8,
+                    "application/problem+json")
+            }
+        ]);
+        var client = CreateClient(
+            handler,
+            correlationId: "corr-partition-matrix",
+            dataPartition: dataPartition);
+
+        await ExecuteInternalOperationAsync(client, operation);
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(
+            request.RequestUri!.Query);
+        query[DataPartitionNames.QueryParameter].Should().ContainSingle(dataPartition);
+        request.Headers.GetValues(InternalServiceWireConstants.SignatureHeaderName)
+            .Should()
+            .ContainSingle();
+    }
+
+    [Theory]
+    [InlineData("https://business.example.test/api/v1/internal/catalog/snapshot")]
+    [InlineData("https://business.example.test/api/v1/internal/catalog/snapshot?dataPartition=Demo&dataPartition=Production")]
+    [InlineData("https://business.example.test/api/v1/internal/catalog/snapshot?dataPartition=Unknown")]
+    public async Task SigningHandler_WhenPartitionQueryIsUntrusted_FailsBeforeTransmission(
+        string requestUri)
+    {
+        var terminal = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+        ]);
+        var signingHandler = new HmacSigningDelegatingHandler(
+            Options.Create(new BusinessApiClientOptions
+            {
+                ServiceId = "customer-api-tests",
+                ActiveSecret = "CustomerStep6ActiveSecret_Minimum32Chars"
+            }))
+        {
+            InnerHandler = terminal
+        };
+        using var client = new HttpClient(signingHandler);
+
+        var action = () => client.GetAsync(requestUri);
+
+        await action.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .WithMessage("*exactly one trusted data partition*");
+        terminal.Requests.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task GetCatalogSnapshotAsync_WhenClientConfigurationIsInvalid_ThrowsTypedConfigurationWithoutRetry()
     {
@@ -452,7 +525,8 @@ public class BusinessApiClientTests
         string environmentName = "Production",
         double timeoutSeconds = 1,
         int maxRetryAttempts = 1,
-        Action<BusinessApiClientOptions>? configureOptions = null)
+        Action<BusinessApiClientOptions>? configureOptions = null,
+        string dataPartition = DataPartitionNames.Production)
     {
         var optionValues = new BusinessApiClientOptions
         {
@@ -481,6 +555,8 @@ public class BusinessApiClientTests
         {
             EnvironmentName = environmentName
         };
+        var partitionContext = new CustomerDataPartitionContext();
+        partitionContext.SetTrustedPartition(dataPartition);
 
         var correlationHandler = new CorrelationIdPropagationHandler(accessor);
         var signingHandler = new HmacSigningDelegatingHandler(options);
@@ -498,7 +574,77 @@ public class BusinessApiClientTests
             httpClient.BaseAddress = baseUri;
         }
 
-        return new BusinessApiClient(httpClient, options, environment, accessor);
+        return new BusinessApiClient(
+            httpClient,
+            options,
+            environment,
+            accessor,
+            partitionContext);
+    }
+
+    private static async Task ExecuteInternalOperationAsync(
+        IBusinessApiClient client,
+        string operation)
+    {
+        var companyId = Guid.NewGuid();
+        var branchId = Guid.NewGuid();
+        var offeringId = Guid.NewGuid();
+
+        try
+        {
+            switch (operation)
+            {
+                case "catalog":
+                    await client.GetCatalogSnapshotAsync(companyId);
+                    break;
+                case "validate":
+                    await client.ValidateAppointmentAsync(
+                        new ValidateAppointmentRequest
+                        {
+                            BranchId = branchId,
+                            OfferingId = offeringId,
+                            RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddDays(1),
+                            Currency = "ILS"
+                        },
+                        "partition-validate");
+                    break;
+                case "slots":
+                    await client.GetAvailableSlotsAsync(
+                        new AvailableSlotsRequest
+                        {
+                            CompanyId = companyId,
+                            BranchId = branchId,
+                            Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                            Currency = "ILS",
+                            Items =
+                            [
+                                new AvailableSlotsItemRequest { OfferingId = offeringId }
+                            ]
+                        });
+                    break;
+                case "reservation":
+                    await client.CreateReservationAsync(
+                        new CreateReservationRequest
+                        {
+                            BookingReference = Guid.NewGuid(),
+                            OrderGuid = Guid.NewGuid(),
+                            BranchId = branchId,
+                            RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddDays(1),
+                            Currency = "ILS",
+                            CancellationPolicyAcknowledged = true
+                        },
+                        "partition-reservation");
+                    break;
+                case "status":
+                    await client.GetReservationStatusAsync(Guid.NewGuid());
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(operation));
+            }
+        }
+        catch (BusinessApiContractException)
+        {
+        }
     }
 
     private sealed class RecordingHandler : HttpMessageHandler

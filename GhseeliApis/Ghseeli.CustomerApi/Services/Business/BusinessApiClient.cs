@@ -1,6 +1,8 @@
 using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.Bookings;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
+using GhseeliApis.DataPartitioning;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -45,17 +47,20 @@ public sealed class BusinessApiClient : IBusinessApiClient
     private readonly BusinessApiClientOptions _options;
     private readonly IWebHostEnvironment _environment;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public BusinessApiClient(
         HttpClient httpClient,
         IOptions<BusinessApiClientOptions> options,
         IWebHostEnvironment environment,
-        IHttpContextAccessor httpContextAccessor)
+        IHttpContextAccessor httpContextAccessor,
+        ICustomerDataPartitionContext? dataPartition = null)
     {
         _httpClient = httpClient;
         _options = options.Value;
         _environment = environment;
         _httpContextAccessor = httpContextAccessor;
+        _dataPartition = dataPartition ?? new CustomerDataPartitionContext();
     }
 
     public async Task<CatalogSnapshotResponse> GetCatalogSnapshotAsync(
@@ -343,7 +348,12 @@ public sealed class BusinessApiClient : IBusinessApiClient
                 correlationId);
         }
 
-        return new Uri(baseUri, relativePath);
+        var partitionedPath = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            relativePath,
+            DataPartitionNames.QueryParameter,
+            _dataPartition.Partition);
+
+        return new Uri(baseUri, partitionedPath);
     }
 
     private static (string? Code, string? Detail) TryReadProblem(string content)

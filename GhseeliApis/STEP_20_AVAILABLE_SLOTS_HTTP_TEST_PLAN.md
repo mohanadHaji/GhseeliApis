@@ -116,6 +116,7 @@ returned.
 | `STEP20-SLOTS-CUSTOMER-018` | Customer | Business timeout/5xx/invalid/oversized response | Safe 503/502; no provider body or internals leaked. |
 | `STEP20-SLOTS-CUSTOMER-019` | Customer | Arabic/Hebrew language selection | Stable code and localized message; slot data unchanged. |
 | `STEP20-SLOTS-CUSTOMER-020` | Customer | Unexpected JSON properties | Ignored safely; no authority granted to client fields. |
+| `STEP20-SLOTS-CUSTOMER-021` | Customer | Demo device with stale catalog requests available slots | 200; catalog refresh and available-slots internal calls are both signed for the Demo partition. |
 | `STEP20-SLOTS-INTERNAL-001` | Business internal | Valid HMAC request | 200 with authoritative slots and capacity. |
 | `STEP20-SLOTS-INTERNAL-002` | Business internal | Missing/invalid/stale/replayed signature or wrong operation | 401/409 according to internal security contract. |
 | `STEP20-SLOTS-INTERNAL-003` | Business internal | Company/branch mismatch or inactive company/branch | Stable validation error; no slot data leak. |

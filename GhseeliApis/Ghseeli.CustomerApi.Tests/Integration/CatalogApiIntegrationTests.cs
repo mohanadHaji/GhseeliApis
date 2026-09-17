@@ -6,6 +6,7 @@ using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Tests.Support;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -443,6 +444,100 @@ public class CatalogApiIntegrationTests
         document.RootElement.GetProperty("language").GetString().Should().Be("he");
     }
 
+    [Fact]
+    [Trait("ScenarioId", "STEP15-CUSTOMER-CATALOG-DEMO-REFRESH-173")]
+    public async Task GetBusinesses_WithDemoDevice_RefreshesFromDemoBusinessPartition()
+    {
+        var token = CatalogTestSupport.CreateToken(16);
+        var device = CatalogTestSupport.CreateDevice(token);
+        device.IsDemo = true;
+        var sourceCompanyId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var businessApiHandler = new PartitionAwareCatalogHandler(sourceCompanyId);
+        await using var factory = new CatalogApiFactory(
+            devices: [device],
+            providers:
+            [
+                new CatalogProviderRegistrationOptions
+                {
+                    SourceCompanyId = sourceCompanyId,
+                    Enabled = true,
+                    Order = 0
+                }
+            ],
+            useActualBusinessApiClient: true,
+            useDemoProviders: true,
+            businessApiHandler: businessApiHandler);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            deviceToken: token);
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        businessApiHandler.RequestedPartitions.Should().ContainSingle(DataPartitionNames.Demo);
+        var business = document.RootElement.GetProperty("businesses")
+            .EnumerateArray()
+            .Should()
+            .ContainSingle()
+            .Which;
+        business.GetProperty("sourceId").GetGuid().Should().Be(sourceCompanyId);
+        business.GetProperty("catalog").GetProperty("isStale").GetBoolean().Should().BeFalse();
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "STEP20-SLOTS-CUSTOMER-021")]
+    public async Task GetAvailableSlots_WithDemoDevice_UsesDemoPartitionForRefreshAndSlots()
+    {
+        var token = CatalogTestSupport.CreateToken(17);
+        var device = CatalogTestSupport.CreateDevice(token);
+        device.IsDemo = true;
+        var sourceCompanyId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var businessApiHandler = new PartitionAwareCatalogHandler(sourceCompanyId);
+        await using var factory = new CatalogApiFactory(
+            devices: [device],
+            providers:
+            [
+                new CatalogProviderRegistrationOptions
+                {
+                    SourceCompanyId = sourceCompanyId,
+                    Enabled = true,
+                    Order = 0
+                }
+            ],
+            useActualBusinessApiClient: true,
+            useDemoProviders: true,
+            businessApiHandler: businessApiHandler);
+        using var client = factory.CreateApiClient();
+        var ids = await GetCatalogSelectionAsync(client, token);
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            $"/api/v1/catalog/businesses/{ids.BusinessId:D}/branches/{ids.BranchId:D}/available-slots",
+            deviceToken: token);
+        request.Content = JsonContent.Create(new
+        {
+            date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            items = new[] { new { offeringId = ids.OfferingId } }
+        });
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        businessApiHandler.RequestedPartitions.Should()
+            .Equal(DataPartitionNames.Demo, DataPartitionNames.Demo);
+        businessApiHandler.RequestedPaths.Should().Equal(
+            "/api/v1/internal/catalog/snapshot",
+            "/api/v1/internal/appointments/available-slots");
+        document.RootElement.GetProperty("totalDurationMinutes").GetInt32().Should().Be(60);
+        document.RootElement.GetProperty("slots")[0].GetProperty("isAvailable")
+            .GetBoolean()
+            .Should()
+            .BeTrue();
+    }
+
     private static HttpRequestMessage CreateRequest(
         HttpMethod method,
         string url,
@@ -504,15 +599,21 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
     private readonly IEnumerable<CustomerDevice> _devices;
     private readonly IReadOnlyList<CatalogProviderRegistrationOptions> _providers;
     private readonly bool _useActualBusinessApiClient;
+    private readonly bool _useDemoProviders;
+    private readonly HttpMessageHandler? _businessApiHandler;
 
     public CatalogApiFactory(
         IEnumerable<CustomerDevice>? devices = null,
         IEnumerable<CatalogProviderRegistrationOptions>? providers = null,
-        bool useActualBusinessApiClient = false)
+        bool useActualBusinessApiClient = false,
+        bool useDemoProviders = false,
+        HttpMessageHandler? businessApiHandler = null)
     {
         _devices = devices ?? Array.Empty<CustomerDevice>();
         _providers = providers?.ToArray() ?? CreateDefaultProviders();
         _useActualBusinessApiClient = useActualBusinessApiClient;
+        _useDemoProviders = useDemoProviders;
+        _businessApiHandler = businessApiHandler;
     }
 
     public Guid FirstSourceCompanyId { get; } = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -530,18 +631,36 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
         builder.UseSetting("CatalogReadModel:FreshWindowSeconds", "300");
         builder.UseSetting("CatalogReadModel:MaxStaleWindowSeconds", "3600");
         builder.UseSetting("CatalogReadModel:LeaseDurationSeconds", "30");
+        builder.UseSetting(
+            "BusinessApiClient:BaseUrl",
+            _businessApiHandler is null ? string.Empty : "https://business.example.test");
+        builder.UseSetting("BusinessApiClient:ServiceId", "customer-api-tests");
+        builder.UseSetting(
+            "BusinessApiClient:ActiveSecret",
+            "CustomerCatalogIntegrationSecret_Minimum32Chars");
 
+        var providerSection = _useDemoProviders ? "DemoProviders" : "Providers";
         for (var index = 0; index < _providers.Count; index++)
         {
             builder.UseSetting(
-                $"CatalogReadModel:Providers:{index}:SourceCompanyId",
+                $"CatalogReadModel:{providerSection}:{index}:SourceCompanyId",
                 _providers[index].SourceCompanyId.ToString());
             builder.UseSetting(
-                $"CatalogReadModel:Providers:{index}:Enabled",
+                $"CatalogReadModel:{providerSection}:{index}:Enabled",
                 _providers[index].Enabled.ToString());
             builder.UseSetting(
-                $"CatalogReadModel:Providers:{index}:Order",
+                $"CatalogReadModel:{providerSection}:{index}:Order",
                 _providers[index].Order.ToString());
+        }
+
+        if (_useDemoProviders)
+        {
+            for (var index = _providers.Count; index < 5; index++)
+            {
+                builder.UseSetting(
+                    $"CatalogReadModel:DemoProviders:{index}:Enabled",
+                    bool.FalseString);
+            }
         }
 
         builder.ConfigureServices(services =>
@@ -556,8 +675,20 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
                 services.RemoveAll<IBusinessApiClient>();
                 services.AddSingleton<IBusinessApiClient>(_ => BusinessApiClient);
             }
+            else if (_businessApiHandler is not null)
+            {
+                services.AddHttpClient<IBusinessApiClient, BusinessApiClient>()
+                    .ConfigurePrimaryHttpMessageHandler(() => _businessApiHandler);
+            }
 
             using var scope = services.BuildServiceProvider().CreateScope();
+            if (_useDemoProviders)
+            {
+                scope.ServiceProvider
+                    .GetRequiredService<GhseeliApis.DataPartitioning.ICustomerDataPartitionContext>()
+                    .SetTrustedPartition(DataPartitionNames.Demo);
+            }
+
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureDeleted();
             context.Database.EnsureCreated();
@@ -605,4 +736,92 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
             Order = 1
         }
     ];
+}
+
+internal sealed class PartitionAwareCatalogHandler : HttpMessageHandler
+{
+    private readonly Guid _sourceCompanyId;
+
+    public PartitionAwareCatalogHandler(Guid sourceCompanyId)
+    {
+        _sourceCompanyId = sourceCompanyId;
+    }
+
+    public List<string> RequestedPartitions { get; } = [];
+    public List<string> RequestedPaths { get; } = [];
+
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(
+            request.RequestUri!.Query);
+        var partition = query.TryGetValue(DataPartitionNames.QueryParameter, out var values)
+            ? values.ToString()
+            : string.Empty;
+        RequestedPartitions.Add(partition);
+        RequestedPaths.Add(request.RequestUri.AbsolutePath);
+
+        if (!string.Equals(partition, DataPartitionNames.Demo, StringComparison.Ordinal))
+        {
+            return new HttpResponseMessage(HttpStatusCode.NotFound)
+            {
+                Content = JsonContent.Create(new { code = "company_not_found" })
+            };
+        }
+
+        if (request.RequestUri.AbsolutePath.EndsWith(
+                "/appointments/available-slots",
+                StringComparison.Ordinal))
+        {
+            var slotsRequest = await request.Content!.ReadFromJsonAsync<
+                Ghseeli.IntegrationContracts.BusinessCatalog.AvailableSlotsRequest>(
+                Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract
+                    .CreateJsonSerializerOptions(),
+                cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = JsonContent.Create(
+                    new Ghseeli.IntegrationContracts.BusinessCatalog.AvailableSlotsResponse
+                    {
+                        Valid = true,
+                        CompanyId = slotsRequest!.CompanyId,
+                        BranchId = slotsRequest.BranchId,
+                        Date = slotsRequest.Date,
+                        TimeZoneId = "UTC",
+                        CatalogVersion = slotsRequest.ExpectedCatalogVersion!.Value,
+                        Currency = slotsRequest.Currency,
+                        TotalDurationMinutes = 60,
+                        GeneratedAtUtc = DateTime.UtcNow,
+                        Slots =
+                        [
+                            new Ghseeli.IntegrationContracts.BusinessCatalog.AvailableSlotResponse
+                            {
+                                StartUtc = slotsRequest.Date.ToDateTime(
+                                    new TimeOnly(9),
+                                    DateTimeKind.Utc),
+                                EndUtc = slotsRequest.Date.ToDateTime(
+                                    new TimeOnly(10),
+                                    DateTimeKind.Utc),
+                                StartLocal = slotsRequest.Date.ToDateTime(new TimeOnly(9)),
+                                EndLocal = slotsRequest.Date.ToDateTime(new TimeOnly(10)),
+                                ConfiguredCapacity = 2,
+                                RemainingCapacity = 1,
+                                IsAvailable = true
+                            }
+                        ]
+                    },
+                    options: Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract
+                        .CreateJsonSerializerOptions())
+            };
+        }
+
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(
+                CatalogTestSupport.CreateSnapshot(_sourceCompanyId, version: 1),
+                options: Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract
+                    .CreateJsonSerializerOptions())
+        };
+    }
 }

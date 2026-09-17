@@ -1,6 +1,5 @@
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Ghseeli.IntegrationContracts.DataPartitioning;
-using GhseeliApis.DataPartitioning;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Text;
@@ -10,19 +9,10 @@ namespace GhseeliApis.Services.Business;
 public sealed class HmacSigningDelegatingHandler : DelegatingHandler
 {
     private readonly IOptions<BusinessApiClientOptions> _options;
-    private readonly ICustomerDataPartitionContext _dataPartition;
 
     public HmacSigningDelegatingHandler(IOptions<BusinessApiClientOptions> options)
-        : this(options, new CustomerDataPartitionContext())
-    {
-    }
-
-    public HmacSigningDelegatingHandler(
-        IOptions<BusinessApiClientOptions> options,
-        ICustomerDataPartitionContext dataPartition)
     {
         _options = options;
-        _dataPartition = dataPartition;
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(
@@ -56,7 +46,7 @@ public sealed class HmacSigningDelegatingHandler : DelegatingHandler
         var bodyHash = InternalServiceCanonicalRequest.ComputeSha256Hex(bodyBytes);
         var timestamp = DateTime.UtcNow.ToString("O");
         var nonce = CreateNonce();
-        AddPartitionQuery(request);
+        ValidatePartitionQuery(request);
         var queryParameters = ParseQueryParameters(request.RequestUri);
         var idempotencyKey = request.Headers.TryGetValues(
             InternalServiceWireConstants.IdempotencyKeyHeaderName,
@@ -98,7 +88,7 @@ public sealed class HmacSigningDelegatingHandler : DelegatingHandler
         return await base.SendAsync(request, cancellationToken);
     }
 
-    private void AddPartitionQuery(HttpRequestMessage request)
+    private static void ValidatePartitionQuery(HttpRequestMessage request)
     {
         var original = request.RequestUri
             ?? throw new InvalidOperationException("The internal request URI is required.");
@@ -106,24 +96,13 @@ public sealed class HmacSigningDelegatingHandler : DelegatingHandler
             original.IsAbsoluteUri
                 ? original.Query
                 : new Uri("https://placeholder" + original.OriginalString).Query);
-        if (existing.TryGetValue(DataPartitionNames.QueryParameter, out var values))
+        if (!existing.TryGetValue(DataPartitionNames.QueryParameter, out var values) ||
+            values.Count != 1 ||
+            !DataPartitionNames.IsSupported(values[0]))
         {
-            if (values.Count != 1 ||
-                !string.Equals(values[0], _dataPartition.Partition, StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException(
-                    "The internal request data partition conflicts with the trusted request partition.");
-            }
-            return;
+            throw new InvalidOperationException(
+                "The internal request must contain exactly one trusted data partition.");
         }
-
-        var updated = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
-            original.OriginalString,
-            DataPartitionNames.QueryParameter,
-            _dataPartition.Partition);
-        request.RequestUri = new Uri(
-            updated,
-            original.IsAbsoluteUri ? UriKind.Absolute : UriKind.Relative);
     }
 
     private static IEnumerable<KeyValuePair<string, string?>> ParseQueryParameters(Uri? requestUri)

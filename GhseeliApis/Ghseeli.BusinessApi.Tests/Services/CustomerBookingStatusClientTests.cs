@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Ghseeli.BusinessApi.Services;
 using Ghseeli.BusinessApi.DataPartitioning;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.FileProviders;
@@ -51,6 +52,40 @@ public sealed class CustomerBookingStatusClientTests
         handler.Requests.Select(value => value.Timestamp).Distinct().Should().HaveCount(2);
     }
 
+    [Theory]
+    [InlineData(DataPartitionNames.Production)]
+    [InlineData(DataPartitionNames.Demo)]
+    public async Task DeliverAsync_SignsAssignedPartition(string dataPartition)
+    {
+        var handler = new RecordingHandler();
+        var partition = new BusinessDataPartitionContext();
+        partition.SetTrustedPartition(dataPartition);
+        var client = new CustomerBookingStatusClient(
+            new HttpClient(handler),
+            Options.Create(new CustomerBookingStatusClientOptions
+            {
+                BaseUrl = "https://customer.example",
+                ServiceId = "ghseeli-business",
+                ActiveSecret = "callback-secret-at-least-thirty-two-characters",
+                RequireHttps = true
+            }),
+            new TestEnvironment(),
+            partition);
+
+        await client.DeliverAsync(
+            "{\"contractVersion\":\"v1\"}",
+            Guid.NewGuid(),
+            "booking-status-partition",
+            "corr-partition",
+            CancellationToken.None);
+
+        var request = handler.Requests.Should().ContainSingle().Subject;
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(
+            request.Uri.Query);
+        query[DataPartitionNames.QueryParameter].Should().ContainSingle(dataPartition);
+        request.Signature.Should().HaveLength(64);
+    }
+
     private sealed class RecordingHandler : HttpMessageHandler
     {
         public List<RequestRecord> Requests { get; } = [];
@@ -60,11 +95,13 @@ public sealed class CustomerBookingStatusClientTests
             CancellationToken cancellationToken)
         {
             Requests.Add(new RequestRecord(
+                request.RequestUri!,
                 await request.Content!.ReadAsStringAsync(cancellationToken),
                 Header(request, InternalServiceWireConstants.IdempotencyKeyHeaderName),
                 Header(request, InternalServiceWireConstants.CorrelationIdHeaderName),
                 Header(request, InternalServiceWireConstants.NonceHeaderName),
-                Header(request, InternalServiceWireConstants.TimestampHeaderName)));
+                Header(request, InternalServiceWireConstants.TimestampHeaderName),
+                Header(request, InternalServiceWireConstants.SignatureHeaderName)));
             return new HttpResponseMessage(HttpStatusCode.OK);
         }
 
@@ -73,11 +110,13 @@ public sealed class CustomerBookingStatusClientTests
     }
 
     private sealed record RequestRecord(
+        Uri Uri,
         string Body,
         string IdempotencyKey,
         string CorrelationId,
         string Nonce,
-        string Timestamp);
+        string Timestamp,
+        string Signature);
 
     private sealed class TestEnvironment : IWebHostEnvironment
     {

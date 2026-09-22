@@ -7,6 +7,7 @@ using GhseeliApis.Repositories.Interfaces;
 using GhseeliApis.Services.Business;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Tests.Support;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +39,66 @@ public class CatalogRefreshRelationalIntegrationTests
 
         response.Businesses.Should().ContainSingle();
         response.Businesses.Single().Catalog.Version.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Refresh_MetadataOnlySameVersionChange_PersistsAndClearsOfferingMetadata()
+    {
+        await using var harness = await RelationalCatalogHarness.CreateAsync();
+        var offeringSourceId = Guid.NewGuid();
+        harness.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 5,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: "بدون التعقيم",
+                offeringQualifierHe: "ללא חיטוי",
+                offeringBadgeCode: CatalogOfferingBadgeCode.MostRequested));
+
+        using (var firstScope = harness.Services.CreateScope())
+        {
+            var service = firstScope.ServiceProvider.GetRequiredService<ICatalogReadModelService>();
+            await service.GetBusinessesAsync(
+                new GetCatalogBusinessesRequest(),
+                acceptLanguageHeader: "ar",
+                CancellationToken.None);
+        }
+
+        using (var verificationScope = harness.Services.CreateScope())
+        {
+            var context = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var offering = await context.CatalogOfferings.SingleAsync();
+            offering.QualifierAr.Should().Be("بدون التعقيم");
+            offering.QualifierHe.Should().Be("ללא חיטוי");
+            offering.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+        }
+
+        harness.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 5,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: null,
+                offeringQualifierHe: null,
+                offeringBadgeCode: null));
+
+        using (var refreshScope = harness.Services.CreateScope())
+        {
+            var service = refreshScope.ServiceProvider.GetRequiredService<ICatalogReadModelService>();
+            await service.GetBusinessesAsync(
+                new GetCatalogBusinessesRequest { Refresh = true },
+                acceptLanguageHeader: "ar",
+                CancellationToken.None);
+        }
+
+        using (var verificationScope = harness.Services.CreateScope())
+        {
+            var context = verificationScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var offering = await context.CatalogOfferings.SingleAsync();
+            offering.QualifierAr.Should().BeNull();
+            offering.QualifierHe.Should().BeNull();
+            offering.BadgeCode.Should().BeNull();
+        }
     }
 
     [Fact]

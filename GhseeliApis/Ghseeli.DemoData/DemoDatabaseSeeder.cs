@@ -126,6 +126,35 @@ public static class DemoDatabaseSeeder
                 provider.LastFailedRefreshAtUtc = null;
                 provider.LastFailureCode = null;
             }
+
+            var offeringsById = data.Companies
+                .SelectMany(company => company.Offerings)
+                .ToDictionary(offering => offering.Id);
+            var offeringIds = offeringsById.Keys.ToArray();
+            var businessOfferings = await business.ServiceOfferings
+                .Where(offering => offeringIds.Contains(offering.Id))
+                .ToListAsync(cancellationToken);
+            var customerOfferings = await customer.CatalogOfferings
+                .Where(offering => offeringIds.Contains(offering.SourceOfferingId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var offering in businessOfferings)
+            {
+                var fixture = offeringsById[offering.Id];
+                offering.QualifierAr = fixture.QualifierAr;
+                offering.QualifierHe = fixture.QualifierHe;
+                offering.BadgeCode = fixture.BadgeCode;
+            }
+
+            foreach (var offering in customerOfferings)
+            {
+                var fixture = offeringsById[offering.SourceOfferingId];
+                offering.QualifierAr = fixture.QualifierAr;
+                offering.QualifierHe = fixture.QualifierHe;
+                offering.BadgeCode = fixture.BadgeCode;
+            }
+
+            await business.SaveChangesAsync(cancellationToken);
             await customer.SaveChangesAsync(cancellationToken);
         }
 
@@ -354,6 +383,9 @@ public static class DemoDatabaseSeeder
                 NameHe = offering.NameHe,
                 DescriptionAr = "خدمة تجريبية",
                 DescriptionHe = "שירות ניסיוני",
+                QualifierAr = offering.QualifierAr,
+                QualifierHe = offering.QualifierHe,
+                BadgeCode = offering.BadgeCode,
                 BasePrice = offering.BasePrice,
                 DurationMinutes = offering.DurationMinutes,
                 ImageUrl = $"https://example.test/demo/services/{offering.ReferenceCode}.jpg",
@@ -685,6 +717,9 @@ public static class DemoDatabaseSeeder
                 NameHe = offering.NameHe,
                 DescriptionAr = "خدمة تجريبية",
                 DescriptionHe = "שירות ניסיוני",
+                QualifierAr = offering.QualifierAr,
+                QualifierHe = offering.QualifierHe,
+                BadgeCode = offering.BadgeCode,
                 BasePrice = offering.BasePrice,
                 DurationMinutes = offering.DurationMinutes,
                 ImageUrl = $"https://example.test/demo/services/{offering.ReferenceCode}.jpg",

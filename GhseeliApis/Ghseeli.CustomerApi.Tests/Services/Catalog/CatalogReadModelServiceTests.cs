@@ -8,6 +8,7 @@ using GhseeliApis.Repositories.Interfaces;
 using GhseeliApis.Services.Business;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Tests.Support;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -161,6 +162,58 @@ public class CatalogReadModelServiceTests
         var offering = await harness.Context.CatalogOfferings.SingleAsync();
         offering.Id.Should().Be(firstOfferingId);
         offering.NameAr.Should().Be("الخدمة المحدّثة");
+    }
+
+    [Fact]
+    public async Task GetBusinessOfferingsAsync_MetadataOnlySameVersionChange_ReappliesClearsBadgeAndUsesHebrewFallback()
+    {
+        var sourceCompanyId = Guid.NewGuid();
+        var offeringSourceId = Guid.NewGuid();
+        using var harness = CreateHarness(sourceCompanyId);
+        harness.Client.GetCatalogSnapshotHandler = (companyId, _) => Task.FromResult(
+            CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 7,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: "بدون التعقيم",
+                offeringQualifierHe: "ללא חיטוי",
+                offeringBadgeCode: CatalogOfferingBadgeCode.MostRequested));
+
+        var businesses = await harness.Service.GetBusinessesAsync(
+            new GetCatalogBusinessesRequest(),
+            acceptLanguageHeader: "ar",
+            CancellationToken.None);
+        var businessId = businesses.Businesses.Single().Id;
+        var arabic = await harness.Service.GetBusinessOfferingsAsync(
+            businessId,
+            new GetCatalogBusinessOfferingsRequest(),
+            acceptLanguageHeader: "ar",
+            CancellationToken.None);
+
+        arabic.Offerings.Single().Qualifier.Should().Be("بدون التعقيم");
+        arabic.Offerings.Single().BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+
+        harness.Client.GetCatalogSnapshotHandler = (companyId, _) => Task.FromResult(
+            CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 7,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: "بدون تلميع",
+                offeringQualifierHe: null,
+                offeringBadgeCode: null));
+
+        var hebrew = await harness.Service.GetBusinessOfferingsAsync(
+            businessId,
+            new GetCatalogBusinessOfferingsRequest { Refresh = true, Language = "he" },
+            acceptLanguageHeader: "ar",
+            CancellationToken.None);
+        var persisted = await harness.Context.CatalogOfferings.SingleAsync();
+
+        hebrew.Offerings.Single().Qualifier.Should().Be("بدون تلميع");
+        hebrew.Offerings.Single().BadgeCode.Should().BeNull();
+        persisted.QualifierAr.Should().Be("بدون تلميع");
+        persisted.QualifierHe.Should().BeNull();
+        persisted.BadgeCode.Should().BeNull();
     }
 
     [Fact]

@@ -1,3 +1,5 @@
+using Ghseeli.IntegrationContracts.BusinessCatalog;
+
 namespace GhseeliApis.DTOs.Catalog;
 
 public sealed class GetCatalogCategoriesRequest
@@ -197,6 +199,8 @@ public sealed class CatalogOfferingResponse
     public Guid SourceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? Qualifier { get; set; }
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
     public decimal BasePrice { get; set; }
     public int DurationMinutes { get; set; }
     public string? ImageUrl { get; set; }

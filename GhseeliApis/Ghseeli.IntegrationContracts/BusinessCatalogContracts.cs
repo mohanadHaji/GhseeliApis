@@ -1,6 +1,41 @@
 using Ghseeli.IntegrationContracts.InternalHttp;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Ghseeli.IntegrationContracts.BusinessCatalog;
+
+[JsonConverter(typeof(CatalogOfferingBadgeCodeJsonConverter))]
+public enum CatalogOfferingBadgeCode
+{
+    MostRequested = 0
+}
+
+public sealed class CatalogOfferingBadgeCodeJsonConverter : JsonConverter<CatalogOfferingBadgeCode>
+{
+    public override CatalogOfferingBadgeCode Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.String &&
+            Enum.TryParse<CatalogOfferingBadgeCode>(
+                reader.GetString(),
+                ignoreCase: true,
+                out var value) &&
+            Enum.IsDefined(value))
+        {
+            return value;
+        }
+
+        throw new JsonException("The offering badge code is invalid.");
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        CatalogOfferingBadgeCode value,
+        JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString());
+}
 
 public static class AppointmentValidationErrorCodes
 {
@@ -142,6 +177,9 @@ public sealed class CatalogSnapshotOffering
     public string? NameHe { get; set; }
     public string? DescriptionAr { get; set; }
     public string? DescriptionHe { get; set; }
+    public string? QualifierAr { get; set; }
+    public string? QualifierHe { get; set; }
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
     public decimal BasePrice { get; set; }
     public int DurationMinutes { get; set; }
     public string? ImageUrl { get; set; }

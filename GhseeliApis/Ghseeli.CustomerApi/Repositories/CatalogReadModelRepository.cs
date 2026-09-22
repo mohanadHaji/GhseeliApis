@@ -483,6 +483,9 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
                 offering.NameHe = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.NameHe);
                 offering.DescriptionAr = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.DescriptionAr);
                 offering.DescriptionHe = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.DescriptionHe);
+                offering.QualifierAr = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.QualifierAr);
+                offering.QualifierHe = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.QualifierHe);
+                offering.BadgeCode = snapshotOffering.BadgeCode;
                 offering.BasePrice = snapshotOffering.BasePrice;
                 offering.DurationMinutes = snapshotOffering.DurationMinutes;
                 offering.ImageUrl = ConfigurationTextNormalizer.NormalizeOptional(snapshotOffering.ImageUrl);

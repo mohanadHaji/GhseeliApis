@@ -4,6 +4,7 @@ using Ghseeli.BusinessApi.DTOs.Catalog;
 using Ghseeli.BusinessApi.InternalServices;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -226,6 +227,331 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
     }
 
     [Fact]
+    public async Task OfferingMetadata_CreateUpdateListAndDetail_RoundTripsStringBadgeAndClears()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var categoryResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "خدمات",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var category = await categoryResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        var createPayload = $$"""
+            {
+              "categoryId": "{{category!.Id}}",
+              "nameAr": "غسيل كامل",
+              "qualifierAr": "بدون التعقيم",
+              "qualifierHe": "ללא חיטוי",
+              "badgeCode": "MostRequested",
+              "basePrice": 100,
+              "durationMinutes": 45,
+              "displayOrder": 0,
+              "isActive": true
+            }
+            """;
+        var createResponse = await client.PostAsync(
+            "/api/v1/business/catalog/offerings",
+            new StringContent(createPayload, Encoding.UTF8, "application/json"));
+        var createJson = await createResponse.Content.ReadAsStringAsync();
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created, createJson);
+        createJson.Should().Contain("\"badgeCode\":\"MostRequested\"");
+        var created = JsonSerializer.Deserialize<ServiceOfferingResponse>(
+            createJson,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+        created!.QualifierAr.Should().Be("بدون التعقيم");
+
+        var listResponse = await client.GetAsync("/api/v1/business/catalog/offerings");
+        var listJson = await listResponse.Content.ReadAsStringAsync();
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK, listJson);
+        listJson.Should().Contain("\"qualifierAr\":\"بدون التعقيم\"");
+        listJson.Should().Contain("\"badgeCode\":\"MostRequested\"");
+
+        var detailResponse = await client.GetAsync(
+            $"/api/v1/business/catalog/offerings/{created.Id}?language=he");
+        var detailJson = await detailResponse.Content.ReadAsStringAsync();
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK, detailJson);
+        detailJson.Should().Contain("\"qualifierHe\":\"ללא חיטוי\"");
+        detailJson.Should().NotContain("\"qualifierAr\"");
+        detailJson.Should().Contain("\"badgeCode\":\"MostRequested\"");
+
+        var versionBeforeUpdate = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        var replacementResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/offerings/{created.Id}",
+            new UpdateServiceOfferingRequest
+            {
+                NameAr = created.NameAr,
+                QualifierAr = "  بدون التلميع  ",
+                QualifierHe = "  ללא פוליש  ",
+                BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+                BasePrice = created.BasePrice,
+                DurationMinutes = created.DurationMinutes,
+                IsActive = true
+            });
+        var replacement = await replacementResponse.Content.ReadFromJsonAsync<ServiceOfferingResponse>();
+
+        replacementResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        replacement!.QualifierAr.Should().Be("بدون التلميع");
+        replacement.QualifierHe.Should().Be("ללא פוליש");
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeUpdate + 1);
+
+        var updateResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/offerings/{created.Id}",
+            new UpdateServiceOfferingRequest
+            {
+                NameAr = created.NameAr,
+                QualifierAr = " ",
+                QualifierHe = null,
+                BadgeCode = null,
+                BasePrice = created.BasePrice,
+                DurationMinutes = created.DurationMinutes,
+                IsActive = true
+            });
+        var updateJson = await updateResponse.Content.ReadAsStringAsync();
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK, updateJson);
+        using var updateDocument = JsonDocument.Parse(updateJson);
+        updateDocument.RootElement.GetProperty("qualifierAr").ValueKind.Should().Be(JsonValueKind.Null);
+        updateDocument.RootElement.GetProperty("qualifierHe").ValueKind.Should().Be(JsonValueKind.Null);
+        updateDocument.RootElement.GetProperty("badgeCode").ValueKind.Should().Be(JsonValueKind.Null);
+    }
+
+    [Theory]
+    [InlineData("\"Popular\"")]
+    [InlineData("0")]
+    public async Task OfferingMetadata_WhenBadgeIsUnknownOrInteger_ReturnsBadRequestWithoutMutation(
+        string badgeJson)
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var categoryResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "خدمات",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var category = await categoryResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var versionBeforeRequest = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        var payload = $$"""
+            {
+              "categoryId": "{{category!.Id}}",
+              "nameAr": "غسيل كامل",
+              "badgeCode": {{badgeJson}},
+              "basePrice": 100,
+              "durationMinutes": 45,
+              "displayOrder": 0,
+              "isActive": true
+            }
+            """;
+
+        using var response = await client.PostAsync(
+            "/api/v1/business/catalog/offerings",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+        var offerings = await client.GetFromJsonAsync<ServiceOfferingListResponse[]>(
+            "/api/v1/business/catalog/offerings");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        offerings.Should().BeEmpty();
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeRequest);
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_WhenQualifierExceedsMaximum_ReturnsBadRequestWithoutVersionChange()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var categoryResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "خدمات",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var category = await categoryResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var versionBeforeRequest = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/offerings",
+            new CreateServiceOfferingRequest
+            {
+                CategoryId = category!.Id,
+                NameAr = "غسيل كامل",
+                QualifierAr = new string('ع', 201),
+                BasePrice = 100,
+                DurationMinutes = 45,
+                IsActive = true
+            });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _factory.ReadState(context => context.ServiceOfferings.Count()).Should().Be(0);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeRequest);
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_AdminEmployeeAndForeignOwner_PreserveAuthorizationAndVersions()
+    {
+        _factory.ResetState();
+        var adminClient = _factory.CreateAuthenticatedClient(_factory.AdminUserId, BusinessRoles.Admin);
+        var ownerClient = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var employeeClient = _factory.CreateAuthenticatedClient(_factory.EmployeeUserId, BusinessRoles.Employee);
+        var foreignOwnerClient = _factory.CreateAuthenticatedClient(
+            _factory.OtherOwnerUserId,
+            BusinessRoles.Owner);
+
+        var categoryResponse = await adminClient.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                CompanyId = _factory.CompanyId,
+                NameAr = "خدمات الإدارة",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var category = await categoryResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        var adminPayload = $$"""
+            {
+              "companyId": "{{_factory.CompanyId}}",
+              "categoryId": "{{category!.Id}}",
+              "nameAr": "خدمة مميزة",
+              "qualifierAr": "بدون التعقيم",
+              "badgeCode": "MostRequested",
+              "basePrice": 50,
+              "durationMinutes": 30,
+              "displayOrder": 0,
+              "isActive": true
+            }
+            """;
+        var adminCreate = await adminClient.PostAsync(
+            "/api/v1/business/catalog/offerings",
+            new StringContent(adminPayload, Encoding.UTF8, "application/json"));
+        var offering = await adminCreate.Content.ReadFromJsonAsync<ServiceOfferingResponse>();
+
+        adminCreate.StatusCode.Should().Be(HttpStatusCode.Created);
+        offering!.QualifierAr.Should().Be("بدون التعقيم");
+        offering.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+
+        var versionBeforeRejectedRequests = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        var employeeCreate = await employeeClient.PostAsJsonAsync(
+            "/api/v1/business/catalog/offerings",
+            new CreateServiceOfferingRequest
+            {
+                CategoryId = category.Id,
+                NameAr = "محظورة",
+                QualifierAr = "لن تحفظ",
+                BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+                BasePrice = 10,
+                DurationMinutes = 10,
+                IsActive = true
+            });
+        var employeeUpdate = await employeeClient.PutAsJsonAsync(
+            $"/api/v1/business/catalog/offerings/{offering.Id}",
+            new UpdateServiceOfferingRequest
+            {
+                NameAr = offering.NameAr,
+                QualifierAr = "لن تحفظ",
+                BadgeCode = null,
+                BasePrice = offering.BasePrice,
+                DurationMinutes = offering.DurationMinutes,
+                IsActive = true
+            });
+        var foreignUpdate = await foreignOwnerClient.PutAsJsonAsync(
+            $"/api/v1/business/catalog/offerings/{offering.Id}",
+            new UpdateServiceOfferingRequest
+            {
+                NameAr = offering.NameAr,
+                QualifierAr = "لن تحفظ",
+                BadgeCode = null,
+                BasePrice = offering.BasePrice,
+                DurationMinutes = offering.DurationMinutes,
+                IsActive = true
+            });
+
+        employeeCreate.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        employeeUpdate.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        foreignUpdate.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeRejectedRequests);
+        _factory.ReadState(context => context.ServiceOfferings.Count())
+            .Should().Be(1);
+        var persisted = _factory.ReadState(context =>
+            context.ServiceOfferings.Single(value => value.Id == offering.Id));
+        persisted.QualifierAr.Should().Be("بدون التعقيم");
+        persisted.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_WithHebrewOnlyQualifier_LocalizesWithoutLeakingOtherLanguage()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var categoryResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "خدمات",
+                DisplayOrder = 0,
+                IsActive = true
+            });
+        var category = await categoryResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var payload = $$"""
+            {
+              "categoryId": "{{category!.Id}}",
+              "nameAr": "غسيل كامل",
+              "qualifierAr": null,
+              "qualifierHe": "ללא חיטוי",
+              "basePrice": 100,
+              "durationMinutes": 45,
+              "displayOrder": 0,
+              "isActive": true
+            }
+            """;
+        var createResponse = await client.PostAsync(
+            "/api/v1/business/catalog/offerings",
+            new StringContent(payload, Encoding.UTF8, "application/json"));
+        var createdJson = await createResponse.Content.ReadAsStringAsync();
+        using var createdDocument = JsonDocument.Parse(createdJson);
+        var offeringId = createdDocument.RootElement.GetProperty("id").GetGuid();
+
+        var arabicResponse = await client.GetAsync(
+            $"/api/v1/business/catalog/offerings/{offeringId}?language=ar");
+        var arabicJson = await arabicResponse.Content.ReadAsStringAsync();
+        var hebrewResponse = await client.GetAsync(
+            $"/api/v1/business/catalog/offerings/{offeringId}?language=he");
+        var hebrewJson = await hebrewResponse.Content.ReadAsStringAsync();
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created, createdJson);
+        arabicResponse.StatusCode.Should().Be(HttpStatusCode.OK, arabicJson);
+        arabicJson.Should().Contain("\"qualifierAr\":null");
+        arabicJson.Should().NotContain("\"qualifierHe\"");
+        hebrewResponse.StatusCode.Should().Be(HttpStatusCode.OK, hebrewJson);
+        hebrewJson.Should().Contain("\"qualifierHe\":\"ללא חיטוי\"");
+        hebrewJson.Should().NotContain("\"qualifierAr\"");
+    }
+
+    [Fact]
     public async Task SwaggerDocument_ListsCatalogRoutesAndSelectionTypeNames()
     {
         var client = _factory.CreateClient();
@@ -392,6 +718,13 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         var context = scope.ServiceProvider.GetRequiredService<BusinessDbContext>();
         mutation(context);
         context.SaveChanges();
+    }
+
+    public TResult ReadState<TResult>(Func<BusinessDbContext, TResult> read)
+    {
+        using var scope = Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<BusinessDbContext>();
+        return read(context);
     }
 
     private string CreateToken(

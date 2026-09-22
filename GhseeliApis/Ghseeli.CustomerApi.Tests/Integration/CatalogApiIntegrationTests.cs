@@ -7,6 +7,7 @@ using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
 using GhseeliApis.Tests.Support;
 using Ghseeli.IntegrationContracts.DataPartitioning;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -207,6 +208,150 @@ public class CatalogApiIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         document.RootElement.GetProperty("code").GetString().Should().Be(CatalogProblemCodes.OfferingNotFound);
         document.RootElement.GetProperty("language").GetString().Should().Be(ConfigurationLanguageResolver.Hebrew);
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_ListAndDetail_ReturnLocalizedQualifierAndStringBadge()
+    {
+        var token = CatalogTestSupport.CreateToken(41);
+        var offeringSourceId = Guid.NewGuid();
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 2,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: "بدون التعقيم",
+                offeringQualifierHe: null,
+                offeringBadgeCode: CatalogOfferingBadgeCode.MostRequested));
+        using var client = factory.CreateApiClient();
+
+        using var businessesRequest = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            token);
+        using var businessesResponse = await client.SendAsync(businessesRequest);
+        using var businessesDocument = await ReadJsonAsync(businessesResponse);
+        var businessId = businessesDocument.RootElement.GetProperty("businesses")[0]
+            .GetProperty("id").GetGuid();
+
+        using var offeringsRequest = CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/businesses/{businessId:D}/offerings?language=he",
+            token);
+        using var offeringsResponse = await client.SendAsync(offeringsRequest);
+        using var offeringsDocument = await ReadJsonAsync(offeringsResponse);
+        var offering = offeringsDocument.RootElement.GetProperty("offerings")[0];
+        var offeringId = offering.GetProperty("id").GetGuid();
+
+        offeringsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        offeringsDocument.RootElement.GetProperty("language").GetString().Should().Be("he");
+        offering.GetProperty("qualifier").GetString().Should().Be("بدون التعقيم");
+        offering.GetProperty("badgeCode").GetString().Should().Be("MostRequested");
+
+        using var detailRequest = CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/offerings/{offeringId:D}?language=ar",
+            token);
+        using var detailResponse = await client.SendAsync(detailRequest);
+        using var detailDocument = await ReadJsonAsync(detailResponse);
+        var detailOffering = detailDocument.RootElement.GetProperty("offering");
+
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        detailOffering.GetProperty("qualifier").GetString().Should().Be("بدون التعقيم");
+        detailOffering.GetProperty("badgeCode").GetString().Should().Be("MostRequested");
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_WhenHebrewExists_ListAndDetailPreferHebrew()
+    {
+        var token = CatalogTestSupport.CreateToken(42);
+        var offeringSourceId = Guid.NewGuid();
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 3,
+                offeringId: offeringSourceId,
+                offeringQualifierAr: "بدون التعقيم",
+                offeringQualifierHe: "ללא חיטוי",
+                offeringBadgeCode: CatalogOfferingBadgeCode.MostRequested));
+        using var client = factory.CreateApiClient();
+
+        using var businessesResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            token));
+        using var businessesDocument = await ReadJsonAsync(businessesResponse);
+        var businessId = businessesDocument.RootElement.GetProperty("businesses")[0]
+            .GetProperty("id").GetGuid();
+
+        using var listResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/businesses/{businessId:D}/offerings?language=he",
+            token));
+        using var listDocument = await ReadJsonAsync(listResponse);
+        var listOffering = listDocument.RootElement.GetProperty("offerings")[0];
+        var offeringId = listOffering.GetProperty("id").GetGuid();
+
+        using var detailResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/offerings/{offeringId:D}?language=he",
+            token));
+        using var detailDocument = await ReadJsonAsync(detailResponse);
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listOffering.GetProperty("qualifier").GetString().Should().Be("ללא חיטוי");
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        detailDocument.RootElement.GetProperty("offering").GetProperty("qualifier")
+            .GetString().Should().Be("ללא חיטוי");
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_WhenAbsent_ListAndDetailReturnNullFields()
+    {
+        var token = CatalogTestSupport.CreateToken(43);
+        var offeringSourceId = Guid.NewGuid();
+        await using var factory = new CatalogApiFactory(
+            devices: [CatalogTestSupport.CreateDevice(token)]);
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(
+                companyId,
+                version: 4,
+                offeringId: offeringSourceId));
+        using var client = factory.CreateApiClient();
+
+        using var businessesResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            token));
+        using var businessesDocument = await ReadJsonAsync(businessesResponse);
+        var businessId = businessesDocument.RootElement.GetProperty("businesses")[0]
+            .GetProperty("id").GetGuid();
+
+        using var listResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/businesses/{businessId:D}/offerings?language=ar",
+            token));
+        using var listDocument = await ReadJsonAsync(listResponse);
+        var listOffering = listDocument.RootElement.GetProperty("offerings")[0];
+        var offeringId = listOffering.GetProperty("id").GetGuid();
+
+        using var detailResponse = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            $"/api/v1/catalog/offerings/{offeringId:D}?language=he",
+            token));
+        using var detailDocument = await ReadJsonAsync(detailResponse);
+        var detailOffering = detailDocument.RootElement.GetProperty("offering");
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        listOffering.GetProperty("qualifier").ValueKind.Should().Be(JsonValueKind.Null);
+        listOffering.GetProperty("badgeCode").ValueKind.Should().Be(JsonValueKind.Null);
+        detailResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        detailOffering.GetProperty("qualifier").ValueKind.Should().Be(JsonValueKind.Null);
+        detailOffering.GetProperty("badgeCode").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]
@@ -452,9 +597,24 @@ public class CatalogApiIntegrationTests
         var device = CatalogTestSupport.CreateDevice(token);
         device.IsDemo = true;
         var sourceCompanyId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var staleRefreshAtUtc = DateTimeOffset.UtcNow.AddHours(-2);
+        var staleProvider = new CatalogProviderReadModel
+        {
+            Id = Guid.NewGuid(),
+            SourceCompanyId = sourceCompanyId,
+            IsEnabled = true,
+            IsDemo = true,
+            DisplayOrder = 0,
+            NameAr = "لقطة ديمو قديمة",
+            CatalogVersion = 0,
+            SnapshotHash = "stale-demo-snapshot",
+            SnapshotGeneratedAtUtc = staleRefreshAtUtc,
+            LastSuccessfulRefreshAtUtc = staleRefreshAtUtc
+        };
         var businessApiHandler = new PartitionAwareCatalogHandler(sourceCompanyId);
         await using var factory = new CatalogApiFactory(
             devices: [device],
+            catalogProviders: [staleProvider],
             providers:
             [
                 new CatalogProviderRegistrationOptions
@@ -470,7 +630,7 @@ public class CatalogApiIntegrationTests
         using var client = factory.CreateApiClient();
         using var request = CreateRequest(
             HttpMethod.Get,
-            "/api/v1/catalog/businesses",
+            "/api/v1/catalog/businesses?refresh=true",
             deviceToken: token);
 
         using var response = await client.SendAsync(request);
@@ -484,7 +644,21 @@ public class CatalogApiIntegrationTests
             .ContainSingle()
             .Which;
         business.GetProperty("sourceId").GetGuid().Should().Be(sourceCompanyId);
-        business.GetProperty("catalog").GetProperty("isStale").GetBoolean().Should().BeFalse();
+        business.GetProperty("name").GetString().Should().NotBe("لقطة ديمو قديمة");
+        var catalog = business.GetProperty("catalog");
+        catalog.GetProperty("version").GetInt64().Should().Be(1);
+        catalog.GetProperty("isStale").GetBoolean().Should().BeFalse();
+
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider
+            .GetRequiredService<GhseeliApis.DataPartitioning.ICustomerDataPartitionContext>()
+            .SetTrustedPartition(DataPartitionNames.Demo);
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var refreshedProvider = await context.CatalogProviders.SingleAsync(
+            provider => provider.SourceCompanyId == sourceCompanyId);
+        refreshedProvider.NameAr.Should().NotBe("لقطة ديمو قديمة");
+        refreshedProvider.CatalogVersion.Should().Be(1);
+        refreshedProvider.LastSuccessfulRefreshAtUtc.Should().BeAfter(staleRefreshAtUtc);
     }
 
     [Fact]
@@ -601,16 +775,19 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
     private readonly bool _useActualBusinessApiClient;
     private readonly bool _useDemoProviders;
     private readonly HttpMessageHandler? _businessApiHandler;
+    private readonly IReadOnlyList<CatalogProviderReadModel> _catalogProviders;
 
     public CatalogApiFactory(
         IEnumerable<CustomerDevice>? devices = null,
         IEnumerable<CatalogProviderRegistrationOptions>? providers = null,
+        IEnumerable<CatalogProviderReadModel>? catalogProviders = null,
         bool useActualBusinessApiClient = false,
         bool useDemoProviders = false,
         HttpMessageHandler? businessApiHandler = null)
     {
         _devices = devices ?? Array.Empty<CustomerDevice>();
         _providers = providers?.ToArray() ?? CreateDefaultProviders();
+        _catalogProviders = catalogProviders?.ToArray() ?? [];
         _useActualBusinessApiClient = useActualBusinessApiClient;
         _useDemoProviders = useDemoProviders;
         _businessApiHandler = businessApiHandler;
@@ -695,8 +872,12 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
             if (_devices.Any())
             {
                 context.CustomerDevices.AddRange(_devices);
-                context.SaveChanges();
             }
+            if (_catalogProviders.Count > 0)
+            {
+                context.CatalogProviders.AddRange(_catalogProviders);
+            }
+            context.SaveChanges();
         });
     }
 

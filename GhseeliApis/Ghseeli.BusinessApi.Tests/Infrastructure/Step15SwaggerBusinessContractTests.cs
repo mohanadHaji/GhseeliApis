@@ -170,6 +170,30 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
         AssertIntegerBound(choice, "minimumQuantity", 1);
         AssertIntegerBound(choice, "maximumQuantity", 1);
 
+        foreach (var requestName in new[]
+                 {
+                     "CreateServiceOfferingRequest",
+                     "UpdateServiceOfferingRequest"
+                 })
+        {
+            var offeringRequest = Schema(root, requestName);
+            var offeringProperties = offeringRequest.GetProperty("properties");
+            offeringProperties.GetProperty("qualifierAr").GetProperty("nullable")
+                .GetBoolean().Should().BeTrue();
+            offeringProperties.GetProperty("qualifierHe").GetProperty("nullable")
+                .GetBoolean().Should().BeTrue();
+            var badgeCode = offeringProperties.GetProperty("badgeCode");
+            badgeCode.GetProperty("nullable").GetBoolean().Should().BeTrue();
+            var badgeReference = badgeCode.TryGetProperty("$ref", out var directReference)
+                ? directReference.GetString()
+                : badgeCode.GetProperty("allOf")[0].GetProperty("$ref").GetString();
+            var badgeSchema = Schema(root, badgeReference!.Split('/').Last());
+            badgeSchema.GetProperty("type").GetString().Should().Be("string");
+            badgeSchema.GetProperty("enum").EnumerateArray()
+                .Select(value => value.GetString())
+                .Should().Contain("MostRequested");
+        }
+
         var offering = Schema(root, "CreateServiceOfferingRequest");
         AssertDecimal(offering, "basePrice");
         AssertFormat(offering, "categoryId", "uuid");

@@ -174,4 +174,62 @@ public class BusinessCatalogContractSerializationTests
             .Should()
             .Be(new DateOnly(2026, 8, 25));
     }
+
+    [Fact]
+    public void CatalogSnapshotOffering_RoundTripsQualifierAndStringBadge()
+    {
+        var offering = new CatalogSnapshotOffering
+        {
+            Id = Guid.NewGuid(),
+            NameAr = "غسيل كامل",
+            QualifierAr = "بدون التعقيم",
+            QualifierHe = null,
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+            BasePrice = 100m,
+            DurationMinutes = 45
+        };
+
+        var payload = JsonSerializer.Serialize(offering, JsonOptions);
+        using var document = JsonDocument.Parse(payload);
+        var roundTripped = JsonSerializer.Deserialize<CatalogSnapshotOffering>(payload, JsonOptions);
+
+        document.RootElement.GetProperty("qualifierAr").GetString().Should().Be("بدون التعقيم");
+        document.RootElement.GetProperty("qualifierHe").ValueKind.Should().Be(JsonValueKind.Null);
+        document.RootElement.GetProperty("badgeCode").GetString().Should().Be("MostRequested");
+        roundTripped.Should().NotBeNull();
+        roundTripped!.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+    }
+
+    [Fact]
+    public void CatalogSnapshotOffering_RejectsIntegerBadge()
+    {
+        const string payload =
+            """{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","basePrice":10,"durationMinutes":30,"badgeCode":0}""";
+
+        var action = () => JsonSerializer.Deserialize<CatalogSnapshotOffering>(payload, JsonOptions);
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Fact]
+    public void CatalogSnapshotOffering_RejectsUnknownBadge()
+    {
+        const string payload =
+            """{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","basePrice":10,"durationMinutes":30,"badgeCode":"Popular"}""";
+
+        var action = () => JsonSerializer.Deserialize<CatalogSnapshotOffering>(payload, JsonOptions);
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Theory]
+    [InlineData("""{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","basePrice":10,"durationMinutes":30}""")]
+    [InlineData("""{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","basePrice":10,"durationMinutes":30,"badgeCode":null}""")]
+    public void CatalogSnapshotOffering_AllowsMissingOrNullBadge(string payload)
+    {
+        var offering = JsonSerializer.Deserialize<CatalogSnapshotOffering>(payload, JsonOptions);
+
+        offering.Should().NotBeNull();
+        offering!.BadgeCode.Should().BeNull();
+    }
 }

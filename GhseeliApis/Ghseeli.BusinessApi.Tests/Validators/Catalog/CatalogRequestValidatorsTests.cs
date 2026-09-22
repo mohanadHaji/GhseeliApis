@@ -103,6 +103,94 @@ public class CatalogRequestValidatorsTests
     }
 
     [Fact]
+    public void CreateServiceOfferingRequestValidator_AcceptsExactMaximumQualifierLength()
+    {
+        var validator = new CreateServiceOfferingRequestValidator();
+        var request = new CreateServiceOfferingRequest
+        {
+            CategoryId = Guid.NewGuid(),
+            NameAr = "غسيل كامل",
+            QualifierAr = new string('ع', 200),
+            QualifierHe = new string('א', 200),
+            BasePrice = 50m,
+            DurationMinutes = 30,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateServiceOfferingRequestValidator_RejectsQualifierLongerThanMaximum()
+    {
+        var validator = new CreateServiceOfferingRequestValidator();
+        var request = new CreateServiceOfferingRequest
+        {
+            CategoryId = Guid.NewGuid(),
+            NameAr = "غسيل كامل",
+            QualifierAr = new string('ع', 201),
+            QualifierHe = new string('א', 201),
+            BasePrice = 50m,
+            DurationMinutes = 30,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(CreateServiceOfferingRequest.QualifierAr));
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(CreateServiceOfferingRequest.QualifierHe));
+    }
+
+    [Fact]
+    public void UpdateServiceOfferingRequestValidator_AcceptsExactMaximumQualifierLength()
+    {
+        var validator = new UpdateServiceOfferingRequestValidator();
+        var request = new UpdateServiceOfferingRequest
+        {
+            NameAr = "غسيل كامل",
+            QualifierAr = new string('ع', 200),
+            QualifierHe = new string('א', 200),
+            BasePrice = 50m,
+            DurationMinutes = 30,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        validator.Validate(request).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdateServiceOfferingRequestValidator_RejectsQualifierLongerThanMaximum()
+    {
+        var validator = new UpdateServiceOfferingRequestValidator();
+        var request = new UpdateServiceOfferingRequest
+        {
+            NameAr = "غسيل كامل",
+            QualifierAr = new string('ع', 201),
+            QualifierHe = new string('א', 201),
+            BasePrice = 50m,
+            DurationMinutes = 30,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+
+        var result = validator.Validate(request);
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(UpdateServiceOfferingRequest.QualifierAr));
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(UpdateServiceOfferingRequest.QualifierHe));
+    }
+
+    [Fact]
     public void UpdateServiceOfferingRequestValidator_RejectsPriceAboveMaximumAfterRounding()
     {
         var validator = new UpdateServiceOfferingRequestValidator();

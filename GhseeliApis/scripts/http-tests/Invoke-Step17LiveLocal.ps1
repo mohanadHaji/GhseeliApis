@@ -48,6 +48,7 @@ $proxyScript = Join-Path $PSScriptRoot 'Invoke-Step17LoopbackProxy.ps1'
 $runSuffix = if ($RunId.Length -ge 12) { $RunId.Substring(0,12) } else { $RunId }
 $processes = [Collections.Generic.List[Diagnostics.Process]]::new()
 $resultFiles = [Collections.Generic.List[string]]::new()
+$demoCatalogCompanyId = '77de8c4c-1eed-2b84-98fc-052893f89d73'
 $historicalStripeScenarioIds = @(
     'STEP17-E2E-PAYMENT-026',
     'STEP17-E2E-PAYMENT-027',
@@ -439,6 +440,14 @@ function Get-HostEnvironment([object]$State,[bool]$Customer) {
                 $primaryCatalogCompanyId
             CatalogReadModel__Providers__0__Enabled = 'true'
             CatalogReadModel__Providers__0__Order = '0'
+            CatalogReadModel__DemoProviders__0__SourceCompanyId =
+                $demoCatalogCompanyId
+            CatalogReadModel__DemoProviders__0__Enabled = 'true'
+            CatalogReadModel__DemoProviders__0__Order = '0'
+            CatalogReadModel__DemoProviders__1__Enabled = 'false'
+            CatalogReadModel__DemoProviders__2__Enabled = 'false'
+            CatalogReadModel__DemoProviders__3__Enabled = 'false'
+            CatalogReadModel__DemoProviders__4__Enabled = 'false'
             CustomerInternalServiceAuthentication__AllowInsecureHttpInDevelopment = 'false'
             CustomerInternalServiceAuthentication__Services__0__ServiceId =
                 [Environment]::GetEnvironmentVariable(
@@ -686,6 +695,124 @@ function Get-Sha256Hex([string]$Value) {
     }
     finally { $algorithm.Dispose() }
     return ([BitConverter]::ToString($hash) -replace '-', '').ToLowerInvariant()
+}
+
+function Initialize-Step15DemoRefreshFixture {
+    $state = Read-State
+    $demoDeviceToken =
+        'LgidmxXzLYNVtE2mZ53e16wylIlPGsttB6HGC8IxUTs'
+    $demoDeviceId = [guid]::NewGuid()
+    $demoInstallationId = [guid]::NewGuid()
+    $demoProviderId = [guid]::NewGuid()
+    $demoCompanyId = [guid]$demoCatalogCompanyId
+    $demoBranchId = [guid]::NewGuid()
+    $demoServiceAreaId = [guid]::NewGuid()
+    $demoCategoryId = [guid]::NewGuid()
+    $demoOfferingId = [guid]::NewGuid()
+    $tokenHash = Get-Sha256Hex $demoDeviceToken
+    $staleRefreshAtUtc = [DateTimeOffset]::UtcNow.AddHours(-2)
+    $staleRefreshSql = $staleRefreshAtUtc.UtcDateTime.ToString(
+        'yyyy-MM-ddTHH:mm:ss.fffffff')
+
+    Invoke-SqlNonQuery $state $state.customerDatabase @"
+INSERT INTO CustomerDevices
+ (Id,InstallationId,UserId,Platform,AppVersion,FcmToken,TokenHash,
+  CreatedAt,UpdatedAt,LastSeenAt,ExpiresAt,IsActive,IsDemo)
+VALUES
+ ('$demoDeviceId','$demoInstallationId',NULL,N'android',N'step17-demo',
+  NULL,0x$tokenHash,SYSUTCDATETIME(),SYSUTCDATETIME(),NULL,
+  DATEADD(day,2,SYSUTCDATETIME()),1,1);
+
+INSERT INTO CatalogProviders
+ (Id,SourceCompanyId,BusinessVerticalCode,IsEnabled,IsDemo,DisplayOrder,
+  NameAr,NameHe,DescriptionAr,DescriptionHe,Phone,CatalogVersion,
+  SnapshotHash,SnapshotGeneratedAtUtc,LastSuccessfulRefreshAtUtc,
+  LastAttemptedRefreshAtUtc,LastFailedRefreshAtUtc,LastFailureCode,
+  RefreshLeaseAcquiredAtUtc,RefreshLeaseExpiresAtUtc,RefreshLeaseToken)
+VALUES
+ ('$demoProviderId','$demoCompanyId',N'car_wash',1,1,0,
+  N'لقطة ديمو قديمة',NULL,NULL,NULL,NULL,172,N'stale-demo-snapshot',
+  '$staleRefreshSql','$staleRefreshSql',NULL,NULL,NULL,NULL,NULL,NULL);
+
+"@
+
+    Invoke-SqlNonQuery $state $state.businessDatabase @"
+INSERT INTO Companies
+ (Id,NameAr,NameHe,DescriptionAr,DescriptionHe,
+  ServiceAreaDescriptionAr,ServiceAreaDescriptionHe,Phone,IsActive,IsDemo,
+  CatalogVersion,CreatedAt,UpdatedAt)
+VALUES
+ ('$demoCompanyId',N'شركة تحديث ديمو',N'חברת רענון דמו',NULL,NULL,NULL,NULL,
+  N'+970000000099',1,1,173,SYSUTCDATETIME(),NULL);
+
+INSERT INTO CompanyBusinessVerticals
+ (CompanyId,BusinessVerticalId,IsPrimary,IsActive,CreatedAtUtc)
+VALUES
+ ('$demoCompanyId','A842F536-17B7-4BE6-A18D-1BDC6245094C',1,1,
+  SYSUTCDATETIME());
+
+INSERT INTO Branches
+ (Id,CompanyId,NameAr,NameHe,AddressAr,AddressHe,Latitude,Longitude,
+  IsActive,CreatedAt,UpdatedAt)
+VALUES
+ ('$demoBranchId','$demoCompanyId',N'فرع ديمو',N'סניף דמו',
+  N'عنوان ديمو',N'כתובת דמו',31.7683,35.2137,1,SYSUTCDATETIME(),NULL);
+
+INSERT INTO BranchServiceAreas
+ (Id,BranchId,CenterLatitude,CenterLongitude,RadiusKm,IsActive,
+  CreatedAt,UpdatedAt)
+VALUES
+ ('$demoServiceAreaId','$demoBranchId',31.7683,35.2137,10.0,1,
+  SYSUTCDATETIME(),NULL);
+
+INSERT INTO ServiceCategories
+ (Id,CompanyId,BusinessVerticalId,NameAr,NameHe,DescriptionAr,DescriptionHe,
+  DisplayOrder,IsActive,CreatedAt,UpdatedAt)
+VALUES
+ ('$demoCategoryId','$demoCompanyId',
+  'A842F536-17B7-4BE6-A18D-1BDC6245094C',
+  N'خدمات ديمو',N'שירותי דמו',NULL,NULL,0,1,SYSUTCDATETIME(),NULL);
+
+INSERT INTO ServiceOfferings
+ (Id,CategoryId,BranchId,NameAr,NameHe,DescriptionAr,DescriptionHe,
+  QualifierAr,QualifierHe,BadgeCode,BasePrice,DurationMinutes,ImageUrl,
+  ReferenceCode,DisplayOrder,IsActive,CreatedAt,UpdatedAt)
+VALUES
+ ('$demoOfferingId','$demoCategoryId','$demoBranchId',
+  N'غسيل ديمو',N'שטיפת דמו',NULL,NULL,N'بدون التعقيم',NULL,
+  N'MostRequested',25.00,30,NULL,N'STEP15-DEMO-173',0,1,
+  SYSUTCDATETIME(),NULL);
+"@
+
+    Merge-StateValues @{
+        demoDeviceToken = $demoDeviceToken
+        demoBusinessSourceId = $demoCompanyId.ToString('D')
+        demoProviderId = $demoProviderId.ToString('D')
+        demoStaleRefreshAtUtc = $staleRefreshAtUtc.ToString('o')
+    }
+}
+
+function Assert-Step15DemoRefreshFixture {
+    $state = Read-State
+    $row = Get-SqlRow $state $state.customerDatabase @"
+SELECT SourceCompanyId,CatalogVersion,NameAr,LastSuccessfulRefreshAtUtc,
+       LastFailureCode
+FROM CatalogProviders
+WHERE Id='$($state.demoProviderId)'
+"@
+    if ($null -eq $row) {
+        throw 'Step 15 Demo refresh provider disappeared.'
+    }
+    if ([guid]$row.SourceCompanyId -ne [guid]$state.demoBusinessSourceId -or
+        [long]$row.CatalogVersion -ne 173 -or
+        [string]$row.NameAr -cne 'شركة تحديث ديمو' -or
+        $null -ne $row.LastFailureCode) {
+        throw 'Step 15 Demo refresh did not replace the stale snapshot.'
+    }
+    if ([DateTimeOffset]$row.LastSuccessfulRefreshAtUtc -le
+        [DateTimeOffset]$state.demoStaleRefreshAtUtc) {
+        throw 'Step 15 Demo refresh timestamp did not advance.'
+    }
 }
 
 function Get-CloneSql(
@@ -1566,6 +1693,8 @@ function Initialize-Step9InheritedFixtures {
         businessOneOfferingNameAr = "غسيل أساسي $dataStamp"
         businessOneOfferingDescriptionAr =
             "خدمة ألف عربية $dataStamp"
+        businessOneOfferingQualifierAr = "بدون التعقيم $dataStamp"
+        businessOneOfferingQualifierHe = "ללא חיטוי $dataStamp"
         businessOneAddonGroupNameAr = "شمع إضافي $dataStamp"
         businessOneAddonGroupDescriptionAr = "إضافة ألف $dataStamp"
         businessOneAddonChoiceNameAr = "شمع سريع $dataStamp"
@@ -1579,6 +1708,7 @@ function Initialize-Step9InheritedFixtures {
         businessTwoCategoryNameHe = "שטיפה פנימית $dataStamp"
         businessTwoOfferingNameAr = "غسيل مميز $dataStamp"
         businessTwoOfferingNameHe = "שטיפה מיוחדת $dataStamp"
+        businessTwoOfferingQualifierAr = "تنظيف لطيف $dataStamp"
         businessTwoAddonGroupNameHe = "בישום $dataStamp"
         businessTwoAddonChoiceNameHe = "בישום חזק $dataStamp"
         phaseInitialRefreshDeviceToken = $state.deviceToken
@@ -1602,6 +1732,10 @@ function Initialize-Step9InheritedFixtures {
             $state.businessOneOfferingNameAr
         OfferingDescription = ConvertTo-SqlUnicodeLiteral `
             $state.businessOneOfferingDescriptionAr
+        OfferingQualifier = ConvertTo-SqlUnicodeLiteral `
+            $state.businessOneOfferingQualifierAr
+        OfferingQualifierHe = ConvertTo-SqlUnicodeLiteral `
+            $state.businessOneOfferingQualifierHe
         Group = ConvertTo-SqlUnicodeLiteral `
             $state.businessOneAddonGroupNameAr
         GroupDescription = ConvertTo-SqlUnicodeLiteral `
@@ -1625,6 +1759,8 @@ function Initialize-Step9InheritedFixtures {
             $state.businessTwoOfferingNameAr
         OfferingHe = ConvertTo-SqlUnicodeLiteral `
             $state.businessTwoOfferingNameHe
+        OfferingQualifier = ConvertTo-SqlUnicodeLiteral `
+            $state.businessTwoOfferingQualifierAr
         GroupHe = ConvertTo-SqlUnicodeLiteral `
             $state.businessTwoAddonGroupNameHe
         ChoiceHe = ConvertTo-SqlUnicodeLiteral `
@@ -1693,18 +1829,20 @@ VALUES
 
 INSERT INTO ServiceOfferings
  (Id,CategoryId,BranchId,NameAr,NameHe,DescriptionAr,DescriptionHe,
-  BasePrice,DurationMinutes,ImageUrl,ReferenceCode,DisplayOrder,IsActive,
-  CreatedAt,UpdatedAt)
+  QualifierAr,QualifierHe,BadgeCode,BasePrice,DurationMinutes,ImageUrl,
+  ReferenceCode,DisplayOrder,IsActive,CreatedAt,UpdatedAt)
 VALUES
  ('$($state.businessOneOfferingSourceId)',
   '$($state.businessOneCategorySourceId)',
   '$($state.businessOneBranchSourceId)',$($one.Offering),NULL,
-  $($one.OfferingDescription),NULL,50.00,45,NULL,N'STEP9-ONE',0,1,
-  GETUTCDATE(),NULL),
+  $($one.OfferingDescription),NULL,$($one.OfferingQualifier),
+  $($one.OfferingQualifierHe),N'MostRequested',50.00,45,NULL,
+  N'STEP9-ONE',0,1,GETUTCDATE(),NULL),
  ('$($state.businessTwoOfferingSourceId)',
   '$($state.businessTwoCategorySourceId)',
   '$($state.businessTwoBranchSourceId)',$($two.Offering),$($two.OfferingHe),
-  NULL,NULL,75.00,60,NULL,N'STEP9-TWO',0,1,GETUTCDATE(),NULL);
+  NULL,NULL,$($two.OfferingQualifier),NULL,NULL,75.00,60,NULL,
+  N'STEP9-TWO',0,1,GETUTCDATE(),NULL);
 
 INSERT INTO AddonGroups
  (Id,ServiceOfferingId,NameAr,NameHe,DescriptionAr,DescriptionHe,
@@ -2314,12 +2452,12 @@ function Invoke-Inherited {
         'step-06-secure-integration.manifest.json' = 26
         'step-07-device-registration.manifest.json' = 10
         'step-08-customer-configuration.manifest.json' = 19
-        'step-09-catalog-readmodel.manifest.json' = 21
+        'step-09-catalog-readmodel.manifest.json' = 22
         'step-10-checkout-drafts.manifest.json' = 28
         'step-11-pricing-reprice.manifest.json' = 27
         'step-12-booking-confirmation.manifest.json' = 64
         'step-13-booking-status.manifest.json' = 90
-        'step-15-localization-swagger.manifest.json' = 90
+        'step-15-localization-swagger.manifest.json' = 91
         'step-16-clean-schema-separation.manifest.json' = 790
     }
     $selected = 0
@@ -3086,14 +3224,10 @@ WHERE p.SourceCompanyId='$($state.companyId)'
         elseif ($item.Key -ceq 'step-15-localization-swagger.manifest.json') {
             Start-CustomerProduction $state | Out-Null
             Start-BusinessProduction $state | Out-Null
-            $step14VariablesPath = Join-Path $artifacts `
-                "step17-inherited-$runSuffix-step-14.variables.local.json"
-            $step14Variables = Get-Content -LiteralPath $step14VariablesPath `
-                -Raw -Encoding UTF8 | ConvertFrom-Json
             foreach ($entry in @{
-                    customerDeviceToken = $step14Variables.ownerDeviceToken
-                    foreignDeviceToken = $step14Variables.secondDeviceToken
-                    customerJwt = $step14Variables.ownerJwt
+                    customerDeviceToken = $state.deviceToken
+                    foreignDeviceToken = $state.firstDeviceToken
+                    customerJwt = $state.customerJwt
                     businessJwt = $businessJwt
                     customerHttpBaseUrl = $state.customerHttpBaseUrl
                     oversizedLanguageHeader = (
@@ -3281,9 +3415,12 @@ WHERE p.SourceCompanyId='$($state.companyId)'
         if (-not $result.Summary.passedAll) {
             throw "Inherited manifest '$($item.Key)' failed."
         }
+        if ($item.Key -ceq 'step-15-localization-swagger.manifest.json') {
+            Assert-Step15DemoRefreshFixture
+        }
     }
-    if ($selected -ne 1165) {
-        throw "Inherited selection must be 1,165 after historical Step 14 payment exclusion, found $selected."
+    if ($selected -ne 1167) {
+        throw "Inherited selection must be 1,167 after historical Step 14 payment exclusion, found $selected."
     }
 }
 
@@ -3313,7 +3450,11 @@ function Assert-FinalIsolation {
 function Write-Step17AcceptanceEvidence {
     $manifestDocument = Get-Content -LiteralPath $manifest -Raw `
         -Encoding UTF8 | ConvertFrom-Json
-    $requiredIds = @($manifestDocument.scenarios | ForEach-Object {
+    $requiredIds = @($manifestDocument.scenarios |
+        Where-Object {
+            [string]$_.id -cnotin $historicalStripeScenarioIds
+        } |
+        ForEach-Object {
             [string]$_.id
         })
     $executions = @(Get-ChildItem -LiteralPath $artifacts -File |
@@ -3413,6 +3554,7 @@ try {
                 -Server $Server -StatePath $StatePath
             & $step16Verifier -StatePath $StatePath -RequireZeroDomainRows
             Initialize-Step17StateVariables
+            Initialize-Step15DemoRefreshFixture
         }
         'Setup' {
             $state = Read-State
@@ -3524,6 +3666,7 @@ try {
                 -Server $Server -StatePath $StatePath
             & $step16Verifier -StatePath $StatePath -RequireZeroDomainRows
             Initialize-Step17StateVariables
+            Initialize-Step15DemoRefreshFixture
             $state = Read-State
             $business = Start-Business $state
             Invoke-Step6Setup $state

@@ -539,8 +539,7 @@ public sealed class BusinessHttpContractMiddleware
             if (child.Value is not null) Localize(child.Value, language);
 
         foreach (var arabic in value.ToList().Where(item =>
-                     item.Key.EndsWith("Ar", StringComparison.Ordinal) &&
-                     item.Value is JsonValue))
+                     item.Key.EndsWith("Ar", StringComparison.Ordinal)))
         {
             var stem = arabic.Key[..^2];
             var hebrewKey = stem + "He";

@@ -16,6 +16,7 @@ public class StringEnumSchemaFilter : ISchemaFilter
 
         schema.Type = "string";
         schema.Format = null;
+        schema.Nullable = Nullable.GetUnderlyingType(context.Type) is not null;
         schema.Enum = Enum.GetNames(enumType)
             .Select(name => (IOpenApiAny)new OpenApiString(name))
             .ToList();

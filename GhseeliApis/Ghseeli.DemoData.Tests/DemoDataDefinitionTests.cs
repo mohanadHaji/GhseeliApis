@@ -71,6 +71,72 @@ public sealed class DemoDataDefinitionTests
         Assert.Equal(first, second);
         using var document = JsonDocument.Parse(first);
         Assert.Equal("demo", document.RootElement.GetProperty("metadata").GetProperty("datasetType").GetString());
+
+        var offerings = document.RootElement
+            .GetProperty("companies")[0]
+            .GetProperty("offerings");
+        Assert.Equal("بدون التعقيم", offerings[0].GetProperty("qualifierAr").GetString());
+        Assert.Equal("ללא חיטוי", offerings[0].GetProperty("qualifierHe").GetString());
+        Assert.Equal("MostRequested", offerings[0].GetProperty("badgeCode").GetString());
+        Assert.Equal(JsonValueKind.Null, offerings[1].GetProperty("qualifierAr").ValueKind);
+        Assert.Equal(JsonValueKind.Null, offerings[1].GetProperty("qualifierHe").ValueKind);
+        Assert.Equal(JsonValueKind.Null, offerings[1].GetProperty("badgeCode").ValueKind);
+        Assert.Equal("تنظيف لطيف", offerings[2].GetProperty("qualifierAr").GetString());
+        Assert.Equal(JsonValueKind.Null, offerings[2].GetProperty("qualifierHe").ValueKind);
+
+        var checkedInJson = File.ReadAllText(Path.Combine(
+            FindSolutionRoot(),
+            "demo-data",
+            "frontend-demo-data.json"));
+        Assert.Equal(first, checkedInJson);
+    }
+
+    [Fact]
+    public void Create_MatchesConfiguredCustomerDemoProviders()
+    {
+        var data = DemoDataDefinition.Create();
+        using var configuration = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            FindSolutionRoot(),
+            "Ghseeli.CustomerApi",
+            "appsettings.json")));
+        var configuredProviderIds = configuration.RootElement
+            .GetProperty("CatalogReadModel")
+            .GetProperty("DemoProviders")
+            .EnumerateArray()
+            .Where(provider => provider.GetProperty("Enabled").GetBoolean())
+            .OrderBy(provider => provider.GetProperty("Order").GetInt32())
+            .Select(provider => provider.GetProperty("SourceCompanyId").GetGuid())
+            .ToArray();
+        var datasetCompanyIds = data.Companies.Select(company => company.Id).ToArray();
+
+        Assert.Equal(datasetCompanyIds, configuredProviderIds);
+
+        using var checkedInJson = JsonDocument.Parse(File.ReadAllText(Path.Combine(
+            FindSolutionRoot(),
+            "demo-data",
+            "frontend-demo-data.json")));
+        var checkedInCompanyIds = checkedInJson.RootElement
+            .GetProperty("companies")
+            .EnumerateArray()
+            .Select(company => company.GetProperty("id").GetGuid())
+            .ToArray();
+        Assert.Equal(checkedInCompanyIds, configuredProviderIds);
+    }
+
+    private static string FindSolutionRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "GhseeliApis.sln")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not find the GhseeliApis solution root.");
     }
 
     [Fact]

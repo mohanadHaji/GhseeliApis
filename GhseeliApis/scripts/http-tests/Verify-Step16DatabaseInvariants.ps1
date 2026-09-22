@@ -32,7 +32,8 @@ foreach ($database in @($state.customerDatabase,$state.businessDatabase,$state.w
 $customerTables = @(
     'AspNetUsers','AspNetRoles','AspNetUserRoles','AspNetUserClaims',
     'AspNetRoleClaims','AspNetUserLogins','AspNetUserTokens','UserAddresses',
-    'Vehicles','CustomerDevices','CustomerConfigurations','CatalogProviders',
+    'Vehicles','CustomerDevices','CustomerConfigurations',
+    'CustomerOtpChallenges','CustomerRefreshTokens','CatalogProviders',
     'CatalogBranches','CatalogCategories','CatalogOfferings','CatalogAddonGroups',
     'CatalogAddonChoices','CheckoutDrafts','CheckoutDraftItems',
     'CheckoutDraftSelections','CheckoutDraftPricingSnapshots',

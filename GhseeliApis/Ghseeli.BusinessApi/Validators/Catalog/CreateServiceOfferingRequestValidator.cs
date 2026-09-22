@@ -29,6 +29,12 @@ public class CreateServiceOfferingRequestValidator : AbstractValidator<CreateSer
         RuleFor(request => request.DescriptionHe)
             .OptionalTrimmedText("Hebrew offering description", 1000);
 
+        RuleFor(request => request.QualifierAr)
+            .OptionalTrimmedText("Arabic offering qualifier", 200);
+
+        RuleFor(request => request.QualifierHe)
+            .OptionalTrimmedText("Hebrew offering qualifier", 200);
+
         RuleFor(request => request.BasePrice)
             .SupportedMoneyAmount("Base price");
 

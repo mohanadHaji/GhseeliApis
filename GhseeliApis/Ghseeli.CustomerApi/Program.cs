@@ -205,6 +205,7 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("HmacSignature", ApiKey("X-Signature"));
     options.AddSecurityDefinition("LahzaSignature", ApiKey("X-Lahza-Signature"));
     options.OperationFilter<GhseeliApis.Filters.SwaggerAuthorizationOperationFilter>();
+    options.SchemaFilter<GhseeliApis.Filters.CatalogResponseSchemaFilter>();
     options.DocumentFilter<GhseeliApis.Filters.Step15SwaggerDocumentFilter>();
 });
 

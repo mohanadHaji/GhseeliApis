@@ -2,6 +2,7 @@ using FluentAssertions;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Services.Catalog;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 
 namespace Ghseeli.BusinessApi.Tests.Services;
 
@@ -40,6 +41,94 @@ public class CatalogMapperTests
     }
 
     [Fact]
+    public void CreateOffering_NormalizesQualifierAndPreservesBadge()
+    {
+        var company = new Company
+        {
+            Id = Guid.NewGuid(),
+            NameAr = "شركة غسيلي"
+        };
+        var category = new ServiceCategory
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Company = company,
+            NameAr = "تنظيف"
+        };
+        var request = new CreateServiceOfferingRequest
+        {
+            CategoryId = category.Id,
+            NameAr = "غسيل كامل",
+            QualifierAr = " بدون التعقيم ",
+            QualifierHe = "   ",
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+            BasePrice = 100m,
+            DurationMinutes = 45,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+        var timestamp = new DateTime(2026, 9, 22, 8, 0, 0, DateTimeKind.Utc);
+
+        var offering = CatalogMapper.CreateOffering(category, null, request, timestamp);
+
+        offering.QualifierAr.Should().Be("بدون التعقيم");
+        offering.QualifierHe.Should().BeNull();
+        offering.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+    }
+
+    [Fact]
+    public void ApplyOfferingUpdate_ClearsQualifierAndBadge()
+    {
+        var company = new Company
+        {
+            Id = Guid.NewGuid(),
+            NameAr = "شركة غسيلي"
+        };
+        var category = new ServiceCategory
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Company = company,
+            NameAr = "تنظيف"
+        };
+        var offering = new ServiceOffering
+        {
+            Id = Guid.NewGuid(),
+            CategoryId = category.Id,
+            Category = category,
+            NameAr = "غسيل كامل",
+            QualifierAr = "بدون التعقيم",
+            QualifierHe = "ללא חיטוי",
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+            BasePrice = 100m,
+            DurationMinutes = 45,
+            DisplayOrder = 1,
+            IsActive = true
+        };
+        var request = new UpdateServiceOfferingRequest
+        {
+            NameAr = offering.NameAr,
+            QualifierAr = null,
+            QualifierHe = null,
+            BadgeCode = null,
+            BasePrice = offering.BasePrice,
+            DurationMinutes = offering.DurationMinutes,
+            DisplayOrder = offering.DisplayOrder,
+            IsActive = true
+        };
+
+        CatalogMapper.ApplyOfferingUpdate(
+            offering,
+            null,
+            request,
+            new DateTime(2026, 9, 22, 8, 30, 0, DateTimeKind.Utc));
+
+        offering.QualifierAr.Should().BeNull();
+        offering.QualifierHe.Should().BeNull();
+        offering.BadgeCode.Should().BeNull();
+    }
+
+    [Fact]
     public void ToResponse_SortsNestedCollectionsAndPreservesNullableHebrewFields()
     {
         var company = new Company
@@ -73,6 +162,9 @@ public class CatalogMapperTests
             Branch = branch,
             NameAr = "غسيل شامل",
             NameHe = null,
+            QualifierAr = "بدون التعقيم",
+            QualifierHe = null,
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
             BasePrice = 100m,
             DurationMinutes = 45,
             DisplayOrder = 0,
@@ -129,6 +221,9 @@ public class CatalogMapperTests
         var response = CatalogMapper.ToResponse(offering);
 
         response.NameHe.Should().BeNull();
+        response.QualifierAr.Should().Be("بدون التعقيم");
+        response.QualifierHe.Should().BeNull();
+        response.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
         response.CategoryNameHe.Should().BeNull();
         response.BranchNameHe.Should().BeNull();
         response.AddonGroups.Select(group => group.Id).Should().ContainInOrder(firstGroup.Id, laterGroup.Id);

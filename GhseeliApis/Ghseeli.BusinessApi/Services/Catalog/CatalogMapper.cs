@@ -56,6 +56,9 @@ internal static class CatalogMapper
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe),
             DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr),
             DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe),
+            QualifierAr = BusinessTextNormalizer.NormalizeOptional(request.QualifierAr),
+            QualifierHe = BusinessTextNormalizer.NormalizeOptional(request.QualifierHe),
+            BadgeCode = request.BadgeCode,
             BasePrice = BusinessMoney.RoundToCurrency(request.BasePrice),
             DurationMinutes = request.DurationMinutes,
             ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl),
@@ -78,6 +81,9 @@ internal static class CatalogMapper
         offering.NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe);
         offering.DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr);
         offering.DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe);
+        offering.QualifierAr = BusinessTextNormalizer.NormalizeOptional(request.QualifierAr);
+        offering.QualifierHe = BusinessTextNormalizer.NormalizeOptional(request.QualifierHe);
+        offering.BadgeCode = request.BadgeCode;
         offering.BasePrice = BusinessMoney.RoundToCurrency(request.BasePrice);
         offering.DurationMinutes = request.DurationMinutes;
         offering.ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl);
@@ -202,6 +208,9 @@ internal static class CatalogMapper
             BranchId = offering.BranchId,
             NameAr = offering.NameAr,
             NameHe = offering.NameHe,
+            QualifierAr = offering.QualifierAr,
+            QualifierHe = offering.QualifierHe,
+            BadgeCode = offering.BadgeCode,
             BasePrice = offering.BasePrice,
             DurationMinutes = offering.DurationMinutes,
             ImageUrl = offering.ImageUrl,
@@ -223,6 +232,9 @@ internal static class CatalogMapper
             NameHe = offering.NameHe,
             DescriptionAr = offering.DescriptionAr,
             DescriptionHe = offering.DescriptionHe,
+            QualifierAr = offering.QualifierAr,
+            QualifierHe = offering.QualifierHe,
+            BadgeCode = offering.BadgeCode,
             BasePrice = offering.BasePrice,
             DurationMinutes = offering.DurationMinutes,
             ImageUrl = offering.ImageUrl,

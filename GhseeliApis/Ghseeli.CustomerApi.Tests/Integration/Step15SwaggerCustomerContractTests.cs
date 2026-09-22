@@ -182,6 +182,19 @@ public sealed class Step15SwaggerCustomerContractTests :
         AssertFormat(paymentRequest, "bookingId", "uuid");
         AssertStringEnum(paymentRequest, "method", ["Card", "Wallet", "CashOnArrival", "ThirdParty"]);
 
+        var offeringResponse = Schema(root, "CatalogOfferingResponse");
+        var offeringProperties = offeringResponse.GetProperty("properties");
+        offeringProperties.GetProperty("qualifier").GetProperty("nullable")
+            .GetBoolean().Should().BeTrue();
+        var badgeCode = offeringProperties.GetProperty("badgeCode");
+        badgeCode.GetProperty("nullable").GetBoolean().Should().BeTrue();
+        badgeCode.GetProperty("allOf")[0].GetProperty("$ref").GetString()
+            .Should().EndWith("/CatalogOfferingBadgeCode");
+        var badgeSchema = Schema(root, "CatalogOfferingBadgeCode");
+        badgeSchema.GetProperty("type").GetString().Should().Be("string");
+        badgeSchema.GetProperty("enum").EnumerateArray().Select(value => value.GetString())
+            .Should().Equal("MostRequested");
+
         var selections = Schemas(root).Where(schema =>
             schema.Name.Contains("Selection", StringComparison.OrdinalIgnoreCase) &&
             HasProperty(schema.Value, "quantity")).ToArray();

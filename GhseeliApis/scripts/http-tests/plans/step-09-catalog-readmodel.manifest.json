@@ -23,6 +23,8 @@
     "businessOneCategoryDescriptionAr": "تصنيف ألف عربي {{var:dataStamp}}",
     "businessOneOfferingNameAr": "غسيل أساسي {{var:dataStamp}}",
     "businessOneOfferingDescriptionAr": "خدمة ألف عربية {{var:dataStamp}}",
+    "businessOneOfferingQualifierAr": "بدون التعقيم {{var:dataStamp}}",
+    "businessOneOfferingQualifierHe": "ללא חיטוי {{var:dataStamp}}",
     "businessOneAddonGroupNameAr": "شمع إضافي {{var:dataStamp}}",
     "businessOneAddonGroupDescriptionAr": "إضافة ألف {{var:dataStamp}}",
     "businessOneAddonChoiceNameAr": "شمع سريع {{var:dataStamp}}",
@@ -35,6 +37,7 @@
     "businessTwoCategoryNameHe": "שטיפה פנימית {{var:dataStamp}}",
     "businessTwoOfferingNameAr": "غسيل مميز {{var:dataStamp}}",
     "businessTwoOfferingNameHe": "שטיפה מיוחדת {{var:dataStamp}}",
+    "businessTwoOfferingQualifierAr": "تنظيف لطيف {{var:dataStamp}}",
     "businessTwoAddonGroupNameHe": "בישום {{var:dataStamp}}",
     "businessTwoAddonChoiceNameHe": "בישום חזק {{var:dataStamp}}"
   },
@@ -726,6 +729,14 @@
             "equals": "{{var:businessOneOfferingDescriptionAr}}"
           },
           {
+            "path": "$.offerings[0].qualifier",
+            "equals": "{{var:businessOneOfferingQualifierHe}}"
+          },
+          {
+            "path": "$.offerings[0].badgeCode",
+            "equals": "MostRequested"
+          },
+          {
             "path": "$.offerings[0].basePrice",
             "equals": 50.0
           },
@@ -868,6 +879,14 @@
             "equals": "{{var:businessOneOfferingDescriptionAr}}"
           },
           {
+            "path": "$.offering.qualifier",
+            "equals": "{{var:businessOneOfferingQualifierAr}}"
+          },
+          {
+            "path": "$.offering.badgeCode",
+            "equals": "MostRequested"
+          },
+          {
             "path": "$.offering.business.id",
             "equals": "{{var:businessOneLocalId}}"
           },
@@ -906,6 +925,44 @@
           {
             "path": "$.token",
             "exists": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "STEP9-OFFERING-METADATA-FALLBACK-022",
+      "feature": "step9",
+      "tags": ["step9", "preseeded", "read", "localization", "offering-metadata"],
+      "method": "GET",
+      "url": "/api/v1/catalog/businesses/{{var:businessTwoLocalId}}/offerings?categoryId={{var:businessTwoCategoryLocalId}}&language=he",
+      "headers": {
+        "Accept": "application/json",
+        "X-Device-Token": "{{var:issuedDeviceToken}}"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "Cache-Control": {
+            "equals": "no-store"
+          }
+        },
+        "json": [
+          {
+            "path": "$.language",
+            "equals": "he"
+          },
+          {
+            "path": "$.offerings[0].name",
+            "equals": "{{var:businessTwoOfferingNameHe}}"
+          },
+          {
+            "path": "$.offerings[0].qualifier",
+            "equals": "{{var:businessTwoOfferingQualifierAr}}"
+          },
+          {
+            "path": "$.offerings[0].badgeCode",
+            "equals": null
           }
         ]
       }

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Security.Cryptography;
 using System.Text;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace Ghseeli.DemoData;
@@ -321,8 +322,36 @@ public static class DemoDataDefinition
         string nameHe,
         decimal basePrice,
         int durationMinutes,
-        params DemoAddonGroup[] groups) =>
-        new(Id('e', number), Id('c', companyNumber), Id('g', categoryNumber), Id('b', branchNumber), $"DEMO-SVC-{number:000}", nameEn, nameAr, nameHe, basePrice, durationMinutes, groups.ToList());
+        params DemoAddonGroup[] groups)
+    {
+        var positionWithinCompany = ((number - 1) % 4) + 1;
+        var qualifierAr = positionWithinCompany switch
+        {
+            1 => "بدون التعقيم",
+            3 => "تنظيف لطيف",
+            _ => null
+        };
+        var qualifierHe = positionWithinCompany == 1 ? "ללא חיטוי" : null;
+        CatalogOfferingBadgeCode? badgeCode = positionWithinCompany == 1
+            ? CatalogOfferingBadgeCode.MostRequested
+            : null;
+
+        return new(
+            Id('e', number),
+            Id('c', companyNumber),
+            Id('g', categoryNumber),
+            Id('b', branchNumber),
+            $"DEMO-SVC-{number:000}",
+            nameEn,
+            nameAr,
+            nameHe,
+            basePrice,
+            durationMinutes,
+            qualifierAr,
+            qualifierHe,
+            badgeCode,
+            groups.ToList());
+    }
 
     private static DemoAddonGroup Group(
         int number,
@@ -444,6 +473,9 @@ public sealed record DemoOffering(
     string NameHe,
     decimal BasePrice,
     int DurationMinutes,
+    string? QualifierAr,
+    string? QualifierHe,
+    CatalogOfferingBadgeCode? BadgeCode,
     List<DemoAddonGroup> AddonGroups);
 
 public sealed record DemoAddonGroup(

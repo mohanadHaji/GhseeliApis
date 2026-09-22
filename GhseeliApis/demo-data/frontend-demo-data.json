@@ -145,6 +145,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 25,
           "durationMinutes": 25,
+          "qualifierAr": "\u0628\u062F\u0648\u0646 \u0627\u0644\u062A\u0639\u0642\u064A\u0645",
+          "qualifierHe": "\u05DC\u05DC\u05D0 \u05D7\u05D9\u05D8\u05D5\u05D9",
+          "badgeCode": "MostRequested",
           "addonGroups": [
             {
               "id": "ad978b8f-f170-a36d-d3bd-475a1047dfd3",
@@ -192,6 +195,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 45,
           "durationMinutes": 40,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "22a01d0f-dfaf-e494-61ca-4b37431415fe",
@@ -249,6 +255,9 @@
           "nameHe": "\u05E8\u05E2\u05E0\u05D5\u05DF \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 35,
           "durationMinutes": 35,
+          "qualifierAr": "\u062A\u0646\u0638\u064A\u0641 \u0644\u0637\u064A\u0641",
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         },
         {
@@ -262,6 +271,9 @@
           "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E2\u05DE\u05D5\u05E7 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 70,
           "durationMinutes": 75,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "ec48444a-2a79-3066-2c0a-0881d9697a84",
@@ -367,6 +379,9 @@
           "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 65,
           "durationMinutes": 60,
+          "qualifierAr": "\u0628\u062F\u0648\u0646 \u0627\u0644\u062A\u0639\u0642\u064A\u0645",
+          "qualifierHe": "\u05DC\u05DC\u05D0 \u05D7\u05D9\u05D8\u05D5\u05D9",
+          "badgeCode": "MostRequested",
           "addonGroups": []
         },
         {
@@ -380,6 +395,9 @@
           "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05DE\u05DC\u05D0 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 140,
           "durationMinutes": 150,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "574276b0-9bdf-7181-22dd-eda6b58b8433",
@@ -437,6 +455,9 @@
           "nameHe": "\u05DC\u05D9\u05D8\u05D5\u05E9 \u05E4\u05E0\u05E1\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 40,
           "durationMinutes": 35,
+          "qualifierAr": "\u062A\u0646\u0638\u064A\u0641 \u0644\u0637\u064A\u0641",
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         },
         {
@@ -450,6 +471,9 @@
           "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05EA\u05D0 \u05DE\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 55,
           "durationMinutes": 45,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "6651a3c9-5d28-84f1-3f44-928d75b8e97e",
@@ -531,6 +555,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DC\u05DC\u05D0 \u05DE\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 38,
           "durationMinutes": 35,
+          "qualifierAr": "\u0628\u062F\u0648\u0646 \u0627\u0644\u062A\u0639\u0642\u064A\u0645",
+          "qualifierHe": "\u05DC\u05DC\u05D0 \u05D7\u05D9\u05D8\u05D5\u05D9",
+          "badgeCode": "MostRequested",
           "addonGroups": []
         },
         {
@@ -544,6 +571,9 @@
           "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05D1\u05E7\u05D9\u05D8\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 58,
           "durationMinutes": 50,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "904809ae-d8f1-f38b-bb4e-c3383074a0ce",
@@ -621,6 +651,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05EA \u05E6\u05D9 \u05D1\u05E1\u05D9\u05E1\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 22,
           "durationMinutes": 20,
+          "qualifierAr": "\u062A\u0646\u0638\u064A\u0641 \u0644\u0637\u064A\u0641",
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         },
         {
@@ -634,6 +667,9 @@
           "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05D0\u05D5\u05E4\u05E0\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 30,
           "durationMinutes": 30,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         }
       ]
@@ -695,6 +731,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05D4\u05D9\u05E8\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 22,
           "durationMinutes": 20,
+          "qualifierAr": "\u0628\u062F\u0648\u0646 \u0627\u0644\u062A\u0639\u0642\u064A\u0645",
+          "qualifierHe": "\u05DC\u05DC\u05D0 \u05D7\u05D9\u05D8\u05D5\u05D9",
+          "badgeCode": "MostRequested",
           "addonGroups": []
         },
         {
@@ -708,6 +747,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D5\u05E9\u05D0\u05D9\u05D1\u05D4 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 42,
           "durationMinutes": 40,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "b761bb4c-8fb0-db52-bac1-87728656d656",
@@ -765,6 +807,9 @@
           "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05D1\u05DC\u05D5\u05D7 \u05DE\u05D7\u05D5\u05D5\u05E0\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 28,
           "durationMinutes": 25,
+          "qualifierAr": "\u062A\u0646\u0638\u064A\u0641 \u0644\u0637\u064A\u0641",
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         },
         {
@@ -778,6 +823,9 @@
           "nameHe": "\u05D7\u05D1\u05D9\u05DC\u05EA \u05E8\u05DB\u05D1 \u05DE\u05E9\u05E4\u05D7\u05EA\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 82,
           "durationMinutes": 85,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "4824352e-2e5b-1f27-d33e-7cd76a7236d2",
@@ -869,6 +917,9 @@
           "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05DE\u05E0\u05D4\u05DC\u05D9\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 75,
           "durationMinutes": 70,
+          "qualifierAr": "\u0628\u062F\u0648\u0646 \u0627\u0644\u062A\u0639\u0642\u064A\u0645",
+          "qualifierHe": "\u05DC\u05DC\u05D0 \u05D7\u05D9\u05D8\u05D5\u05D9",
+          "badgeCode": "MostRequested",
           "addonGroups": []
         },
         {
@@ -882,6 +933,9 @@
           "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E2\u05D5\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 95,
           "durationMinutes": 80,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "35dab202-3943-c6b9-5b14-c6f5f4edf4cd",
@@ -939,6 +993,9 @@
           "nameHe": "\u05EA\u05D9\u05E7\u05D5\u05DF \u05E6\u05D1\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
           "basePrice": 210,
           "durationMinutes": 240,
+          "qualifierAr": "\u062A\u0646\u0638\u064A\u0641 \u0644\u0637\u064A\u0641",
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": []
         },
         {
@@ -952,6 +1009,9 @@
           "nameHe": "\u05D7\u05D1\u05D9\u05DC\u05EA \u05D4\u05DB\u05E0\u05D4 \u05DC\u05D0\u05D9\u05E8\u05D5\u05E2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
           "basePrice": 165,
           "durationMinutes": 170,
+          "qualifierAr": null,
+          "qualifierHe": null,
+          "badgeCode": null,
           "addonGroups": [
             {
               "id": "d75bae8d-2e72-4d35-6abd-f7b3837645ee",

@@ -11,14 +11,16 @@ repository root [`README.md`](../README.md).
 - Both APIs use trusted HTTPS and separate SQL Server databases.
 - Production deployment is manual through
   `.github/workflows/deploy-monsterasp.yml`.
-- Customer and Business migrations are current and deployed.
+- The deployed Customer and Business schemas were current as of 2026-09-17.
+  The offering-presentation metadata migrations in the current working tree
+  are tested but not yet deployed.
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
-- Current verified automated baseline: **1,937 passed, 0 failed, 0 skipped**.
-- Customer tests: 1,326.
-- Business tests: 588.
-- Demo-data tests: 23.
+- Current verified automated baseline: **1,965 passed, 0 failed, 0 skipped**.
+- Customer tests: 1,332.
+- Business tests: 609.
+- Demo-data tests: 24.
 - Release build: 0 warnings and 0 errors.
 - The Customer-to-Business Demo partition propagation fix was deployed and
   hosted-verified on 2026-09-17: the seeded Demo catalog returned five fresh
@@ -37,13 +39,23 @@ then update it as work is completed.
 | Independent Customer and Business APIs/databases | Done |
 | Trusted HTTPS and HTTP-to-HTTPS redirects | Done |
 | Customer/Business JWT separation and internal HMAC | Done |
-| Database migrations and hosted deployment | Done |
+| Migration/deployment pipeline and previously released migrations | Done |
 | Email/password and live email OTP | Done |
 | Device authentication and device recovery | Done |
 | Catalog, availability, drafts, pricing, booking confirmation, and status callbacks | Done |
 | Lahza test-mode POC and security boundaries | Done for test mode |
 | Production/Demo isolation and hosted frontend fixture | Done |
 | Automated, relational, local HTTP, and hosted smoke coverage | Done |
+
+The offering-presentation metadata slice is implemented and covered by unit,
+TestServer, relational SQL Server, migration, Demo parity, and Customer live
+HTTP tests. Its Business and Customer migrations still require deployment.
+The complete Step 17 local gate passed on 2026-09-22, including all 50 active
+provider-neutral Step 17 scenarios, 1,167 inherited scenarios, Step 16
+database/schema isolation, adverse-schema checks, and final process/database
+cleanup. The eight retired Stripe scenarios remain preserved as historical
+coverage and are intentionally excluded from execution after the Lahza
+migration.
 
 ### Required before a real public production launch
 

@@ -171,7 +171,7 @@ INSERT BusinessUserAssignments VALUES(NEWID(),'$businessUser','$company',1);
         expectedBusinessCompanies = @([ordered]@{ id = $company.ToString('D') })
         expectedBusinessWorkOrders = @()
         expectedBusinessOutbox = @()
-        expectedManifestEntryCount = 90
+        expectedManifestEntryCount = 91
     }
     $variables | ConvertTo-Json -Depth 8 | Set-Content $variablesPath -Encoding UTF8
     Run-Verifier $true 'Verifier accepts exact Customer and Business fixture evidence'

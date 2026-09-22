@@ -78,8 +78,8 @@ foreach ($property in @(
         $failures.Add("Variables are missing required fixture evidence '$property'.")
     }
 }
-if ($variables.expectedManifestEntryCount -ne 90) {
-    $failures.Add('Variables were not initialized for the 90-entry Step 15 manifest.')
+if ($variables.expectedManifestEntryCount -ne 91) {
+    $failures.Add('Variables were not initialized for the 91-entry Step 15 manifest.')
 }
 foreach ($databaseEvidence in @(
         [pscustomobject]@{

@@ -1,3 +1,5 @@
+using Ghseeli.IntegrationContracts.BusinessCatalog;
+
 namespace Ghseeli.BusinessApi.Models;
 
 public class ServiceOffering
@@ -9,6 +11,9 @@ public class ServiceOffering
     public string? NameHe { get; set; }
     public string? DescriptionAr { get; set; }
     public string? DescriptionHe { get; set; }
+    public string? QualifierAr { get; set; }
+    public string? QualifierHe { get; set; }
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
     public decimal BasePrice { get; set; }
     public int DurationMinutes { get; set; }
     public string? ImageUrl { get; set; }

@@ -52,6 +52,7 @@ public sealed class Step16CustomerSchemaMigrationTests
         migrationNames.Should().Contain("AddCustomerDeviceActiveState");
         migrationNames.Should().Contain("AddCustomerDeviceOwnership");
         migrationNames.Should().Contain("AddCustomerDemoDataPartition");
+        migrationNames.Should().Contain("AddCustomerOfferingPresentationMetadata");
         migrations.Keys.Should().BeInAscendingOrder();
         context.Database.HasPendingModelChanges().Should().BeFalse();
     }
@@ -108,7 +109,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(7);
+            firstHistory.Should().HaveCount(8);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")
@@ -125,6 +126,88 @@ public sealed class Step16CustomerSchemaMigrationTests
 
             secondHistory.Should().Equal(firstHistory);
             secondCatalog.Should().Equal(firstCatalog);
+        }
+        finally
+        {
+            await DropDatabaseAsync();
+        }
+    }
+
+    [Fact]
+    public async Task OfferingPresentationMetadataMigration_PreservesRows_AddsNullableBoundedColumns_AndDowngrades()
+    {
+        await DropDatabaseAsync();
+        var providerId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var offeringId = Guid.NewGuid();
+
+        try
+        {
+            await using var context = CreateContext();
+            var migrator = context.GetService<IMigrator>();
+            var priorMigration = context.Database.GetMigrations()
+                .Single(migration => migration.EndsWith("_AddCustomerDemoDataPartition"));
+            await migrator.MigrateAsync(priorMigration);
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                        INSERT INTO [dbo].[CatalogProviders]
+                            ([Id], [SourceCompanyId], [IsEnabled], [DisplayOrder], [NameAr],
+                             [CatalogVersion], [BusinessVerticalCode], [IsDemo])
+                        VALUES
+                            ({providerId}, {Guid.NewGuid()}, 1, 0, N'Existing provider', 1,
+                             {BusinessVerticalSnapshotDefaults.CarWashCode}, 0);
+
+                        INSERT INTO [dbo].[CatalogCategories]
+                            ([Id], [SourceCategoryId], [ProviderId], [NameAr], [DisplayOrder])
+                        VALUES
+                            ({categoryId}, {Guid.NewGuid()}, {providerId}, N'Existing category', 0);
+
+                        INSERT INTO [dbo].[CatalogOfferings]
+                            ([Id], [SourceOfferingId], [CategoryId], [NameAr], [BasePrice],
+                             [DurationMinutes], [DisplayOrder])
+                        VALUES
+                            ({offeringId}, {Guid.NewGuid()}, {categoryId}, N'Existing offering',
+                             50, 30, 0);
+                    """);
+
+            await context.Database.MigrateAsync();
+
+            (await ReadStringsAsync(
+                context,
+                $"""
+                    SELECT CONCAT(
+                        CASE WHEN [QualifierAr] IS NULL THEN 'null' ELSE 'value' END, '|',
+                        CASE WHEN [QualifierHe] IS NULL THEN 'null' ELSE 'value' END, '|',
+                        CASE WHEN [BadgeCode] IS NULL THEN 'null' ELSE 'value' END)
+                    FROM [dbo].[CatalogOfferings]
+                    WHERE [Id] = '{offeringId:D}'
+                    UNION ALL
+                    SELECT CONCAT(c.[name], '|', TYPE_NAME(c.[user_type_id]), '|',
+                        c.[max_length], '|', c.[is_nullable])
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[CatalogOfferings]')
+                      AND c.[name] IN ('QualifierAr', 'QualifierHe', 'BadgeCode')
+                    ORDER BY 1
+                """)).Should().BeEquivalentTo(
+                    "null|null|null",
+                    "BadgeCode|nvarchar|100|1",
+                    "QualifierAr|nvarchar|400|1",
+                    "QualifierHe|nvarchar|400|1");
+
+            await migrator.MigrateAsync(priorMigration);
+
+            (await ReadStringsAsync(
+                context,
+                $"""
+                    SELECT [NameAr]
+                    FROM [dbo].[CatalogOfferings]
+                    WHERE [Id] = '{offeringId:D}'
+                    UNION ALL
+                    SELECT c.[name]
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[CatalogOfferings]')
+                      AND c.[name] IN ('QualifierAr', 'QualifierHe', 'BadgeCode')
+                """)).Should().Equal("Existing offering");
         }
         finally
         {

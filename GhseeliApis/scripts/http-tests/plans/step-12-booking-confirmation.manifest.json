@@ -1787,7 +1787,7 @@
             "equals": "{{var:orderGuid}}"
           },
           {
-            "path": "$.reference",
+            "path": "$.referenceId",
             "exists": true
           },
           {
@@ -1869,10 +1869,10 @@
         ]
       },
       "extract": {
-        "bookingId": "$.id",
-        "bookingReference": "$.reference",
-        "reservationId": "$.businessReservationId",
-        "workOrderId": "$.businessWorkOrderId",
+        "step12BookingId": "$.id",
+        "step12BookingReference": "$.referenceId",
+        "step12ReservationId": "$.businessReservationId",
+        "step12WorkOrderId": "$.businessWorkOrderId",
         "slotEnd": "$.requestedSlotEndUtc"
       }
     },
@@ -1912,19 +1912,19 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.businessReservationId",
-            "equals": "{{var:reservationId}}"
+            "equals": "{{var:step12ReservationId}}"
           },
           {
             "path": "$.businessWorkOrderId",
-            "equals": "{{var:workOrderId}}"
+            "equals": "{{var:step12WorkOrderId}}"
           }
         ]
       }
@@ -1976,11 +1976,11 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.grandTotal",
@@ -1996,11 +1996,11 @@
           },
           {
             "path": "$.businessReservationId",
-            "equals": "{{var:reservationId}}"
+            "equals": "{{var:step12ReservationId}}"
           },
           {
             "path": "$.businessWorkOrderId",
-            "equals": "{{var:workOrderId}}"
+            "equals": "{{var:step12WorkOrderId}}"
           }
         ]
       }
@@ -2045,11 +2045,11 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.payment",
@@ -2102,11 +2102,11 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.payment",
@@ -2159,11 +2159,11 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.payment",
@@ -2216,11 +2216,11 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.payment",
@@ -2269,19 +2269,19 @@
         "json": [
           {
             "path": "$.id",
-            "equals": "{{var:bookingId}}"
+            "equals": "{{var:step12BookingId}}"
           },
           {
-            "path": "$.reference",
-            "equals": "{{var:bookingReference}}"
+            "path": "$.referenceId",
+            "equals": "{{var:step12BookingReference}}"
           },
           {
             "path": "$.businessReservationId",
-            "equals": "{{var:reservationId}}"
+            "equals": "{{var:step12ReservationId}}"
           },
           {
             "path": "$.businessWorkOrderId",
-            "equals": "{{var:workOrderId}}"
+            "equals": "{{var:step12WorkOrderId}}"
           },
           {
             "path": "$.grandTotal",
@@ -2613,7 +2613,7 @@
         ]
       },
       "extract": {
-        "multiBookingReference": "$.reference",
+        "multiBookingReference": "$.referenceId",
         "multiReservationId": "$.businessReservationId"
       }
     },
@@ -2653,7 +2653,7 @@
         },
         "json": [
           {
-            "path": "$.reference",
+            "path": "$.referenceId",
             "equals": "{{var:multiBookingReference}}"
           },
           {

@@ -834,7 +834,6 @@
           "exception",
           "SqlException",
           "ConnectionString",
-          "Bearer ",
           "X-Ghseeli-Signature",
           "ActiveSecret",
           "sk_live_",
@@ -3046,6 +3045,26 @@
             "exists": true
           },
           {
+            "path": "$.components.schemas.CatalogOfferingResponse.properties.qualifier.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingResponse.properties.badgeCode.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingResponse.properties.badgeCode.allOf[0].$ref",
+            "equals": "#/components/schemas/CatalogOfferingBadgeCode"
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingBadgeCode.type",
+            "equals": "string"
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingBadgeCode.enum[0]",
+            "equals": "MostRequested"
+          },
+          {
             "path": "$.paths",
             "propertyNamesEqual": [
               "/api/v1/devices/register",
@@ -3054,6 +3073,7 @@
               "/api/v1/catalog/businesses",
               "/api/v1/catalog/businesses/{id}",
               "/api/v1/catalog/businesses/{id}/offerings",
+              "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
               "/api/v1/catalog/offerings/{id}",
               "/api/v1/checkout/drafts",
               "/api/v1/checkout/drafts/{orderGuid}",
@@ -3062,13 +3082,17 @@
               "/api/v1/bookings/from-draft",
               "/api/v1/payments/intents",
               "/api/v1/payments/{id}",
+              "/api/v1/payments/{id}/verify",
               "/api/v1/internal/bookings/status",
               "/api/v1/internal/bookings/{reference}/reconcile",
               "/api/v1/internal/bookings/{reference}",
               "/api/v1/internal/bookings/{unmatched}",
-              "/api/stripe/webhook",
+              "/api/lahza/webhook",
               "/api/Auth/register",
               "/api/Auth/login",
+              "/api/Auth/otp/request",
+              "/api/Auth/otp/confirm",
+              "/api/Auth/refresh",
               "/api/Auth/validate",
               "/api/Auth/me",
               "/api/Auth/external-login",
@@ -3227,7 +3251,37 @@
             ]
           },
           {
-            "path": "$.paths['/api/stripe/webhook']",
+            "path": "$.paths['/api/lahza/webhook']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/otp/request']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/otp/confirm']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/Auth/refresh']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/payments/{id}/verify']",
             "propertyNamesEqual": [
               "post"
             ]
@@ -3544,7 +3598,6 @@
           "exception",
           "SqlException",
           "ConnectionString",
-          "Bearer ",
           "X-Ghseeli-Signature",
           "ActiveSecret",
           "sk_live_",
@@ -3560,7 +3613,7 @@
           "paymentCapabilities",
           "same-body replay",
           "server-authoritative",
-          "Stripe-Signature",
+          "X-Lahza-Signature",
           "<service-id>"
         ]
       }
@@ -3607,6 +3660,46 @@
             "exists": true
           },
           {
+            "path": "$.components.schemas.CreateServiceOfferingRequest.properties.qualifierAr.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.CreateServiceOfferingRequest.properties.qualifierHe.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.CreateServiceOfferingRequest.properties.badgeCode.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.CreateServiceOfferingRequest.properties.badgeCode.allOf[0].$ref",
+            "equals": "#/components/schemas/CatalogOfferingBadgeCode"
+          },
+          {
+            "path": "$.components.schemas.UpdateServiceOfferingRequest.properties.qualifierAr.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.UpdateServiceOfferingRequest.properties.qualifierHe.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.UpdateServiceOfferingRequest.properties.badgeCode.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.components.schemas.UpdateServiceOfferingRequest.properties.badgeCode.allOf[0].$ref",
+            "equals": "#/components/schemas/CatalogOfferingBadgeCode"
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingBadgeCode.type",
+            "equals": "string"
+          },
+          {
+            "path": "$.components.schemas.CatalogOfferingBadgeCode.enum[0]",
+            "equals": "MostRequested"
+          },
+          {
             "path": "$.paths",
             "propertyNamesEqual": [
               "/api/v1/business/auth/register-owner",
@@ -3632,6 +3725,7 @@
               "/api/v1/business/admin/booking-status-outbox/{eventId}/requeue",
               "/api/v1/internal/catalog/snapshot",
               "/api/v1/internal/appointments/validate",
+              "/api/v1/internal/appointments/available-slots",
               "/api/v1/internal/reservations",
               "/api/v1/internal/reservations/{reference}",
               "/api/health"
@@ -3793,6 +3887,12 @@
           },
           {
             "path": "$.paths['/api/v1/internal/appointments/validate']",
+            "propertyNamesEqual": [
+              "post"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/available-slots']",
             "propertyNamesEqual": [
               "post"
             ]
@@ -6981,6 +7081,57 @@
           "Stripe-Signature",
           "sk_live_",
           "whsec_"
+        ]
+      }
+    },
+    {
+      "id": "STEP15-CUSTOMER-CATALOG-DEMO-REFRESH-173",
+      "planScenarioId": "STEP15-CUSTOMER-CATALOG-DEMO-REFRESH-173",
+      "feature": "step15",
+      "tags": [
+        "step15",
+        "live-local",
+        "customer"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses?refresh=true",
+      "headers": {
+        "X-Device-Token": "{{var:demoDeviceToken}}",
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.businesses[0].sourceId",
+            "equals": "{{var:demoBusinessSourceId}}"
+          },
+          {
+            "path": "$.businesses[0].name",
+            "equals": "شركة تحديث ديمو"
+          },
+          {
+            "path": "$.businesses[0].catalog.version",
+            "equals": 173
+          },
+          {
+            "path": "$.businesses[0].catalog.isStale",
+            "equals": false
+          },
+          {
+            "path": "$.businesses[1]",
+            "exists": false
+          }
+        ],
+        "bodyNotContains": [
+          "stack",
+          "exception",
+          "SqlException",
+          "ConnectionString",
+          "ActiveSecret",
+          "client_secret",
+          "@example.com"
         ]
       }
     },

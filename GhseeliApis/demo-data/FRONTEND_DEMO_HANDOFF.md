@@ -70,6 +70,19 @@ The catalog contains five businesses. Each has four offerings:
 | `[DEMO] City Shine Express` | 2 | 1 | 4 |
 | `[DEMO] Royal Auto Spa` | 1 | 1 | 4 |
 
+The offering metadata fixtures deliberately cover every presentation state:
+
+- The first offering for each business has bilingual qualifier text
+  (`بدون التعقيم` / `ללא חיטוי`) and the `MostRequested` badge.
+- The third offering for each business has Arabic-only qualifier text
+  (`تنظيف لطيف`) so Hebrew clients can verify the documented Arabic fallback.
+- The second and fourth offerings have no qualifier or badge, verifying that
+  optional metadata remains `null` and does not require placeholder UI.
+
+The same values are seeded into the Business-authoritative offerings and the
+Customer catalog read model. The exported JSON uses the string badge code
+`"MostRequested"`, matching the public and internal API contracts.
+
 Expected booking-state distribution:
 
 | State | Count |

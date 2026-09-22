@@ -2,9 +2,11 @@ using FluentAssertions;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DTOs.Catalog;
 using Ghseeli.BusinessApi.Models;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace Ghseeli.BusinessApi.Tests.Infrastructure;
@@ -228,6 +230,85 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
         var mutatedVersion = await GetSnapshotVersionAsync(client);
 
         mutatedVersion.Should().BeGreaterThan(initialVersion);
+    }
+
+    [Fact]
+    public async Task OfferingMetadata_CreateAndClear_IncrementsVersionOnceAndPublishesCurrentValues()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var category = await CreateCategoryAsync(client, "خدمات", true);
+        var versionBeforeCreate = await GetSnapshotVersionAsync(client);
+
+        var createPayload = $$"""
+            {
+              "categoryId": "{{category.Id}}",
+              "branchId": "{{_factory.BranchId}}",
+              "nameAr": "غسيل كامل",
+              "qualifierAr": "بدون التعقيم",
+              "qualifierHe": "ללא חיטוי",
+              "badgeCode": "MostRequested",
+              "basePrice": 100,
+              "durationMinutes": 45,
+              "displayOrder": 0,
+              "isActive": true
+            }
+            """;
+        var createResponse = await client.PostAsync(
+            "/api/v1/business/catalog/offerings",
+            new StringContent(createPayload, Encoding.UTF8, "application/json"));
+        var offering = await createResponse.Content.ReadFromJsonAsync<ServiceOfferingResponse>(
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)
+            {
+                Converters =
+                {
+                    new System.Text.Json.Serialization.JsonStringEnumConverter(
+                        namingPolicy: null,
+                        allowIntegerValues: false)
+                }
+            });
+        var versionAfterCreate = await GetSnapshotVersionAsync(client);
+        var createdSnapshot = await GetSnapshotAsync(client);
+        var createdJson = await createdSnapshot.Content.ReadAsStringAsync();
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        versionAfterCreate.Should().Be(versionBeforeCreate + 1);
+        createdSnapshot.StatusCode.Should().Be(HttpStatusCode.OK, createdJson);
+        using (var document = JsonDocument.Parse(createdJson))
+        {
+            var published = document.RootElement.GetProperty("categories")[0]
+                .GetProperty("offerings")[0];
+            published.GetProperty("qualifierAr").GetString().Should().Be("بدون التعقيم");
+            published.GetProperty("qualifierHe").GetString().Should().Be("ללא חיטוי");
+            published.GetProperty("badgeCode").GetString().Should().Be("MostRequested");
+        }
+
+        var updateResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/offerings/{offering!.Id}",
+            new UpdateServiceOfferingRequest
+            {
+                BranchId = _factory.BranchId,
+                NameAr = offering.NameAr,
+                QualifierAr = null,
+                QualifierHe = " ",
+                BadgeCode = null,
+                BasePrice = offering.BasePrice,
+                DurationMinutes = offering.DurationMinutes,
+                IsActive = true
+            });
+        var versionAfterClear = await GetSnapshotVersionAsync(client);
+        var clearedSnapshot = await GetSnapshotAsync(client);
+        var clearedJson = await clearedSnapshot.Content.ReadAsStringAsync();
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        versionAfterClear.Should().Be(versionAfterCreate + 1);
+        clearedSnapshot.StatusCode.Should().Be(HttpStatusCode.OK, clearedJson);
+        using var clearedDocument = JsonDocument.Parse(clearedJson);
+        var cleared = clearedDocument.RootElement.GetProperty("categories")[0]
+            .GetProperty("offerings")[0];
+        cleared.GetProperty("qualifierAr").ValueKind.Should().Be(JsonValueKind.Null);
+        cleared.GetProperty("qualifierHe").ValueKind.Should().Be(JsonValueKind.Null);
+        cleared.GetProperty("badgeCode").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]

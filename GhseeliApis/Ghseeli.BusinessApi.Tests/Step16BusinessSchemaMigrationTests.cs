@@ -53,9 +53,9 @@ public class Step16BusinessSchemaMigrationTests
     {
         using var context = CreateContext("Step16BusinessMigrationMetadata");
 
-        context.Database.GetMigrations().Should().HaveCount(3);
+        context.Database.GetMigrations().Should().HaveCount(4);
         context.Database.GetMigrations().First().Should().EndWith("_InitialBusinessDatabase");
-        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessDemoDataPartition");
+        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessOfferingPresentationMetadata");
     }
 
     [Fact]
@@ -67,11 +67,11 @@ public class Step16BusinessSchemaMigrationTests
         try
         {
             await context.Database.EnsureDeletedAsync();
-            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(3);
+            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(4);
 
             await context.Database.MigrateAsync();
 
-            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(3);
+            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(4);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
             context.Database.HasPendingModelChanges().Should().BeFalse();
 
@@ -123,6 +123,93 @@ public class Step16BusinessSchemaMigrationTests
 
             after.Should().Equal(before);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
+    public async Task OfferingPresentationMetadataMigration_PreservesRows_AddsNullableBoundedColumns_AndDowngrades()
+    {
+        var databaseName = $"GhseeliBusinessOfferingMetadata_{Guid.NewGuid():N}";
+        await using var context = CreateContext(databaseName);
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var offeringId = Guid.NewGuid();
+        var priorMigration = context.Database.GetMigrations()
+            .Single(migration => migration.EndsWith("_AddBusinessDemoDataPartition"));
+
+        try
+        {
+            await context.Database.EnsureDeletedAsync();
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                        INSERT INTO [dbo].[Companies]
+                            ([Id], [NameAr], [IsActive], [CatalogVersion], [CreatedAt], [IsDemo])
+                        VALUES
+                            ({companyId}, N'Existing company', 1, 1, SYSUTCDATETIME(), 0);
+
+                        INSERT INTO [dbo].[CompanyBusinessVerticals]
+                            ([CompanyId], [BusinessVerticalId], [IsPrimary], [IsActive], [CreatedAtUtc])
+                        VALUES
+                            ({companyId}, {BusinessVerticalDefaults.CarWashId}, 1, 1, SYSUTCDATETIME());
+
+                        INSERT INTO [dbo].[ServiceCategories]
+                            ([Id], [CompanyId], [NameAr], [DisplayOrder], [IsActive], [CreatedAt],
+                             [BusinessVerticalId])
+                        VALUES
+                            ({categoryId}, {companyId}, N'Existing category', 0, 1,
+                             SYSUTCDATETIME(), {BusinessVerticalDefaults.CarWashId});
+
+                        INSERT INTO [dbo].[ServiceOfferings]
+                            ([Id], [CategoryId], [NameAr], [BasePrice], [DurationMinutes],
+                             [DisplayOrder], [IsActive], [CreatedAt])
+                        VALUES
+                            ({offeringId}, {categoryId}, N'Existing offering', 50, 30, 0, 1,
+                             SYSUTCDATETIME());
+                    """);
+
+            await context.Database.MigrateAsync();
+
+            (await QueryNamesAsync(
+                context,
+                $"""
+                    SELECT CONCAT(
+                        CASE WHEN [QualifierAr] IS NULL THEN 'null' ELSE 'value' END, '|',
+                        CASE WHEN [QualifierHe] IS NULL THEN 'null' ELSE 'value' END, '|',
+                        CASE WHEN [BadgeCode] IS NULL THEN 'null' ELSE 'value' END)
+                    FROM [dbo].[ServiceOfferings]
+                    WHERE [Id] = '{offeringId:D}'
+                    UNION ALL
+                    SELECT CONCAT(c.[name], '|', TYPE_NAME(c.[user_type_id]), '|',
+                        c.[max_length], '|', c.[is_nullable])
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[ServiceOfferings]')
+                      AND c.[name] IN ('QualifierAr', 'QualifierHe', 'BadgeCode')
+                    ORDER BY 1
+                """)).Should().BeEquivalentTo(
+                    "null|null|null",
+                    "BadgeCode|nvarchar|100|1",
+                    "QualifierAr|nvarchar|400|1",
+                    "QualifierHe|nvarchar|400|1");
+
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+
+            (await QueryNamesAsync(
+                context,
+                $"""
+                    SELECT [NameAr]
+                    FROM [dbo].[ServiceOfferings]
+                    WHERE [Id] = '{offeringId:D}'
+                    UNION ALL
+                    SELECT c.[name]
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[ServiceOfferings]')
+                      AND c.[name] IN ('QualifierAr', 'QualifierHe', 'BadgeCode')
+                """)).Should().Equal("Existing offering");
         }
         finally
         {

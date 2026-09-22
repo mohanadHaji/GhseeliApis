@@ -503,11 +503,11 @@ route's earlier frozen replay contract says otherwise.
 
 ## 7. Completion gate
 
-This planning task freezes **172 unique scenarios**:
+This planning task freezes **173 unique scenarios**:
 
 - 34 cross-cutting language/problem;
 - 23 authentication/isolation;
-- 20 Customer modern;
+- 21 Customer modern;
 - 36 Business;
 - 16 legacy/transport;
 - 24 Swagger;
@@ -528,14 +528,14 @@ are planned levels, not execution results.
 
 Final gate status: **passed on 2026-08-24**.
 
-- Static inventory: **172/172** frozen scenarios and **42/42** live mappings.
-- Manifest: **90/90** live-local cases (Customer 52; Business 38).
+- Static inventory: **173/173** frozen scenarios and **43/43** live mappings.
+- Manifest: **91/91** live-local cases (Customer 53; Business 38).
 - Harness/asset/fixture-verifier: **38/38** self-tests.
 - Step 15 tests: **228/228** (Customer 135; Business 93), including
   **11/11** final invariant tests (Customer 7; Business 4).
 - Full Release tests: **1,672/1,672** (Customer 1,246; Business 426).
 - Clean Release builds: **2/2**, 0 warnings and 0 errors.
-- Live-local execution: **90/90** across six exact Development/Production and
+- Live-local execution: **91/91** across six exact Development/Production and
   HTTP/HTTPS hosts, using real opposite-host JWT variables.
 - Hardened post-run database invariant gate: **1/1**.
 - EF validation: both owned models current, 2/2 idempotent scripts, and 4/4

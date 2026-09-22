@@ -43,10 +43,18 @@ public sealed class BusinessRequestSchemaFilter : ISchemaFilter
             return;
         }
 
-        if (context.Type == typeof(CreateServiceOfferingRequest))
+        if (context.Type == typeof(CreateServiceOfferingRequest) ||
+            context.Type == typeof(UpdateServiceOfferingRequest))
         {
-            Require(schema, "categoryId", "nameAr");
+            Require(schema, "nameAr");
+            if (context.Type == typeof(CreateServiceOfferingRequest))
+            {
+                Require(schema, "categoryId");
+            }
             SetNullable(schema, "nameHe", nullable: true);
+            SetNullable(schema, "qualifierAr", nullable: true);
+            SetNullable(schema, "qualifierHe", nullable: true);
+            SetNullable(schema, "badgeCode", nullable: true);
             SetDecimal(schema, "basePrice");
             schema.Example = BilingualExample("nameAr");
             return;
@@ -154,6 +162,19 @@ public sealed class BusinessRequestSchemaFilter : ISchemaFilter
     {
         if (schema.Properties.TryGetValue(propertyName, out var propertySchema))
         {
+            if (nullable && propertySchema.Reference is not null)
+            {
+                var reference = propertySchema.Reference;
+                propertySchema.Reference = null;
+                propertySchema.AllOf =
+                [
+                    new OpenApiSchema
+                    {
+                        Reference = reference
+                    }
+                ];
+            }
+
             propertySchema.Nullable = nullable;
         }
     }

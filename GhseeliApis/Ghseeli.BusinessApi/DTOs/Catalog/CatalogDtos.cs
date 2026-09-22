@@ -1,4 +1,5 @@
 using Ghseeli.BusinessApi.Models;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 
 namespace Ghseeli.BusinessApi.DTOs.Catalog;
 
@@ -173,6 +174,21 @@ public class CreateServiceOfferingRequest
     public string? DescriptionHe { get; set; }
 
     /// <summary>
+    /// Optional short Arabic qualifier displayed separately from the offering description.
+    /// </summary>
+    public string? QualifierAr { get; set; }
+
+    /// <summary>
+    /// Optional short Hebrew qualifier displayed separately from the offering description.
+    /// </summary>
+    public string? QualifierHe { get; set; }
+
+    /// <summary>
+    /// Optional curated merchandising badge. This is not calculated from booking analytics.
+    /// </summary>
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
+
+    /// <summary>
     /// Base offering price before add-on adjustments. Must be non-negative.
     /// </summary>
     public decimal BasePrice { get; set; }
@@ -232,6 +248,21 @@ public class UpdateServiceOfferingRequest
     /// Optional Hebrew offering description.
     /// </summary>
     public string? DescriptionHe { get; set; }
+
+    /// <summary>
+    /// Optional short Arabic qualifier displayed separately from the offering description.
+    /// </summary>
+    public string? QualifierAr { get; set; }
+
+    /// <summary>
+    /// Optional short Hebrew qualifier displayed separately from the offering description.
+    /// </summary>
+    public string? QualifierHe { get; set; }
+
+    /// <summary>
+    /// Optional curated merchandising badge. This is not calculated from booking analytics.
+    /// </summary>
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
 
     /// <summary>
     /// Base offering price before add-on adjustments. Must be non-negative.
@@ -298,6 +329,21 @@ public class ServiceOfferingListResponse
     /// Hebrew offering name.
     /// </summary>
     public string? NameHe { get; set; }
+
+    /// <summary>
+    /// Optional Arabic offering qualifier.
+    /// </summary>
+    public string? QualifierAr { get; set; }
+
+    /// <summary>
+    /// Optional Hebrew offering qualifier.
+    /// </summary>
+    public string? QualifierHe { get; set; }
+
+    /// <summary>
+    /// Optional curated merchandising badge.
+    /// </summary>
+    public CatalogOfferingBadgeCode? BadgeCode { get; set; }
 
     /// <summary>
     /// Base offering price before add-on adjustments.

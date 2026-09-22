@@ -6,6 +6,7 @@ using Ghseeli.BusinessApi.Services;
 using Ghseeli.BusinessApi.Services.Catalog;
 using Ghseeli.BusinessApi.Services.Validation.Catalog;
 using Ghseeli.BusinessApi.Validators.Catalog;
+using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Moq;
 
 namespace Ghseeli.BusinessApi.Tests.Services;
@@ -121,6 +122,116 @@ public class CatalogServiceTests
                 offering.NameAr == "غسيل خارجي" &&
                 offering.NameHe == null)),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateOfferingAsync_WithPresentationMetadata_PersistsAndReturnsMetadata()
+    {
+        var userId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var company = new Company { Id = companyId, NameAr = "شركة" };
+        var category = new ServiceCategory
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            Company = company,
+            NameAr = "خدمات"
+        };
+
+        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
+            .ReturnsAsync(company);
+        _catalogRepository.Setup(repository => repository.GetCategoryByIdAsync(category.Id))
+            .ReturnsAsync(category);
+        _catalogRepository.Setup(repository => repository.AddOfferingAsync(It.IsAny<ServiceOffering>()))
+            .ReturnsAsync((ServiceOffering offering) => offering);
+
+        var result = await _service.CreateOfferingAsync(userId, false, new CreateServiceOfferingRequest
+        {
+            CategoryId = category.Id,
+            NameAr = "غسيل كامل",
+            QualifierAr = " بدون التعقيم ",
+            QualifierHe = " ללא חיטוי ",
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+            BasePrice = 100m,
+            DurationMinutes = 45,
+            IsActive = true
+        });
+
+        result.QualifierAr.Should().Be("بدون التعقيم");
+        result.QualifierHe.Should().Be("ללא חיטוי");
+        result.BadgeCode.Should().Be(CatalogOfferingBadgeCode.MostRequested);
+        _catalogRepository.Verify(repository => repository.AddOfferingAsync(
+            It.Is<ServiceOffering>(offering =>
+                offering.QualifierAr == "بدون التعقيم" &&
+                offering.QualifierHe == "ללא חיטוי" &&
+                offering.BadgeCode == CatalogOfferingBadgeCode.MostRequested)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAndReadOfferingAsync_ClearsPresentationMetadataAcrossListAndDetail()
+    {
+        var userId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
+        var company = new Company { Id = companyId, NameAr = "شركة" };
+        var category = new ServiceCategory
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            Company = company,
+            NameAr = "خدمات"
+        };
+        var offering = new ServiceOffering
+        {
+            Id = Guid.NewGuid(),
+            CategoryId = category.Id,
+            Category = category,
+            NameAr = "غسيل كامل",
+            QualifierAr = "بدون التعقيم",
+            QualifierHe = "ללא חיטוי",
+            BadgeCode = CatalogOfferingBadgeCode.MostRequested,
+            BasePrice = 100m,
+            DurationMinutes = 45,
+            IsActive = true
+        };
+
+        _companyRepository.Setup(repository => repository.GetForUserAsync(userId))
+            .ReturnsAsync(company);
+        _catalogRepository.Setup(repository => repository.GetOfferingByIdAsync(offering.Id))
+            .ReturnsAsync(offering);
+        _catalogRepository.Setup(repository => repository.UpdateOfferingAsync(offering))
+            .ReturnsAsync(offering);
+        _catalogRepository.Setup(repository => repository.GetOfferingsForCompanyAsync(
+                companyId, null, null))
+            .ReturnsAsync([offering]);
+
+        var updated = await _service.UpdateOfferingAsync(
+            userId,
+            false,
+            offering.Id,
+            new UpdateServiceOfferingRequest
+            {
+                NameAr = offering.NameAr,
+                QualifierAr = " ",
+                QualifierHe = null,
+                BadgeCode = null,
+                BasePrice = offering.BasePrice,
+                DurationMinutes = offering.DurationMinutes,
+                IsActive = true
+            });
+        var detail = await _service.GetOfferingAsync(userId, false, offering.Id);
+        var list = await _service.GetOfferingsAsync(userId, false, null, null, null);
+
+        updated.QualifierAr.Should().BeNull();
+        updated.QualifierHe.Should().BeNull();
+        updated.BadgeCode.Should().BeNull();
+        detail.QualifierAr.Should().BeNull();
+        detail.BadgeCode.Should().BeNull();
+        list.Should().ContainSingle(item =>
+            item.Id == offering.Id &&
+            item.QualifierAr == null &&
+            item.QualifierHe == null &&
+            item.BadgeCode == null);
     }
 
     [Fact]

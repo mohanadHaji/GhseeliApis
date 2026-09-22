@@ -24,17 +24,17 @@ foreach ($line in $plan) {
         }
     }
 }
-if ($allPlanIds.Count -ne 172 -or
-    @($allPlanIds | Sort-Object -Unique).Count -ne 172) {
-    throw "Expected 172 unique frozen plan IDs; found $($allPlanIds.Count)."
+if ($allPlanIds.Count -ne 173 -or
+    @($allPlanIds | Sort-Object -Unique).Count -ne 173) {
+    throw "Expected 173 unique frozen plan IDs; found $($allPlanIds.Count)."
 }
-if ($livePlanIds.Count -ne 42) {
-    throw "Expected 42 live-local plan IDs; found $($livePlanIds.Count)."
+if ($livePlanIds.Count -ne 43) {
+    throw "Expected 43 live-local plan IDs; found $($livePlanIds.Count)."
 }
 
 $scenarios = @($manifest.scenarios)
-if ($scenarios.Count -ne 90) {
-    throw "Manifest must contain exactly 90 stable entries; found $($scenarios.Count)."
+if ($scenarios.Count -ne 91) {
+    throw "Manifest must contain exactly 91 stable entries; found $($scenarios.Count)."
 }
 if (@($scenarios.id | Sort-Object -Unique).Count -ne $scenarios.Count) {
     throw 'Manifest scenario IDs must be unique.'
@@ -156,7 +156,8 @@ $fixtureVariables = @(
     'businessHttpBaseUrl', 'customerProductionBaseUrl',
     'businessProductionBaseUrl', 'customerDeviceToken',
     'expiredDeviceToken', 'foreignDeviceToken', 'customerJwt',
-    'businessJwt', 'oversizedLanguageHeader')
+    'businessJwt', 'oversizedLanguageHeader', 'demoDeviceToken',
+    'demoBusinessSourceId')
 $setupVariables = @($manifest.setupVariables.psobject.Properties.Name)
 $knownVariables = @($fixtureVariables + $setupVariables | Sort-Object -Unique)
 $referencedVariables = @(
@@ -238,6 +239,6 @@ $customerCount = @($scenarios | Where-Object {
     $_.tags -contains 'customerProduction'
 }).Count
 $businessCount = $scenarios.Count - $customerCount
-Write-Host ("Step 15 assets passed: 172 frozen IDs, 42 live mappings, " +
+Write-Host ("Step 15 assets passed: 173 frozen IDs, 43 live mappings, " +
     "$($scenarios.Count) stable manifest entries ($customerCount Customer, " +
     "$businessCount Business), $($referencedVariables.Count) resolved variable names.")

@@ -511,6 +511,13 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .HasMaxLength(1000);
             entity.Property(offering => offering.DescriptionHe)
                 .HasMaxLength(1000);
+            entity.Property(offering => offering.QualifierAr)
+                .HasMaxLength(200);
+            entity.Property(offering => offering.QualifierHe)
+                .HasMaxLength(200);
+            entity.Property(offering => offering.BadgeCode)
+                .HasConversion<string>()
+                .HasMaxLength(50);
             entity.Property(offering => offering.ImageUrl)
                 .HasMaxLength(500);
             entity.Property(offering => offering.ReferenceCode)

@@ -381,12 +381,12 @@ $inherited = [ordered]@{
     'step-06-secure-integration.manifest.json' = 26
     'step-07-device-registration.manifest.json' = 10
     'step-08-customer-configuration.manifest.json' = 19
-    'step-09-catalog-readmodel.manifest.json' = 21
+    'step-09-catalog-readmodel.manifest.json' = 22
     'step-10-checkout-drafts.manifest.json' = 28
     'step-11-pricing-reprice.manifest.json' = 27
     'step-12-booking-confirmation.manifest.json' = 64
     'step-13-booking-status.manifest.json' = 90
-    'step-15-localization-swagger.manifest.json' = 90
+    'step-15-localization-swagger.manifest.json' = 91
     'step-16-clean-schema-separation.manifest.json' = 790
 }
 $inheritedTotal = 0
@@ -404,8 +404,8 @@ foreach ($item in $inherited.GetEnumerator()) {
     }
     $inheritedTotal += $actual
 }
-if ($inheritedTotal -ne 1165) {
-    throw "Inherited Step 17 registry must contain 1,165 provider-neutral entries after historical Step 14 exclusion."
+if ($inheritedTotal -ne 1167) {
+    throw "Inherited Step 17 registry must contain 1,167 provider-neutral entries after historical Step 14 exclusion."
 }
 
 $runnerText = Get-Content -LiteralPath $RunnerPath -Raw -Encoding UTF8
@@ -425,7 +425,7 @@ foreach ($required in @(
         "ASPNETCORE_ENVIRONMENT') -eq",
         "'Production'",
         '$historicalStripeScenarioIds',
-        'if ($selected -ne 1165)',
+        'if ($selected -ne 1167)',
         'Stop-Process -Id $Process.Id',
         'Get-NetTCPConnection',
         'New-BoundaryBodies',
@@ -494,4 +494,4 @@ if ($parseFailures.Count) {
 Write-Host (
     'Step 17 assets passed: 118 plan IDs, 58 preserved live entries, ' +
     '50 active provider-neutral entries, 8 historical Stripe entries, ' +
-    'and 1,165 inherited provider-neutral selections.')
+    'and 1,167 inherited provider-neutral selections.')

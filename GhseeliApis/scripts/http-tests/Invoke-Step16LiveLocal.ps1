@@ -306,6 +306,9 @@ function Assert-MissingConnectionFailsClosed(
                 }
                 Start-Sleep -Milliseconds 500
             } while ([DateTime]::UtcNow -lt $deadline)
+            if (-not $failedClosed -and $process.WaitForExit(5000)) {
+                $failedClosed = $true
+            }
             Stop-OwnedProcess $process
             [void]$processes.Remove($process)
             if (-not $failedClosed) {

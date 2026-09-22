@@ -88,6 +88,13 @@ values. Employee and cross-company authorization behavior is unchanged.
   process/database cleanup.
 - Eight retired Stripe scenarios remain preserved as historical coverage and
   are intentionally excluded from execution after the Lahza migration.
+- Production deployment run `35740412333` succeeded on commit `ce669c7`,
+  including both migrations, both deployments, and hosted health checks.
+- Hosted Demo seed run `35742511947` succeeded. Follow-up API verification
+  passed for all 5 businesses and 20 offerings in Arabic and Hebrew, including
+  fallback, `MostRequested`, null fixtures, list/detail parity, non-stale
+  catalogs, deterministic Demo-only source IDs, Demo logins, and deployed
+  Business/Customer Swagger metadata.
 
 ## Final live-local checklist
 

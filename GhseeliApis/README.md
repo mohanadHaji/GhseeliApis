@@ -11,9 +11,8 @@ repository root [`README.md`](../README.md).
 - Both APIs use trusted HTTPS and separate SQL Server databases.
 - Production deployment is manual through
   `.github/workflows/deploy-monsterasp.yml`.
-- The deployed Customer and Business schemas were current as of 2026-09-17.
-  The offering-presentation metadata migrations in the current working tree
-  are tested but not yet deployed.
+- The deployed Customer and Business schemas are current through the
+  offering-presentation metadata migrations as of 2026-09-22.
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
@@ -47,15 +46,23 @@ then update it as work is completed.
 | Production/Demo isolation and hosted frontend fixture | Done |
 | Automated, relational, local HTTP, and hosted smoke coverage | Done |
 
-The offering-presentation metadata slice is implemented and covered by unit,
-TestServer, relational SQL Server, migration, Demo parity, and Customer live
-HTTP tests. Its Business and Customer migrations still require deployment.
+The offering-presentation metadata slice is deployed and covered by unit,
+TestServer, relational SQL Server, migration, Demo parity, Customer live HTTP,
+and hosted Demo tests.
 The complete Step 17 local gate passed on 2026-09-22, including all 50 active
 provider-neutral Step 17 scenarios, 1,167 inherited scenarios, Step 16
 database/schema isolation, adverse-schema checks, and final process/database
 cleanup. The eight retired Stripe scenarios remain preserved as historical
 coverage and are intentionally excluded from execution after the Lahza
 migration.
+
+Deployment workflow run `35740412333` applied both migrations, deployed both
+APIs, and passed its health checks on commit `ce669c7`. Hosted Demo seed run
+`35742511947` then reconciled the deterministic Demo partition. Hosted
+verification passed for all 5 businesses and 20 offerings: fresh catalogs,
+Arabic and Hebrew qualifiers, Hebrew-to-Arabic fallback, `MostRequested`,
+null metadata fixtures, list/detail parity, Customer and Business Demo login,
+deterministic Demo-only source IDs, and both deployed Swagger contracts.
 
 ### Required before a real public production launch
 

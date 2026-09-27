@@ -165,6 +165,8 @@ jobs:
               "reservation_status_read"
             $env:InternalServiceAuthentication__Services__0__AllowedOperations__4 =
               "appointment_available_slots"
+            $env:InternalServiceAuthentication__Services__0__AllowedOperations__5 =
+              "appointment_availability_discovery"
           }
 
           dotnet ef database update `
@@ -289,6 +291,7 @@ jobs:
               "InternalServiceAuthentication__Services__0__AllowedOperations__2" = "reservation_create"
               "InternalServiceAuthentication__Services__0__AllowedOperations__3" = "reservation_status_read"
               "InternalServiceAuthentication__Services__0__AllowedOperations__4" = "appointment_available_slots"
+              "InternalServiceAuthentication__Services__0__AllowedOperations__5" = "appointment_availability_discovery"
               "CustomerBookingStatusClient__BaseUrl" = "${{ env.CUSTOMER_SITE_URL }}"
               "CustomerBookingStatusClient__ServiceId" = "business-api"
               "CustomerBookingStatusClient__ActiveSecret" = $env:BUSINESS_TO_CUSTOMER_SECRET

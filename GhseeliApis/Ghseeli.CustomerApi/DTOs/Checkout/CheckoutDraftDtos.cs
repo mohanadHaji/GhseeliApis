@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Ghseeli.IntegrationContracts.Vehicles;
 
 namespace GhseeliApis.DTOs.Checkout;
 
@@ -34,7 +35,8 @@ public sealed class RepriceCheckoutDraftRequest
 
 public sealed class CheckoutDraftVehicleRequest
 {
-    public string? VehicleType { get; set; }
+    public VehicleType? VehicleType { get; set; }
+    public string? ImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? Make { get; set; }
     public string? Model { get; set; }
@@ -101,7 +103,8 @@ public sealed class CheckoutDraftIntentResponse
 
 public sealed class CheckoutDraftVehicleResponse
 {
-    public string VehicleType { get; set; } = string.Empty;
+    public VehicleType VehicleType { get; set; }
+    public string? ImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? Make { get; set; }
     public string? Model { get; set; }

@@ -457,6 +457,8 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             category.NameHe = ConfigurationTextNormalizer.NormalizeOptional(snapshotCategory.NameHe);
             category.DescriptionAr = ConfigurationTextNormalizer.NormalizeOptional(snapshotCategory.DescriptionAr);
             category.DescriptionHe = ConfigurationTextNormalizer.NormalizeOptional(snapshotCategory.DescriptionHe);
+            category.ImageUrl = ConfigurationTextNormalizer.NormalizeOptional(snapshotCategory.ImageUrl);
+            category.ColorHex = ConfigurationTextNormalizer.NormalizeOptional(snapshotCategory.ColorHex);
             category.DisplayOrder = snapshotCategory.DisplayOrder;
             seenCategoryIds.Add(snapshotCategory.Id);
 

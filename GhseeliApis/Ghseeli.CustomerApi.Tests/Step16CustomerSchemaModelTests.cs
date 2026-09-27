@@ -18,7 +18,8 @@ public sealed class Step16CustomerSchemaModelTests
     [
         "AspNetRoleClaims", "AspNetRoles", "AspNetUserClaims", "AspNetUserLogins",
         "AspNetUserRoles", "AspNetUsers", "AspNetUserTokens",
-        "BookingConfirmationAttempts", "CatalogAddonChoices", "CatalogAddonGroups",
+        "Banners", "BookingConfirmationAttempts", "BusinessFavourites", "BusinessReviews",
+        "CatalogAddonChoices", "CatalogAddonGroups",
         "CatalogBranches", "CatalogCategories", "CatalogOfferings", "CatalogProviders",
         "CheckoutDraftItems", "CheckoutDraftPricingItemSnapshots",
         "CheckoutDraftPricingSelectionSnapshots", "CheckoutDraftPricingSnapshots",
@@ -121,6 +122,7 @@ public sealed class Step16CustomerSchemaModelTests
         AssertForeignKey(foreignKeys, "UserAddresses", "AspNetUsers", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "Vehicles", "AspNetUsers", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CustomerRefreshTokens", "AspNetUsers", DeleteBehavior.Cascade);
+        AssertForeignKey(foreignKeys, "BusinessFavourites", "AspNetUsers", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogBranches", "CatalogProviders", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogCategories", "CatalogProviders", DeleteBehavior.Cascade);
         AssertForeignKey(foreignKeys, "CatalogOfferings", "CatalogCategories", DeleteBehavior.Cascade);
@@ -179,6 +181,8 @@ public sealed class Step16CustomerSchemaModelTests
         AssertIndex(context.Model, "CheckoutDrafts", true, null, "OrderGuid");
         AssertIndex(context.Model, "CustomerBookings", true, null, "PublicReference");
         AssertIndex(context.Model, "CustomerBookings", true, null, "OrderGuid");
+        AssertIndex(context.Model, "BusinessFavourites", true, null,
+            "UserId", "BusinessSourceId", "IsDemo");
         AssertIndex(
             context.Model,
             "CustomerPayments",

@@ -13,6 +13,7 @@ public static class BusinessCatalogContract
     public static JsonSerializerOptions CreateJsonSerializerOptions()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        options.Converters.Add(new Vehicles.VehicleTypeJsonConverter());
         options.Converters.Add(new JsonStringEnumConverter(
             namingPolicy: null,
             allowIntegerValues: false));
@@ -44,6 +45,7 @@ public static class InternalServiceOperationNames
     public const string CatalogSnapshot = "catalog_snapshot";
     public const string AppointmentValidate = "appointment_validate";
     public const string AppointmentAvailableSlots = "appointment_available_slots";
+    public const string AppointmentAvailabilityDiscovery = "appointment_availability_discovery";
     public const string ReservationCreate = "reservation_create";
     public const string ReservationStatusRead = "reservation_status_read";
     public const string BookingStatusCallback = "booking_status_callback";

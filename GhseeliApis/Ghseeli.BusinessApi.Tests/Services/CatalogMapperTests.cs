@@ -25,6 +25,8 @@ public class CatalogMapperTests
             NameHe = "   ",
             DescriptionAr = " وصف ",
             DescriptionHe = "   ",
+            ImageUrl = " https://cdn.example.test/categories/exterior.png ",
+            ColorHex = " #1a73e8 ",
             DisplayOrder = 2,
             IsActive = true
         };
@@ -37,7 +39,30 @@ public class CatalogMapperTests
         category.NameHe.Should().BeNull();
         category.DescriptionAr.Should().Be("وصف");
         category.DescriptionHe.Should().BeNull();
+        category.ImageUrl.Should().Be("https://cdn.example.test/categories/exterior.png");
+        category.ColorHex.Should().Be("#1A73E8");
         category.CreatedAt.Should().Be(timestamp);
+    }
+
+    [Fact]
+    public void CategoryResponses_PreservePresentationMetadataInListAndDetail()
+    {
+        var category = new ServiceCategory
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            NameAr = "غسيل",
+            ImageUrl = "https://cdn.example.test/categories/exterior.png",
+            ColorHex = "#1A73E8"
+        };
+
+        var list = CatalogMapper.ToListResponse(category);
+        var detail = CatalogMapper.ToResponse(category);
+
+        list.ImageUrl.Should().Be(category.ImageUrl);
+        list.ColorHex.Should().Be(category.ColorHex);
+        detail.ImageUrl.Should().Be(category.ImageUrl);
+        detail.ColorHex.Should().Be(category.ColorHex);
     }
 
     [Fact]

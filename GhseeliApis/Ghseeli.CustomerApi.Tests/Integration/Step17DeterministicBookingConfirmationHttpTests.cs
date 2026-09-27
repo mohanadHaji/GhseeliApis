@@ -890,7 +890,7 @@ public sealed class Step17DeterministicBookingConfirmationHttpTests
                 },
                 Vehicle = new ReservationVehicleSnapshot
                 {
-                    VehicleType = "Sedan"
+                    VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan
                 },
                 Location = new ReservationLocationSnapshot
                 {

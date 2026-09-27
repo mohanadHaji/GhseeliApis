@@ -1,5 +1,7 @@
 namespace GhseeliApis.DTOs.Booking;
 
+using Ghseeli.IntegrationContracts.Vehicles;
+
 public sealed class ConfirmBookingFromDraftRequest
 {
     public int ExpectedVersion { get; set; }
@@ -23,8 +25,19 @@ public sealed class ConfirmedBookingResponse
     public string Currency { get; set; } = string.Empty;
     public decimal GrandTotal { get; set; }
     public int TotalDurationMinutes { get; set; }
+    public ConfirmedBookingVehicleResponse Vehicle { get; set; } = new();
     public IReadOnlyCollection<ConfirmedBookingItemResponse> Items { get; set; } =
         Array.Empty<ConfirmedBookingItemResponse>();
+}
+
+public sealed class ConfirmedBookingVehicleResponse
+{
+    public VehicleType VehicleType { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? LicensePlate { get; set; }
+    public string? Make { get; set; }
+    public string? Model { get; set; }
+    public string? Color { get; set; }
 }
 
 public sealed class ConfirmedBookingItemResponse

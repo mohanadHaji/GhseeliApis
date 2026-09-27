@@ -9,6 +9,7 @@ using GhseeliApis.Services.Configuration;
 using GhseeliApis.DataPartitioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -67,6 +68,9 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     private readonly TimeProvider _timeProvider;
     private readonly IAppLogger _logger;
     private readonly ICustomerDataPartitionContext _dataPartition;
+    private readonly IBusinessFavouriteRepository? _favouriteRepository;
+    private readonly IBusinessReviewRepository? _reviewRepository;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     public CatalogReadModelService(
         ICatalogReadModelRepository repository,
@@ -75,7 +79,10 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         IOptionsMonitor<CatalogReadModelOptions> optionsMonitor,
         TimeProvider timeProvider,
         IAppLogger logger,
-        ICustomerDataPartitionContext? dataPartition = null)
+        ICustomerDataPartitionContext? dataPartition = null,
+        IBusinessFavouriteRepository? favouriteRepository = null,
+        IBusinessReviewRepository? reviewRepository = null,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _repository = repository;
         _businessApiClient = businessApiClient;
@@ -84,6 +91,9 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         _timeProvider = timeProvider;
         _logger = logger;
         _dataPartition = dataPartition ?? new CustomerDataPartitionContext();
+        _favouriteRepository = favouriteRepository;
+        _reviewRepository = reviewRepository;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<CatalogCategoriesResponse> GetCategoriesAsync(
@@ -136,12 +146,17 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             throw CreateBusinessNotFound();
         }
 
+        var projectionStates = await LoadProjectionStatesAsync(providerGraphs, cancellationToken);
         var categories = providerGraphs
             .SelectMany(provider => provider.Categories
                 .Where(category => GetEligibleOfferings(provider, category.Id, null).Any())
                 .OrderBy(category => category.DisplayOrder)
                 .ThenBy(category => category.NameAr)
-                .Select(category => MapCategory(provider, category, language)))
+                .Select(category => MapCategory(
+                    provider,
+                    category,
+                    language,
+                    projectionStates[provider.SourceCompanyId])))
             .ToArray();
 
         return new CatalogCategoriesResponse
@@ -239,7 +254,8 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             throw CreateUnavailable("The category provider is unavailable.");
         }
 
-        var businesses = providersWithGraph
+        var normalizedSearch = ConfigurationTextNormalizer.NormalizeOptional(request.Search);
+        var projections = providersWithGraph
             .Select(provider => CreateBusinessProjection(
                 provider,
                 language,
@@ -247,12 +263,36 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
                 request.CategoryId))
             .Where(projection => projection is not null)
             .Select(projection => projection!)
-            .OrderBy(projection => projection.Provider.DisplayOrder)
-            .ThenBy(projection => projection.Provider.NameAr)
+            .Where(projection =>
+                normalizedSearch is null ||
+                ContainsNormalized(projection.Provider.NameAr, normalizedSearch) ||
+                ContainsNormalized(projection.Provider.NameHe, normalizedSearch))
+            .ToArray();
+        var projectionStates = await LoadProjectionStatesAsync(
+            projections.Select(projection => projection.Provider),
+            cancellationToken);
+
+        var orderedProjections = request.Top.HasValue
+            ? projections
+                .OrderByDescending(projection =>
+                    projectionStates[projection.Provider.SourceCompanyId].AverageRating)
+                .ThenByDescending(projection =>
+                    projectionStates[projection.Provider.SourceCompanyId].RatingCount)
+                .ThenBy(projection => projection.Provider.DisplayOrder)
+                .ThenBy(projection => projection.Provider.NameAr)
+                .ThenBy(projection => projection.Provider.Id)
+                .Take(request.Top.Value)
+            : projections
+                .OrderBy(projection => projection.Provider.DisplayOrder)
+                .ThenBy(projection => projection.Provider.NameAr)
+                .ThenBy(projection => projection.Provider.Id);
+
+        var businesses = orderedProjections
             .Select(projection => MapBusiness(
                 projection.Provider,
                 language,
-                projection.VisibleBranches))
+                projection.VisibleBranches,
+                projectionStates[projection.Provider.SourceCompanyId]))
             .ToArray();
 
         return new CatalogBusinessesResponse
@@ -294,10 +334,12 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             throw CreateBusinessNotFound();
         }
 
+        var projectionState = (await LoadProjectionStatesAsync([provider], cancellationToken))[
+            provider.SourceCompanyId];
         return new CatalogBusinessDetailResponse
         {
             Language = language,
-            Business = MapBusiness(provider, language, visibleBranches)
+            Business = MapBusiness(provider, language, visibleBranches, projectionState)
         };
     }
 
@@ -357,15 +399,19 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             .OrderBy(offering => offering.Category.DisplayOrder)
             .ThenBy(offering => offering.DisplayOrder)
             .ThenBy(offering => offering.NameAr)
-            .Select(offering => MapOffering(provider, offering, language))
+            .ToArray();
+        var projectionState = (await LoadProjectionStatesAsync([provider], cancellationToken))[
+            provider.SourceCompanyId];
+        var mappedOfferings = offerings
+            .Select(offering => MapOffering(provider, offering, language, projectionState))
             .ToArray();
         var visibleBranches = SelectVisibleBranches(provider, request.CategoryId, request.BranchId);
 
         return new CatalogBusinessOfferingsResponse
         {
             Language = language,
-            Business = MapBusiness(provider, language, visibleBranches),
-            Offerings = offerings
+            Business = MapBusiness(provider, language, visibleBranches, projectionState),
+            Offerings = mappedOfferings
         };
     }
 
@@ -411,10 +457,12 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             throw CreateOfferingNotFound();
         }
 
+        var projectionState = (await LoadProjectionStatesAsync([provider], cancellationToken))[
+            provider.SourceCompanyId];
         return new CatalogOfferingDetailResponse
         {
             Language = language,
-            Offering = MapOffering(provider, offering, language)
+            Offering = MapOffering(provider, offering, language, projectionState)
         };
     }
 
@@ -569,7 +617,8 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     private CatalogBusinessResponse MapBusiness(
         CatalogProviderReadModel provider,
         string language,
-        IReadOnlyCollection<CatalogBranchReadModel> visibleBranches)
+        IReadOnlyCollection<CatalogBranchReadModel> visibleBranches,
+        BusinessProjectionState projectionState)
     {
         return new CatalogBusinessResponse
         {
@@ -578,6 +627,9 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             Name = SelectLocalizedText(language, provider.NameAr, provider.NameHe),
             Description = SelectLocalizedOptionalText(language, provider.DescriptionAr, provider.DescriptionHe),
             Phone = provider.Phone,
+            IsFavourite = projectionState.IsFavourite,
+            AverageRating = projectionState.AverageRating,
+            RatingCount = projectionState.RatingCount,
             Catalog = MapMetadata(provider),
             Branches = visibleBranches
                 .OrderBy(branch => branch.DisplayOrder)
@@ -589,13 +641,17 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
 
     private CatalogBusinessContextResponse MapBusinessContext(
         CatalogProviderReadModel provider,
-        string language)
+        string language,
+        BusinessProjectionState projectionState)
     {
         return new CatalogBusinessContextResponse
         {
             Id = provider.Id,
             SourceId = provider.SourceCompanyId,
             Name = SelectLocalizedText(language, provider.NameAr, provider.NameHe),
+            IsFavourite = projectionState.IsFavourite,
+            AverageRating = projectionState.AverageRating,
+            RatingCount = projectionState.RatingCount,
             Catalog = MapMetadata(provider)
         };
     }
@@ -625,7 +681,8 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
     private CatalogCategoryResponse MapCategory(
         CatalogProviderReadModel provider,
         CatalogCategoryReadModel category,
-        string language)
+        string language,
+        BusinessProjectionState projectionState)
     {
         return new CatalogCategoryResponse
         {
@@ -633,15 +690,18 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             SourceId = category.SourceCategoryId,
             Name = SelectLocalizedText(language, category.NameAr, category.NameHe),
             Description = SelectLocalizedOptionalText(language, category.DescriptionAr, category.DescriptionHe),
+            ImageUrl = category.ImageUrl,
+            ColorHex = category.ColorHex,
             DisplayOrder = category.DisplayOrder,
-            Business = MapBusinessContext(provider, language)
+            Business = MapBusinessContext(provider, language, projectionState)
         };
     }
 
     private CatalogOfferingResponse MapOffering(
         CatalogProviderReadModel provider,
         CatalogOfferingReadModel offering,
-        string language)
+        string language,
+        BusinessProjectionState projectionState)
     {
         return new CatalogOfferingResponse
         {
@@ -659,7 +719,7 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             ImageUrl = offering.ImageUrl,
             ReferenceCode = offering.ReferenceCode,
             DisplayOrder = offering.DisplayOrder,
-            Business = MapBusinessContext(provider, language),
+            Business = MapBusinessContext(provider, language, projectionState),
             Category = new CatalogCategoryContextResponse
             {
                 Id = offering.Category.Id,
@@ -714,6 +774,56 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         };
     }
 
+    private async Task<IReadOnlyDictionary<Guid, BusinessProjectionState>>
+        LoadProjectionStatesAsync(
+            IEnumerable<CatalogProviderReadModel> providers,
+            CancellationToken cancellationToken)
+    {
+        var sourceIds = providers
+            .Select(provider => provider.SourceCompanyId)
+            .Distinct()
+            .ToArray();
+        var aggregates = _reviewRepository is null
+            ? new Dictionary<Guid, DTOs.Reviews.BusinessRatingAggregate>()
+            : await _reviewRepository.GetAggregatesAsync(sourceIds, cancellationToken);
+
+        IReadOnlySet<Guid> favourites = new HashSet<Guid>();
+        if (_favouriteRepository is not null &&
+            TryGetCurrentCustomerUserId(out var userId))
+        {
+            favourites = await _favouriteRepository.GetBusinessSourceIdsAsync(
+                userId,
+                sourceIds,
+                cancellationToken);
+        }
+
+        return sourceIds.ToDictionary(
+            sourceId => sourceId,
+            sourceId =>
+            {
+                var aggregate = aggregates.GetValueOrDefault(sourceId);
+                return new BusinessProjectionState(
+                    favourites.Contains(sourceId),
+                    aggregate?.AverageRating ?? 0m,
+                    aggregate?.RatingCount ?? 0);
+            });
+    }
+
+    private bool TryGetCurrentCustomerUserId(out Guid userId)
+    {
+        userId = Guid.Empty;
+        var user = _httpContextAccessor?.HttpContext?.User;
+        return user?.Identity?.IsAuthenticated == true &&
+               user.IsInRole("User") &&
+               Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out userId) &&
+               userId != Guid.Empty;
+    }
+
+    private sealed record BusinessProjectionState(
+        bool IsFavourite,
+        decimal AverageRating,
+        int RatingCount);
+
     private CatalogMetadataResponse MapMetadata(CatalogProviderReadModel provider)
     {
         var freshness = CatalogProviderFreshnessState.Create(
@@ -756,6 +866,11 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
                 ?? ConfigurationTextNormalizer.NormalizeOptional(arabicValue)
             : ConfigurationTextNormalizer.NormalizeOptional(arabicValue);
     }
+
+    private static bool ContainsNormalized(string? value, string normalizedSearch) =>
+        ConfigurationTextNormalizer.NormalizeOptional(value)?.Contains(
+            normalizedSearch,
+            StringComparison.OrdinalIgnoreCase) == true;
 
     private static CatalogReadModelException CreateUnavailable(string message) =>
         new(
@@ -901,6 +1016,14 @@ internal static class CatalogSnapshotValidator
                     "A catalog category is missing a required Arabic name.");
             }
 
+            if (!IsValidHttpsUrl(category.ImageUrl) ||
+                !IsValidColorHex(category.ColorHex))
+            {
+                throw new CatalogSnapshotValidationException(
+                    "catalog_snapshot_category_presentation_invalid",
+                    "A catalog category contains invalid presentation metadata.");
+            }
+
             foreach (var offering in category.Offerings)
             {
                 if (string.IsNullOrWhiteSpace(offering.NameAr))
@@ -934,6 +1057,27 @@ internal static class CatalogSnapshotValidator
                 $"The catalog snapshot contains a duplicate source identifier '{duplicate.Key:D}'.");
         }
     }
+
+    private static bool IsValidHttpsUrl(string? value)
+    {
+        if (value is null)
+        {
+            return true;
+        }
+
+        return value.Length <= 500 &&
+            Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
+            uri.Scheme == Uri.UriSchemeHttps &&
+            string.IsNullOrEmpty(uri.UserInfo) &&
+            !string.IsNullOrWhiteSpace(uri.Host);
+    }
+
+    private static bool IsValidColorHex(string? value) =>
+        value is null ||
+        (value.Length == 7 &&
+         value[0] == '#' &&
+         value.Skip(1).All(character =>
+             character is >= '0' and <= '9' or >= 'A' and <= 'F'));
 }
 
 internal static class CatalogSnapshotHasher
@@ -984,6 +1128,8 @@ internal static class CatalogSnapshotHasher
                 category.NameHe,
                 category.DescriptionAr,
                 category.DescriptionHe,
+                category.ImageUrl,
+                category.ColorHex,
                 category.DisplayOrder,
                 Offerings = category.Offerings.Select(offering => new
                 {

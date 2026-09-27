@@ -23,6 +23,50 @@ namespace GhseeliApis.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("GhseeliApis.Models.Banner", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDemo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsDemo", "IsActive", "DisplayOrder", "Id");
+
+                    b.ToTable("Banners", "dbo", t =>
+                        {
+                            t.HasCheckConstraint("CK_Banners_DisplayOrder", "[DisplayOrder] >= 0 AND [DisplayOrder] <= 10000");
+                        });
+                });
+
             modelBuilder.Entity("GhseeliApis.Models.BookingConfirmationAttempt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -72,6 +116,90 @@ namespace GhseeliApis.Migrations
                     b.HasIndex("UserId", "OwnerDeviceId");
 
                     b.ToTable("BookingConfirmationAttempts", "dbo");
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.BusinessFavourite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BusinessSourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsDemo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BusinessSourceId", "IsDemo");
+
+                    b.HasIndex("UserId", "BusinessSourceId", "IsDemo")
+                        .IsUnique();
+
+                    b.ToTable("BusinessFavourites", "dbo");
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.BusinessReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BusinessSourceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("CustomerBookingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDemo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerBookingId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "CreatedAtUtc");
+
+                    b.HasIndex("BusinessSourceId", "IsDemo", "CreatedAtUtc", "Id");
+
+                    b.ToTable("BusinessReviews", "dbo", t =>
+                        {
+                            t.HasCheckConstraint("CK_BusinessReviews_Rating", "[Rating] >= 1 AND [Rating] <= 5");
+                        });
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonChoiceReadModel", b =>
@@ -255,6 +383,10 @@ namespace GhseeliApis.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
                     b.Property<string>("DescriptionAr")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -265,6 +397,10 @@ namespace GhseeliApis.Migrations
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("NameAr")
                         .IsRequired()
@@ -283,10 +419,10 @@ namespace GhseeliApis.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SourceCategoryId")
-                        .IsUnique();
-
                     b.HasIndex("ProviderId", "DisplayOrder");
+
+                    b.HasIndex("ProviderId", "SourceCategoryId")
+                        .IsUnique();
 
                     b.ToTable("CatalogCategories", "dbo");
                 });
@@ -454,10 +590,10 @@ namespace GhseeliApis.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("SourceCompanyId")
-                        .IsUnique();
-
                     b.HasIndex("IsEnabled", "DisplayOrder");
+
+                    b.HasIndex("SourceCompanyId", "IsDemo")
+                        .IsUnique();
 
                     b.ToTable("CatalogProviders", "dbo");
                 });
@@ -549,6 +685,10 @@ namespace GhseeliApis.Migrations
                     b.Property<string>("VehicleColor")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("VehicleImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("VehicleMake")
                         .HasMaxLength(150)
@@ -994,6 +1134,10 @@ namespace GhseeliApis.Migrations
                     b.Property<string>("VehicleColor")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("VehicleImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("VehicleMake")
                         .HasMaxLength(150)
@@ -1918,6 +2062,10 @@ namespace GhseeliApis.Migrations
                     b.Property<string>("Color")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("LicensePlate")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1932,6 +2080,11 @@ namespace GhseeliApis.Migrations
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("VehicleType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Year")
                         .HasMaxLength(50)
@@ -2073,6 +2226,36 @@ namespace GhseeliApis.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", "dbo");
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.BusinessFavourite", b =>
+                {
+                    b.HasOne("GhseeliApis.Models.User", "User")
+                        .WithMany("BusinessFavourites")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GhseeliApis.Models.BusinessReview", b =>
+                {
+                    b.HasOne("GhseeliApis.Models.CustomerBooking", "CustomerBooking")
+                        .WithOne("Review")
+                        .HasForeignKey("GhseeliApis.Models.BusinessReview", "CustomerBookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GhseeliApis.Models.User", "User")
+                        .WithMany("BusinessReviews")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CustomerBooking");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CatalogAddonChoiceReadModel", b =>
@@ -2418,6 +2601,8 @@ namespace GhseeliApis.Migrations
                     b.Navigation("Payment");
 
                     b.Navigation("ProcessedStatusMessages");
+
+                    b.Navigation("Review");
                 });
 
             modelBuilder.Entity("GhseeliApis.Models.CustomerBookingItem", b =>
@@ -2433,6 +2618,10 @@ namespace GhseeliApis.Migrations
             modelBuilder.Entity("GhseeliApis.Models.User", b =>
                 {
                     b.Navigation("Addresses");
+
+                    b.Navigation("BusinessFavourites");
+
+                    b.Navigation("BusinessReviews");
 
                     b.Navigation("Vehicles");
                 });

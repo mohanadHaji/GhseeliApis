@@ -18,6 +18,7 @@ namespace Ghseeli.BusinessApi.Tests.Services;
 public class ReservationServiceTests
 {
     [Fact]
+    [Trait("ScenarioId", "FAN-VEHICLE-WORKORDER-012")]
     public async Task CreateAsync_WithMatchingProof_PersistsOneReservationAndReplays()
     {
         var fixture = await CreateFixtureAsync(capacity: 2);
@@ -37,7 +38,16 @@ public class ReservationServiceTests
         reservation.BusinessVerticalCode.Should().Be(BusinessVerticalDefaults.CarWashCode);
         reservation.WorkOrder.BusinessVerticalId.Should().Be(reservation.BusinessVerticalId);
         reservation.WorkOrder.BusinessVerticalCode.Should().Be(reservation.BusinessVerticalCode);
-        reservation.WorkOrder.VehicleType.Should().Be(fixture.Request.Vehicle.VehicleType);
+        reservation.WorkOrder.VehicleType.Should().Be(fixture.Request.Vehicle.VehicleType.ToString());
+        reservation.WorkOrder.VehicleImageUrl.Should()
+            .Be("https://cdn.example.test/vehicles/sedan.png");
+        fixture.Context.ChangeTracker.Clear();
+        var reloaded = await fixture.Context.WorkOrders
+            .AsNoTracking()
+            .SingleAsync();
+        reloaded.VehicleType.Should().Be("Sedan");
+        reloaded.VehicleImageUrl.Should()
+            .Be("https://cdn.example.test/vehicles/sedan.png");
         fixture.ValidationService.Verify(
             service => service.ValidateAsync(It.IsAny<ValidateAppointmentRequest>()),
             Times.Once);
@@ -173,6 +183,22 @@ public class ReservationServiceTests
             service => service.ValidateAsync(It.IsAny<ValidateAppointmentRequest>()),
             Times.Never);
         (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task CreateAsync_WhenVehicleImageUrlIsNotAbsoluteHttps_RejectsWithoutPersistence()
+    {
+        var fixture = await CreateFixtureAsync(capacity: 2);
+        fixture.Request.Vehicle.ImageUrl = "http://cdn.example.test/vehicles/sedan.png";
+
+        var action = () => fixture.Service.CreateAsync(
+            fixture.Request,
+            CancellationToken.None);
+
+        var exception = await action.Should().ThrowAsync<ReservationRejectedException>();
+        exception.Which.Code.Should().Be(ReservationErrorCodes.Invalid);
+        (await fixture.Context.AppointmentReservations.CountAsync()).Should().Be(0);
+        (await fixture.Context.WorkOrders.CountAsync()).Should().Be(0);
     }
 
     [Fact]
@@ -527,7 +553,11 @@ public class ReservationServiceTests
             ExpectedItemSubtotal = 110m,
             ExpectedTotalDurationMinutes = 45,
             Customer = new ReservationCustomerSnapshot { Name = "Customer" },
-            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Vehicle = new ReservationVehicleSnapshot
+            {
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
+                ImageUrl = "https://cdn.example.test/vehicles/sedan.png"
+            },
             Location = new ReservationLocationSnapshot
             {
                 AddressLine = "Street 1",
@@ -652,7 +682,11 @@ public class ReservationServiceTests
             ExpectedItemSubtotal = 110m,
             ExpectedTotalDurationMinutes = 45,
             Customer = new ReservationCustomerSnapshot { Name = "Customer" },
-            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Vehicle = new ReservationVehicleSnapshot
+            {
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
+                ImageUrl = "https://cdn.example.test/vehicles/sedan.png"
+            },
             Location = new ReservationLocationSnapshot
             {
                 AddressLine = "Street 1",

@@ -30,6 +30,16 @@ public sealed class BusinessRequestSchemaFilter : ISchemaFilter
         {
             Require(schema, "nameAr");
             SetNullable(schema, "nameHe", nullable: true);
+            ConfigureCategoryPresentation(schema);
+            schema.Example = BilingualExample("nameAr");
+            return;
+        }
+
+        if (context.Type == typeof(UpdateServiceCategoryRequest))
+        {
+            Require(schema, "nameAr");
+            SetNullable(schema, "nameHe", nullable: true);
+            ConfigureCategoryPresentation(schema);
             schema.Example = BilingualExample("nameAr");
             return;
         }
@@ -145,6 +155,28 @@ public sealed class BusinessRequestSchemaFilter : ISchemaFilter
             property.Type = "number";
             property.Format = "decimal";
             property.MultipleOf = 0.01m;
+        }
+    }
+
+    private static void ConfigureCategoryPresentation(OpenApiSchema schema)
+    {
+        SetNullable(schema, "imageUrl", nullable: true);
+        SetNullable(schema, "colorHex", nullable: true);
+
+        if (schema.Properties.TryGetValue("imageUrl", out var imageUrl))
+        {
+            imageUrl.MaxLength = 500;
+            imageUrl.Pattern = "^https://[^\\s/@]+(?:/[^\\s]*)?$";
+            imageUrl.Description =
+                "Optional absolute HTTPS URL, at most 500 characters, with no embedded credentials.";
+        }
+
+        if (schema.Properties.TryGetValue("colorHex", out var colorHex))
+        {
+            colorHex.MaxLength = 7;
+            colorHex.Pattern = "^#[0-9A-Fa-f]{6}$";
+            colorHex.Description =
+                "Optional #RRGGBB color. Accepted lowercase values are normalized to uppercase.";
         }
     }
 

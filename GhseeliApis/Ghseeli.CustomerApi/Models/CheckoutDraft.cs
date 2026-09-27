@@ -11,6 +11,7 @@ public sealed class CheckoutDraft
     public int PublicVersion { get; set; }
     public DateTimeOffset RequestedSlotStartUtc { get; set; }
     public string VehicleType { get; set; } = string.Empty;
+    public string? VehicleImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? VehicleMake { get; set; }
     public string? VehicleModel { get; set; }

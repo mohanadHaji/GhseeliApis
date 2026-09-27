@@ -1,5 +1,7 @@
 using FluentAssertions;
+using Ghseeli.Common.Logging;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using GhseeliApis.DTOs.Checkout;
 using GhseeliApis.Models;
@@ -18,6 +20,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace GhseeliApis.Tests.Integration;
 
@@ -26,7 +29,53 @@ namespace GhseeliApis.Tests.Integration;
 /// </summary>
 public class CheckoutDraftApiIntegrationTests
 {
+    [Theory]
+    [InlineData("0", null)]
+    [InlineData("\"Car\"", null)]
+    [InlineData("\"sedan\"", null)]
+    [InlineData("\"Sedan\"", "http://cdn.example.test/vehicle.png")]
+    [InlineData("\"Sedan\"", "/images/vehicle.png")]
+    [InlineData("\"Sedan\"", "https://user:password@cdn.example.test/vehicle.png")]
+    [InlineData("\"Sedan\"", "not-a-url")]
+    public async Task PostDraft_RejectsInvalidVehicleEnumOrImageWithoutPersistence(
+        string vehicleTypeJson,
+        string? imageUrl)
+    {
+        var token = CatalogTestSupport.CreateToken(30);
+        var device = CatalogTestSupport.CreateDevice(
+            token,
+            expiresAt: new DateTimeOffset(2026, 9, 24, 8, 0, 0, TimeSpan.Zero));
+        await using var factory = new CheckoutDraftApiFactory(devices: [device]);
+        using var client = factory.CreateApiClient();
+        var body = JsonSerializer.SerializeToNode(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                factory.Snapshot,
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        body["vehicle"]!["vehicleType"] = JsonNode.Parse(vehicleTypeJson);
+        if (imageUrl is not null)
+        {
+            body["vehicle"]!["imageUrl"] = imageUrl;
+        }
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            "/api/v1/checkout/drafts?language=ar",
+            token);
+        request.Content = new StringContent(
+            body.ToJsonString(),
+            Encoding.UTF8,
+            "application/json");
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await context.CheckoutDrafts.CountAsync()).Should().Be(0);
+    }
+
     [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-REQUIRED-010")]
     public async Task PostDraft_WithoutDeviceToken_ReturnsLocalizedUnauthorizedProblem()
     {
         await using var factory = new CheckoutDraftApiFactory();
@@ -43,12 +92,18 @@ public class CheckoutDraftApiIntegrationTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         document.RootElement.GetProperty("code").GetString().Should().Be(DeviceProblemCodes.TokenMissing);
         document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await context.CheckoutDrafts.CountAsync()).Should().Be(0);
+        (await context.CheckoutDraftPricingSnapshots.CountAsync()).Should().Be(0);
     }
 
     [Fact]
     [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-CREATE-065")]
     [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-READ-066")]
     [Trait("ScenarioId", "STEP15-CUSTOMER-DRAFT-UPDATE-067")]
+    [Trait("ScenarioId", "FAN-VEHICLE-DRAFT-009")]
+    [Trait("ScenarioId", "FAN-VEHICLE-DRAFT-026")]
     public async Task DraftLifecycle_WithValidDeviceToken_CreateGetAndUpdateRoundTripsSuccessfully()
     {
         var token = CatalogTestSupport.CreateToken(31);
@@ -83,6 +138,18 @@ public class CheckoutDraftApiIntegrationTests
             .GetDateTimeOffset()
             .Should()
             .Be(new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
+        createDocument.RootElement.GetProperty("intent")
+            .GetProperty("vehicle")
+            .GetProperty("vehicleType")
+            .GetString()
+            .Should()
+            .Be("Sedan");
+        createDocument.RootElement.GetProperty("intent")
+            .GetProperty("vehicle")
+            .GetProperty("imageUrl")
+            .GetString()
+            .Should()
+            .Be("https://cdn.example.test/vehicles/sedan.png");
 
         using var getResponse = await client.SendAsync(CreateRequest(
             HttpMethod.Get,
@@ -101,6 +168,7 @@ public class CheckoutDraftApiIntegrationTests
             new DateTimeOffset(2026, 8, 24, 11, 0, 0, TimeSpan.Zero),
             expectedVersion: 1);
         updateRequest.Vehicle.Color = "Green";
+        updateRequest.Vehicle.ImageUrl = "https://cdn.example.test/vehicles/updated.png";
         using var updateMessage = CreateRequest(
             HttpMethod.Put,
             $"/api/v1/checkout/drafts/{orderGuid:D}?language=ar",
@@ -116,6 +184,9 @@ public class CheckoutDraftApiIntegrationTests
         updateDocument.RootElement.GetProperty("intent").GetProperty("vehicle").GetProperty("color").GetString()
             .Should()
             .Be("Green");
+        updateDocument.RootElement.GetProperty("intent").GetProperty("vehicle").GetProperty("imageUrl").GetString()
+            .Should()
+            .Be("https://cdn.example.test/vehicles/updated.png");
         updateDocument.RootElement.GetProperty("expiresAt").GetDateTimeOffset()
             .Should()
             .BeAfter(firstExpiry);
@@ -437,7 +508,7 @@ public class CheckoutDraftApiIntegrationTests
         var request = CheckoutDraftTestSupport.CreateValidCreateRequest(
             factory.Snapshot,
             new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
-        request.Vehicle.VehicleType = "\u200B";
+        request.Vehicle.VehicleType = null;
         request.Location.AddressLine = "\u200B";
 
         using var message = CreateRequest(
@@ -635,21 +706,71 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
-    public async Task PostPricingReprice_WithoutDeviceToken_ReturnsLocalizedUnauthorizedProblem()
+    [Trait("ScenarioId", "FAN-OPTIONAL-PRICING-003")]
+    public async Task PostPricingReprice_WithoutDeviceToken_ReturnsAuthoritativeQuoteWithoutDraft()
     {
-        await using var factory = new CheckoutDraftApiFactory();
+        const string licensePlatePii = "PII-PLATE-ANON-937";
+        const string addressPii = "PII-ADDRESS-ANON-937";
+        var logger = new TestAppLogger();
+        await using var factory = new CheckoutDraftApiFactory(
+            configureTestServices: services =>
+            {
+                services.RemoveAll<IAppLogger>();
+                services.AddSingleton<IAppLogger>(logger);
+            });
         using var client = factory.CreateApiClient();
+        var pricingRequest = CheckoutDraftTestSupport.CreateValidCreateRequest(
+            factory.Snapshot,
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
+        pricingRequest.Vehicle.LicensePlate = licensePlatePii;
+        pricingRequest.Location.AddressLine = addressPii;
 
         using var response = await client.PostAsJsonAsync(
             "/api/v1/pricing/reprice?language=he",
+            pricingRequest);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await context.CustomerDevices.CountAsync()).Should().Be(0);
+        (await context.CheckoutDrafts.CountAsync()).Should().Be(0);
+        (await context.CheckoutDraftPricingSnapshots.CountAsync()).Should().Be(0);
+        var captured = string.Join(
+            "\n",
+            logger.InfoMessages.Concat(logger.WarningMessages).Concat(logger.ErrorMessages));
+        captured.Should().Contain("anonymous direct authoritative pricing");
+        captured.Should().NotContain(licensePlatePii);
+        captured.Should().NotContain(addressPii);
+        captured.Should().NotContain("X-Device-Token");
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-033")]
+    public async Task PostPricingReprice_WithMalformedSuppliedDevice_IsRejectedWithoutDraft()
+    {
+        await using var factory = new CheckoutDraftApiFactory();
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            "/api/v1/pricing/reprice",
+            "malformed");
+        request.Content = JsonContent.Create(
             CheckoutDraftTestSupport.CreateValidCreateRequest(
                 factory.Snapshot,
                 new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)));
+
+        using var response = await client.SendAsync(request);
         using var document = await ReadJsonAsync(response);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        document.RootElement.GetProperty("code").GetString().Should().Be(DeviceProblemCodes.TokenMissing);
-        document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(DeviceProblemCodes.TokenInvalid);
+        using var scope = factory.Services.CreateScope();
+        (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+                .CheckoutDrafts.CountAsync())
+            .Should().Be(0);
     }
 
     [Fact]
@@ -938,6 +1059,61 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-DEMO-020")]
+    public async Task PostPricingReprice_WithDemoDevice_UsesDemoCatalogPartition()
+    {
+        var demoCompanyId = Guid.Parse("d0200000-0000-0000-0000-000000000001");
+        var demoBranchId = Guid.Parse("d0200000-0000-0000-0000-000000000002");
+        var demoOfferingId = Guid.Parse("d0200000-0000-0000-0000-000000000003");
+        var demoSnapshot = CatalogTestSupport.CreateSnapshot(
+            demoCompanyId,
+            version: 2020,
+            branchId: demoBranchId,
+            offeringId: demoOfferingId,
+            companyNameAr: "DEMO-PRICING-COMPANY",
+            offeringNameAr: "DEMO-PRICING-OFFERING");
+        var token = CatalogTestSupport.CreateToken(59);
+        var device = CatalogTestSupport.CreateDevice(
+            token,
+            expiresAt: DateTimeOffset.UtcNow.AddDays(30));
+        device.IsDemo = true;
+        await using var factory = new CheckoutDraftApiFactory(
+            snapshot: demoSnapshot,
+            devices: [device],
+            useDemoData: true);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            "/api/v1/pricing/reprice?language=ar",
+            token);
+        request.Content = JsonContent.Create(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                factory.Snapshot,
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)));
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var intent = document.RootElement.GetProperty("intent");
+        intent.GetProperty("businessSourceId").GetGuid().Should().Be(demoCompanyId);
+        intent.GetProperty("branchSourceId").GetGuid().Should().Be(demoBranchId);
+        intent.GetProperty("items")[0].GetProperty("offeringSourceId")
+            .GetGuid().Should().Be(demoOfferingId);
+        var pricing = document.RootElement.GetProperty("pricing");
+        pricing.GetProperty("catalogVersion").GetInt64().Should().Be(2020);
+        pricing.GetProperty("baseSubtotal").GetDecimal().Should().Be(79.5m);
+        pricing.GetProperty("grandTotal").GetDecimal().Should().Be(79.5m);
+        using var scope = factory.Services.CreateScope();
+        var partition = scope.ServiceProvider.GetRequiredService<
+            GhseeliApis.DataPartitioning.ICustomerDataPartitionContext>();
+        partition.SetTrustedPartition(DataPartitionNames.Demo);
+        (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+                .CatalogProviders.CountAsync())
+            .Should().BeGreaterThan(0);
+    }
+
+    [Fact]
     public async Task PostPricingReprice_WithFixedIncludedSelection_Omitted_ReturnsNormalizedAuthoritativeSelection()
     {
         var token = CatalogTestSupport.CreateToken(53);
@@ -1208,7 +1384,7 @@ public class CheckoutDraftApiIntegrationTests
             requestedSlotStartUtc = "2026-08-24T10:00:00Z",
             vehicle = new
             {
-                vehicleType = "Sedan",
+                VehicleType = "Sedan",
                 licensePlate = "12-345-67",
                 make = "Toyota",
                 model = "Corolla",
@@ -1247,7 +1423,7 @@ public class CheckoutDraftApiIntegrationTests
             requestedSlotStartUtc = "2026-08-24T11:00:00Z",
             vehicle = new
             {
-                vehicleType = "Sedan",
+                VehicleType = "Sedan",
                 licensePlate = "12-345-67",
                 make = "Toyota",
                 model = "Corolla",
@@ -1295,7 +1471,7 @@ public class CheckoutDraftApiIntegrationTests
             currency = "USD",
             vehicle = new
             {
-                vehicleType = "Sedan",
+                VehicleType = "Sedan",
                 licensePlate = "12-345-67",
                 make = "Toyota",
                 model = "Corolla",
@@ -1428,6 +1604,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
     private readonly IReadOnlyDictionary<string, string?> _settings;
     private readonly Action<IServiceCollection>? _configureTestServices;
     private readonly string _environmentName;
+    private readonly bool _useDemoData;
 
     public CheckoutDraftApiFactory(
         CatalogSnapshotResponse? snapshot = null,
@@ -1435,7 +1612,8 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
         DateTimeOffset? utcNow = null,
         IReadOnlyDictionary<string, string?>? settings = null,
         Action<IServiceCollection>? configureTestServices = null,
-        string environmentName = "Development")
+        string environmentName = "Development",
+        bool useDemoData = false)
     {
         _database = SqlServerCatalogDatabase.CreateAsync().GetAwaiter().GetResult();
         Snapshot = snapshot ?? CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 10);
@@ -1445,6 +1623,7 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
         _settings = settings ?? new Dictionary<string, string?>(StringComparer.Ordinal);
         _configureTestServices = configureTestServices;
         _environmentName = environmentName;
+        _useDemoData = useDemoData;
         BusinessApiClient.GetCatalogSnapshotHandler = (_, _) => Task.FromResult(Snapshot);
         BusinessApiClient.ValidateAppointmentHandler = (request, _, _) =>
             Task.FromResult(CatalogTestSupport.CreateValidationResponse(Snapshot, request));
@@ -1501,6 +1680,12 @@ public sealed class CheckoutDraftApiFactory : WebApplicationFactory<Program>, IA
 
             using var scope = services.BuildServiceProvider().CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (_useDemoData)
+            {
+                scope.ServiceProvider.GetRequiredService<
+                        GhseeliApis.DataPartitioning.ICustomerDataPartitionContext>()
+                    .SetTrustedPartition(DataPartitionNames.Demo);
+            }
 
             if (_devices.Any())
             {

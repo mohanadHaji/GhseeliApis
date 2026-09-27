@@ -18,6 +18,7 @@ public class CatalogControllerTests
 {
     private readonly Mock<ICatalogReadModelService> _service = new();
     private readonly Mock<IAvailableSlotsQueryService> _availableSlotsService = new();
+    private readonly Mock<IAvailabilityDiscoveryQueryService> _availabilityDiscoveryService = new();
     private readonly Mock<IAppLogger> _logger = new();
 
     [Fact]
@@ -179,6 +180,8 @@ public class CatalogControllerTests
             new GetCatalogResourceRequestValidator(),
             new GetAvailableSlotsRequestValidator(TimeProvider.System),
             _availableSlotsService.Object,
+            new AvailabilitySearchRequestValidator(TimeProvider.System),
+            _availabilityDiscoveryService.Object,
             _logger.Object)
         {
             ControllerContext = new ControllerContext

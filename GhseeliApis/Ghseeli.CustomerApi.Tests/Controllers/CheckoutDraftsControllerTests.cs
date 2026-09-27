@@ -105,7 +105,7 @@ public class CheckoutDraftsControllerTests
                 RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddHours(2),
                 Vehicle = new CheckoutDraftVehicleRequest
                 {
-                    VehicleType = "SUV"
+                    VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Suv5Seater
                 },
                 Location = new CheckoutDraftLocationRequest
                 {
@@ -188,7 +188,7 @@ public class CheckoutDraftsControllerTests
             RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddHours(2),
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = "Sedan"
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan
             },
             Location = new CheckoutDraftLocationRequest
             {

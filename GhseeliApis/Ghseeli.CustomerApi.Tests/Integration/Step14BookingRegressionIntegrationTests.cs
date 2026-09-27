@@ -183,6 +183,11 @@ public sealed class Step14BookingRegressionIntegrationTests
             Currency = "ILS",
             GrandTotal = 123.45m,
             TotalDurationMinutes = 60,
+            Vehicle = new ConfirmedBookingVehicleResponse
+            {
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Suv7Seater,
+                ImageUrl = "https://cdn.example.test/vehicles/suv.png"
+            },
             Items =
             [
                 new ConfirmedBookingItemResponse
@@ -238,10 +243,14 @@ public sealed class Step14BookingRegressionIntegrationTests
                 "id", "referenceId", "orderGuid", "businessReservationId",
                 "businessWorkOrderId", "status", "draftVersion", "language",
                 "requestedSlotStartUtc", "requestedSlotEndUtc", "providerName",
-                "branchName", "currency", "grandTotal", "totalDurationMinutes", "items");
+                "branchName", "currency", "grandTotal", "totalDurationMinutes", "vehicle", "items");
         document.RootElement.TryGetProperty("reference", out _).Should().BeFalse();
         document.RootElement.GetProperty("referenceId").GetGuid().Should().Be(expected.ReferenceId);
         document.RootElement.GetProperty("grandTotal").GetDecimal().Should().Be(123.45m);
+        document.RootElement.GetProperty("vehicle").GetProperty("vehicleType")
+            .GetString().Should().Be("Suv7Seater");
+        document.RootElement.GetProperty("vehicle").GetProperty("imageUrl")
+            .GetString().Should().Be("https://cdn.example.test/vehicles/suv.png");
         document.RootElement.GetProperty("items").GetArrayLength().Should().Be(1);
         service.VerifyAll();
     }

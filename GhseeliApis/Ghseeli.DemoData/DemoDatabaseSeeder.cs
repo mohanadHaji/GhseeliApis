@@ -5,6 +5,7 @@ using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.Constants;
 using GhseeliApis.DataPartitioning;
 using Ghseeli.IntegrationContracts.DataPartitioning;
@@ -111,13 +112,13 @@ public static class DemoDatabaseSeeder
         else
         {
             var refreshedAt = DateTimeOffset.UtcNow;
-            var demoProviderIds = data.Companies.Select(company => company.Id).ToArray();
+            var demoProviderSourceIds = data.Companies.Select(company => company.Id).ToArray();
             var providers = await customer.CatalogProviders
-                .Where(provider => demoProviderIds.Contains(provider.Id))
+                .Where(provider => demoProviderSourceIds.Contains(provider.SourceCompanyId))
                 .ToListAsync(cancellationToken);
             foreach (var provider in providers)
             {
-                var company = data.Companies.Single(value => value.Id == provider.Id);
+                var company = data.Companies.Single(value => value.Id == provider.SourceCompanyId);
                 provider.IsEnabled = true;
                 provider.DisplayOrder = data.Companies.IndexOf(company) + 1;
                 provider.SnapshotGeneratedAtUtc = refreshedAt;
@@ -131,12 +132,36 @@ public static class DemoDatabaseSeeder
                 .SelectMany(company => company.Offerings)
                 .ToDictionary(offering => offering.Id);
             var offeringIds = offeringsById.Keys.ToArray();
+            var categoriesById = data.Companies
+                .SelectMany(company => company.Categories)
+                .ToDictionary(category => category.Id);
+            var categoryIds = categoriesById.Keys.ToArray();
+            var businessCategories = await business.ServiceCategories
+                .Where(category => categoryIds.Contains(category.Id))
+                .ToListAsync(cancellationToken);
+            var customerCategories = await customer.CatalogCategories
+                .Where(category => categoryIds.Contains(category.SourceCategoryId))
+                .ToListAsync(cancellationToken);
             var businessOfferings = await business.ServiceOfferings
                 .Where(offering => offeringIds.Contains(offering.Id))
                 .ToListAsync(cancellationToken);
             var customerOfferings = await customer.CatalogOfferings
                 .Where(offering => offeringIds.Contains(offering.SourceOfferingId))
                 .ToListAsync(cancellationToken);
+
+            foreach (var category in businessCategories)
+            {
+                var fixture = categoriesById[category.Id];
+                category.ImageUrl = fixture.ImageUrl;
+                category.ColorHex = fixture.ColorHex;
+            }
+
+            foreach (var category in customerCategories)
+            {
+                var fixture = categoriesById[category.SourceCategoryId];
+                category.ImageUrl = fixture.ImageUrl;
+                category.ColorHex = fixture.ColorHex;
+            }
 
             foreach (var offering in businessOfferings)
             {
@@ -157,6 +182,9 @@ public static class DemoDatabaseSeeder
             await business.SaveChangesAsync(cancellationToken);
             await customer.SaveChangesAsync(cancellationToken);
         }
+
+        await ReconcileFavouritesAsync(customer, data, cancellationToken);
+        await ReconcileBannersAsync(customer, data, cancellationToken);
 
         var companyCount = await business.Companies
             .CountAsync(company => data.Companies.Select(value => value.Id).Contains(company.Id), cancellationToken);
@@ -216,7 +244,10 @@ public static class DemoDatabaseSeeder
             .Select(value => StableId("customer-booking", value.CustomerReferenceId))
             .ToArray();
         var draftIds = data.Drafts.Select(value => value.Id).ToArray();
-        var providerIds = data.Companies.Select(value => value.Id).ToArray();
+        var companyIds = data.Companies.Select(value => value.Id).ToArray();
+        var providerIds = data.Companies
+            .Select(value => StableId("customer-catalog-provider", value.Id))
+            .ToArray();
         var deviceIds = data.Customers
             .SelectMany(value => value.Devices)
             .Select(value => value.Id)
@@ -227,6 +258,16 @@ public static class DemoDatabaseSeeder
             .ToArray();
         var businessUserIds = data.BusinessUsers.Select(value => value.Id).ToArray();
 
+        await customer.BusinessReviews
+            .Where(value => value.IsDemo && customerBookingIds.Contains(value.CustomerBookingId))
+            .ExecuteDeleteAsync(cancellationToken);
+        await customer.BusinessFavourites
+            .Where(value => value.IsDemo && customerIds.Contains(value.UserId))
+            .ExecuteDeleteAsync(cancellationToken);
+        var bannerIds = data.Banners.Select(value => value.Id).ToArray();
+        await customer.Banners
+            .Where(value => value.IsDemo && bannerIds.Contains(value.Id))
+            .ExecuteDeleteAsync(cancellationToken);
         await customer.CustomerPayments
             .Where(value => customerBookingIds.Contains(value.CustomerBookingId))
             .ExecuteDeleteAsync(cancellationToken);
@@ -253,7 +294,7 @@ public static class DemoDatabaseSeeder
             .Where(value => value.IsDemo && reservationIds.Contains(value.Id))
             .ExecuteDeleteAsync(cancellationToken);
         var deletedCompanies = await business.Companies
-            .Where(value => value.IsDemo && providerIds.Contains(value.Id))
+            .Where(value => value.IsDemo && companyIds.Contains(value.Id))
             .ExecuteDeleteAsync(cancellationToken);
         await business.Users
             .Where(value => value.IsDemo && businessUserIds.Contains(value.Id))
@@ -369,6 +410,8 @@ public static class DemoDatabaseSeeder
                 NameHe = category.NameHe,
                 DescriptionAr = "فئة تجريبية",
                 DescriptionHe = "קטגוריה ניסיונית",
+                ImageUrl = category.ImageUrl,
+                ColorHex = category.ColorHex,
                 DisplayOrder = index + 1,
                 IsActive = true,
                 CreatedAt = now
@@ -544,7 +587,8 @@ public static class DemoDatabaseSeeder
                 VehicleDetails = new VehicleWorkOrderDetails
                 {
                     WorkOrderId = booking.BusinessWorkOrderId,
-                    VehicleType = "Car",
+                    VehicleType = vehicle.VehicleType,
+                    ImageUrl = vehicle.ImageUrl,
                     LicensePlate = vehicle.LicensePlate,
                     VehicleMake = vehicle.Make,
                     VehicleModel = vehicle.Model,
@@ -642,7 +686,9 @@ public static class DemoDatabaseSeeder
                 Model = vehicle.Model,
                 Year = vehicle.Year,
                 LicensePlate = vehicle.LicensePlate,
-                Color = vehicle.Color
+                Color = vehicle.Color,
+                VehicleType = Enum.Parse<VehicleType>(vehicle.VehicleType),
+                ImageUrl = vehicle.ImageUrl
             }));
             context.UserAddresses.AddRange(customer.Addresses.Select(address => new UserAddress
             {
@@ -659,9 +705,10 @@ public static class DemoDatabaseSeeder
 
         foreach (var company in data.Companies)
         {
+            var providerId = StableId("customer-catalog-provider", company.Id);
             context.CatalogProviders.Add(new CatalogProviderReadModel
             {
-                Id = company.Id,
+                Id = providerId,
                 SourceCompanyId = company.Id,
                 BusinessVerticalCode = BusinessVerticalSnapshotDefaults.CarWashCode,
                 IsEnabled = true,
@@ -679,9 +726,9 @@ public static class DemoDatabaseSeeder
             });
             context.CatalogBranches.AddRange(company.Branches.Select((branch, index) => new CatalogBranchReadModel
             {
-                Id = branch.Id,
+                Id = StableId("customer-catalog-branch", branch.Id),
                 SourceBranchId = branch.Id,
-                ProviderId = company.Id,
+                ProviderId = providerId,
                 NameAr = branch.NameAr,
                 NameHe = branch.NameHe,
                 AddressAr = branch.AddressAr,
@@ -698,21 +745,23 @@ public static class DemoDatabaseSeeder
             }));
             context.CatalogCategories.AddRange(company.Categories.Select((category, index) => new CatalogCategoryReadModel
             {
-                Id = category.Id,
+                Id = StableId("customer-catalog-category", category.Id),
                 SourceCategoryId = category.Id,
-                ProviderId = company.Id,
+                ProviderId = providerId,
                 NameAr = category.NameAr,
                 NameHe = category.NameHe,
                 DescriptionAr = "فئة تجريبية",
                 DescriptionHe = "קטגוריה ניסיונית",
+                ImageUrl = category.ImageUrl,
+                ColorHex = category.ColorHex,
                 DisplayOrder = index + 1
             }));
             context.CatalogOfferings.AddRange(company.Offerings.Select((offering, index) => new CatalogOfferingReadModel
             {
-                Id = offering.Id,
+                Id = StableId("customer-catalog-offering", offering.Id),
                 SourceOfferingId = offering.Id,
-                CategoryId = offering.CategoryId,
-                BranchId = offering.BranchId,
+                CategoryId = StableId("customer-catalog-category", offering.CategoryId),
+                BranchId = StableId("customer-catalog-branch", offering.BranchId),
                 NameAr = offering.NameAr,
                 NameHe = offering.NameHe,
                 DescriptionAr = "خدمة تجريبية",
@@ -729,9 +778,9 @@ public static class DemoDatabaseSeeder
             context.CatalogAddonGroups.AddRange(company.Offerings.SelectMany(offering => offering.AddonGroups)
                 .Select((group, index) => new CatalogAddonGroupReadModel
                 {
-                    Id = group.Id,
+                    Id = StableId("customer-catalog-addon-group", group.Id),
                     SourceAddonGroupId = group.Id,
-                    OfferingId = group.OfferingId,
+                    OfferingId = StableId("customer-catalog-offering", group.OfferingId),
                     NameAr = group.NameAr,
                     NameHe = group.NameHe,
                     DescriptionAr = "مجموعة تجريبية",
@@ -746,9 +795,9 @@ public static class DemoDatabaseSeeder
                 .SelectMany(group => group.Choices)
                 .Select((choice, index) => new CatalogAddonChoiceReadModel
                 {
-                    Id = choice.Id,
+                    Id = StableId("customer-catalog-addon-choice", choice.Id),
                     SourceAddonChoiceId = choice.Id,
-                    AddonGroupId = choice.AddonGroupId,
+                    AddonGroupId = StableId("customer-catalog-addon-group", choice.AddonGroupId),
                     NameAr = choice.NameAr,
                     NameHe = choice.NameHe,
                     PriceAdjustment = choice.PriceAdjustment,
@@ -760,6 +809,9 @@ public static class DemoDatabaseSeeder
 
         foreach (var draft in data.Drafts)
         {
+            var customer = data.Customers.Single(value =>
+                value.Devices.Any(device => device.Id == draft.DeviceId));
+            var vehicle = customer.Vehicles[0];
             var entity = new CheckoutDraft
             {
                 Id = draft.Id,
@@ -770,11 +822,12 @@ public static class DemoDatabaseSeeder
                 CatalogVersion = data.Companies.Single(company => company.Id == draft.CompanyId).CatalogVersion,
                 PublicVersion = 1,
                 RequestedSlotStartUtc = draft.RequestedSlotStartUtc,
-                VehicleType = "Car",
-                LicensePlate = "DEMO-DRAFT",
-                VehicleMake = "Demo",
-                VehicleModel = "Fixture",
-                VehicleColor = "Silver",
+                VehicleType = vehicle.VehicleType,
+                VehicleImageUrl = vehicle.ImageUrl,
+                LicensePlate = vehicle.LicensePlate,
+                VehicleMake = vehicle.Make,
+                VehicleModel = vehicle.Model,
+                VehicleColor = vehicle.Color,
                 AddressLine = "[DEMO] Draft address",
                 City = "Ramallah",
                 Area = "Demo Area",
@@ -828,7 +881,8 @@ public static class DemoDatabaseSeeder
                 ProviderNameHe = company.NameHe,
                 BranchNameAr = branch.NameAr,
                 BranchNameHe = branch.NameHe,
-                VehicleType = "Car",
+                VehicleType = vehicle.VehicleType,
+                VehicleImageUrl = vehicle.ImageUrl,
                 LicensePlate = vehicle.LicensePlate,
                 VehicleMake = vehicle.Make,
                 VehicleModel = vehicle.Model,
@@ -898,6 +952,106 @@ public static class DemoDatabaseSeeder
                     UpdatedAtUtc = booking.RequestedSlotStartUtc.AddDays(-1)
                 });
             }
+        }
+
+        foreach (var review in data.Reviews)
+        {
+            context.BusinessReviews.Add(new BusinessReview
+            {
+                Id = review.Id,
+                CustomerBookingId = StableId("customer-booking", review.BookingReferenceId),
+                UserId = review.CustomerId,
+                BusinessSourceId = review.CompanyId,
+                Rating = review.Rating,
+                Comment = review.Comment,
+                CreatedAtUtc = review.CreatedAtUtc,
+                UpdatedAtUtc = review.CreatedAtUtc
+            });
+        }
+
+        foreach (var favourite in data.Favourites)
+        {
+            context.BusinessFavourites.Add(new BusinessFavourite
+            {
+                Id = favourite.Id,
+                UserId = favourite.CustomerId,
+                BusinessSourceId = favourite.CompanyId,
+                CreatedAtUtc = favourite.CreatedAtUtc
+            });
+        }
+
+        foreach (var banner in data.Banners)
+        {
+            context.Banners.Add(new Banner
+            {
+                Id = banner.Id,
+                ImageUrl = banner.ImageUrl,
+                DisplayOrder = banner.DisplayOrder,
+                IsActive = banner.IsActive,
+                CreatedAtUtc = banner.CreatedAtUtc,
+                UpdatedAtUtc = banner.UpdatedAtUtc
+            });
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task ReconcileBannersAsync(
+        ApplicationDbContext context,
+        DemoDataset data,
+        CancellationToken cancellationToken)
+    {
+        var ids = data.Banners.Select(value => value.Id).ToArray();
+        var existing = await context.Banners
+            .ToListAsync(cancellationToken);
+        var existingById = existing.ToDictionary(value => value.Id);
+        context.Banners.RemoveRange(existing.Where(value => !ids.Contains(value.Id)));
+        foreach (var fixture in data.Banners)
+        {
+            if (!existingById.TryGetValue(fixture.Id, out var banner))
+            {
+                context.Banners.Add(new Banner
+                {
+                    Id = fixture.Id,
+                    ImageUrl = fixture.ImageUrl,
+                    DisplayOrder = fixture.DisplayOrder,
+                    IsActive = fixture.IsActive,
+                    CreatedAtUtc = fixture.CreatedAtUtc,
+                    UpdatedAtUtc = fixture.UpdatedAtUtc
+                });
+                continue;
+            }
+
+            banner.ImageUrl = fixture.ImageUrl;
+            banner.DisplayOrder = fixture.DisplayOrder;
+            banner.IsActive = fixture.IsActive;
+            banner.CreatedAtUtc = fixture.CreatedAtUtc;
+            banner.UpdatedAtUtc = fixture.UpdatedAtUtc;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task ReconcileFavouritesAsync(
+        ApplicationDbContext context,
+        DemoDataset data,
+        CancellationToken cancellationToken)
+    {
+        var expectedIds = data.Favourites.Select(favourite => favourite.Id).ToArray();
+        var existingIds = await context.BusinessFavourites
+            .Where(favourite => expectedIds.Contains(favourite.Id))
+            .Select(favourite => favourite.Id)
+            .ToListAsync(cancellationToken);
+        var existing = existingIds.ToHashSet();
+        foreach (var favourite in data.Favourites.Where(value => !existing.Contains(value.Id)))
+        {
+            context.BusinessFavourites.Add(new BusinessFavourite
+            {
+                Id = favourite.Id,
+                UserId = favourite.CustomerId,
+                BusinessSourceId = favourite.CompanyId,
+                CreatedAtUtc = favourite.CreatedAtUtc
+            });
         }
 
         await context.SaveChangesAsync(cancellationToken);

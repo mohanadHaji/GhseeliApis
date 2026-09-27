@@ -20,11 +20,15 @@ public sealed class Step16IsolationStartupCustomerTests
 {
     private static readonly string[] RetainedControllers =
     [
-        "AddressesController", "AuthController", "BookingConfirmationController",
-        "CatalogController", "CheckoutDraftsController", "CheckoutPricingController",
+        "AddressesController", "AdminBannersController", "AuthController",
+        "BannersController", "BookingConfirmationController",
+        "BookingReviewsController",
+        "CatalogBusinessFavouritesController", "CatalogController",
+        "CheckoutDraftsController", "CheckoutPricingController",
         "ConfigurationController", "CustomerPaymentsController", "DevicesController",
         "HealthController", "InternalBookingStatusController", "PricingController",
-        "LahzaWebhookController", "UsersController", "VehiclesController"
+        "LahzaWebhookController", "PublicBusinessReviewsController",
+        "UsersController", "VehiclesController"
     ];
 
     private static readonly string[] ForbiddenTables =

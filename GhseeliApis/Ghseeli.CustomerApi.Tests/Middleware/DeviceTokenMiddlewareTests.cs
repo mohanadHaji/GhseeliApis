@@ -57,6 +57,49 @@ public class DeviceTokenMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_OptionalEndpointWithoutHeader_UsesAnonymousProduction()
+    {
+        var called = false;
+        var context = CreateContext("/api/v1/configuration");
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new OptionalDeviceTokenAttribute()),
+            "optional"));
+        var partition = new CustomerDataPartitionContext();
+        var middleware = CreateMiddleware(_ => { called = true; return Task.CompletedTask; });
+
+        await middleware.InvokeAsync(context, _service.Object, partition);
+
+        called.Should().BeTrue();
+        partition.IsAssigned.Should().BeFalse();
+        partition.Partition.Should().Be(DataPartitionNames.Production);
+        _service.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_OptionalEndpointWithDuplicateHeader_IsRejected()
+    {
+        var context = CreateContext("/api/v1/configuration");
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new OptionalDeviceTokenAttribute()),
+            "optional"));
+        context.Request.Headers[DeviceTokenDefaults.HeaderName] =
+            new Microsoft.Extensions.Primitives.StringValues([Token(20), Token(21)]);
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
+
+        using var document = await ReadResponseBodyAsJsonAsync(context);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(DeviceProblemCodes.TokenInvalid);
+        _service.VerifyNoOtherCalls();
+    }
+
+    [Fact]
     public async Task InvokeAsync_ProtectedRouteWithoutHeader_UsesValidQueryOverrideForLocalization()
     {
         var context = CreateProtectedContext(queryString: "?language=he");

@@ -28,6 +28,11 @@ public interface IBusinessApiClient
         AvailableSlotsRequest request,
         CancellationToken cancellationToken = default);
 
+    Task<AvailabilityDiscoveryResponse> DiscoverAvailabilityAsync(
+        AvailabilityDiscoveryRequest request,
+        CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException("Availability discovery is not configured.");
+
     Task<CreateReservationResponse> CreateReservationAsync(
         CreateReservationRequest request,
         string idempotencyKey,
@@ -174,6 +179,49 @@ public sealed class BusinessApiClient : IBusinessApiClient
             cancellationToken);
     }
 
+    public async Task<AvailabilityDiscoveryResponse> DiscoverAvailabilityAsync(
+        AvailabilityDiscoveryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        request.ContractVersion = BusinessCatalogContract.Version;
+        var correlationId = ResolveCorrelationId();
+        var requestUri = ResolveRequestUri(
+            "/api/v1/internal/appointments/availability-discovery",
+            correlationId);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri)
+        {
+            Content = new StringContent(
+                JsonSerializer.Serialize(request, JsonOptions),
+                Encoding.UTF8,
+                "application/json")
+        };
+        httpRequest.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+        using var response = await _httpClient.SendAsync(
+            httpRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            await ThrowForErrorResponseAsync(response, correlationId, cancellationToken);
+        }
+
+        if (response.Content.Headers.ContentLength >
+            InternalServiceWireConstants.MaxStoredResponseBytes)
+        {
+            throw new BusinessApiContractException(
+                "The Business API availability discovery response exceeded the allowed size.",
+                correlationId);
+        }
+
+        return await ReadResponseAsync<AvailabilityDiscoveryResponse>(
+            response,
+            "availability discovery",
+            correlationId,
+            cancellationToken);
+    }
+
     public async Task<CreateReservationResponse> CreateReservationAsync(
         CreateReservationRequest request,
         string idempotencyKey,
@@ -258,6 +306,13 @@ public sealed class BusinessApiClient : IBusinessApiClient
         {
             throw new BusinessApiContractException(
                 $"The Business API {operationName} response was empty.",
+                correlationId);
+        }
+        if (Encoding.UTF8.GetByteCount(content) >
+            InternalServiceWireConstants.MaxStoredResponseBytes)
+        {
+            throw new BusinessApiContractException(
+                $"The Business API {operationName} response exceeded the allowed size.",
                 correlationId);
         }
 

@@ -2,12 +2,14 @@ using FluentValidation;
 using Ghseeli.Common.Logging;
 using GhseeliApis.DTOs.Configuration;
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.Middleware;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/v1/configuration")]
+[OptionalDeviceToken]
 public sealed class ConfigurationController : ControllerBase
 {
     private readonly ICustomerConfigurationService _service;

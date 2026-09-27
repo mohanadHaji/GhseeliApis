@@ -20,7 +20,7 @@ public interface ICheckoutPricingService
 {
     Task<DirectCheckoutPricingResponse> RepriceAsync(
         CreateCheckoutDraftRequest request,
-        Guid deviceId,
+        Guid? deviceId,
         string? requestedLanguage,
         string? acceptLanguageHeader,
         CancellationToken cancellationToken);
@@ -78,7 +78,7 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
 
     public async Task<DirectCheckoutPricingResponse> RepriceAsync(
         CreateCheckoutDraftRequest request,
-        Guid deviceId,
+        Guid? deviceId,
         string? requestedLanguage,
         string? acceptLanguageHeader,
         CancellationToken cancellationToken)
@@ -99,8 +99,9 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
             PaymentCapabilities = _paymentCapabilitiesService.GetCapabilities()
         };
 
-        _logger.LogInfo(
-            $"Calculated direct authoritative pricing for device {deviceId:D} with {result.Quote.Items.Count} item(s).");
+        _logger.LogInfo(deviceId.HasValue
+            ? $"Calculated direct authoritative pricing for device {deviceId.Value:D} with {result.Quote.Items.Count} item(s)."
+            : $"Calculated anonymous direct authoritative pricing with {result.Quote.Items.Count} item(s).");
 
         return response;
     }
@@ -486,7 +487,8 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
             provider.CatalogVersion,
             request.RequestedSlotStartUtc.ToUniversalTime(),
             NormalizeCurrency(_options.Currency),
-            ConfigurationTextNormalizer.NormalizeRequired(request.Vehicle.VehicleType!),
+            request.Vehicle.VehicleType!.Value,
+            ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.ImageUrl),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.LicensePlate),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.Make),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.Model),
@@ -775,6 +777,7 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
             Vehicle = new CheckoutDraftVehicleResponse
             {
                 VehicleType = intent.VehicleType,
+                ImageUrl = intent.VehicleImageUrl,
                 LicensePlate = intent.LicensePlate,
                 Make = intent.VehicleMake,
                 Model = intent.VehicleModel,
@@ -864,7 +867,8 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
             RequestedSlotStartUtc = draft.RequestedSlotStartUtc,
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = draft.VehicleType,
+                VehicleType = ParseVehicleType(draft.VehicleType),
+                ImageUrl = draft.VehicleImageUrl,
                 LicensePlate = draft.LicensePlate,
                 Make = draft.VehicleMake,
                 Model = draft.VehicleModel,
@@ -904,7 +908,8 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
         draft.BranchSourceId = normalized.BranchSourceId;
         draft.CatalogVersion = quote.CatalogVersion;
         draft.RequestedSlotStartUtc = normalized.RequestedSlotStartUtc;
-        draft.VehicleType = normalized.VehicleType;
+        draft.VehicleType = normalized.VehicleType.ToString();
+        draft.VehicleImageUrl = normalized.VehicleImageUrl;
         draft.LicensePlate = normalized.LicensePlate;
         draft.VehicleMake = normalized.VehicleMake;
         draft.VehicleModel = normalized.VehicleModel;
@@ -1489,6 +1494,9 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
     private static bool IsEligibleBranch(CatalogBranchReadModel branch) =>
         branch.HasPublishedServiceArea && branch.ServiceAreaRadiusKm.HasValue;
 
+    private static Ghseeli.IntegrationContracts.Vehicles.VehicleType ParseVehicleType(string value) =>
+        Enum.Parse<Ghseeli.IntegrationContracts.Vehicles.VehicleType>(value, ignoreCase: false);
+
     private static void ValidateRequestStructure(CheckoutDraftMutationRequestBase request)
     {
         if (request.Vehicle is null)
@@ -1643,7 +1651,8 @@ public sealed class CheckoutPricingService : ICheckoutPricingService
         long CatalogVersion,
         DateTimeOffset RequestedSlotStartUtc,
         string Currency,
-        string VehicleType,
+        Ghseeli.IntegrationContracts.Vehicles.VehicleType VehicleType,
+        string? VehicleImageUrl,
         string? LicensePlate,
         string? VehicleMake,
         string? VehicleModel,

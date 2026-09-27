@@ -78,14 +78,68 @@ public sealed class Step15SwaggerCustomerContractTests :
         AssertNoSecurity(root, "/api/Health/db", "get");
         AssertSecurity(root, "/api/lahza/webhook", "post", ["LahzaSignature"]);
 
-        AssertSecurity(root, "/api/v1/configuration", "get", ["DeviceToken"]);
-        AssertSecurity(
+        AssertOptionalDeviceSecurity(root, "/api/v1/configuration", "get");
+        AssertOptionalDeviceSecurity(root, "/api/v1/catalog/categories", "get");
+        AssertOptionalDeviceSecurity(root, "/api/v1/catalog/businesses", "get");
+        AssertOptionalDeviceSecurity(root, "/api/v1/catalog/businesses/{id}", "get");
+        AssertOptionalDeviceSecurity(
+            root, "/api/v1/catalog/businesses/{id}/offerings", "get");
+        AssertOptionalDeviceSecurity(root, "/api/v1/catalog/offerings/{id}", "get");
+        AssertOptionalDeviceSecurity(root, "/api/v1/pricing/reprice", "post");
+        AssertOptionalDeviceSecurity(root, "/api/v1/banners", "get");
+        foreach (var method in new[] { "put", "delete" })
+        {
+            var favourite = OperationAt(
+                root,
+                "/api/v1/catalog/businesses/{businessId}/favourite",
+                method);
+            var security = favourite.GetProperty("security");
+            security.GetArrayLength().Should().Be(2);
+            security[0].EnumerateObject().Select(value => value.Name)
+                .Should().Equal("CustomerBearer");
+            security[1].EnumerateObject().Select(value => value.Name)
+                .Should().Equal("CustomerBearer", "DeviceToken");
+            favourite.GetProperty("responses").EnumerateObject()
+                .Select(response => response.Name)
+                .Order(StringComparer.Ordinal)
+                .Should().Equal("204", "401", "403", "404");
+        }
+        var publicReviews = OperationAt(
+            root, "/api/v1/catalog/businesses/{businessId}/reviews", "get");
+        var publicReviewSecurity = publicReviews.GetProperty("security");
+        publicReviewSecurity.GetArrayLength().Should().Be(4);
+        publicReviewSecurity[0].EnumerateObject().Should().BeEmpty(
+            "public reviews allow a truly anonymous Production request");
+        publicReviewSecurity[1].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("DeviceToken");
+        publicReviewSecurity[2].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("CustomerBearer");
+        publicReviewSecurity[3].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("CustomerBearer", "DeviceToken");
+        publicReviews.GetProperty("description").GetString().Should().ContainAll(
+            "Requests without a device token use the trusted Production partition",
+            "supplied X-Device-Token must validate",
+            "same partition");
+        OperationAt(root, "/api/v1/bookings/{bookingId}/review", "put")
+            .GetProperty("description").GetString().Should().ContainAll(
+                "Requires both a Customer bearer token and X-Device-Token",
+                "non-disclosing booking_not_found");
+        AssertOptionalDeviceSecurity(
+            root,
+            "/api/v1/catalog/businesses/availability-search",
+            "post");
+        AssertOptionalDeviceSecurity(
             root,
             "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
-            "post",
-            ["DeviceToken"]);
+            "post");
         AssertSecurity(root, "/api/v1/checkout/drafts", "post", ["DeviceToken"]);
         AssertSecurity(root, "/api/v1/bookings/from-draft", "post",
+            ["CustomerBearer", "DeviceToken"]);
+        AssertSecurity(root, "/api/v1/bookings/{bookingId}/review", "get",
+            ["CustomerBearer", "DeviceToken"]);
+        AssertSecurity(root, "/api/v1/bookings/{bookingId}/review", "put",
+            ["CustomerBearer", "DeviceToken"]);
+        AssertSecurity(root, "/api/v1/bookings/{bookingId}/review", "delete",
             ["CustomerBearer", "DeviceToken"]);
         AssertSecurity(root, "/api/v1/payments/intents", "post",
             ["CustomerBearer", "DeviceToken"]);
@@ -130,6 +184,80 @@ public sealed class Step15SwaggerCustomerContractTests :
             AssertParameter(operation.Value, "Accept-Language", "header", required: false);
             AssertParameter(operation.Value, "X-Correlation-Id", "header", required: false);
         }
+    }
+
+    [Fact]
+    public async Task AvailabilitySearchSwagger_HasExactContractsStatusesAndOptionalDeviceSecurity()
+    {
+        using var document = await GetSwaggerAsync();
+        var root = document.RootElement;
+        var operation = OperationAt(
+            root,
+            "/api/v1/catalog/businesses/availability-search",
+            "post");
+
+            var security = operation.GetProperty("security").EnumerateArray()
+                .Select(item => item.EnumerateObject().Select(property => property.Name).ToArray())
+                .ToArray();
+            security.Should().Contain(item => item.Length == 0);
+            security.Should().Contain(item => item.SequenceEqual(new[] { "DeviceToken" }));
+            security.Should().Contain(item => item.SequenceEqual(new[] { "CustomerBearer" }));
+            security.Should().Contain(item =>
+                item.SequenceEqual(new[] { "CustomerBearer", "DeviceToken" }));
+            foreach (var status in new[]
+                     {
+                         "200", "400", "401", "403", "413", "415", "429", "502", "503"
+                     })
+            {
+                operation.GetProperty("responses").TryGetProperty(status, out _)
+                    .Should().BeTrue();
+            }
+            operation.GetProperty("requestBody")
+                .GetProperty("content")
+                .GetProperty("application/json")
+                .GetProperty("schema")
+                .GetProperty("$ref")
+                .GetString()
+                .Should().EndWith("/AvailabilitySearchRequest");
+        operation.GetProperty("responses")
+            .GetProperty("200")
+            .GetProperty("content")
+            .GetProperty("application/json")
+            .GetProperty("schema")
+            .GetProperty("$ref")
+            .GetString()
+            .Should().EndWith("/AvailabilitySearchResponse");
+    }
+
+    [Fact(DisplayName = "FAN-CONTRACT-SWAGGER-CURRENT-003")]
+    [Trait("ScenarioId", "FAN-CONTRACT-SWAGGER-CURRENT-003")]
+    public async Task Catalog_business_search_and_top_query_parameters_have_exact_contract()
+    {
+        using var document = await GetSwaggerAsync();
+        var operation = OperationAt(
+            document.RootElement,
+            "/api/v1/catalog/businesses",
+            "get");
+
+        var search = AssertParameter(operation, "search", "query", required: false);
+        search.GetProperty("description").GetString().Should().Be(
+            "Optional business-name search. The value is trimmed and Unicode Form C normalized " +
+            "before case-insensitive matching against Arabic and Hebrew business names.");
+        var searchSchema = search.GetProperty("schema");
+        searchSchema.GetProperty("type").GetString().Should().Be("string");
+        searchSchema.GetProperty("nullable").GetBoolean().Should().BeTrue();
+        searchSchema.GetProperty("maxLength").GetInt32().Should().Be(100);
+
+        var top = AssertParameter(operation, "top", "query", required: false);
+        top.GetProperty("description").GetString().Should().Be(
+            "Optional ranked result limit. Values 5 and 10 rank by average rating, rating count, " +
+            "display order, Arabic name, and stable identifier before applying the limit.");
+        var topSchema = top.GetProperty("schema");
+        topSchema.GetProperty("type").GetString().Should().Be("integer");
+        topSchema.GetProperty("format").GetString().Should().Be("int32");
+        topSchema.GetProperty("nullable").GetBoolean().Should().BeTrue();
+        topSchema.GetProperty("enum").EnumerateArray()
+            .Select(value => value.GetInt32()).Should().Equal(5, 10);
     }
 
     [Fact(DisplayName = "STEP15-SWAGGER-PROBLEMS-136 STEP15-PROBLEM-TYPE-CODE-033 STEP15-SWAGGER-CACHE-CORRELATION-149")]
@@ -194,6 +322,26 @@ public sealed class Step15SwaggerCustomerContractTests :
         badgeSchema.GetProperty("type").GetString().Should().Be("string");
         badgeSchema.GetProperty("enum").EnumerateArray().Select(value => value.GetString())
             .Should().Equal("MostRequested");
+
+        var categoryProperties = Schema(root, "CatalogCategoryResponse").GetProperty("properties");
+        categoryProperties.GetProperty("imageUrl").GetProperty("nullable")
+            .GetBoolean().Should().BeTrue();
+        categoryProperties.GetProperty("imageUrl").GetProperty("type")
+            .GetString().Should().Be("string");
+        categoryProperties.GetProperty("imageUrl").GetProperty("maxLength")
+            .GetInt32().Should().Be(500);
+        categoryProperties.GetProperty("imageUrl").GetProperty("pattern")
+            .GetString().Should().Be("^https://[^\\s/@]+(?:/[^\\s]*)?$");
+        categoryProperties.GetProperty("imageUrl").GetProperty("description")
+            .GetString().Should().ContainAll("HTTPS", "no embedded credentials");
+        categoryProperties.GetProperty("colorHex").GetProperty("nullable")
+            .GetBoolean().Should().BeTrue();
+        categoryProperties.GetProperty("colorHex").GetProperty("type")
+            .GetString().Should().Be("string");
+        categoryProperties.GetProperty("colorHex").GetProperty("maxLength")
+            .GetInt32().Should().Be(7);
+        categoryProperties.GetProperty("colorHex").GetProperty("pattern")
+            .GetString().Should().Be("^#[0-9A-F]{6}$");
 
         var selections = Schemas(root).Where(schema =>
             schema.Name.Contains("Selection", StringComparison.OrdinalIgnoreCase) &&
@@ -282,10 +430,20 @@ public sealed class Step15SwaggerCustomerContractTests :
             ["200", "400", "401", "405", "409", "413", "415", "500", "503"]);
         AssertStatuses(root, "/api/lahza/webhook", "post",
             ["200", "400", "401", "405", "413", "415", "500", "503"]);
+        AssertStatuses(root, "/api/v1/catalog/categories", "get",
+            ["200", "400", "401", "403", "404", "405", "429", "500", "503"]);
+        AssertStatuses(root, "/api/v1/bookings/{bookingId}/review", "get",
+            ["200", "400", "401", "403", "404", "405", "429", "500"]);
+        AssertStatuses(root, "/api/v1/bookings/{bookingId}/review", "put",
+            ["200", "201", "400", "401", "403", "404", "405", "409", "413", "415", "429", "500"]);
+        AssertStatuses(root, "/api/v1/bookings/{bookingId}/review", "delete",
+            ["204", "400", "401", "403", "404", "405", "409", "429", "500"]);
+        AssertStatuses(root, "/api/v1/catalog/businesses/{businessId}/reviews", "get",
+            ["200", "400", "401", "403", "404", "405", "429", "500", "503"]);
 
         var catalogGet = OperationAt(root, "/api/v1/catalog/businesses", "get")
             .GetProperty("responses").EnumerateObject().Select(response => response.Name);
-        catalogGet.Should().NotContain(["403", "409", "410", "413", "415", "502"],
+        catalogGet.Should().NotContain(["409", "410", "413", "415", "502"],
             "STEP15-SWAGGER-STATUS-CUSTOMER-137 forbids blanket impossible GET errors");
 
         var healthGet = OperationAt(root, "/api/Health", "get")
@@ -406,6 +564,15 @@ public sealed class Step15SwaggerCustomerContractTests :
         "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",
+        "PUT /api/v1/catalog/businesses/{businessId}/favourite",
+        "DELETE /api/v1/catalog/businesses/{businessId}/favourite",
+        "GET /api/v1/catalog/businesses/{businessId}/reviews",
+        "GET /api/v1/banners",
+        "GET /api/v1/admin/banners",
+        "POST /api/v1/admin/banners",
+        "PUT /api/v1/admin/banners/{id}",
+        "DELETE /api/v1/admin/banners/{id}",
+        "POST /api/v1/catalog/businesses/availability-search",
         "POST /api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
         "GET /api/v1/catalog/offerings/{id}",
         "POST /api/v1/checkout/drafts",
@@ -414,6 +581,9 @@ public sealed class Step15SwaggerCustomerContractTests :
         "POST /api/v1/pricing/reprice",
         "POST /api/v1/checkout/reprice",
         "POST /api/v1/bookings/from-draft",
+        "GET /api/v1/bookings/{bookingId}/review",
+        "PUT /api/v1/bookings/{bookingId}/review",
+        "DELETE /api/v1/bookings/{bookingId}/review",
         "POST /api/v1/payments/intents",
         "GET /api/v1/payments/{id}",
         "POST /api/v1/payments/{id}/verify",
@@ -584,6 +754,23 @@ public sealed class Step15SwaggerCustomerContractTests :
                 .GetProperty("content").TryGetProperty("application/problem+json", out _)
                 .Should().BeTrue();
         }
+
+    }
+
+    private static void AssertOptionalDeviceSecurity(
+        JsonElement root,
+        string path,
+        string method)
+    {
+        var security = OperationAt(root, path, method).GetProperty("security");
+        security.GetArrayLength().Should().Be(4);
+        security[0].EnumerateObject().Should().BeEmpty();
+        security[1].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("DeviceToken");
+        security[2].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("CustomerBearer");
+        security[3].EnumerateObject().Select(value => value.Name)
+            .Should().Equal("CustomerBearer", "DeviceToken");
     }
 
     private static JsonElement ResponseExample(

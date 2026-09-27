@@ -34,6 +34,7 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
     private int _catalogSnapshotRequests;
     private int _validateAppointmentRequests;
     private int _availableSlotsRequests;
+    private int _availabilityDiscoveryRequests;
     private int _createReservationRequests;
     private readonly object _validationSync = new();
 
@@ -47,6 +48,9 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
     public Func<AvailableSlotsRequest, CancellationToken, Task<AvailableSlotsResponse>>
         GetAvailableSlotsHandler { get; set; } =
         (_, _) => throw new NotImplementedException();
+    public Func<AvailabilityDiscoveryRequest, CancellationToken, Task<AvailabilityDiscoveryResponse>>
+        DiscoverAvailabilityHandler { get; set; } =
+        (_, _) => throw new NotImplementedException();
 
     public Func<CreateReservationRequest, string, CancellationToken, Task<CreateReservationResponse>>
         CreateReservationHandler { get; set; } =
@@ -58,10 +62,12 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
     public int CatalogSnapshotRequests => _catalogSnapshotRequests;
     public int ValidateAppointmentRequests => _validateAppointmentRequests;
     public int AvailableSlotsRequests => _availableSlotsRequests;
+    public int AvailabilityDiscoveryRequests => _availabilityDiscoveryRequests;
     public int CreateReservationRequests => _createReservationRequests;
     public List<(ValidateAppointmentRequest Request, string IdempotencyKey)> ValidationRequests { get; } = [];
     public List<(CreateReservationRequest Request, string IdempotencyKey)> ReservationRequests { get; } = [];
     public List<AvailableSlotsRequest> AvailableSlotsRequestsLog { get; } = [];
+    public List<AvailabilityDiscoveryRequest> AvailabilityDiscoveryRequestsLog { get; } = [];
 
     public Task<CatalogSnapshotResponse> GetCatalogSnapshotAsync(
         Guid companyId,
@@ -110,6 +116,19 @@ internal sealed class ScriptedBusinessApiClient : IBusinessApiClient
         }
 
         return CreateReservationHandler(request, idempotencyKey, cancellationToken);
+    }
+
+    public Task<AvailabilityDiscoveryResponse> DiscoverAvailabilityAsync(
+        AvailabilityDiscoveryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        Interlocked.Increment(ref _availabilityDiscoveryRequests);
+        lock (_validationSync)
+        {
+            AvailabilityDiscoveryRequestsLog.Add(request);
+        }
+
+        return DiscoverAvailabilityHandler(request, cancellationToken);
     }
 
     public Task<AuthoritativeBookingStatusResponse?> GetReservationStatusAsync(
@@ -283,6 +302,8 @@ internal static class CatalogTestSupport
         string? addressHe = "הרחוב הראשי 1",
         string categoryNameAr = "غسيل خارجي",
         string? categoryNameHe = "שטיפה חיצונית",
+        string? categoryImageUrl = null,
+        string? categoryColorHex = null,
         string offeringNameAr = "غسيل سريع",
         string? offeringNameHe = "שטיפה מהירה",
         string? offeringQualifierAr = null,
@@ -356,6 +377,8 @@ internal static class CatalogTestSupport
                     NameHe = categoryNameHe,
                     DescriptionAr = "وصف الفئة",
                     DescriptionHe = "תיאור הקטגוריה",
+                    ImageUrl = categoryImageUrl,
+                    ColorHex = categoryColorHex,
                     DisplayOrder = 1,
                     Offerings =
                     [

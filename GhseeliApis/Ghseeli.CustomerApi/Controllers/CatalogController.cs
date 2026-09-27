@@ -5,12 +5,16 @@ using GhseeliApis.DTOs.Catalog;
 using GhseeliApis.Filters;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Services.Configuration;
+using GhseeliApis.Services.Devices;
+using GhseeliApis.DataPartitioning;
+using GhseeliApis.Middleware;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/v1/catalog")]
+[OptionalDeviceToken]
 public sealed class CatalogController : ControllerBase
 {
     private const long MaxAvailableSlotsRequestBodyBytes = 65_536;
@@ -21,7 +25,11 @@ public sealed class CatalogController : ControllerBase
     private readonly IValidator<GetCatalogResourceRequest> _resourceValidator;
     private readonly IValidator<GetAvailableSlotsRequest> _availableSlotsValidator;
     private readonly IAvailableSlotsQueryService _availableSlotsService;
+    private readonly IValidator<AvailabilitySearchRequest> _availabilitySearchValidator;
+    private readonly IAvailabilityDiscoveryQueryService _availabilityDiscoveryService;
     private readonly IAppLogger _logger;
+    private readonly IDeviceRegistrationService? _deviceService;
+    private readonly ICustomerDataPartitionContext? _dataPartition;
 
     public CatalogController(
         ICatalogReadModelService service,
@@ -31,7 +39,11 @@ public sealed class CatalogController : ControllerBase
         IValidator<GetCatalogResourceRequest> resourceValidator,
         IValidator<GetAvailableSlotsRequest> availableSlotsValidator,
         IAvailableSlotsQueryService availableSlotsService,
-        IAppLogger logger)
+        IValidator<AvailabilitySearchRequest> availabilitySearchValidator,
+        IAvailabilityDiscoveryQueryService availabilityDiscoveryService,
+        IAppLogger logger,
+        IDeviceRegistrationService? deviceService = null,
+        ICustomerDataPartitionContext? dataPartition = null)
     {
         _service = service;
         _categoriesValidator = categoriesValidator;
@@ -40,7 +52,61 @@ public sealed class CatalogController : ControllerBase
         _resourceValidator = resourceValidator;
         _availableSlotsValidator = availableSlotsValidator;
         _availableSlotsService = availableSlotsService;
+        _availabilitySearchValidator = availabilitySearchValidator;
+        _availabilityDiscoveryService = availabilityDiscoveryService;
         _logger = logger;
+        _deviceService = deviceService;
+        _dataPartition = dataPartition;
+    }
+
+    [HttpPost("businesses/availability-search")]
+    [EnforceJsonRequestContentType]
+    [RequestSizeLimit(MaxAvailableSlotsRequestBodyBytes)]
+    [EnforceRequestBodySizeLimit(MaxAvailableSlotsRequestBodyBytes)]
+    [ProducesResponseType<AvailabilitySearchResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> SearchAvailability(
+        [CustomizeValidator(Skip = true)]
+        [FromBody]
+        AvailabilitySearchRequest request,
+        [FromQuery] string? language,
+        [FromHeader(Name = "Accept-Language")] string? acceptLanguage,
+        CancellationToken cancellationToken)
+    {
+        ApplyNoStore();
+        request.Language = language;
+        var validation = await _availabilitySearchValidator.ValidateAsync(
+            request,
+            cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationProblemResult(validation, acceptLanguage);
+        }
+
+        try
+        {
+            return Ok(await _availabilityDiscoveryService.SearchAsync(
+                request,
+                acceptLanguage,
+                cancellationToken));
+        }
+        catch (CatalogReadModelException exception)
+        {
+            _logger.LogWarning(
+                $"Availability discovery rejected. Code={exception.Code}, Status={exception.StatusCode}.");
+            return CatalogProblemResult(
+                exception.StatusCode,
+                exception.Code,
+                request.Language,
+                acceptLanguage);
+        }
     }
 
     [HttpPost("businesses/{businessId:guid}/branches/{branchId:guid}/available-slots")]
@@ -139,17 +205,34 @@ public sealed class CatalogController : ControllerBase
         [FromQuery] string? language,
         [FromQuery] Guid? branchId,
         [FromQuery] Guid? categoryId,
+        [FromQuery] string? search,
+        [FromQuery] string? top,
         [FromQuery] bool refresh,
         [FromHeader(Name = "Accept-Language")] string? acceptLanguage,
         CancellationToken cancellationToken)
     {
         ApplyNoStore();
+        int? parsedTop = null;
+        if (top is not null && (!int.TryParse(top, out var topValue) || topValue is not (5 or 10)))
+        {
+            return CatalogProblemResult(
+                StatusCodes.Status400BadRequest,
+                CatalogProblemCodes.TopInvalid,
+                language,
+                acceptLanguage);
+        }
+        if (top is not null)
+        {
+            parsedTop = int.Parse(top);
+        }
 
         var request = new GetCatalogBusinessesRequest
         {
             Language = language,
             BranchId = branchId,
             CategoryId = categoryId,
+            Search = search,
+            Top = parsedTop,
             Refresh = refresh
         };
 
@@ -169,6 +252,24 @@ public sealed class CatalogController : ControllerBase
         }
     }
 
+    [NonAction]
+    public Task<IActionResult> GetBusinesses(
+        string? language,
+        Guid? branchId,
+        Guid? categoryId,
+        bool refresh,
+        string? acceptLanguage,
+        CancellationToken cancellationToken) =>
+        GetBusinesses(
+            language,
+            branchId,
+            categoryId,
+            search: null,
+            top: null,
+            refresh,
+            acceptLanguage,
+            cancellationToken);
+
     [HttpGet("businesses/{id:guid}")]
     [ProducesResponseType<CatalogBusinessDetailResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -183,7 +284,6 @@ public sealed class CatalogController : ControllerBase
         CancellationToken cancellationToken)
     {
         ApplyNoStore();
-
         var request = new GetCatalogResourceRequest
         {
             Language = language,
@@ -222,7 +322,6 @@ public sealed class CatalogController : ControllerBase
         CancellationToken cancellationToken)
     {
         ApplyNoStore();
-
         var request = new GetCatalogBusinessOfferingsRequest
         {
             Language = language,
@@ -339,6 +438,8 @@ public sealed class CatalogController : ControllerBase
     {
         return validation.Errors.Any(error => error.ErrorCode == ConfigurationProblemCodes.LanguageInvalid)
             ? ConfigurationProblemCodes.LanguageInvalid
+            : validation.Errors.Any(error => error.ErrorCode == CatalogProblemCodes.TopInvalid)
+                ? CatalogProblemCodes.TopInvalid
             : CatalogProblemCodes.FilterMismatch;
     }
 
@@ -377,4 +478,5 @@ public sealed class CatalogController : ControllerBase
     {
         Response.Headers.CacheControl = "no-store";
     }
+
 }

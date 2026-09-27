@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Ghseeli.IntegrationContracts.DataPartitioning;
 
 namespace GhseeliApis.DataPartitioning;
@@ -23,13 +24,13 @@ public sealed class CustomerDataPartitionMiddleware
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 context.Response.ContentType = "application/problem+json";
                 context.Response.Headers.CacheControl = "no-store";
-                await context.Response.WriteAsJsonAsync(new
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
                 {
                     title = "Data partition mismatch.",
                     status = StatusCodes.Status403Forbidden,
                     code = "data_partition_mismatch",
                     correlationId = context.TraceIdentifier
-                });
+                }));
                 return;
             }
             dataPartition.SetTrustedPartition(claim);

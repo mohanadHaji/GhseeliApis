@@ -471,6 +471,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                 .HasMaxLength(1000);
             entity.Property(category => category.DescriptionHe)
                 .HasMaxLength(1000);
+            entity.Property(category => category.ImageUrl)
+                .HasMaxLength(500);
+            entity.Property(category => category.ColorHex)
+                .HasMaxLength(7);
             entity.Property(category => category.RowVersion)
                 .IsRowVersion();
             entity.Property(category => category.CreatedAt)
@@ -736,7 +740,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
         {
             entity.ToTable("VehicleWorkOrderDetails");
             entity.HasKey(details => details.WorkOrderId);
-            entity.Property(details => details.VehicleType).HasMaxLength(50).IsRequired();
+            entity.Property(details => details.VehicleType)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(details => details.ImageUrl).HasMaxLength(500);
             entity.Property(details => details.LicensePlate).HasMaxLength(50);
             entity.Property(details => details.VehicleMake).HasMaxLength(150);
             entity.Property(details => details.VehicleModel).HasMaxLength(150);

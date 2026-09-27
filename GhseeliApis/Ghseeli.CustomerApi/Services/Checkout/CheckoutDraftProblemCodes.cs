@@ -26,4 +26,6 @@ internal static class CheckoutDraftFieldErrorCodes
     public const string DuplicateAddonChoice = "checkout_duplicate_addon_choice";
     public const string SelectionQuantityRange = "checkout_selection_quantity_range";
     public const string ExpectedVersionInvalid = "checkout_expected_version_invalid";
+    public const string VehicleTypeInvalid = "vehicle_type_invalid";
+    public const string VehicleImageUrlInvalid = "vehicle_image_url_invalid";
 }

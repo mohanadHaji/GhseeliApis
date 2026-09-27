@@ -64,7 +64,7 @@ Controllers -> Handlers/Services -> Repositories -> EF Core -> owned database
 
 | Flow | Description |
 |---|---|
-| Anonymous discovery | Register a device, read configuration, browse catalog, search slots, and create a checkout draft |
+| Anonymous discovery | Read configuration, browse catalog/public reviews/banners, search detailed slots, and request direct pricing in Production without registering a device |
 | Customer authentication | Register or log in with password, email OTP, or refresh token |
 | Booking | Reprice a draft, authenticate the customer, and reserve the appointment through the Business API |
 | Business operations | Staff manage the catalog and move work orders through their status lifecycle |
@@ -76,7 +76,7 @@ Controllers -> Handlers/Services -> Repositories -> EF Core -> owned database
 | Credential | Caller | Usage |
 |---|---|---|
 | `CustomerBearer` | Logged-in customer frontend | Customer account operations, booking, and payment |
-| `X-Device-Token` | Customer frontend installation | Anonymous and authenticated `/api/v1` Customer operations |
+| `X-Device-Token` | Customer frontend installation | Required device-owned operations and optional partition selection on public discovery |
 | `BusinessBearer` | Business owner/staff frontend | Business management operations |
 | `X-Service-Id`, `X-Timestamp`, `X-Nonce`, `X-Signature` | Customer and Business APIs | Internal HMAC-authenticated requests |
 | `X-Lahza-Signature` | Lahza | Exact-body webhook authentication |
@@ -84,12 +84,19 @@ Controllers -> Handlers/Services -> Repositories -> EF Core -> owned database
 Frontend applications use only the applicable bearer token and device token.
 HMAC and Lahza secrets must never be provided to frontend code.
 
-Typical Customer flow:
+Typical device-owned Customer flow:
 
 ```text
 Before login: X-Device-Token
 After login:  X-Device-Token + Authorization: Bearer <customer-jwt>
 ```
+
+Public discovery routes allow a missing `X-Device-Token` and select trusted
+Production by default. Supplying a token is strict: malformed, unknown,
+expired, inactive, rotated, or duplicate tokens return `401` and never fall
+back to anonymous Production. A valid Customer JWT without a device selects
+the account partition; when both credentials are supplied their partitions
+must match.
 
 ## Production and Demo isolation
 
@@ -144,7 +151,7 @@ Primary DbContext:
 | Catalog cache | `CatalogProviders`, `CatalogBranches`, `CatalogCategories`, `CatalogOfferings`, `CatalogAddonGroups`, `CatalogAddonChoices` |
 | Checkout | `CheckoutDrafts`, `CheckoutDraftItems`, `CheckoutDraftSelections` |
 | Pricing snapshots | `CheckoutDraftPricingSnapshots`, `CheckoutDraftPricingItemSnapshots`, `CheckoutDraftPricingSelectionSnapshots` |
-| Booking | `CustomerBookings`, `CustomerBookingItems`, `CustomerBookingSelections`, `BookingConfirmationAttempts`, `ProcessedBookingStatusMessages` |
+| Booking and discovery preferences | `CustomerBookings`, `CustomerBookingItems`, `CustomerBookingSelections`, `BookingConfirmationAttempts`, `ProcessedBookingStatusMessages`, `BusinessReviews`, `BusinessFavourites`, `Banners` |
 | Payment | `CustomerPayments`, `CustomerPaymentIdempotencyRecords`, `PaymentWebhookEvents` |
 | Internal security | `CustomerInternalServiceNonces`, `CustomerInternalIdempotencyRecords` |
 
@@ -175,6 +182,9 @@ erDiagram
     CustomerBookings ||--o{ CustomerBookingItems : contains
     CustomerBookingItems ||--o{ CustomerBookingSelections : contains
     CustomerBookings ||--o| CustomerPayments : paid_by
+    CustomerBookings ||--o| BusinessReviews : reviewed_by
+    AspNetUsers ||--o{ BusinessReviews : writes
+    AspNetUsers ||--o{ BusinessFavourites : saves
     CustomerPayments ||--o{ CustomerPaymentIdempotencyRecords : protected_by
     CustomerPayments ||--o{ PaymentWebhookEvents : updated_by
 ```
@@ -308,10 +318,10 @@ Current verified baseline:
 
 | Test project | Passed |
 |---|---:|
-| Customer | 1,311 |
-| Business | 586 |
-| Demo data | 23 |
-| **Total** | **1,920** |
+| Customer | 1,583 |
+| Business | 651 |
+| Demo data | 25 |
+| **Total** | **2,259** |
 
 Run locally:
 

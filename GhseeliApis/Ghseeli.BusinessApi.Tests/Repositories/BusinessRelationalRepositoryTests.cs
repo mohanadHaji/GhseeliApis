@@ -40,7 +40,8 @@ public class BusinessRelationalRepositoryTests
                     PublicId = Guid.NewGuid(),
                     Status = "Pending",
                     CustomerName = "Customer",
-                    VehicleType = "SUV",
+                    VehicleType = "Suv5Seater",
+                    VehicleImageUrl = "https://cdn.example.test/vehicles/suv.png",
                     LicensePlate = "12-345-67",
                     VehicleMake = "Toyota",
                     VehicleModel = "RAV4",
@@ -55,7 +56,9 @@ public class BusinessRelationalRepositoryTests
         {
             var workOrder = await verificationContext.WorkOrders
                 .SingleAsync(value => value.Id == workOrderId);
-            workOrder.VehicleType.Should().Be("SUV");
+            workOrder.VehicleType.Should().Be("Suv5Seater");
+            workOrder.VehicleImageUrl.Should()
+                .Be("https://cdn.example.test/vehicles/suv.png");
             workOrder.LicensePlate.Should().Be("12-345-67");
             workOrder.VehicleMake.Should().Be("Toyota");
             workOrder.VehicleModel.Should().Be("RAV4");

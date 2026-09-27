@@ -1,8 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using FluentAssertions;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.DTOs.Checkout;
 using GhseeliApis.Persistence;
 using GhseeliApis.Services.Business;
@@ -19,7 +22,123 @@ namespace GhseeliApis.Tests.Integration;
 public sealed class Step17DeterministicPricingHttpTests
 {
     [Fact]
+    public async Task DirectReprice_AllVehicleTypesHaveIdenticalEligibilityAndPrice()
+    {
+        var snapshot = CreateSnapshot(version: 14, basePrice: 120m);
+        var token = CatalogTestSupport.CreateToken(180);
+        var device = CatalogTestSupport.CreateDevice(
+            token,
+            Step17CustomerHttpTestSupport.FixedNow.AddDays(1));
+        await using var factory = Step17CustomerHttpTestSupport.CreateFactory([device], snapshot);
+        using var client = factory.CreateApiClient();
+        await MakeCatalogFreshAsync(factory);
+        var totals = new List<decimal>();
+
+        foreach (var vehicleType in Enum.GetValues<VehicleType>())
+        {
+            var body = CheckoutDraftTestSupport.CreateValidCreateRequest(
+                snapshot,
+                Step17CustomerHttpTestSupport.FixedNow.AddHours(2));
+            body.Vehicle.VehicleType = vehicleType;
+            using var request = Step17CustomerHttpTestSupport.Request(
+                HttpMethod.Post,
+                "/api/v1/pricing/reprice?language=ar",
+                token,
+                JsonContent.Create(body),
+                correlationId: $"corr-vehicle-{vehicleType}");
+            using var response = await client.SendAsync(request);
+            var quote = await response.Content.ReadFromJsonAsync<DirectCheckoutPricingResponse>();
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            quote.Should().NotBeNull();
+            quote!.Intent.Vehicle.VehicleType.Should().Be(vehicleType);
+            quote.Intent.Vehicle.ImageUrl.Should()
+                .Be("https://cdn.example.test/vehicles/sedan.png");
+            totals.Add(quote.Pricing.GrandTotal);
+        }
+
+        totals.Should().OnlyContain(value => value == totals[0]);
+    }
+
+    [Fact]
+    public async Task DirectReprice_UnknownVehiclePropertiesAreHarmless()
+    {
+        var snapshot = CreateSnapshot(version: 14, basePrice: 120m);
+        var token = CatalogTestSupport.CreateToken(179);
+        var device = CatalogTestSupport.CreateDevice(
+            token,
+            Step17CustomerHttpTestSupport.FixedNow.AddDays(1));
+        await using var factory = Step17CustomerHttpTestSupport.CreateFactory([device], snapshot);
+        using var client = factory.CreateApiClient();
+        await MakeCatalogFreshAsync(factory);
+        var body = JsonSerializer.SerializeToNode(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                snapshot,
+                Step17CustomerHttpTestSupport.FixedNow.AddHours(2)),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        body["vehicle"]!["quotedVehiclePrice"] = 0.01m;
+        body["vehicle"]!["eligible"] = false;
+        using var request = Step17CustomerHttpTestSupport.Request(
+            HttpMethod.Post,
+            "/api/v1/pricing/reprice?language=ar",
+            token,
+            new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+            correlationId: "corr-vehicle-unknown-properties");
+
+        using var response = await client.SendAsync(request);
+        var quote = await response.Content.ReadFromJsonAsync<DirectCheckoutPricingResponse>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        quote!.Pricing.GrandTotal.Should().Be(120m);
+    }
+
+    [Theory]
+    [InlineData("0", null)]
+    [InlineData("\"Car\"", null)]
+    [InlineData("\"sedan\"", null)]
+    [InlineData("\"Sedan\"", "http://cdn.example.test/vehicle.png")]
+    [InlineData("\"Sedan\"", "/images/vehicle.png")]
+    [InlineData("\"Sedan\"", "https://user:password@cdn.example.test/vehicle.png")]
+    [InlineData("\"Sedan\"", "not-a-url")]
+    public async Task DirectReprice_RejectsInvalidVehicleEnumOrImage(
+        string vehicleTypeJson,
+        string? imageUrl)
+    {
+        var snapshot = CreateSnapshot(version: 14, basePrice: 120m);
+        var token = CatalogTestSupport.CreateToken(178);
+        var device = CatalogTestSupport.CreateDevice(
+            token,
+            Step17CustomerHttpTestSupport.FixedNow.AddDays(1));
+        await using var factory = Step17CustomerHttpTestSupport.CreateFactory([device], snapshot);
+        using var client = factory.CreateApiClient();
+        await MakeCatalogFreshAsync(factory);
+        var body = JsonSerializer.SerializeToNode(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                snapshot,
+                Step17CustomerHttpTestSupport.FixedNow.AddHours(2)),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        body["vehicle"]!["vehicleType"] = JsonNode.Parse(vehicleTypeJson);
+        if (imageUrl is not null)
+        {
+            body["vehicle"]!["imageUrl"] = imageUrl;
+        }
+        var before = await ReadCustomerWriteStateAsync(factory);
+
+        using var request = Step17CustomerHttpTestSupport.Request(
+            HttpMethod.Post,
+            "/api/v1/pricing/reprice?language=ar",
+            token,
+            new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+            correlationId: "corr-vehicle-invalid");
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await ReadCustomerWriteStateAsync(factory)).Should().Be(before);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "STEP17-DET-PRICE-015")]
+    [Trait("ScenarioId", "FAN-VEHICLE-PRICING-010")]
     public async Task STEP17_DET_PRICE_015_DirectRepriceUsesUpdatedBusinessPrice()
     {
         var snapshot = CreateSnapshot(version: 15, basePrice: 100m);
@@ -49,6 +168,10 @@ public sealed class Step17DeterministicPricingHttpTests
         quote.Pricing.Items.Should().ContainSingle();
         quote.Pricing.Items.Single().BaseSubtotal.Should().Be(120m);
         quote.Pricing.Items.Single().ItemSubtotal.Should().Be(120m);
+        quote.Intent.Vehicle.VehicleType.Should()
+            .Be(Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan);
+        quote.Intent.Vehicle.ImageUrl.Should()
+            .Be("https://cdn.example.test/vehicles/sedan.png");
         factory.BusinessApiClient.ValidateAppointmentRequests.Should().Be(1);
         factory.BusinessApiClient.CatalogSnapshotRequests.Should().Be(0);
         (await ReadCustomerWriteStateAsync(factory)).Should().Be(before);
@@ -116,6 +239,7 @@ public sealed class Step17DeterministicPricingHttpTests
 
     [Fact]
     [Trait("ScenarioId", "STEP17-DET-PRICE-017")]
+    [Trait("ScenarioId", "FAN-OPTIONAL-UPSTREAM-041")]
     public async Task STEP17_DET_PRICE_017_DirectRepriceUnavailableIsStable()
     {
         var snapshot = CreateSnapshot(version: 17, basePrice: 100m);
@@ -129,7 +253,7 @@ public sealed class Step17DeterministicPricingHttpTests
                 new BusinessApiUnavailableException("unavailable", "corr-business-price-017"));
 
         var before = await ReadCustomerWriteStateAsync(factory);
-        using var request = DirectRepriceRequest(snapshot, token, "corr-step17-det-price-017");
+        using var request = DirectRepriceRequest(snapshot, null, "corr-step17-det-price-017");
         using var response = await client.SendAsync(request);
 
         using var problem = await Step17CustomerHttpTestSupport.AssertProblemAsync(
@@ -198,7 +322,7 @@ public sealed class Step17DeterministicPricingHttpTests
 
     private static HttpRequestMessage DirectRepriceRequest(
         CatalogSnapshotResponse snapshot,
-        string token,
+        string? token,
         string correlationId) =>
         Step17CustomerHttpTestSupport.Request(
             HttpMethod.Post,

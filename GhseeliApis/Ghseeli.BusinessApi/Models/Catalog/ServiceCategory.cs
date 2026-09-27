@@ -9,6 +9,8 @@ public class ServiceCategory
     public string? NameHe { get; set; }
     public string? DescriptionAr { get; set; }
     public string? DescriptionHe { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsActive { get; set; } = true;
     public byte[] RowVersion { get; set; } = Array.Empty<byte>();

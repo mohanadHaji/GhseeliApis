@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.InternalHttp;
+using Ghseeli.IntegrationContracts.Vehicles;
 using System.Text.Json;
 
 namespace Ghseeli.BusinessApi.Tests.Contracts;
@@ -10,6 +11,57 @@ namespace Ghseeli.BusinessApi.Tests.Contracts;
 /// </summary>
 public class BusinessCatalogContractSerializationTests
 {
+    [Theory]
+    [InlineData(VehicleType.Sedan, "Sedan")]
+    [InlineData(VehicleType.Motorcycle, "Motorcycle")]
+    [InlineData(VehicleType.Suv5Seater, "Suv5Seater")]
+    [InlineData(VehicleType.Suv7Seater, "Suv7Seater")]
+    [InlineData(VehicleType.Van7Seater, "Van7Seater")]
+    public void VehicleType_SerializesAsStableCaseSensitiveString(
+        VehicleType vehicleType,
+        string expected)
+    {
+        var payload = JsonSerializer.Serialize(vehicleType, JsonOptions);
+
+        payload.Should().Be($"\"{expected}\"");
+        JsonSerializer.Deserialize<VehicleType>(payload, JsonOptions).Should().Be(vehicleType);
+    }
+
+    [Theory]
+    [InlineData("0")]
+    [InlineData("\"Car\"")]
+    [InlineData("\"sedan\"")]
+    [InlineData("\"SUV\"")]
+    public void VehicleType_RejectsNumericLegacyAndIncorrectCaseValues(string payload)
+    {
+        var action = () => JsonSerializer.Deserialize<VehicleType>(payload, JsonOptions);
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Theory]
+    [InlineData("""{"vehicleType":"Sedan"}""", JsonValueKind.Null)]
+    [InlineData(
+        """{"vehicleType":"Sedan","imageUrl":"https://cdn.example.test/vehicles/sedan.png"}""",
+        JsonValueKind.String)]
+    public void ReservationVehicleSnapshot_RoundTripsNullableImageAndIgnoresUnknownProperties(
+        string payload,
+        JsonValueKind expectedImageKind)
+    {
+        var extendedPayload = payload.TrimEnd('}') + ""","quotedVehiclePrice":0.01,"eligible":false}""";
+
+        var snapshot = JsonSerializer.Deserialize<ReservationVehicleSnapshot>(
+            extendedPayload,
+            JsonOptions);
+        using var document = JsonDocument.Parse(JsonSerializer.Serialize(snapshot, JsonOptions));
+
+        snapshot.Should().NotBeNull();
+        snapshot!.VehicleType.Should().Be(VehicleType.Sedan);
+        document.RootElement.GetProperty("imageUrl").ValueKind.Should().Be(expectedImageKind);
+        document.RootElement.TryGetProperty("quotedVehiclePrice", out _).Should().BeFalse();
+        document.RootElement.TryGetProperty("eligible", out _).Should().BeFalse();
+    }
+
     [Fact]
     public void ReservationContracts_RoundTripCrossSystemReferencesAndMoney()
     {
@@ -25,7 +77,11 @@ public class BusinessCatalogContractSerializationTests
             ExpectedItemSubtotal = 123.45m,
             ExpectedTotalDurationMinutes = 60,
             Customer = new ReservationCustomerSnapshot { Name = "Customer" },
-            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Vehicle = new ReservationVehicleSnapshot
+            {
+                VehicleType = VehicleType.Sedan,
+                ImageUrl = "https://cdn.example.test/vehicles/sedan.png"
+            },
             Location = new ReservationLocationSnapshot { AddressLine = "Street 1" },
             CancellationPolicyAcknowledged = true,
             Items =
@@ -48,6 +104,8 @@ public class BusinessCatalogContractSerializationTests
         roundTrip!.BookingReference.Should().Be(request.BookingReference);
         roundTrip.OrderGuid.Should().Be(request.OrderGuid);
         roundTrip.ExpectedItemSubtotal.Should().Be(123.45m);
+        roundTrip.Vehicle.VehicleType.Should().Be(VehicleType.Sedan);
+        roundTrip.Vehicle.ImageUrl.Should().Be("https://cdn.example.test/vehicles/sedan.png");
         roundTrip.Items.Should().ContainSingle();
         roundTrip.Items.Single().OfferingId.Should().Be(request.Items.Single().OfferingId);
     }
@@ -218,6 +276,109 @@ public class BusinessCatalogContractSerializationTests
             """{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","basePrice":10,"durationMinutes":30,"badgeCode":"Popular"}""";
 
         var action = () => JsonSerializer.Deserialize<CatalogSnapshotOffering>(payload, JsonOptions);
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Fact]
+    public void AvailabilityDiscoveryContracts_UseExactCamelCaseAndIgnoreUnknownFields()
+    {
+        var companyId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var branchId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var request = new AvailabilityDiscoveryRequest
+        {
+            Date = new DateOnly(2026, 9, 28),
+            PreferredLocalTime = new TimeOnly(10, 30),
+            Candidates =
+            [
+                new AvailabilityDiscoveryCompanyCandidate
+                {
+                    CompanyId = companyId,
+                    BranchIds = [branchId]
+                }
+            ]
+        };
+
+        var json = JsonSerializer.Serialize(request, JsonOptions);
+        using var document = JsonDocument.Parse(json);
+        var withUnknown = json.TrimEnd('}') + ""","unknownField":"ignored"}""";
+        var roundTrip = JsonSerializer.Deserialize<AvailabilityDiscoveryRequest>(
+            withUnknown,
+            JsonOptions);
+
+        document.RootElement.EnumerateObject().Select(property => property.Name)
+            .Should().Equal(
+                "contractVersion",
+                "date",
+                "preferredLocalTime",
+                "customerLocation",
+                "candidates");
+        document.RootElement.GetProperty("candidates")[0]
+            .EnumerateObject().Select(property => property.Name)
+            .Should().Equal("companyId", "branchIds");
+        roundTrip!.Candidates.Single().CompanyId.Should().Be(companyId);
+        JsonSerializer.Serialize(roundTrip, JsonOptions)
+            .Should().NotContain("unknownField");
+    }
+
+    [Fact]
+    public void AvailabilityEnums_RejectNumericValues()
+    {
+        const string payload =
+            """{"dayOfWeek":1,"startLocalTime":"09:00:00","endLocalTime":"10:00:00","slotDurationMinutes":30,"capacity":1}""";
+        var action = () => JsonSerializer.Deserialize<CatalogSnapshotRecurringSchedule>(
+            payload,
+            JsonOptions);
+
+        action.Should().Throw<JsonException>();
+    }
+
+    [Fact]
+    public void CatalogSnapshotCategory_RoundTripsPresentationMetadata()
+    {
+        var category = new CatalogSnapshotCategory
+        {
+            Id = Guid.NewGuid(),
+            NameAr = "غسيل",
+            ImageUrl = "https://cdn.example.test/categories/exterior.png",
+            ColorHex = "#1A73E8"
+        };
+
+        var payload = JsonSerializer.Serialize(category, JsonOptions);
+        var roundTripped = JsonSerializer.Deserialize<CatalogSnapshotCategory>(payload, JsonOptions);
+
+        roundTripped!.ImageUrl.Should().Be(category.ImageUrl);
+        roundTripped.ColorHex.Should().Be(category.ColorHex);
+    }
+
+    [Fact]
+    public void CatalogSnapshotCategory_RoundTripsExplicitNullPresentationMetadata()
+    {
+        var category = new CatalogSnapshotCategory
+        {
+            Id = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+            NameAr = "غسيل",
+            ImageUrl = null,
+            ColorHex = null
+        };
+
+        var payload = JsonSerializer.Serialize(category, JsonOptions);
+        using var document = JsonDocument.Parse(payload);
+        var roundTripped = JsonSerializer.Deserialize<CatalogSnapshotCategory>(payload, JsonOptions);
+
+        document.RootElement.GetProperty("imageUrl").ValueKind.Should().Be(JsonValueKind.Null);
+        document.RootElement.GetProperty("colorHex").ValueKind.Should().Be(JsonValueKind.Null);
+        roundTripped!.ImageUrl.Should().BeNull();
+        roundTripped.ColorHex.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("""{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","imageUrl":42}""")]
+    [InlineData("""{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","colorHex":false}""")]
+    [InlineData("""{"id":"11111111-1111-1111-1111-111111111111","nameAr":"غسيل","imageUrl":{"url":"https://example.test/a.png"}}""")]
+    public void CatalogSnapshotCategory_RejectsInvalidPresentationWireTypes(string payload)
+    {
+        var action = () => JsonSerializer.Deserialize<CatalogSnapshotCategory>(payload, JsonOptions);
 
         action.Should().Throw<JsonException>();
     }

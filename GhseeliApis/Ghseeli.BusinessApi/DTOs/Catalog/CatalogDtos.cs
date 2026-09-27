@@ -34,6 +34,16 @@ public class CreateServiceCategoryRequest
     public string? DescriptionHe { get; set; }
 
     /// <summary>
+    /// Optional absolute HTTPS image URL for category presentation.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Optional category color normalized to uppercase #RRGGBB.
+    /// </summary>
+    public string? ColorHex { get; set; }
+
+    /// <summary>
     /// Non-negative ordering value used when categories are listed.
     /// </summary>
     public int DisplayOrder { get; set; }
@@ -70,6 +80,16 @@ public class UpdateServiceCategoryRequest
     public string? DescriptionHe { get; set; }
 
     /// <summary>
+    /// Optional absolute HTTPS image URL for category presentation.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Optional category color normalized to uppercase #RRGGBB.
+    /// </summary>
+    public string? ColorHex { get; set; }
+
+    /// <summary>
     /// Non-negative ordering value used when categories are listed.
     /// </summary>
     public int DisplayOrder { get; set; }
@@ -104,6 +124,16 @@ public class ServiceCategoryListResponse
     /// Hebrew category name.
     /// </summary>
     public string? NameHe { get; set; }
+
+    /// <summary>
+    /// Optional absolute HTTPS image URL for category presentation.
+    /// </summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>
+    /// Optional category color normalized to uppercase #RRGGBB.
+    /// </summary>
+    public string? ColorHex { get; set; }
 
     /// <summary>
     /// Non-negative ordering value used when categories are listed.

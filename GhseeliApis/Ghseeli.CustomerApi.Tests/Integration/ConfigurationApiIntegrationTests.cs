@@ -3,14 +3,21 @@ using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using GhseeliApis.Services.Configuration;
 using GhseeliApis.Services.Devices;
+using Ghseeli.IntegrationContracts.DataPartitioning;
+using GhseeliApis.DataPartitioning;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.IdentityModel.Tokens;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 
 namespace GhseeliApis.Tests.Integration;
@@ -27,9 +34,13 @@ public class ConfigurationApiIntegrationTests
         "השימוש באפליקציה כפוף לתנאים ולמדיניות הפרטיות הנוכחיים.";
     private const string InvalidCorrelationId =
         "corr-step8-overlong-correlation-id-that-must-be-replaced-before-roundtrip-20260821190846";
+    internal const string JwtSecret = "CustomerConfigurationTestsSecret_Minimum32Chars";
+    internal const string JwtIssuer = "GhseeliApis.ConfigurationTests";
+    internal const string JwtAudience = "GhseeliApis.ConfigurationClients";
 
     [Fact]
-    public async Task GetConfiguration_WithoutDeviceToken_UsesValidQueryOverrideForHebrewProblem()
+    [Trait("ScenarioId", "FAN-OPTIONAL-CONFIG-001")]
+    public async Task GetConfiguration_WithoutDeviceToken_ReturnsAnonymousProductionConfiguration()
     {
         using var factory = CreateFactory(seedActiveConfiguration: true);
         using var client = factory.CreateApiClient();
@@ -41,18 +52,93 @@ public class ConfigurationApiIntegrationTests
         using var response = await client.SendAsync(request);
         using var document = await ReadJsonAsync(response);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-        response.Content.Headers.ContentType!.MediaType.Should().Be("application/problem+json");
-        AssertProblem(
-            document.RootElement,
-            HttpStatusCode.Unauthorized,
-            DeviceProblemCodes.TokenMissing,
-            ConfigurationLanguageResolver.Hebrew);
-        document.RootElement.GetProperty("title").GetString().Should().Be("אימות המכשיר נכשל.");
-        document.RootElement.GetProperty("detail").GetString().Should().Be("נדרש אסימון מכשיר.");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("language").GetString().Should().Be("he");
+        document.RootElement.GetProperty("legal").GetProperty("notice").GetString()
+            .Should().Be(HebrewLegalNotice);
     }
 
     [Fact]
+    public async Task GetConfiguration_WithProductionJwtOnly_ReturnsProductionConfiguration()
+    {
+        using var factory = CreateFactory(seedActiveConfiguration: true);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(HttpMethod.Get, "/api/v1/configuration");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(DataPartitionNames.Production));
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("legal").GetProperty("notice").GetString()
+            .Should().Be(ArabicLegalNotice);
+    }
+
+    [Fact]
+    public async Task GetConfiguration_WithMatchingProductionJwtAndDevice_ReturnsProduction()
+    {
+        var token = Token(30);
+        using var factory = CreateFactory(
+            seedActiveConfiguration: true,
+            devices: [CreateDevice(token, DateTimeOffset.UtcNow.AddDays(30))]);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/configuration",
+            token);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(DataPartitionNames.Production));
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetConfiguration_WithValidDevice_UpdatesLastSeenForTrustedPartition(
+        bool isDemo)
+    {
+        var token = Token(isDemo ? (byte)32 : (byte)31);
+        var previousLastSeen = DateTimeOffset.UtcNow.AddDays(-3);
+        var device = CreateDevice(token, DateTimeOffset.UtcNow.AddDays(30));
+        device.IsDemo = isDemo;
+        device.LastSeenAt = previousLastSeen;
+        using var factory = CreateFactory(
+            seedActiveConfiguration: true,
+            devices: [device],
+            useDemoData: isDemo);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/configuration",
+            token);
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(isDemo
+                ? DataPartitionNames.Demo
+                : DataPartitionNames.Production));
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ICustomerDataPartitionContext>()
+            .SetTrustedPartition(isDemo
+                ? DataPartitionNames.Demo
+                : DataPartitionNames.Production);
+        var stored = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+            .CustomerDevices.AsNoTracking().SingleAsync();
+        stored.LastSeenAt.Should().NotBeNull();
+        stored.LastSeenAt.Should().BeAfter(previousLastSeen);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-006")]
     public async Task GetConfiguration_WithMalformedDeviceToken_AndMalformedLanguageHeader_FallsBackToArabicProblem()
     {
         using var factory = CreateFactory(seedActiveConfiguration: true);
@@ -77,6 +163,7 @@ public class ConfigurationApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-024")]
     public async Task GetConfiguration_WithUnknownDeviceToken_ReturnsLocalizedHebrewProblem()
     {
         using var factory = CreateFactory(seedActiveConfiguration: true);
@@ -100,6 +187,7 @@ public class ConfigurationApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-025")]
     public async Task GetConfiguration_WithExpiredDeviceToken_ReturnsLocalizedExpiredProblem()
     {
         var expiredToken = Token(2);
@@ -122,6 +210,92 @@ public class ConfigurationApiIntegrationTests
             DeviceProblemCodes.TokenExpired,
             ConfigurationLanguageResolver.Arabic);
         document.RootElement.GetProperty("detail").GetString().Should().Be("انتهت صلاحية رمز الجهاز.");
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-DEMO-005")]
+    public async Task GetConfiguration_WithDemoDevice_ReturnsDemoConfiguration()
+    {
+        const string demoDisplayName = "DEMO-CONFIGURATION-NAME";
+        var token = Token(24);
+        var device = CreateDevice(token, DateTimeOffset.UtcNow.AddDays(30));
+        device.IsDemo = true;
+        using var factory = new CustomerConfigurationApiFactory(context =>
+        {
+            var demoConfiguration = CreateConfiguration();
+            demoConfiguration.DisplayNameAr = demoDisplayName;
+            demoConfiguration.SupportEmail = "demo-config@example.test";
+            context.CustomerConfigurations.Add(demoConfiguration);
+            context.CustomerDevices.Add(device);
+        }, useDemoData: true);
+        using var client = factory.CreateApiClient();
+
+        using var response = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/configuration",
+            token));
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("display").GetProperty("name").GetString()
+            .Should().Be(demoDisplayName);
+        document.RootElement.GetProperty("support").GetProperty("email").GetString()
+            .Should().Be("demo-config@example.test");
+        document.RootElement.GetRawText().Should().NotContain(ArabicDisplayName);
+        document.RootElement.GetRawText().Should().NotContain("step8-config@example.test");
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-026")]
+    public Task GetConfiguration_WithInactiveDeviceToken_ReturnsExactInactiveCode() =>
+        AssertInactiveOrRotatedDeviceRejectedAsync("inactive", DeviceProblemCodes.TokenInactive);
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-027")]
+    public Task GetConfiguration_WithRotatedDeviceToken_ReturnsExactInvalidCode() =>
+        AssertInactiveOrRotatedDeviceRejectedAsync("rotated", DeviceProblemCodes.TokenInvalid);
+
+    private static async Task AssertInactiveOrRotatedDeviceRejectedAsync(
+        string state,
+        string expectedCode)
+    {
+        var suppliedToken = Token(20);
+        var device = CreateDevice(
+            state == "rotated" ? Token(21) : suppliedToken,
+            DateTimeOffset.UtcNow.AddDays(30));
+        device.IsActive = state != "inactive";
+        using var factory = CreateFactory(
+            seedActiveConfiguration: true,
+            devices: [device]);
+        using var client = factory.CreateApiClient();
+
+        using var response = await client.SendAsync(CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/configuration",
+            suppliedToken));
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        document.RootElement.GetProperty("code").GetString().Should().Be(expectedCode);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-DUPLICATE-007")]
+    public async Task GetConfiguration_WithDuplicateDeviceHeaders_RejectsWithoutFallback()
+    {
+        using var factory = CreateFactory(seedActiveConfiguration: true);
+        using var client = factory.CreateApiClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/configuration");
+        request.Headers.TryAddWithoutValidation(
+            DeviceTokenDefaults.HeaderName,
+            new[] { Token(22), Token(23) });
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(DeviceProblemCodes.TokenInvalid);
     }
 
     [Fact]
@@ -362,7 +536,8 @@ public class ConfigurationApiIntegrationTests
 
     private static CustomerConfigurationApiFactory CreateFactory(
         bool seedActiveConfiguration,
-        IEnumerable<CustomerDevice>? devices = null) =>
+        IEnumerable<CustomerDevice>? devices = null,
+        bool useDemoData = false) =>
         new(context =>
         {
             if (seedActiveConfiguration)
@@ -374,7 +549,7 @@ public class ConfigurationApiIntegrationTests
             {
                 context.CustomerDevices.AddRange(devices);
             }
-        });
+        }, useDemoData);
 
     private static CustomerConfiguration CreateConfiguration() =>
         new()
@@ -453,16 +628,37 @@ public class ConfigurationApiIntegrationTests
 
     private static string Token(byte value) =>
         WebEncoders.Base64UrlEncode(Enumerable.Repeat(value, 32).ToArray());
+
+    private static string CreateJwt(string partition)
+    {
+        var credentials = new SigningCredentials(
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSecret)),
+            SecurityAlgorithms.HmacSha256);
+        return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(
+            JwtIssuer,
+            JwtAudience,
+            [
+                new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+                new Claim(ClaimTypes.Role, "User"),
+                new Claim(DataPartitionNames.ClaimType, partition)
+            ],
+            expires: DateTime.UtcNow.AddMinutes(10),
+            signingCredentials: credentials));
+    }
 }
 
 public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _databaseName = $"CustomerConfigurationApiTests-{Guid.NewGuid()}";
     private readonly Action<ApplicationDbContext>? _seed;
+    private readonly bool _useDemoData;
 
-    public CustomerConfigurationApiFactory(Action<ApplicationDbContext>? seed = null)
+    public CustomerConfigurationApiFactory(
+        Action<ApplicationDbContext>? seed = null,
+        bool useDemoData = false)
     {
         _seed = seed;
+        _useDemoData = useDemoData;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -471,9 +667,15 @@ public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Prog
         builder.UseSetting(
             "ConnectionStrings:CustomerConnection",
             "Server=(localdb)\\MSSQLLocalDB;Database=CustomerConfigurationApiTests;Trusted_Connection=True;TrustServerCertificate=True;");
-        builder.UseSetting("JwtSettings:SecretKey", "CustomerConfigurationTestsSecret_Minimum32Chars");
-        builder.UseSetting("JwtSettings:Issuer", "GhseeliApis.ConfigurationTests");
-        builder.UseSetting("JwtSettings:Audience", "GhseeliApis.ConfigurationClients");
+        builder.UseSetting(
+            "JwtSettings:SecretKey",
+            ConfigurationApiIntegrationTests.JwtSecret);
+        builder.UseSetting(
+            "JwtSettings:Issuer",
+            ConfigurationApiIntegrationTests.JwtIssuer);
+        builder.UseSetting(
+            "JwtSettings:Audience",
+            ConfigurationApiIntegrationTests.JwtAudience);
         builder.UseSetting("Swagger:Enabled", "true");
         builder.ConfigureServices(services =>
         {
@@ -483,6 +685,11 @@ public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Prog
                 options.UseInMemoryDatabase(_databaseName));
 
             using var scope = services.BuildServiceProvider().CreateScope();
+            if (_useDemoData)
+            {
+                scope.ServiceProvider.GetRequiredService<ICustomerDataPartitionContext>()
+                    .SetTrustedPartition(DataPartitionNames.Demo);
+            }
             var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             context.Database.EnsureDeleted();
             context.Database.EnsureCreated();

@@ -5,6 +5,7 @@ using GhseeliApis.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using Ghseeli.IntegrationContracts.Vehicles;
 
 namespace GhseeliApis.Controllers;
 
@@ -13,6 +14,8 @@ namespace GhseeliApis.Controllers;
 [Authorize]
 public class VehiclesController : ControllerBase
 {
+    private const string VehicleTypeInvalid = "vehicle_type_invalid";
+    private const string VehicleImageUrlInvalid = "vehicle_image_url_invalid";
     private readonly IVehicleHandler _vehicleHandler;
     private readonly IAppLogger _logger;
 
@@ -26,6 +29,9 @@ public class VehiclesController : ControllerBase
     /// Gets all vehicles for the current user
     /// </summary>
     [HttpGet("my-vehicles")]
+    [ProducesResponseType(typeof(IEnumerable<VehicleResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetMyVehicles()
     {
         try
@@ -43,7 +49,9 @@ public class VehiclesController : ControllerBase
                 Model = v.Model,
                 Year = v.Year,
                 LicensePlate = v.LicensePlate,
-                Color = v.Color
+                Color = v.Color,
+                VehicleType = v.VehicleType,
+                ImageUrl = v.ImageUrl
             });
 
             return Ok(response);
@@ -59,6 +67,10 @@ public class VehiclesController : ControllerBase
     /// Gets a specific vehicle by ID
     /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetById(Guid id)
     {
         try
@@ -72,6 +84,12 @@ public class VehiclesController : ControllerBase
                 return NotFound(new { Message = "Vehicle not found" });
             }
 
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            if (vehicle.UserId != userId)
+            {
+                return NotFound(new { Code = "vehicle_not_found", Message = "Vehicle not found" });
+            }
+
             var response = new VehicleResponse
             {
                 Id = vehicle.Id,
@@ -80,7 +98,9 @@ public class VehiclesController : ControllerBase
                 Model = vehicle.Model,
                 Year = vehicle.Year,
                 LicensePlate = vehicle.LicensePlate,
-                Color = vehicle.Color
+                Color = vehicle.Color,
+                VehicleType = vehicle.VehicleType,
+                ImageUrl = vehicle.ImageUrl
             };
 
             return Ok(response);
@@ -96,6 +116,10 @@ public class VehiclesController : ControllerBase
     /// Creates a new vehicle
     /// </summary>
     [HttpPost]
+    [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Create([FromBody] CreateVehicleRequest request)
     {
         try
@@ -104,13 +128,21 @@ public class VehiclesController : ControllerBase
             
             _logger.LogInfo($"POST /api/vehicles - Creating vehicle for user {userId}");
 
+            var requestValidation = ValidateVehicleRequest(request.VehicleType, request.ImageUrl);
+            if (requestValidation is not null)
+            {
+                return requestValidation;
+            }
+
             var vehicle = new Vehicle
             {
                 Make = request.Make,
                 Model = request.Model,
                 Year = request.Year,
                 LicensePlate = request.LicensePlate,
-                Color = request.Color
+                Color = request.Color,
+                VehicleType = request.VehicleType!.Value,
+                ImageUrl = request.ImageUrl
             };
 
             // Validate the vehicle
@@ -135,7 +167,9 @@ public class VehiclesController : ControllerBase
                 Model = created.Model,
                 Year = created.Year,
                 LicensePlate = created.LicensePlate,
-                Color = created.Color
+                Color = created.Color,
+                VehicleType = created.VehicleType,
+                ImageUrl = created.ImageUrl
             };
 
             return CreatedAtAction(nameof(GetById), new { id = response.Id }, response);
@@ -151,6 +185,11 @@ public class VehiclesController : ControllerBase
     /// Updates a vehicle
     /// </summary>
     [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(VehicleResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateVehicleRequest request)
     {
         try
@@ -159,13 +198,21 @@ public class VehiclesController : ControllerBase
             
             _logger.LogInfo($"PUT /api/vehicles/{id}");
 
+            var requestValidation = ValidateVehicleRequest(request.VehicleType, request.ImageUrl);
+            if (requestValidation is not null)
+            {
+                return requestValidation;
+            }
+
             var vehicle = new Vehicle
             {
                 Make = request.Make,
                 Model = request.Model,
                 Year = request.Year,
                 LicensePlate = request.LicensePlate,
-                Color = request.Color
+                Color = request.Color,
+                VehicleType = request.VehicleType!.Value,
+                ImageUrl = request.ImageUrl
             };
 
             // Validate the vehicle
@@ -195,7 +242,9 @@ public class VehiclesController : ControllerBase
                 Model = updated.Model,
                 Year = updated.Year,
                 LicensePlate = updated.LicensePlate,
-                Color = updated.Color
+                Color = updated.Color,
+                VehicleType = updated.VehicleType,
+                ImageUrl = updated.ImageUrl
             };
 
             return Ok(response);
@@ -211,6 +260,11 @@ public class VehiclesController : ControllerBase
     /// Deletes a vehicle
     /// </summary>
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Delete(Guid id)
     {
         try
@@ -238,5 +292,39 @@ public class VehiclesController : ControllerBase
             _logger.LogError($"Error deleting vehicle {id}", ex);
             return StatusCode(500, "An error occurred while deleting the vehicle");
         }
+    }
+
+    private ObjectResult? ValidateVehicleRequest(
+        VehicleType? vehicleType,
+        string? imageUrl)
+    {
+        if (!vehicleType.HasValue)
+        {
+            return VehicleProblem(VehicleTypeInvalid, "vehicleType");
+        }
+
+        if (!Validation.VehicleImageUrlValidation.IsValid(imageUrl))
+        {
+            return VehicleProblem(VehicleImageUrlInvalid, "imageUrl");
+        }
+
+        return null;
+    }
+
+    private ObjectResult VehicleProblem(string code, string field)
+    {
+        var result = new ObjectResult(new
+        {
+            Code = code,
+            Errors = new Dictionary<string, string[]>
+            {
+                [field] = [code]
+            }
+        })
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
+        result.ContentTypes.Add("application/problem+json");
+        return result;
     }
 }

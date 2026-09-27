@@ -63,6 +63,36 @@ public class InternalCatalogAvailabilityIntegrationTests : IClassFixture<Catalog
     }
 
     [Fact]
+    public async Task CatalogSnapshot_CategoryPresentationMetadata_PropagatesWithIncrementedVersion()
+    {
+        _factory.ResetState();
+        var ownerClient = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var versionBeforeCreate = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        using var createResponse = await ownerClient.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "غسيل خارجي",
+                ImageUrl = "https://cdn.example.test/categories/exterior.png",
+                ColorHex = "#1a73e8",
+                IsActive = true
+            });
+        createResponse.EnsureSuccessStatusCode();
+
+        using var internalClient = _factory.CreateSecureClient();
+        using var snapshotResponse = await GetSnapshotAsync(internalClient);
+        var snapshot = await snapshotResponse.Content.ReadFromJsonAsync<CatalogSnapshotResponse>(
+            BusinessCatalogContract.CreateJsonSerializerOptions());
+
+        snapshotResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        snapshot!.CatalogVersion.Should().Be(versionBeforeCreate + 1);
+        snapshot.Categories.Should().ContainSingle(category =>
+            category.ImageUrl == "https://cdn.example.test/categories/exterior.png" &&
+            category.ColorHex == "#1A73E8");
+    }
+
+    [Fact]
     public async Task CompanyProfile_WhenAdminHasNoAssignment_ReturnsForbidden()
     {
         _factory.ResetState();

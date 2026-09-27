@@ -33,6 +33,7 @@ public sealed class PricingController : ControllerBase
     }
 
     [HttpPost("reprice")]
+    [OptionalDeviceToken]
     [EnforceJsonRequestContentType]
     [RequestSizeLimit(MaxPricingRequestBodyBytes)]
     [EnforceRequestBodySizeLimit(
@@ -80,7 +81,7 @@ public sealed class PricingController : ControllerBase
         {
             return Ok(await _service.RepriceAsync(
                 request,
-                RequireDeviceId(),
+                HttpContext.GetDeviceId(),
                 language,
                 acceptLanguage,
                 cancellationToken));
@@ -167,17 +168,6 @@ public sealed class PricingController : ControllerBase
             StatusCode = statusCode,
             ContentTypes = { "application/problem+json" }
         };
-    }
-
-    private Guid RequireDeviceId()
-    {
-        var deviceId = HttpContext.GetDeviceId();
-        if (deviceId.HasValue)
-        {
-            return deviceId.Value;
-        }
-
-        throw new InvalidOperationException("Device identity is missing from the request context.");
     }
 
     private void ApplyNoStore()

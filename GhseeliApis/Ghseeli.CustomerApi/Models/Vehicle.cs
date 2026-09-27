@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.Interfaces;
+using GhseeliApis.Validation;
 using ValidationResult = GhseeliApis.Interfaces.ValidationResult;
 
 namespace GhseeliApis.Models;
@@ -26,6 +28,11 @@ public class Vehicle : IValidatable
     public string? LicensePlate { get; set; }
     
     public string? Color { get; set; }
+
+    public VehicleType VehicleType { get; set; }
+
+    [MaxLength(VehicleImageUrlValidation.MaximumLength)]
+    public string? ImageUrl { get; set; }
 
     // Navigation properties
     public User Owner { get; set; } = null!;
@@ -63,6 +70,11 @@ public class Vehicle : IValidatable
         if (!string.IsNullOrWhiteSpace(LicensePlate) && LicensePlate.Length > 50)
         {
             result.AddError("License plate cannot exceed 50 characters.");
+        }
+
+        if (!VehicleImageUrlValidation.IsValid(ImageUrl))
+        {
+            result.AddError("Vehicle image URL must be an absolute HTTPS URL without credentials and cannot exceed 500 characters.");
         }
 
         return result;

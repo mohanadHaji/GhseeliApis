@@ -8,8 +8,37 @@ using System.Text.Json;
 
 namespace GhseeliApis.Middleware;
 
+public enum DeviceTokenRequirement
+{
+    Required,
+    Optional,
+    None
+}
+
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
-public sealed class AllowWithoutDeviceTokenAttribute : Attribute;
+public class DeviceTokenPolicyAttribute : Attribute
+{
+    public DeviceTokenPolicyAttribute(DeviceTokenRequirement requirement) =>
+        Requirement = requirement;
+
+    public DeviceTokenRequirement Requirement { get; }
+}
+
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class OptionalDeviceTokenAttribute : DeviceTokenPolicyAttribute
+{
+    public OptionalDeviceTokenAttribute() : base(DeviceTokenRequirement.Optional)
+    {
+    }
+}
+
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class AllowWithoutDeviceTokenAttribute : DeviceTokenPolicyAttribute
+{
+    public AllowWithoutDeviceTokenAttribute() : base(DeviceTokenRequirement.None)
+    {
+    }
+}
 
 public static class DeviceHttpContextExtensions
 {
@@ -53,16 +82,30 @@ public sealed class DeviceTokenMiddleware
         IDeviceRegistrationService deviceService,
         ICustomerDataPartitionContext dataPartition)
     {
-        if (!RequiresDeviceToken(context))
+        var requirement = GetRequirement(context);
+        if (requirement == DeviceTokenRequirement.None)
         {
             await _next(context);
             return;
         }
 
-        var token = context.Request.Headers[DeviceTokenDefaults.HeaderName].ToString();
-        if (string.IsNullOrWhiteSpace(token))
+        var values = context.Request.Headers[DeviceTokenDefaults.HeaderName];
+        if (values.Count == 0 || string.IsNullOrWhiteSpace(values.ToString()))
         {
-            await WriteProblemAsync(context, DeviceProblemCodes.TokenMissing);
+            if (requirement == DeviceTokenRequirement.Required)
+            {
+                await WriteProblemAsync(context, DeviceProblemCodes.TokenMissing);
+                return;
+            }
+
+            await _next(context);
+            return;
+        }
+
+        var token = values.ToString();
+        if (values.Count != 1)
+        {
+            await WriteProblemAsync(context, DeviceProblemCodes.TokenInvalid);
             return;
         }
 
@@ -101,27 +144,32 @@ public sealed class DeviceTokenMiddleware
         await _next(context);
     }
 
-    private static bool RequiresDeviceToken(HttpContext context)
+    internal static DeviceTokenRequirement GetRequirement(HttpContext context)
     {
         if (!context.Request.Path.StartsWithSegments("/api/v1", StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            return DeviceTokenRequirement.None;
         }
 
         if (context.Request.Path.StartsWithSegments(
                 "/api/v1/internal",
                 StringComparison.OrdinalIgnoreCase))
         {
-            return false;
+            return DeviceTokenRequirement.None;
         }
 
         var endpoint = context.GetEndpoint();
-        return endpoint is not null &&
-               !string.Equals(
-                   endpoint.DisplayName,
-                   "405 HTTP Method Not Supported",
-                   StringComparison.Ordinal) &&
-               endpoint.Metadata.GetMetadata<AllowWithoutDeviceTokenAttribute>() is null;
+        if (endpoint is null ||
+            string.Equals(
+                endpoint.DisplayName,
+                "405 HTTP Method Not Supported",
+                StringComparison.Ordinal))
+        {
+            return DeviceTokenRequirement.None;
+        }
+
+        return endpoint.Metadata.GetMetadata<DeviceTokenPolicyAttribute>()?.Requirement
+            ?? DeviceTokenRequirement.Required;
     }
 
     private static Task WriteProblemAsync(HttpContext context, string code)

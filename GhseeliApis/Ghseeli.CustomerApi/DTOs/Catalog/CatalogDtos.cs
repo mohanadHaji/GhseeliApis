@@ -1,4 +1,5 @@
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.Vehicles;
 
 namespace GhseeliApis.DTOs.Catalog;
 
@@ -14,6 +15,8 @@ public sealed class GetCatalogBusinessesRequest
     public string? Language { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? CategoryId { get; set; }
+    public string? Search { get; set; }
+    public int? Top { get; set; }
     public bool Refresh { get; set; }
 }
 
@@ -40,6 +43,45 @@ public sealed class GetAvailableSlotsRequest
         Array.Empty<CatalogAvailableSlotsItemRequest>();
     public bool IncludeUnavailable { get; set; }
     public string? Language { get; set; }
+}
+
+public sealed class AvailabilitySearchRequest
+{
+    public VehicleType VehicleType { get; set; }
+    public DateOnly Date { get; set; }
+    public TimeOnly PreferredLocalTime { get; set; }
+    public Guid? CategoryId { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? Language { get; set; }
+}
+
+public sealed class AvailabilitySearchResponse
+{
+    public string Language { get; set; } = string.Empty;
+    public bool IsAdvisory { get; set; } = true;
+    public VehicleType VehicleType { get; set; }
+    public DateOnly Date { get; set; }
+    public TimeOnly PreferredLocalTime { get; set; }
+    public IReadOnlyCollection<AvailabilitySearchResult> Results { get; set; } =
+        Array.Empty<AvailabilitySearchResult>();
+}
+
+public sealed class AvailabilitySearchResult
+{
+    public Guid BusinessId { get; set; }
+    public string BusinessName { get; set; } = string.Empty;
+    public Guid BranchId { get; set; }
+    public string BranchName { get; set; } = string.Empty;
+    public string BranchAddress { get; set; } = string.Empty;
+    public bool IsFavourite { get; set; }
+    public decimal AverageRating { get; set; }
+    public int RatingCount { get; set; }
+    public string TimeZoneId { get; set; } = string.Empty;
+    public DateTime SlotStartUtc { get; set; }
+    public DateTime SlotStartLocal { get; set; }
+    public int ConfiguredCapacity { get; set; }
+    public int RemainingCapacity { get; set; }
 }
 
 public sealed class CatalogAvailableSlotsLocationRequest
@@ -127,6 +169,9 @@ public sealed class CatalogBusinessResponse
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string? Phone { get; set; }
+    public bool IsFavourite { get; set; }
+    public decimal AverageRating { get; set; }
+    public int RatingCount { get; set; }
     public CatalogMetadataResponse Catalog { get; set; } = new();
     public IReadOnlyCollection<CatalogBranchResponse> Branches { get; set; } =
         Array.Empty<CatalogBranchResponse>();
@@ -137,6 +182,9 @@ public sealed class CatalogBusinessContextResponse
     public Guid Id { get; set; }
     public Guid SourceId { get; set; }
     public string Name { get; set; } = string.Empty;
+    public bool IsFavourite { get; set; }
+    public decimal AverageRating { get; set; }
+    public int RatingCount { get; set; }
     public CatalogMetadataResponse Catalog { get; set; } = new();
 }
 
@@ -182,6 +230,8 @@ public sealed class CatalogCategoryResponse
     public Guid SourceId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
     public int DisplayOrder { get; set; }
     public CatalogBusinessContextResponse Business { get; set; } = new();
 }

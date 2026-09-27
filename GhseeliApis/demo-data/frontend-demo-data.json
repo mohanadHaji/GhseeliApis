@@ -123,14 +123,18 @@
           "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
           "nameEn": "Exterior",
           "nameAr": "\u063A\u0633\u064A\u0644 \u062E\u0627\u0631\u062C\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA"
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D7\u05D9\u05E6\u05D5\u05E0\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "imageUrl": "https://example.test/demo/categories/1.png",
+          "colorHex": "#255203"
         },
         {
           "id": "bfec0c6c-e8f9-f34f-896d-2031ae47d61c",
           "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
           "nameEn": "Interior",
           "nameAr": "\u062A\u0646\u0638\u064A\u0641 \u062F\u0627\u062E\u0644\u064A \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+          "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05E4\u05E0\u05D9\u05DE\u05D9 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "imageUrl": null,
+          "colorHex": null
         }
       ],
       "offerings": [
@@ -364,7 +368,9 @@
           "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
           "nameEn": "Detailing",
           "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0648\u062A\u0644\u0645\u064A\u0639 \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+          "nameHe": "\u05D3\u05D9\u05D8\u05D9\u05D9\u05DC\u05D9\u05E0\u05D2 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "imageUrl": "https://example.test/demo/categories/3.png",
+          "colorHex": "#275609"
         }
       ],
       "offerings": [
@@ -540,7 +546,9 @@
           "companyId": "496bd9a0-177a-613f-ed2b-f8fd8aeb1756",
           "nameEn": "Eco Wash",
           "nameAr": "\u063A\u0633\u064A\u0644 \u0635\u062F\u064A\u0642 \u0644\u0644\u0628\u064A\u0626\u0629 \u062A\u062C\u0631\u064A\u0628\u064A",
-          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D0\u05E7\u05D5\u05DC\u05D5\u05D2\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA"
+          "nameHe": "\u05E9\u05D8\u05D9\u05E4\u05D4 \u05D0\u05E7\u05D5\u05DC\u05D5\u05D2\u05D9\u05EA \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9\u05EA",
+          "imageUrl": "https://example.test/demo/categories/4.png",
+          "colorHex": "#28580C"
         }
       ],
       "offerings": [
@@ -716,7 +724,9 @@
           "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
           "nameEn": "Express Care",
           "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0633\u0631\u064A\u0639\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
-          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05DE\u05D4\u05D9\u05E8 \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "imageUrl": "https://example.test/demo/categories/5.png",
+          "colorHex": "#295A0F"
         }
       ],
       "offerings": [
@@ -902,7 +912,9 @@
           "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
           "nameEn": "Premium Care",
           "nameAr": "\u0639\u0646\u0627\u064A\u0629 \u0641\u0627\u062E\u0631\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629",
-          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9"
+          "nameHe": "\u05D8\u05D9\u05E4\u05D5\u05DC \u05E4\u05E8\u05D9\u05DE\u05D9\u05D5\u05DD \u05E0\u05D9\u05E1\u05D9\u05D5\u05E0\u05D9",
+          "imageUrl": "https://example.test/demo/categories/6.png",
+          "colorHex": "#2A5C12"
         }
       ],
       "offerings": [
@@ -1093,7 +1105,9 @@
           "model": "Tucson",
           "year": "2022",
           "licensePlate": "DEMO-101",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/1-1.png"
         },
         {
           "id": "fabe5b9b-ae6e-3ec8-4052-b249a756c2d6",
@@ -1101,7 +1115,9 @@
           "model": "Corolla",
           "year": "2023",
           "licensePlate": "DEMO-102",
-          "color": "White"
+          "color": "White",
+          "vehicleType": "Sedan",
+          "imageUrl": "https://example.test/demo/vehicles/1-2.png"
         }
       ],
       "addresses": [
@@ -1139,7 +1155,9 @@
           "model": "Tucson",
           "year": "2023",
           "licensePlate": "DEMO-201",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/2-1.png"
         },
         {
           "id": "19cf58ba-0b47-86a8-af83-e9ca812dd77e",
@@ -1147,7 +1165,9 @@
           "model": "Corolla",
           "year": "2024",
           "licensePlate": "DEMO-202",
-          "color": "White"
+          "color": "White",
+          "vehicleType": "Sedan",
+          "imageUrl": "https://example.test/demo/vehicles/2-2.png"
         }
       ],
       "addresses": [
@@ -1194,7 +1214,9 @@
           "model": "Tucson",
           "year": "2024",
           "licensePlate": "DEMO-301",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/3-1.png"
         },
         {
           "id": "cdeeb591-0ef7-2a9b-1134-d051692b3d2e",
@@ -1202,7 +1224,9 @@
           "model": "Corolla",
           "year": "2025",
           "licensePlate": "DEMO-302",
-          "color": "White"
+          "color": "White",
+          "vehicleType": "Sedan",
+          "imageUrl": "https://example.test/demo/vehicles/3-2.png"
         }
       ],
       "addresses": [
@@ -1249,7 +1273,9 @@
           "model": "Tucson",
           "year": "2025",
           "licensePlate": "DEMO-401",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/4-1.png"
         }
       ],
       "addresses": [
@@ -1287,7 +1313,9 @@
           "model": "Tucson",
           "year": "2020",
           "licensePlate": "DEMO-501",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/5-1.png"
         }
       ],
       "addresses": [
@@ -1333,7 +1361,9 @@
           "model": "Tucson",
           "year": "2021",
           "licensePlate": "DEMO-601",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/6-1.png"
         },
         {
           "id": "59dd34fd-dd5b-74c9-9d80-865fe0f17211",
@@ -1341,7 +1371,9 @@
           "model": "Corolla",
           "year": "2022",
           "licensePlate": "DEMO-602",
-          "color": "White"
+          "color": "White",
+          "vehicleType": "Sedan",
+          "imageUrl": "https://example.test/demo/vehicles/6-2.png"
         }
       ],
       "addresses": [
@@ -1388,7 +1420,9 @@
           "model": "Tucson",
           "year": "2022",
           "licensePlate": "DEMO-701",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/7-1.png"
         },
         {
           "id": "2fa8ed8a-7f19-cf6e-6788-8ef946253485",
@@ -1396,7 +1430,9 @@
           "model": "Corolla",
           "year": "2023",
           "licensePlate": "DEMO-702",
-          "color": "White"
+          "color": "White",
+          "vehicleType": "Sedan",
+          "imageUrl": "https://example.test/demo/vehicles/7-2.png"
         }
       ],
       "addresses": [
@@ -1434,7 +1470,9 @@
           "model": "Tucson",
           "year": "2023",
           "licensePlate": "DEMO-801",
-          "color": "Blue"
+          "color": "Blue",
+          "vehicleType": "Suv5Seater",
+          "imageUrl": "https://example.test/demo/vehicles/8-1.png"
         }
       ],
       "addresses": [
@@ -1971,6 +2009,81 @@
         "providerReference": "DEMO-LAHZA-012",
         "providerTransactionId": null
       }
+    }
+  ],
+  "reviews": [
+    {
+      "id": "35c3a646-50ad-f5b5-80c4-ac326e8a457d",
+      "bookingReferenceId": "e8fe5aab-91b7-3fdc-66f6-9d2912e7c62f",
+      "customerId": "47c09aba-1a7f-3093-a59a-b79506fe30e0",
+      "companyId": "d9afab53-5aa3-c5b3-6460-fe97f484fde6",
+      "rating": 5,
+      "comment": "\u062E\u062F\u0645\u0629 \u0645\u0645\u062A\u0627\u0632\u0629 \u0648\u0633\u0631\u064A\u0639\u0629.",
+      "createdAtUtc": "2026-09-16T09:00:00+00:00"
+    },
+    {
+      "id": "2c2abed4-0812-e58b-b947-4d84d83b5b24",
+      "bookingReferenceId": "7ff968ef-83fc-658b-614b-8d5f802ddab0",
+      "customerId": "65091379-6448-fa18-ecc3-1f2c40abbc93",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "rating": 4,
+      "comment": null,
+      "createdAtUtc": "2026-09-17T09:00:00+00:00"
+    },
+    {
+      "id": "a4f934aa-5d55-eb94-6df1-4681dfa47f8f",
+      "bookingReferenceId": "c01ecad0-dd10-674f-b87d-d793cc863710",
+      "customerId": "c6917760-c203-1f15-7b60-53b4894da8de",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "rating": 5,
+      "comment": "\u062A\u062C\u0631\u0628\u0629 \u062A\u062C\u0631\u064A\u0628\u064A\u0629 \u0631\u0627\u0626\u0639\u0629.",
+      "createdAtUtc": "2026-09-18T09:00:00+00:00"
+    }
+  ],
+  "favourites": [
+    {
+      "id": "8ad280fa-55e5-f04b-3726-82afe5f276db",
+      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "companyId": "77de8c4c-1eed-2b84-98fc-052893f89d73",
+      "createdAtUtc": "2026-09-16T09:00:00+00:00"
+    },
+    {
+      "id": "147fad24-8910-ceb3-494f-635a562ec438",
+      "customerId": "b8c5f960-66ed-a153-d441-b79023ceb628",
+      "companyId": "36c4b04f-d8b3-0b31-6f91-4ec60a359e13",
+      "createdAtUtc": "2026-09-17T09:00:00+00:00"
+    },
+    {
+      "id": "3e7bb3aa-7e95-7f72-5122-cde341aaa48e",
+      "customerId": "f900064f-c029-6a15-1f74-e2a343595ae4",
+      "companyId": "d360edf0-a511-9d16-a44e-35d82224a661",
+      "createdAtUtc": "2026-09-16T09:00:00+00:00"
+    }
+  ],
+  "banners": [
+    {
+      "id": "149b326f-26ab-d939-7f2e-d045b216f381",
+      "imageUrl": "https://example.test/demo/banners/welcome.png",
+      "displayOrder": 10,
+      "isActive": true,
+      "createdAtUtc": "2026-09-15T09:00:00+00:00",
+      "updatedAtUtc": "2026-09-15T09:00:00+00:00"
+    },
+    {
+      "id": "392126b5-a57d-e858-0c8e-c722efa1b2e8",
+      "imageUrl": "https://example.test/demo/banners/premium-care.png",
+      "displayOrder": 20,
+      "isActive": true,
+      "createdAtUtc": "2026-09-15T09:00:00+00:00",
+      "updatedAtUtc": "2026-09-15T09:00:00+00:00"
+    },
+    {
+      "id": "fd1f4e7b-35aa-cc33-501d-a5df281bf8ac",
+      "imageUrl": "https://example.test/demo/banners/inactive-preview.png",
+      "displayOrder": 30,
+      "isActive": false,
+      "createdAtUtc": "2026-09-15T09:00:00+00:00",
+      "updatedAtUtc": "2026-09-15T09:00:00+00:00"
     }
   ]
 }

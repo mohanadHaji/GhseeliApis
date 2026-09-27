@@ -1,6 +1,7 @@
 using FluentValidation;
 using GhseeliApis.DTOs.Checkout;
 using GhseeliApis.Services.Checkout;
+using GhseeliApis.Validation;
 
 namespace GhseeliApis.Validators.Checkout;
 
@@ -37,7 +38,13 @@ public abstract class CheckoutDraftMutationRequestValidatorBase<TRequest>
         When(request => request.Vehicle is not null, () =>
         {
             RuleFor(request => request.Vehicle.VehicleType)
-                .MustBeMeaningfulRequiredText(50);
+                .NotNull()
+                .WithMessage("Vehicle type is required.")
+                .WithErrorCode(CheckoutDraftFieldErrorCodes.VehicleTypeInvalid);
+            RuleFor(request => request.Vehicle.ImageUrl)
+                .Must(VehicleImageUrlValidation.IsValid)
+                .WithMessage("Vehicle image URL must be an absolute HTTPS URL without credentials and cannot exceed 500 characters.")
+                .WithErrorCode(CheckoutDraftFieldErrorCodes.VehicleImageUrlInvalid);
             RuleFor(request => request.Vehicle.LicensePlate)
                 .MustRespectMaxLength(50);
             RuleFor(request => request.Vehicle.Make)

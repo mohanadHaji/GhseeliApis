@@ -46,9 +46,9 @@ public sealed class Step15FinalInvariantCustomerTests
         using var client = factory.CreateApiClient();
 
         using var encoded = await client.GetAsync(
-            "/api/v1/configuration?lang%75age=%68%65");
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?lang%75age=%68%65");
         using var duplicate = await client.GetAsync(
-            "/api/v1/configuration?lang%75age=ar&language=%68%65");
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?lang%75age=ar&language=%68%65");
 
         encoded.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         encoded.Content.Headers.ContentLanguage.Should().ContainSingle("he");

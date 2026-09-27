@@ -22,9 +22,8 @@ public class PricingControllerTests
     private readonly Mock<IAppLogger> _logger = new();
 
     [Fact]
-    public async Task DirectReprice_WhenValid_ReturnsOkNoStore_AndUsesDeviceIdentity()
+    public async Task DirectReprice_WhenValidAnonymous_ReturnsOkNoStore_AndUsesNoDeviceIdentity()
     {
-        var deviceId = Guid.NewGuid();
         var expected = new DirectCheckoutPricingResponse
         {
             Language = "ar",
@@ -36,12 +35,12 @@ public class PricingControllerTests
         };
         _service.Setup(service => service.RepriceAsync(
                 It.Is<CreateCheckoutDraftRequest>(request => request.BusinessSourceId != Guid.Empty),
-                deviceId,
+                null,
                 "ar",
                 "he",
                 default))
             .ReturnsAsync(expected);
-        var controller = CreatePricingController(deviceId);
+        var controller = CreatePricingController(null);
 
         var result = await controller.Reprice(
             CreateDraftRequest(),
@@ -164,9 +163,14 @@ public class PricingControllerTests
         draftAttribute.Should().BeAssignableTo<IOrderedFilter>();
     }
 
-    private PricingController CreatePricingController(Guid deviceId)
+    private PricingController CreatePricingController(Guid? deviceId)
     {
-        var httpContext = CreateHttpContext(deviceId);
+        var httpContext = deviceId.HasValue
+            ? CreateHttpContext(deviceId.Value)
+            : new DefaultHttpContext
+            {
+                TraceIdentifier = "corr-step11-pricing-controller"
+            };
 
         return new PricingController(
             _service.Object,
@@ -217,7 +221,7 @@ public class PricingControllerTests
             RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddHours(2),
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = "Sedan"
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan
             },
             Location = new CheckoutDraftLocationRequest
             {

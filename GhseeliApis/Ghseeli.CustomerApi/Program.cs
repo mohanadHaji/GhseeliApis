@@ -16,6 +16,8 @@ using GhseeliApis.Services.Bookings;
 using GhseeliApis.Services.Internal;
 using GhseeliApis.Services.Payments;
 using GhseeliApis.Services.Auth;
+using GhseeliApis.Services.Reviews;
+using GhseeliApis.Services.Banners;
 using Ghseeli.Common.Logging;
 using GhseeliApis.Models;
 using Ghseeli.IntegrationContracts.Bookings;
@@ -51,10 +53,47 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
     var defaultFactory = options.InvalidModelStateResponseFactory;
     options.InvalidModelStateResponseFactory = context =>
     {
+        if (IsVehiclePath(context.HttpContext.Request.Path) &&
+            context.ModelState.Any(entry =>
+                entry.Key.Contains("vehicleType", StringComparison.OrdinalIgnoreCase) &&
+                entry.Value?.Errors.Count > 0))
+        {
+            var result = new BadRequestObjectResult(new
+            {
+                code = "vehicle_type_invalid",
+                errors = new Dictionary<string, string[]>
+                {
+                    ["vehicleType"] = ["vehicle_type_invalid"]
+                }
+            });
+            result.ContentTypes.Add("application/problem+json");
+            return result;
+        }
+
+        if (IsVehiclePath(context.HttpContext.Request.Path) &&
+            context.ModelState.Any(entry =>
+                entry.Key.Contains("imageUrl", StringComparison.OrdinalIgnoreCase) &&
+                entry.Value?.Errors.Count > 0))
+        {
+            var result = new BadRequestObjectResult(new
+            {
+                code = "vehicle_image_url_invalid",
+                errors = new Dictionary<string, string[]>
+                {
+                    ["imageUrl"] = ["vehicle_image_url_invalid"]
+                }
+            });
+            result.ContentTypes.Add("application/problem+json");
+            return result;
+        }
+
         if (!IsPricingRepricePath(context.HttpContext.Request.Path) &&
             !IsBookingConfirmationPath(context.HttpContext.Request.Path) &&
             !IsBookingStatusCallbackPath(context.HttpContext.Request.Path) &&
-            !IsCustomerPaymentPath(context.HttpContext.Request.Path))
+            !IsCustomerPaymentPath(context.HttpContext.Request.Path) &&
+            !IsBusinessReviewPath(context.HttpContext.Request.Path) &&
+            !IsBannerPath(context.HttpContext.Request.Path) &&
+            !IsAvailabilitySearchPath(context.HttpContext.Request.Path))
         {
             return defaultFactory(context);
         }
@@ -74,6 +113,16 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
         var bookingStatusRoute = IsBookingStatusCallbackPath(request.Path);
         var bookingRoute = IsBookingConfirmationPath(request.Path);
         var paymentRoute = IsCustomerPaymentPath(request.Path);
+        var reviewRoute = IsBusinessReviewPath(request.Path);
+        var bannerRoute = IsBannerPath(request.Path);
+        var availabilitySearchRoute = IsAvailabilitySearchPath(request.Path);
+        var reviewCode = reviewRoute &&
+                         context.ModelState.Any(entry =>
+                             (entry.Key.Equals("page", StringComparison.OrdinalIgnoreCase) ||
+                              entry.Key.Equals("pageSize", StringComparison.OrdinalIgnoreCase)) &&
+                             entry.Value?.Errors.Count > 0)
+            ? BusinessReviewProblemCodes.PaginationInvalid
+            : BusinessReviewProblemCodes.Invalid;
         object problem = paymentRoute
             ? CustomerPaymentProblemDetailsFactory.Create(
                 statusCode,
@@ -82,6 +131,52 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                     : CustomerPaymentErrorCodes.Invalid,
                 language,
                 context.HttpContext.TraceIdentifier)
+            : reviewRoute
+            ? BusinessReviewProblemDetailsFactory.Create(
+                statusCode,
+                reviewCode,
+                language,
+                context.HttpContext.TraceIdentifier)
+            : bannerRoute
+            ? BannerProblemDetailsFactory.Create(
+                statusCode,
+                BannerProblemCodes.Invalid,
+                language,
+                context.HttpContext.TraceIdentifier,
+                context.ModelState
+                    .Where(entry => entry.Value?.Errors.Count > 0)
+                    .ToDictionary(
+                        entry =>
+                        {
+                            var name = entry.Key.Split('.').Last();
+                            return name.Length == 0
+                                ? "request"
+                                : char.ToLowerInvariant(name[0]) + name[1..];
+                        },
+                        entry => entry.Value!.Errors
+                            .Select(_ => BannerProblemCodes.Invalid)
+                            .ToArray(),
+                        StringComparer.Ordinal))
+            : availabilitySearchRoute
+            ? CatalogProblemDetailsFactory.Create(
+                statusCode,
+                CatalogProblemCodes.FilterMismatch,
+                language,
+                context.HttpContext.TraceIdentifier,
+                context.ModelState
+                    .Where(entry => entry.Value?.Errors.Count > 0)
+                    .ToDictionary(
+                        entry =>
+                        {
+                            var name = entry.Key.Split('.').Last();
+                            return name.Length == 0
+                                ? "request"
+                                : char.ToLowerInvariant(name[0]) + name[1..];
+                        },
+                        entry => entry.Value!.Errors
+                            .Select(_ => CatalogProblemCodes.FilterMismatch)
+                            .ToArray(),
+                        StringComparer.Ordinal))
             : bookingStatusRoute
             ? BookingStatusProblemDetailsFactory.Create(
                 statusCode,
@@ -205,6 +300,9 @@ builder.Services.AddSwaggerGen(options =>
     options.AddSecurityDefinition("HmacSignature", ApiKey("X-Signature"));
     options.AddSecurityDefinition("LahzaSignature", ApiKey("X-Lahza-Signature"));
     options.OperationFilter<GhseeliApis.Filters.SwaggerAuthorizationOperationFilter>();
+    options.OperationFilter<GhseeliApis.Filters.CatalogQueryParameterOperationFilter>();
+    options.SchemaFilter<GhseeliApis.Filters.StringEnumSchemaFilter>();
+    options.SchemaFilter<GhseeliApis.Filters.VehicleContractSchemaFilter>();
     options.SchemaFilter<GhseeliApis.Filters.CatalogResponseSchemaFilter>();
     options.DocumentFilter<GhseeliApis.Filters.Step15SwaggerDocumentFilter>();
 });
@@ -404,6 +502,9 @@ builder.Services.AddScoped<IUserAddressRepository, UserAddressRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ICustomerConfigurationRepository, CustomerConfigurationRepository>();
 builder.Services.AddScoped<ICatalogReadModelRepository, CatalogReadModelRepository>();
+builder.Services.AddScoped<IBusinessReviewRepository, BusinessReviewRepository>();
+builder.Services.AddScoped<IBusinessFavouriteRepository, BusinessFavouriteRepository>();
+builder.Services.AddScoped<IBannerRepository, BannerRepository>();
 builder.Services.AddScoped<ICheckoutDraftRepository, CheckoutDraftRepository>();
 
 // Register Handlers
@@ -439,7 +540,11 @@ builder.Services.AddScoped<ICustomerOtpAuthenticationService, CustomerOtpAuthent
 builder.Services.AddScoped<ICustomerConfigurationService, CustomerConfigurationService>();
 builder.Services.AddScoped<ICatalogProviderRefreshCoordinator, CatalogProviderRefreshCoordinator>();
 builder.Services.AddScoped<ICatalogReadModelService, CatalogReadModelService>();
+builder.Services.AddScoped<IBusinessReviewService, BusinessReviewService>();
+builder.Services.AddScoped<IBusinessFavouriteService, BusinessFavouriteService>();
+builder.Services.AddScoped<IBannerService, BannerService>();
 builder.Services.AddScoped<IAvailableSlotsQueryService, AvailableSlotsQueryService>();
+builder.Services.AddScoped<IAvailabilityDiscoveryQueryService, AvailabilityDiscoveryQueryService>();
 builder.Services.AddScoped<ICheckoutDraftService, CheckoutDraftService>();
 builder.Services.AddScoped<ICheckoutPricingService, CheckoutPricingService>();
 builder.Services.AddScoped<IBookingConfirmationService, BookingConfirmationService>();
@@ -794,6 +899,24 @@ static bool IsBookingStatusCallbackPath(PathString path) =>
 
 static bool IsCustomerPaymentPath(PathString path) =>
     path.StartsWithSegments("/api/v1/payments", StringComparison.OrdinalIgnoreCase);
+
+static bool IsBusinessReviewPath(PathString path) =>
+    (path.StartsWithSegments("/api/v1/bookings", StringComparison.OrdinalIgnoreCase) &&
+     path.Value?.EndsWith("/review", StringComparison.OrdinalIgnoreCase) == true) ||
+    (path.StartsWithSegments("/api/v1/catalog/businesses", StringComparison.OrdinalIgnoreCase) &&
+     path.Value?.Contains("/reviews", StringComparison.OrdinalIgnoreCase) == true);
+
+static bool IsBannerPath(PathString path) =>
+    path.StartsWithSegments("/api/v1/banners", StringComparison.OrdinalIgnoreCase) ||
+    path.StartsWithSegments("/api/v1/admin/banners", StringComparison.OrdinalIgnoreCase);
+
+static bool IsAvailabilitySearchPath(PathString path) =>
+    path.Equals(
+        new PathString("/api/v1/catalog/businesses/availability-search"),
+        StringComparison.OrdinalIgnoreCase);
+
+static bool IsVehiclePath(PathString path) =>
+    path.StartsWithSegments("/api/Vehicles", StringComparison.OrdinalIgnoreCase);
 
 static string NormalizePaymentField(string field)
 {

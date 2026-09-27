@@ -49,13 +49,21 @@ public class Step16BusinessSchemaMigrationTests
     ];
 
     [Fact]
+    [Trait("ScenarioId", "FAN-VEHICLE-MIGRATION-013")]
     public void MigrationAssembly_ContainsCleanInitialAndVerticalReadinessMigration()
     {
         using var context = CreateContext("Step16BusinessMigrationMetadata");
 
-        context.Database.GetMigrations().Should().HaveCount(4);
+        context.Database.GetMigrations().Should().HaveCount(6);
         context.Database.GetMigrations().First().Should().EndWith("_InitialBusinessDatabase");
-        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessOfferingPresentationMetadata");
+        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessCategoryPresentationMetadata");
+        var script = context.GetService<IMigrator>().GenerateScript();
+        script.Should().Contain("Suv5Seater");
+        script.Should().Contain("Sedan");
+        script.Should().Contain("[ColorHex]");
+        script.Should().Contain("[ImageUrl]");
+        script.Should().Contain("nvarchar(7)");
+        script.Should().Contain("nvarchar(500)");
     }
 
     [Fact]
@@ -67,11 +75,11 @@ public class Step16BusinessSchemaMigrationTests
         try
         {
             await context.Database.EnsureDeletedAsync();
-            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(4);
+            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(6);
 
             await context.Database.MigrateAsync();
 
-            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(4);
+            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(6);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
             context.Database.HasPendingModelChanges().Should().BeFalse();
 
@@ -218,6 +226,172 @@ public class Step16BusinessSchemaMigrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-MIGRATION-010")]
+    public async Task CategoryPresentationMigration_PreservesPopulatedRows_AddsNullColumns_AndDowngrades()
+    {
+        var databaseName = $"GhseeliBusinessCategoryMetadata_{Guid.NewGuid():N}";
+        await using var context = CreateContext(databaseName);
+        var companyId = Guid.NewGuid();
+        var categoryId = Guid.NewGuid();
+        var priorMigration = context.Database.GetMigrations()
+            .Single(migration => migration.EndsWith("_AddBusinessVehicleContractImages"));
+
+        try
+        {
+            await context.Database.EnsureDeletedAsync();
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+            await context.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                    INSERT INTO [dbo].[Companies]
+                        ([Id], [NameAr], [IsActive], [CatalogVersion], [CreatedAt], [IsDemo])
+                    VALUES
+                        ({companyId}, N'Existing company', 1, 1, SYSUTCDATETIME(), 0);
+
+                    INSERT INTO [dbo].[CompanyBusinessVerticals]
+                        ([CompanyId], [BusinessVerticalId], [IsPrimary], [IsActive], [CreatedAtUtc])
+                    VALUES
+                        ({companyId}, {BusinessVerticalDefaults.CarWashId}, 1, 1, SYSUTCDATETIME());
+
+                    INSERT INTO [dbo].[ServiceCategories]
+                        ([Id], [CompanyId], [NameAr], [DescriptionAr], [DisplayOrder], [IsActive],
+                         [CreatedAt], [BusinessVerticalId])
+                    VALUES
+                        ({categoryId}, {companyId}, N'Existing category', N'Existing description',
+                         3, 1, SYSUTCDATETIME(), {BusinessVerticalDefaults.CarWashId});
+                """);
+
+            await context.Database.MigrateAsync();
+
+            (await QueryNamesAsync(
+                context,
+                $"""
+                    SELECT CONCAT([NameAr], '|', [DescriptionAr], '|',
+                        CASE WHEN [ImageUrl] IS NULL THEN 'null' ELSE 'value' END, '|',
+                        CASE WHEN [ColorHex] IS NULL THEN 'null' ELSE 'value' END)
+                    FROM [dbo].[ServiceCategories]
+                    WHERE [Id] = '{categoryId:D}'
+                    UNION ALL
+                    SELECT CONCAT(c.[name], '|', TYPE_NAME(c.[user_type_id]), '|',
+                        c.[max_length], '|', c.[is_nullable])
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[ServiceCategories]')
+                      AND c.[name] IN ('ImageUrl', 'ColorHex')
+                    ORDER BY 1
+                """)).Should().BeEquivalentTo(
+                    "Existing category|Existing description|null|null",
+                    "ColorHex|nvarchar|14|1",
+                    "ImageUrl|nvarchar|1000|1");
+
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+
+            (await QueryNamesAsync(
+                context,
+                $"""
+                    SELECT CONCAT([NameAr], '|', [DescriptionAr])
+                    FROM [dbo].[ServiceCategories]
+                    WHERE [Id] = '{categoryId:D}'
+                    UNION ALL
+                    SELECT c.[name]
+                    FROM sys.columns c
+                    WHERE c.[object_id] = OBJECT_ID('[dbo].[ServiceCategories]')
+                      AND c.[name] IN ('ImageUrl', 'ColorHex')
+                """)).Should().Equal("Existing category|Existing description");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-VEHICLE-MIGRATION-013")]
+    public async Task BusinessVehicleMigration_NormalizesLegacyValues_AddsNullableImage_AndDowngradesInIsolation()
+    {
+        var databaseName = $"GhseeliBusinessVehicleMigration_{Guid.NewGuid():N}";
+        await using var context = CreateContext(databaseName);
+        var priorMigration = context.Database.GetMigrations()
+            .Single(migration => migration.EndsWith("_AddBusinessOfferingPresentationMetadata"));
+        var types = new[] { "Car", "SUV", "Hovercraft", "Van7Seater" };
+        var expected = new[] { "Sedan", "Suv5Seater", "Sedan", "Van7Seater" };
+
+        try
+        {
+            await context.Database.EnsureDeletedAsync();
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+            for (var index = 0; index < types.Length; index++)
+            {
+                var reservationId = Guid.NewGuid();
+                var workOrderId = Guid.NewGuid();
+                await context.Database.ExecuteSqlInterpolatedAsync($"""
+                    INSERT INTO [dbo].[AppointmentReservations]
+                        ([Id], [PublicId], [CustomerBookingReference], [OrderGuid], [RequestHash],
+                         [BranchId], [CatalogVersion], [Currency], [ItemSubtotal],
+                         [TotalDurationMinutes], [RequestedSlotStartUtc], [RequestedSlotEndUtc],
+                         [Status], [StatusSequence], [StatusChangedAtUtc], [CreatedAtUtc],
+                         [BusinessVerticalId], [BusinessVerticalCode], [IsDemo])
+                    VALUES
+                        ({reservationId}, {Guid.NewGuid()}, {Guid.NewGuid()}, {Guid.NewGuid()},
+                         {new string((char)('a' + index), 64)}, {Guid.NewGuid()}, {1L}, {"ILS"},
+                         {50m}, {30}, {DateTimeOffset.UtcNow}, {DateTimeOffset.UtcNow.AddMinutes(30)},
+                         {"Pending"}, {0L}, {DateTimeOffset.UtcNow}, {DateTime.UtcNow},
+                         {BusinessVerticalDefaults.CarWashId}, {BusinessVerticalDefaults.CarWashCode},
+                         {false});
+
+                    INSERT INTO [dbo].[WorkOrders]
+                        ([Id], [PublicId], [AppointmentReservationId], [Status], [CustomerName],
+                         [AddressLine], [Latitude], [Longitude], [CreatedAtUtc],
+                         [BusinessVerticalId], [BusinessVerticalCode])
+                    VALUES
+                        ({workOrderId}, {Guid.NewGuid()}, {reservationId}, {"Pending"}, {"Customer"},
+                         {"Street"}, {32.1m}, {34.8m}, {DateTime.UtcNow},
+                         {BusinessVerticalDefaults.CarWashId}, {BusinessVerticalDefaults.CarWashCode});
+
+                    INSERT INTO [dbo].[VehicleWorkOrderDetails]
+                        ([WorkOrderId], [VehicleType])
+                    VALUES
+                        ({workOrderId}, {types[index]});
+                    """);
+            }
+
+            await context.Database.MigrateAsync();
+
+            (await QueryNamesAsync(
+                context,
+                "SELECT [VehicleType] FROM [dbo].[VehicleWorkOrderDetails]"))
+                .Order(StringComparer.Ordinal)
+                .Should().Equal(expected.Order(StringComparer.Ordinal));
+            (await QueryNamesAsync(
+                context,
+                """
+                SELECT CONCAT(c.[name], '|', TYPE_NAME(c.[user_type_id]), '|',
+                    c.[max_length], '|', c.[is_nullable])
+                FROM sys.columns c
+                WHERE c.[object_id] = OBJECT_ID('[dbo].[VehicleWorkOrderDetails]')
+                  AND c.[name] = 'ImageUrl'
+                """)).Should().Equal("ImageUrl|nvarchar|1000|1");
+
+            await context.GetService<IMigrator>().MigrateAsync(priorMigration);
+
+            (await QueryNamesAsync(
+                context,
+                """
+                SELECT c.[name]
+                FROM sys.columns c
+                WHERE c.[object_id] = OBJECT_ID('[dbo].[VehicleWorkOrderDetails]')
+                  AND c.[name] = 'ImageUrl'
+                """)).Should().BeEmpty();
+            (await QueryNamesAsync(
+                context,
+                "SELECT CONVERT(varchar(10), COUNT(*)) FROM [dbo].[VehicleWorkOrderDetails]"))
+                .Should().Equal("4");
+        }
+        finally
+        {
+            await context.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
     public async Task CleanInitialMigration_WithNonDboPrincipalDefault_StillCreatesOnlyDboTables()
     {
         const string nonOwnedSchema = "step16_non_dbo";
@@ -340,7 +514,7 @@ public class Step16BusinessSchemaMigrationTests
 
             var workOrder = await context.WorkOrders.SingleAsync();
             workOrder.BusinessVerticalCode.Should().Be(BusinessVerticalDefaults.CarWashCode);
-            workOrder.VehicleType.Should().Be("SUV");
+            workOrder.VehicleType.Should().Be("Suv5Seater");
             workOrder.LicensePlate.Should().Be("12-345-67");
             workOrder.VehicleMake.Should().Be("Toyota");
             workOrder.VehicleModel.Should().Be("RAV4");

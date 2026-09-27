@@ -43,7 +43,7 @@ public sealed class Step15CustomerGlobalHttpTests
         using var client = _fixture.CreateClient();
         using var request = Step15CustomerAssertions.Request(
             HttpMethod.Get,
-            "/api/v1/catalog/businesses" + query,
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001" + query,
             acceptLanguage: acceptLanguage);
         using var response = await client.SendAsync(request);
         using var document = await Step15CustomerAssertions.JsonAsync(response);
@@ -131,7 +131,7 @@ public sealed class Step15CustomerGlobalHttpTests
         using var client = _fixture.CreateClient();
         using var request = Step15CustomerAssertions.Request(
             HttpMethod.Get,
-            "/api/v1/catalog/businesses",
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001",
             acceptLanguage: new string('h', length));
         using var response = await client.SendAsync(request);
         using var document = await Step15CustomerAssertions.JsonAsync(response);
@@ -149,8 +149,10 @@ public sealed class Step15CustomerGlobalHttpTests
     public async Task STEP15_LANG_INVARIANCE_016_ArabicAndHebrewChangePresentationOnly()
     {
         using var client = _fixture.CreateClient();
-        using var ar = await client.GetAsync("/api/v1/catalog/businesses?language=ar");
-        using var he = await client.GetAsync("/api/v1/catalog/businesses?language=he");
+        using var ar = await client.GetAsync(
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?language=ar");
+        using var he = await client.GetAsync(
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?language=he");
         using var arJson = await Step15CustomerAssertions.JsonAsync(ar);
         using var heJson = await Step15CustomerAssertions.JsonAsync(he);
 
@@ -425,7 +427,8 @@ public sealed class Step15CustomerGlobalHttpTests
         _ = scenarioId;
         using var client = _fixture.CreateClient();
         using var request = new HttpRequestMessage(
-            HttpMethod.Get, "/api/v1/catalog/businesses?language=he");
+            HttpMethod.Get,
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?language=he");
         request.Headers.Accept.ParseAdd(accept);
         using var response = await client.SendAsync(request);
         using var document = await Step15CustomerAssertions.JsonAsync(response);
@@ -444,8 +447,10 @@ public sealed class Step15CustomerGlobalHttpTests
     public async Task STEP15_TRANSPORT_UTF8_127_ArabicAndHebrewAreLiteralUtf8NotEscaped()
     {
         using var client = _fixture.CreateClient();
-        using var ar = await client.GetAsync("/api/v1/catalog/businesses?language=ar");
-        using var he = await client.GetAsync("/api/v1/catalog/businesses?language=he");
+        using var ar = await client.GetAsync(
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?language=ar");
+        using var he = await client.GetAsync(
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001?language=he");
         var arBody = await ar.Content.ReadAsStringAsync();
         var heBody = await he.Content.ReadAsStringAsync();
 
@@ -467,7 +472,8 @@ public sealed class Step15CustomerGlobalHttpTests
     {
         _ = scenarioId;
         using var client = _fixture.CreateClient();
-        using var response = await client.GetAsync("/api/v1/catalog/businesses" + query);
+        using var response = await client.GetAsync(
+            "/api/v1/checkout/drafts/00000000-0000-0000-0000-000000000001" + query);
         using var document = await Step15CustomerAssertions.JsonAsync(response);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);

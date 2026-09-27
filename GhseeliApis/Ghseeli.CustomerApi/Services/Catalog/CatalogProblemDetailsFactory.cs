@@ -37,6 +37,7 @@ internal static class CatalogProblemDetailsFactory
         {
             ConfigurationProblemCodes.LanguageInvalid => LocalizeDetail(code, language),
             CatalogProblemCodes.FilterMismatch => LocalizeDetail(code, language),
+            CatalogProblemCodes.TopInvalid => LocalizeDetail(code, language),
             _ => LocalizeDetail(CatalogProblemCodes.Unavailable, language)
         };
 
@@ -68,6 +69,10 @@ internal static class CatalogProblemDetailsFactory
                 "מסנני הקטלוג שסופקו אינם שייכים לאותו עסק.",
             (CatalogProblemCodes.FilterMismatch, _) =>
                 "مرشحات الكتالوج المقدمة لا تنتمي إلى نفس النشاط التجاري.",
+            (CatalogProblemCodes.TopInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "הערך top חייב להיות 5 או 10.",
+            (CatalogProblemCodes.TopInvalid, _) =>
+                "يجب أن تكون قيمة top إما 5 أو 10.",
             (CatalogProblemCodes.StaleVersion, ConfigurationLanguageResolver.Hebrew) =>
                 "קטלוג השירותים השתנה. יש לרענן ולנסות שוב.",
             (CatalogProblemCodes.StaleVersion, _) =>

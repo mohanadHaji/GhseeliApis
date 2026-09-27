@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DTOs.Catalog;
+using Ghseeli.BusinessApi.Models;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.InternalHttp;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -20,6 +21,362 @@ public class InternalServiceSecurityIntegrationTests : IClassFixture<CatalogApiF
     public InternalServiceSecurityIntegrationTests(CatalogApiFactory factory)
     {
         _factory = factory;
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-010")]
+    public async Task AvailabilityDiscovery_WhenUnsigned_ReturnsUnauthorized()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        const string correlationId = "corr-availability-unsigned";
+        client.DefaultRequestHeaders.Add(
+            InternalServiceWireConstants.CorrelationIdHeaderName,
+            correlationId);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/internal/appointments/availability-discovery",
+            new AvailabilityDiscoveryRequest
+            {
+                Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                PreferredLocalTime = new TimeOnly(10, 30),
+                Candidates =
+                [
+                    new AvailabilityDiscoveryCompanyCandidate
+                    {
+                        CompanyId = _factory.CompanyId,
+                        BranchIds = [_factory.BranchId]
+                    }
+                ]
+            });
+
+        var content = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        response.Content.Headers.ContentType!.MediaType.Should()
+            .Be("application/problem+json");
+        response.Headers.GetValues(InternalServiceWireConstants.CorrelationIdHeaderName)
+            .Should().Equal(correlationId);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(InternalServiceProblemCodes.MissingAuthenticationHeader);
+        document.RootElement.GetProperty("type").GetString().Should().Be(
+            "https://api.ghseeli.example/errors/internal_auth_missing_header");
+        document.RootElement.GetProperty("title").GetString().Should().Be(
+            "Internal authentication headers are missing.");
+        document.RootElement.GetProperty("status").GetInt32().Should().Be(401);
+        document.RootElement.GetProperty("detail").GetString().Should().Be(
+            "One or more required internal authentication headers were not supplied.");
+        document.RootElement.GetProperty("correlationId").GetString()
+            .Should().Be(correlationId);
+        document.RootElement.EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(
+                "type", "title", "status", "detail", "code", "correlationId",
+                "missingHeaders");
+        document.RootElement.GetProperty("missingHeaders").EnumerateArray()
+            .Select(value => value.GetString())
+            .Should().BeEquivalentTo(
+                "serviceId", "timestamp", "nonce", "signature");
+        content.Should().NotContainAny(
+            "\"results\"", "\"candidates\"", _factory.CompanyId.ToString(),
+            _factory.BranchId.ToString(), CatalogApiFactory.InternalServiceActiveSecret);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-009")]
+    public async Task AvailabilityDiscovery_WhenSigned_ReturnsVersionedResponse()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        var date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
+        SeedAvailability(date.DayOfWeek);
+        var body = new AvailabilityDiscoveryRequest
+        {
+            Date = date,
+            PreferredLocalTime = new TimeOnly(10, 30),
+            Candidates =
+            [
+                new AvailabilityDiscoveryCompanyCandidate
+                {
+                    CompanyId = _factory.OtherCompanyId,
+                    BranchIds = [_factory.OtherBranchId]
+                },
+                new AvailabilityDiscoveryCompanyCandidate
+                {
+                    CompanyId = _factory.CompanyId,
+                    BranchIds = [_factory.BranchId]
+                }
+            ]
+        };
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            body);
+
+        using var response = await client.SendAsync(request);
+        var payload = await response.Content.ReadFromJsonAsync<AvailabilityDiscoveryResponse>(
+            BusinessCatalogContract.CreateJsonSerializerOptions());
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        payload!.ContractVersion.Should().Be(BusinessCatalogContract.Version);
+        payload.Date.Should().Be(body.Date);
+        payload.PreferredLocalTime.Should().Be(body.PreferredLocalTime);
+        payload.Results.Should().HaveCount(2);
+        payload.Results.Select(result => (result.CompanyId, result.BranchId))
+            .Should().Equal(
+                (_factory.OtherCompanyId, _factory.OtherBranchId),
+                (_factory.CompanyId, _factory.BranchId));
+        payload.Results.Should().OnlyContain(result =>
+            TimeOnly.FromDateTime(result.SlotStartLocal) == body.PreferredLocalTime);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-025")]
+    public async Task AvailabilityDiscovery_WhenSignatureIsInvalid_ReturnsExactUnauthorizedProblem()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest());
+        var originalServiceId = request.Headers.GetValues(
+            InternalServiceWireConstants.ServiceIdHeaderName).Single();
+        var originalTimestamp = request.Headers.GetValues(
+            InternalServiceWireConstants.TimestampHeaderName).Single();
+        var originalNonce = request.Headers.GetValues(
+            InternalServiceWireConstants.NonceHeaderName).Single();
+        var originalBody = await request.Content!.ReadAsByteArrayAsync();
+        var originalSignature = request.Headers.GetValues(
+            InternalServiceWireConstants.SignatureHeaderName).Single();
+        var mutatedSignature =
+            (originalSignature[0] == '0' ? '1' : '0') + originalSignature[1..];
+        request.Headers.Remove(InternalServiceWireConstants.SignatureHeaderName);
+        request.Headers.TryAddWithoutValidation(
+            InternalServiceWireConstants.SignatureHeaderName,
+            mutatedSignature);
+
+        mutatedSignature.Should().HaveLength(originalSignature.Length);
+        mutatedSignature.Zip(originalSignature)
+            .Count(pair => pair.First != pair.Second).Should().Be(1);
+        request.Headers.GetValues(InternalServiceWireConstants.ServiceIdHeaderName)
+            .Should().ContainSingle(originalServiceId);
+        request.Headers.GetValues(InternalServiceWireConstants.TimestampHeaderName)
+            .Should().ContainSingle(originalTimestamp);
+        request.Headers.GetValues(InternalServiceWireConstants.NonceHeaderName)
+            .Should().ContainSingle(originalNonce);
+        (await request.Content.ReadAsByteArrayAsync()).Should().Equal(originalBody);
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(InternalServiceProblemCodes.InvalidSignature);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-026")]
+    public async Task AvailabilityDiscovery_WhenTimestampIsStale_ReturnsExactUnauthorizedProblem()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest(),
+            timestamp: DateTimeOffset.UtcNow.AddMinutes(-10));
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        content.Should().Contain(InternalServiceProblemCodes.TimestampOutOfRange);
+        AssertNoAvailabilityData(content);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-027")]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-028")]
+    public async Task AvailabilityDiscovery_WhenNonceIsReplayed_ReturnsExactUnauthorizedProblem()
+    {
+        _factory.ResetState();
+        var before = _factory.ReadState(context =>
+            context.AppointmentReservations.Select(item => item.Id).OrderBy(id => id).ToArray());
+        using var client = _factory.CreateSecureClient();
+        var nonce = $"availability-replay-{Guid.NewGuid():N}";
+        using var first = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest(),
+            nonce: nonce);
+        using var firstResponse = await client.SendAsync(first);
+        var afterFirst = _factory.ReadState(context =>
+            context.AppointmentReservations.Select(item => item.Id).OrderBy(id => id).ToArray());
+        var nonceCountAfterFirst = _factory.ReadState(context =>
+            context.InternalServiceNonces.Count(item =>
+                item.ServiceId == CatalogApiFactory.InternalServiceId &&
+                item.Nonce == nonce));
+        using var replay = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest(),
+            nonce: nonce);
+
+        using var replayResponse = await client.SendAsync(replay);
+        var content = await replayResponse.Content.ReadAsStringAsync();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        replayResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        content.Should().Contain(InternalServiceProblemCodes.ReplayNonce);
+        var afterReplay = _factory.ReadState(context =>
+            context.AppointmentReservations.Select(item => item.Id).OrderBy(id => id).ToArray());
+        var nonceCountAfterReplay = _factory.ReadState(context =>
+            context.InternalServiceNonces.Count(item =>
+                item.ServiceId == CatalogApiFactory.InternalServiceId &&
+                item.Nonce == nonce));
+        afterFirst.Should().Equal(before);
+        afterReplay.Should().Equal(afterFirst);
+        nonceCountAfterFirst.Should().Be(1);
+        nonceCountAfterReplay.Should().Be(nonceCountAfterFirst);
+        AssertNoAvailabilityData(content);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-011")]
+    public async Task AvailabilityDiscovery_WhenServiceLacksOperation_ReturnsExactForbiddenProblem()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest(),
+            serviceId: CatalogApiFactory.SnapshotOnlyServiceId,
+            secret: CatalogApiFactory.SnapshotOnlySecret);
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        content.Should().Contain(InternalServiceProblemCodes.ServiceForbidden);
+        AssertNoAvailabilityData(content);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-012")]
+    public async Task AvailabilityDiscovery_WhenSignedOverInsecureHttp_ReturnsExactForbiddenProblem()
+    {
+        _factory.ResetState();
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("http://localhost")
+        });
+        const string correlationId = "corr-availability-insecure-http";
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            ValidAvailabilityRequest(),
+            correlationId: correlationId);
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        response.Content.Headers.ContentType!.MediaType.Should()
+            .Be("application/problem+json");
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be(InternalServiceProblemCodes.HttpsRequired);
+        document.RootElement.GetProperty("correlationId").GetString()
+            .Should().Be(correlationId);
+        document.RootElement.EnumerateObject().Select(property => property.Name)
+            .Should().BeEquivalentTo(
+                "type", "title", "status", "detail", "code", "correlationId");
+        content.Should().NotContainAny(
+            "\"results\"", "\"candidates\"", CatalogApiFactory.InternalServiceActiveSecret);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-013")]
+    public async Task AvailabilityDiscovery_WhenSignedJsonIsMalformed_ReturnsBadRequestWithoutDomainMutation()
+    {
+        _factory.ResetState();
+        var before = _factory.ReadState(context =>
+            context.AppointmentReservations.Count());
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            new InternalServiceRawJson("""{"contractVersion":"v1","candidates":["""));
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        content.Should().NotContainAny(
+            CatalogApiFactory.InternalServiceActiveSecret,
+            "connection string",
+            "stack trace",
+            "System.Text.Json",
+            """{"contractVersion":"v1","candidates":[""");
+        _factory.ReadState(context => context.AppointmentReservations.Count())
+            .Should().Be(before);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-AVAILABILITY-INTERNAL-031")]
+    public async Task AvailabilityDiscovery_WhenSignedBodyIsOversized_ReturnsPayloadTooLargeWithoutDomainMutation()
+    {
+        _factory.ResetState();
+        var before = _factory.ReadState(context =>
+            context.AppointmentReservations.Count());
+        using var client = _factory.CreateSecureClient();
+        var oversized = JsonSerializer.Serialize(new
+        {
+            contractVersion = "v1",
+            date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+            preferredLocalTime = "10:30:00",
+            candidates = new[]
+            {
+                new
+                {
+                    companyId = _factory.CompanyId,
+                    branchIds = new[] { _factory.BranchId }
+                }
+            },
+            padding = new string('x', InternalServiceWireConstants.MaxRequestBodyBytes)
+        });
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Post,
+            "/api/v1/internal/appointments/availability-discovery",
+            new InternalServiceRawJson(oversized));
+
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.RequestEntityTooLarge);
+        content.Should().Contain(InternalServiceProblemCodes.RequestBodyTooLarge);
+        content.Should().NotContainAny(
+            CatalogApiFactory.InternalServiceActiveSecret,
+            _factory.CompanyId.ToString(),
+            _factory.BranchId.ToString(),
+            new string('x', 64),
+            "connection string",
+            "stack trace",
+            "System.");
+        _factory.ReadState(context => context.AppointmentReservations.Count())
+            .Should().Be(before);
     }
 
     [Fact]
@@ -57,6 +414,61 @@ public class InternalServiceSecurityIntegrationTests : IClassFixture<CatalogApiF
         document.RootElement.GetProperty("company").GetProperty("id").GetGuid()
             .Should()
             .Be(_factory.CompanyId);
+    }
+
+    private AvailabilityDiscoveryRequest ValidAvailabilityRequest() => new()
+    {
+        Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+        PreferredLocalTime = new TimeOnly(10, 30),
+        Candidates =
+        [
+            new AvailabilityDiscoveryCompanyCandidate
+            {
+                CompanyId = _factory.CompanyId,
+                BranchIds = [_factory.BranchId]
+            }
+        ]
+    };
+
+    private void SeedAvailability(DayOfWeek dayOfWeek)
+    {
+        _factory.MutateState(context =>
+        {
+            foreach (var branchId in new[] { _factory.CompanyId, _factory.OtherCompanyId }
+                .Select(companyId => companyId == _factory.CompanyId
+                    ? _factory.BranchId
+                    : _factory.OtherBranchId))
+            {
+                context.BranchAvailabilitySettings.Add(new BranchAvailabilitySettings
+                {
+                    BranchId = branchId,
+                    TimeZoneId = "UTC",
+                    BookingHorizonDays = 30,
+                    MinimumLeadMinutes = 0,
+                    IsActive = true
+                });
+                context.BranchRecurringSchedules.Add(new BranchRecurringSchedule
+                {
+                    BranchId = branchId,
+                    DayOfWeek = dayOfWeek,
+                    StartLocalTime = TimeSpan.FromHours(9),
+                    EndLocalTime = TimeSpan.FromHours(12),
+                    SlotDurationMinutes = 30,
+                    Capacity = 2,
+                    IsActive = true
+                });
+            }
+        });
+    }
+
+    private void AssertNoAvailabilityData(string content)
+    {
+        content.Should().NotContainAny(
+            "\"results\"",
+            "\"candidates\"",
+            _factory.CompanyId.ToString(),
+            _factory.BranchId.ToString(),
+            CatalogApiFactory.InternalServiceActiveSecret);
     }
 
     [Fact]
@@ -185,6 +597,48 @@ public class InternalServiceSecurityIntegrationTests : IClassFixture<CatalogApiF
 
         response.StatusCode.Should().Be(expectedStatusCode);
         content.Should().Contain(expectedCode);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-INTERNAL-015")]
+    public async Task CatalogSnapshot_WhenSignatureIsInvalid_DoesNotLeakCategoryOrMutateState()
+    {
+        _factory.ResetState();
+        using var ownerClient = _factory.CreateAuthenticatedClient(
+            _factory.OwnerUserId,
+            BusinessRoles.Owner);
+        using var createResponse = await ownerClient.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "فئة سرية",
+                ImageUrl = "https://cdn.example.test/categories/private.png",
+                ColorHex = "#ABCDEF",
+                IsActive = true
+            });
+        var category = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var versionBefore = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var client = _factory.CreateSecureClient();
+        using var request = await InternalServiceTestRequestFactory.CreateSignedRequestAsync(
+            client,
+            HttpMethod.Get,
+            $"/api/v1/internal/catalog/snapshot?companyId={_factory.CompanyId}",
+            secret: "wrong-secret-minimum-32-characters___");
+        using var response = await client.SendAsync(request);
+        var content = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        content.Should().Contain(InternalServiceProblemCodes.InvalidSignature);
+        content.ToLowerInvariant().Should().NotContain(category!.Id.ToString().ToLowerInvariant());
+        content.Should().NotContain("فئة سرية");
+        content.Should().NotContain("private.png");
+        content.Should().NotContain("#ABCDEF");
+        _factory.ReadState(context => context.ServiceCategories.Count()).Should().Be(1);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBefore);
     }
 
     [Fact]

@@ -72,25 +72,6 @@ public sealed class CustomerHttpPolicyMiddleware
             return;
         }
 
-        if (context.Request.Path.Equals(
-                "/api/v1/bookings/from-draft",
-                StringComparison.OrdinalIgnoreCase) &&
-            string.IsNullOrWhiteSpace(
-                context.Request.Headers[DeviceTokenDefaults.HeaderName]))
-        {
-            var problem = DeviceProblemDetailsFactory.Create(
-                401,
-                DeviceProblemCodes.TokenMissing,
-                language,
-                context.TraceIdentifier);
-            context.Response.StatusCode = 401;
-            context.Response.ContentType = "application/problem+json";
-            await context.Response.WriteAsync(
-                JsonSerializer.Serialize(problem, JsonOptions),
-                context.RequestAborted);
-            return;
-        }
-
         if (context.Request.Path.StartsWithSegments(
                 "/api/v1/internal",
                 StringComparison.OrdinalIgnoreCase) &&
@@ -619,7 +600,7 @@ public sealed class CustomerHttpPolicyMiddleware
 #pragma warning disable CS0618
         public Stream Body
         {
-            get => inner.Body;
+            get => buffer;
             set => inner.Body = value;
         }
 #pragma warning restore CS0618

@@ -649,11 +649,148 @@ public sealed class Step17HostSecurityContractTests
             {
                 response.StatusCode.Should().Be(HttpStatusCode.OK);
             }
+
             else
             {
                 await AssertLocalizedRateLimitAsync(response);
             }
         }
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-RATELIMIT-011")]
+    public async Task OptionalRead_AnonymousBucketExhaustionDoesNotAffectDeviceOrBearer()
+    {
+        var token = Token(22);
+        using var factory = CreateRateFactory(token);
+        using var client = CreateClient(factory);
+
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            using var response = await client.GetAsync("/api/v1/catalog/businesses");
+            if (attempt <= 3)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            else
+            {
+                await AssertLocalizedRateLimitAsync(response);
+            }
+        }
+
+        using (var deviceRequest = new HttpRequestMessage(
+                   HttpMethod.Get, "/api/v1/catalog/businesses"))
+        {
+            deviceRequest.Headers.Add(DeviceTokenDefaults.HeaderName, token);
+            using var deviceResponse = await client.SendAsync(deviceRequest);
+            deviceResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+
+        using var bearerRequest = new HttpRequestMessage(
+            HttpMethod.Get, "/api/v1/catalog/businesses");
+        bearerRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer", CreateJwt(Guid.NewGuid()));
+        using var bearerResponse = await client.SendAsync(bearerRequest);
+        bearerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-RATELIMIT-037")]
+    public async Task OptionalRead_DeviceBucketExhaustionDoesNotAffectAnonymousOrBearer()
+    {
+        var token = Token(23);
+        using var factory = CreateRateFactory(token);
+        using var client = CreateClient(factory);
+
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/api/v1/catalog/businesses");
+            request.Headers.Add(DeviceTokenDefaults.HeaderName, token);
+            using var response = await client.SendAsync(request);
+            if (attempt <= 3)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            else
+            {
+                await AssertLocalizedRateLimitAsync(response);
+            }
+        }
+
+        using var anonymousResponse = await client.GetAsync("/api/v1/catalog/businesses");
+        anonymousResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var bearerRequest = new HttpRequestMessage(
+            HttpMethod.Get, "/api/v1/catalog/businesses");
+        bearerRequest.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer", CreateJwt(Guid.NewGuid()));
+        using var bearerResponse = await client.SendAsync(bearerRequest);
+        bearerResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-RATELIMIT-038")]
+    public async Task OptionalRead_BearerBucketExhaustionDoesNotAffectAnonymousOrDevice()
+    {
+        var token = Token(24);
+        var userId = Guid.NewGuid();
+        using var factory = CreateRateFactory(token);
+        using var client = CreateClient(factory);
+
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                "/api/v1/catalog/businesses");
+            request.Headers.Authorization = new AuthenticationHeaderValue(
+                "Bearer", CreateJwt(userId));
+            using var response = await client.SendAsync(request);
+            if (attempt <= 3)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            else
+            {
+                await AssertLocalizedRateLimitAsync(response);
+            }
+        }
+
+        using var anonymousResponse = await client.GetAsync("/api/v1/catalog/businesses");
+        anonymousResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var deviceRequest = new HttpRequestMessage(
+            HttpMethod.Get, "/api/v1/catalog/businesses");
+        deviceRequest.Headers.Add(DeviceTokenDefaults.HeaderName, token);
+        using var deviceResponse = await client.SendAsync(deviceRequest);
+        deviceResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task BannerRead_ValidDeviceUsesDeviceBucketAndLeavesAnonymousBucketAvailable()
+    {
+        var token = Token(25);
+        using var factory = CreateRateFactory(token);
+        using var client = CreateClient(factory);
+
+        for (var attempt = 1; attempt <= 4; attempt++)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/banners");
+            request.Headers.Add(DeviceTokenDefaults.HeaderName, token);
+            using var response = await client.SendAsync(request);
+            if (attempt <= 3)
+            {
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+            }
+            else
+            {
+                await AssertLocalizedRateLimitAsync(response);
+            }
+        }
+
+        using var anonymousResponse = await client.GetAsync("/api/v1/banners");
+        anonymousResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

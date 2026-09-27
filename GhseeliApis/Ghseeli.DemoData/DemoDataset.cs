@@ -17,6 +17,8 @@ public static class DemoDataDefinition
         var companies = CreateCompanies();
         var customers = CreateCustomers();
         var bookings = CreateBookings(companies, customers);
+        var reviews = CreateReviews(bookings);
+        var favourites = CreateFavourites(companies, customers);
 
         return new DemoDataset(
             new DemoMetadata(
@@ -29,8 +31,36 @@ public static class DemoDataDefinition
             companies,
             customers,
             CreateDrafts(companies, customers),
-            bookings);
+            bookings,
+            reviews,
+            favourites,
+            CreateBanners());
     }
+
+    private static List<DemoBanner> CreateBanners() =>
+    [
+        new(
+            Id('n', 1),
+            "https://example.test/demo/banners/welcome.png",
+            10,
+            true,
+            BaseTime,
+            BaseTime),
+        new(
+            Id('n', 2),
+            "https://example.test/demo/banners/premium-care.png",
+            20,
+            true,
+            BaseTime,
+            BaseTime),
+        new(
+            Id('n', 3),
+            "https://example.test/demo/banners/inactive-preview.png",
+            30,
+            false,
+            BaseTime,
+            BaseTime)
+    ];
 
     private static List<DemoCompany> CreateCompanies()
     {
@@ -265,6 +295,38 @@ public static class DemoDataDefinition
         return result;
     }
 
+    private static List<DemoReview> CreateReviews(IReadOnlyList<DemoBooking> bookings) =>
+        bookings
+            .Where(booking => booking.Status == "Completed")
+            .Select((booking, index) => new DemoReview(
+                Id('z', index + 1),
+                booking.CustomerReferenceId,
+                booking.CustomerId,
+                booking.CompanyId,
+                index switch
+                {
+                    0 => 5,
+                    1 => 4,
+                    _ => 5
+                },
+                index switch
+                {
+                    0 => "خدمة ممتازة وسريعة.",
+                    1 => null,
+                    _ => "تجربة تجريبية رائعة."
+                },
+                BaseTime.AddDays(index + 1)))
+            .ToList();
+
+    private static List<DemoFavourite> CreateFavourites(
+        IReadOnlyList<DemoCompany> companies,
+        IReadOnlyList<DemoCustomer> customers) =>
+    [
+        new(Id('f', 1), customers[0].Id, companies[0].Id, BaseTime.AddDays(1)),
+        new(Id('f', 2), customers[0].Id, companies[4].Id, BaseTime.AddDays(2)),
+        new(Id('f', 3), customers[1].Id, companies[1].Id, BaseTime.AddDays(1))
+    ];
+
     private static DemoCustomer Customer(
         int number,
         string name,
@@ -290,7 +352,9 @@ public static class DemoDataDefinition
                 index % 2 == 0 ? "Corolla" : "Tucson",
                 (2020 + ((number + index) % 6)).ToString(),
                 $"DEMO-{number}{index:00}",
-                index % 2 == 0 ? "White" : "Blue"))
+                index % 2 == 0 ? "White" : "Blue",
+                index % 2 == 0 ? "Sedan" : "Suv5Seater",
+                $"https://example.test/demo/vehicles/{number}-{index}.png"))
             .ToList();
         var addresses = Enumerable.Range(1, addressCount)
             .Select(index => new DemoAddress(
@@ -310,7 +374,14 @@ public static class DemoDataDefinition
         new(Id('b', number), Id('c', companyNumber), nameEn, nameAr, nameHe, $"[DEMO] Address {number}", $"عنوان تجريبي {number}", $"כתובת ניסיונית {number}", latitude, longitude, 18 + number, "Asia/Jerusalem");
 
     private static DemoCategory Category(int number, int companyNumber, string nameEn, string nameAr, string nameHe) =>
-        new(Id('g', number), Id('c', companyNumber), nameEn, nameAr, nameHe);
+        new(
+            Id('g', number),
+            Id('c', companyNumber),
+            nameEn,
+            nameAr,
+            nameHe,
+            number == 2 ? null : $"https://example.test/demo/categories/{number}.png",
+            number == 2 ? null : $"#{(0x245000 + number * 0x10203):X6}");
 
     private static DemoOffering Offering(
         int number,
@@ -427,7 +498,10 @@ public sealed record DemoDataset(
     List<DemoCompany> Companies,
     List<DemoCustomer> Customers,
     List<DemoDraft> Drafts,
-    List<DemoBooking> Bookings);
+    List<DemoBooking> Bookings,
+    List<DemoReview> Reviews,
+    List<DemoFavourite> Favourites,
+    List<DemoBanner> Banners);
 
 public sealed record DemoMetadata(
     string DatasetType,
@@ -435,6 +509,14 @@ public sealed record DemoMetadata(
     bool LocalDevelopmentOnly,
     string Warning,
     DateTimeOffset GeneratedAtUtc);
+
+public sealed record DemoBanner(
+    Guid Id,
+    string ImageUrl,
+    int DisplayOrder,
+    bool IsActive,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset UpdatedAtUtc);
 
 public sealed record DemoCompany(
     Guid Id,
@@ -460,7 +542,14 @@ public sealed record DemoBranch(
     double ServiceRadiusKm,
     string TimeZoneId);
 
-public sealed record DemoCategory(Guid Id, Guid CompanyId, string NameEn, string NameAr, string NameHe);
+public sealed record DemoCategory(
+    Guid Id,
+    Guid CompanyId,
+    string NameEn,
+    string NameAr,
+    string NameHe,
+    string? ImageUrl,
+    string? ColorHex);
 
 public sealed record DemoOffering(
     Guid Id,
@@ -519,7 +608,15 @@ public sealed record DemoBusinessUser(
     string Role,
     Guid CompanyId,
     Guid? BranchId);
-public sealed record DemoVehicle(Guid Id, string Make, string Model, string Year, string LicensePlate, string Color);
+public sealed record DemoVehicle(
+    Guid Id,
+    string Make,
+    string Model,
+    string Year,
+    string LicensePlate,
+    string Color,
+    string VehicleType,
+    string? ImageUrl);
 public sealed record DemoAddress(Guid Id, string AddressLine, string City, string Area, double Latitude, double Longitude, bool IsPrimary);
 
 public sealed record DemoDraft(
@@ -571,3 +668,18 @@ public sealed record DemoPayment(
     string Currency,
     string ProviderReference,
     string? ProviderTransactionId);
+
+public sealed record DemoReview(
+    Guid Id,
+    Guid BookingReferenceId,
+    Guid CustomerId,
+    Guid CompanyId,
+    int Rating,
+    string? Comment,
+    DateTimeOffset CreatedAtUtc);
+
+public sealed record DemoFavourite(
+    Guid Id,
+    Guid CustomerId,
+    Guid CompanyId,
+    DateTimeOffset CreatedAtUtc);

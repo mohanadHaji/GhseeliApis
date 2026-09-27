@@ -240,11 +240,23 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
         "GET /api/v1/catalog/categories", "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",
+        "PUT /api/v1/catalog/businesses/{businessId}/favourite",
+        "DELETE /api/v1/catalog/businesses/{businessId}/favourite",
+        "POST /api/v1/catalog/businesses/availability-search",
         "POST /api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots",
         "GET /api/v1/catalog/offerings/{id}", "POST /api/v1/checkout/drafts",
         "GET /api/v1/checkout/drafts/{orderGuid}",
         "PUT /api/v1/checkout/drafts/{orderGuid}", "POST /api/v1/pricing/reprice",
         "POST /api/v1/checkout/reprice", "POST /api/v1/bookings/from-draft",
+        "GET /api/v1/bookings/{bookingId}/review",
+        "PUT /api/v1/bookings/{bookingId}/review",
+        "DELETE /api/v1/bookings/{bookingId}/review",
+        "GET /api/v1/catalog/businesses/{businessId}/reviews",
+        "GET /api/v1/banners",
+        "GET /api/v1/admin/banners",
+        "POST /api/v1/admin/banners",
+        "PUT /api/v1/admin/banners/{id}",
+        "DELETE /api/v1/admin/banners/{id}",
         "POST /api/v1/payments/intents", "GET /api/v1/payments/{id}",
         "POST /api/v1/payments/{id}/verify",
         "POST /api/v1/internal/bookings/status",
@@ -405,7 +417,25 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
         if (path == "/api/v1/devices/register") return [];
         if (path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
             return ["HmacServiceId", "HmacTimestamp", "HmacNonce", "HmacSignature"];
-        if (path is "/api/v1/bookings/from-draft" or "/api/v1/payments/intents" or
+        if (path == "/api/v1/catalog/businesses/{businessId}/reviews") return [];
+        if (path == "/api/v1/banners") return [];
+        if (path.StartsWith("/api/v1/admin/banners", StringComparison.Ordinal))
+            return ["CustomerBearer"];
+        if (path == "/api/v1/catalog/businesses/{businessId}/favourite")
+            return ["CustomerBearer"];
+        if (path is "/api/v1/configuration" or
+            "/api/v1/catalog/categories" or
+            "/api/v1/catalog/businesses" or
+            "/api/v1/catalog/businesses/{id}" or
+            "/api/v1/catalog/businesses/{id}/offerings" or
+            "/api/v1/catalog/businesses/availability-search" or
+            "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots" or
+            "/api/v1/catalog/offerings/{id}" or
+            "/api/v1/pricing/reprice")
+            return [];
+        if (path is "/api/v1/bookings/from-draft" or
+            "/api/v1/bookings/{bookingId}/review" or
+            "/api/v1/payments/intents" or
             "/api/v1/payments/{id}" or "/api/v1/payments/{id}/verify")
             return ["CustomerBearer", "DeviceToken"];
         if (path.StartsWith("/api/v1/", StringComparison.Ordinal))

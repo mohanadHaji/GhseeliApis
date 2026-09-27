@@ -36,6 +36,7 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 var validationJsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+validationJsonOptions.Converters.Add(new Ghseeli.IntegrationContracts.Vehicles.VehicleTypeJsonConverter());
 validationJsonOptions.Converters.Add(new JsonStringEnumConverter(
     namingPolicy: null,
     allowIntegerValues: false));
@@ -46,6 +47,7 @@ builder.Services.AddControllers(options =>
     })
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.Converters.Add(new Ghseeli.IntegrationContracts.Vehicles.VehicleTypeJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(
             namingPolicy: null,
             allowIntegerValues: false));
@@ -64,6 +66,14 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                         : error.ErrorMessage)
                     .ToArray(),
                 StringComparer.Ordinal);
+        var isCategoryAction =
+            context.ActionDescriptor.RouteValues.TryGetValue("controller", out var controller) &&
+            string.Equals(controller, "Catalog", StringComparison.OrdinalIgnoreCase) &&
+            context.ActionDescriptor.RouteValues.TryGetValue("action", out var action) &&
+            action is "CreateCategory" or "UpdateCategory";
+        var isCategoryPresentationError = isCategoryAction && errors.Keys.Any(key =>
+            key.EndsWith(nameof(Ghseeli.BusinessApi.DTOs.Catalog.CreateServiceCategoryRequest.ImageUrl), StringComparison.OrdinalIgnoreCase) ||
+            key.EndsWith(nameof(Ghseeli.BusinessApi.DTOs.Catalog.CreateServiceCategoryRequest.ColorHex), StringComparison.OrdinalIgnoreCase));
 
         return new ContentResult
         {
@@ -73,6 +83,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             {
                 title = "One or more validation errors occurred.",
                 status = StatusCodes.Status400BadRequest,
+                code = isCategoryPresentationError
+                    ? "catalog_category_presentation_invalid"
+                    : "request_invalid",
                 errors
             }, validationJsonOptions)
         };
@@ -132,6 +145,7 @@ builder.Services.AddSwaggerGen(options =>
             });
     }
     options.SchemaFilter<StringEnumSchemaFilter>();
+    options.SchemaFilter<VehicleContractSchemaFilter>();
     options.SchemaFilter<BusinessRequestSchemaFilter>();
     options.OperationFilter<BusinessOperationFilter>();
     options.DocumentFilter<BusinessDocumentFilter>();
@@ -340,6 +354,14 @@ builder.Services.AddAuthorization(options =>
             BusinessClaimTypes.InternalAllowedOperation,
             InternalServiceOperationNames.AppointmentAvailableSlots);
     });
+    options.AddPolicy(BusinessPolicies.InternalAppointmentAvailabilityDiscovery, policy =>
+    {
+        policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim(
+            BusinessClaimTypes.InternalAllowedOperation,
+            InternalServiceOperationNames.AppointmentAvailabilityDiscovery);
+    });
     options.AddPolicy(BusinessPolicies.InternalReservationCreate, policy =>
     {
         policy.AddAuthenticationSchemes(BusinessAuthenticationSchemes.InternalService);
@@ -383,6 +405,7 @@ builder.Services.AddScoped<IAvailabilityManagementService, AvailabilityManagemen
 builder.Services.AddScoped<ICatalogPublicationService, CatalogPublicationService>();
 builder.Services.AddScoped<IAppointmentValidationService, AppointmentValidationService>();
 builder.Services.AddScoped<IAvailableSlotsService, AvailableSlotsService>();
+builder.Services.AddScoped<IAvailabilityDiscoveryService, AvailabilityDiscoveryService>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<IBookingStatusService, BookingStatusService>();
 builder.Services.AddScoped<IBookingStatusOutboxDispatcher, BookingStatusOutboxDispatcher>();

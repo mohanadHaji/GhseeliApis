@@ -8,13 +8,33 @@ public sealed class CatalogResponseSchemaFilter : ISchemaFilter
 {
     public void Apply(OpenApiSchema schema, SchemaFilterContext context)
     {
-        if (context.Type != typeof(CatalogOfferingResponse))
+        if (context.Type == typeof(CatalogOfferingResponse))
         {
+            SetNullable(schema, "qualifier");
+            SetNullable(schema, "badgeCode");
             return;
         }
 
-        SetNullable(schema, "qualifier");
-        SetNullable(schema, "badgeCode");
+        if (context.Type == typeof(CatalogCategoryResponse))
+        {
+            SetNullable(schema, "imageUrl");
+            SetNullable(schema, "colorHex");
+
+            if (schema.Properties.TryGetValue("imageUrl", out var imageUrl))
+            {
+                imageUrl.MaxLength = 500;
+                imageUrl.Pattern = "^https://[^\\s/@]+(?:/[^\\s]*)?$";
+                imageUrl.Description =
+                    "Nullable absolute HTTPS category image URL with no embedded credentials.";
+            }
+
+            if (schema.Properties.TryGetValue("colorHex", out var colorHex))
+            {
+                colorHex.MaxLength = 7;
+                colorHex.Pattern = "^#[0-9A-F]{6}$";
+                colorHex.Description = "Nullable normalized #RRGGBB category color.";
+            }
+        }
     }
 
     private static void SetNullable(OpenApiSchema schema, string propertyName)

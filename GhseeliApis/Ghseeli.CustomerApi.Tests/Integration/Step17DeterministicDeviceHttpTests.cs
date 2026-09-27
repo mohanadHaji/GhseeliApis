@@ -24,6 +24,43 @@ namespace GhseeliApis.Tests.Integration;
 public sealed class Step17DeterministicDeviceHttpTests
 {
     [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-REQUIRED-039")]
+    public async Task Booking_WithValidJwtAndBodyButMissingDevice_IsRejectedBeforePersistenceOrUpstream()
+    {
+        await using var factory = Step17CustomerHttpTestSupport.CreateFactory();
+        using var client = factory.CreateApiClient();
+        var userId = Guid.NewGuid();
+        var upstreamCalls = factory.BusinessApiClient.CreateReservationRequests;
+        using var request = Step17CustomerHttpTestSupport.Request(
+            HttpMethod.Post,
+            "/api/v1/bookings/from-draft?language=ar",
+            content: JsonContent.Create(new
+            {
+                expectedVersion = 2,
+                cancellationPolicyAcknowledged = true
+            }),
+            bearer: Step17CustomerHttpTestSupport.CustomerJwt(userId),
+            correlationId: "corr-optional-required-booking");
+        request.Headers.TryAddWithoutValidation("X-Order-Guid", Guid.NewGuid().ToString("D"));
+
+        using var response = await client.SendAsync(request);
+        using var problem = await Step17CustomerHttpTestSupport.AssertProblemAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            DeviceProblemCodes.TokenMissing,
+            "ar",
+            "فشل التحقق من الجهاز.",
+            "رمز الجهاز مطلوب.",
+            "corr-optional-required-booking");
+
+        factory.BusinessApiClient.CreateReservationRequests.Should().Be(upstreamCalls);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await context.CustomerBookings.CountAsync()).Should().Be(0);
+        (await context.BookingConfirmationAttempts.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "STEP17-DET-DEVICE-001")]
     public async Task STEP17_DET_DEVICE_001_ExpiredDeviceCannotReachConfiguration()
     {

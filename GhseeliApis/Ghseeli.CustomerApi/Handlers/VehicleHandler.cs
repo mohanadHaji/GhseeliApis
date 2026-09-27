@@ -118,6 +118,8 @@ public class VehicleHandler : IVehicleHandler
             existing.Year = vehicle.Year;
             existing.LicensePlate = vehicle.LicensePlate;
             existing.Color = vehicle.Color;
+            existing.VehicleType = vehicle.VehicleType;
+            existing.ImageUrl = vehicle.ImageUrl;
 
             // Validate the updated vehicle
             var validationResult = existing.Validate();

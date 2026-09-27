@@ -81,9 +81,254 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
     }
 
     [Fact]
+    public async Task CategoryPresentation_CreateUpdateListAndDetail_NormalizesAndIncrementsVersion()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var versionBeforeCreate = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "غسيل خارجي",
+                NameHe = "שטיפה חיצונית",
+                ImageUrl = " https://cdn.example.test/categories/exterior.png ",
+                ColorHex = " #1a73e8 ",
+                DisplayOrder = 2,
+                IsActive = true
+            });
+        var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        created!.ImageUrl.Should().Be("https://cdn.example.test/categories/exterior.png");
+        created.ColorHex.Should().Be("#1A73E8");
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeCreate + 1);
+
+        var listed = await client.GetFromJsonAsync<ServiceCategoryListResponse[]>(
+            "/api/v1/business/catalog/categories");
+        var detail = await client.GetFromJsonAsync<ServiceCategoryResponse>(
+            $"/api/v1/business/catalog/categories/{created.Id}");
+
+        listed.Should().ContainSingle(category =>
+            category.Id == created.Id &&
+            category.ImageUrl == created.ImageUrl &&
+            category.ColorHex == created.ColorHex);
+        detail!.ImageUrl.Should().Be(created.ImageUrl);
+        detail.ColorHex.Should().Be(created.ColorHex);
+
+        var versionBeforeUpdate = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        using var updateResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{created.Id}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = created.NameAr,
+                NameHe = created.NameHe,
+                ImageUrl = null,
+                ColorHex = null,
+                DisplayOrder = created.DisplayOrder,
+                IsActive = true
+            });
+        var updated = await updateResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        updated!.ImageUrl.Should().BeNull();
+        updated.ColorHex.Should().BeNull();
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeUpdate + 1);
+    }
+
+    [Theory]
+    [InlineData("http://cdn.example.test/category.png", null)]
+    [InlineData("/category.png", null)]
+    [InlineData("https://user:password@cdn.example.test/category.png", null)]
+    [InlineData("not-a-url", null)]
+    [InlineData(null, "#12345G")]
+    public async Task CategoryPresentation_InvalidValue_ReturnsStableProblemWithoutMutation(
+        string? imageUrl,
+        string? colorHex)
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var versionBeforeRequest = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "غسيل",
+                ImageUrl = imageUrl,
+                ColorHex = colorHex,
+                IsActive = true
+            });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be("catalog_category_presentation_invalid");
+        _factory.ReadState(context => context.ServiceCategories.Count()).Should().Be(0);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeRequest);
+    }
+
+    [Fact]
+    public async Task CategoryPresentation_OverlongImageUrl_ReturnsStableProblem()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "غسيل",
+                ImageUrl = $"https://cdn.example.test/{new string('x', 480)}.png",
+                IsActive = true
+            });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be("catalog_category_presentation_invalid");
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-VALIDATION-018")]
+    public async Task CategoryPresentation_CreateAccepts500AndRejects501WithoutMutation()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var versionBefore = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var acceptedResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "حد 500",
+                ImageUrl = CreateHttpsUrl(500),
+                IsActive = true
+            });
+
+        acceptedResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var accepted = await acceptedResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        accepted!.ImageUrl.Should().HaveLength(500);
+        var versionAfterAccepted = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+        versionAfterAccepted.Should().Be(versionBefore + 1);
+
+        using var rejectedResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "حد 501",
+                ImageUrl = CreateHttpsUrl(501),
+                IsActive = true
+            });
+
+        rejectedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _factory.ReadState(context => context.ServiceCategories.Count()).Should().Be(1);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionAfterAccepted);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-VALIDATION-019")]
+    public async Task CategoryPresentation_UpdateAccepts500AndRejects501WithoutMutation()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        using var createResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest { NameAr = "حدود التحديث", IsActive = true });
+        var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+
+        using var acceptedResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{created!.Id}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = created.NameAr,
+                ImageUrl = CreateHttpsUrl(500),
+                IsActive = true
+            });
+        acceptedResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var versionAfterAccepted = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var rejectedResponse = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{created.Id}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = "يجب ألا تحفظ",
+                ImageUrl = CreateHttpsUrl(501),
+                IsActive = true
+            });
+
+        rejectedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        _factory.ReadState(context => context.ServiceCategories.Single(category =>
+                category.Id == created.Id))
+            .Should()
+            .Match<ServiceCategory>(category =>
+                category.NameAr == created.NameAr &&
+                category.ImageUrl == CreateHttpsUrl(500));
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionAfterAccepted);
+    }
+
+    [Fact]
+    public async Task CategoryPresentation_UpdateWithInvalidColor_DoesNotMutateOrIncrementVersion()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateAuthenticatedClient(_factory.OwnerUserId, BusinessRoles.Owner);
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest
+            {
+                NameAr = "غسيل",
+                ColorHex = "#1A73E8",
+                IsActive = true
+            });
+        var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var versionBeforeUpdate = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var response = await client.PutAsJsonAsync(
+            $"/api/v1/business/catalog/categories/{created!.Id}",
+            new UpdateServiceCategoryRequest
+            {
+                NameAr = created.NameAr,
+                ColorHex = "#GG0000",
+                IsActive = true
+            });
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("code").GetString()
+            .Should().Be("catalog_category_presentation_invalid");
+        _factory.ReadState(context =>
+                context.ServiceCategories.Single(category => category.Id == created.Id).ColorHex)
+            .Should().Be("#1A73E8");
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBeforeUpdate);
+    }
+
+    [Fact]
     public async Task CreateCategory_AsEmployee_ReturnsForbidden()
     {
+        _factory.ResetState();
         var client = _factory.CreateAuthenticatedClient(_factory.EmployeeUserId, BusinessRoles.Employee);
+        var versionBefore = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
 
         var response = await client.PostAsJsonAsync("/api/v1/business/catalog/categories",
             new CreateServiceCategoryRequest
@@ -95,6 +340,35 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
             });
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        _factory.ReadState(context => context.ServiceCategories.Count()).Should().Be(0);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBefore);
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-AUTH-014")]
+    public async Task CreateCategory_WithCustomerJwt_ReturnsUnauthorizedWithoutMutation()
+    {
+        _factory.ResetState();
+        var client = _factory.CreateSecureClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", "customer.jwt.must.not.cross.host");
+        var versionBefore = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
+
+        using var response = await client.PostAsJsonAsync(
+            "/api/v1/business/catalog/categories",
+            new CreateServiceCategoryRequest { NameAr = "مرفوض", IsActive = true });
+        var body = await response.Content.ReadAsStringAsync();
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        body.Should().Contain("business_authentication_required");
+        body.Should().NotContain("customer.jwt.must.not.cross.host");
+        _factory.ReadState(context => context.ServiceCategories.Count()).Should().Be(0);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBefore);
     }
 
     [Fact]
@@ -111,7 +385,6 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
                 IsActive = true
             });
         var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
-
         var foreignResponse = await otherOwnerClient.GetAsync(
             $"/api/v1/business/catalog/categories/{created!.Id}");
         var missingResponse = await otherOwnerClient.GetAsync(
@@ -138,6 +411,8 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
                 IsActive = true
             });
         var created = await createResponse.Content.ReadFromJsonAsync<ServiceCategoryResponse>();
+        var versionBefore = _factory.ReadState(context =>
+            context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion);
 
         var foreignResponse = await otherOwnerClient.PutAsJsonAsync(
             $"/api/v1/business/catalog/categories/{created!.Id}",
@@ -161,6 +436,15 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
         (await foreignResponse.Content.ReadAsStringAsync())
             .Should()
             .Be(await missingResponse.Content.ReadAsStringAsync());
+        _factory.ReadState(context => context.ServiceCategories.Single(category =>
+                category.Id == created.Id))
+            .Should()
+            .Match<ServiceCategory>(category =>
+                category.NameAr == "مخفي للتحديث" &&
+                category.DisplayOrder == 0);
+        _factory.ReadState(context =>
+                context.Companies.Single(company => company.Id == _factory.CompanyId).CatalogVersion)
+            .Should().Be(versionBefore);
     }
 
     [Fact]
@@ -612,6 +896,12 @@ public class CatalogApiIntegrationTests : IClassFixture<CatalogApiFactory>
         return propertySchema.TryGetProperty("nullable", out var nullableElement) &&
             nullableElement.GetBoolean();
     }
+
+    private static string CreateHttpsUrl(int length)
+    {
+        const string prefix = "https://cdn.example.test/";
+        return prefix + new string('x', length - prefix.Length);
+    }
 }
 
 public class CatalogApiFactory : WebApplicationFactory<Program>
@@ -653,6 +943,7 @@ public class CatalogApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);
         builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:1", InternalServiceOperationNames.AppointmentValidate);
         builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:2", InternalServiceOperationNames.AppointmentAvailableSlots);
+        builder.UseSetting("InternalServiceAuthentication:Services:0:AllowedOperations:3", InternalServiceOperationNames.AppointmentAvailabilityDiscovery);
         builder.UseSetting("InternalServiceAuthentication:Services:1:ServiceId", SnapshotOnlyServiceId);
         builder.UseSetting("InternalServiceAuthentication:Services:1:ActiveSecret", SnapshotOnlySecret);
         builder.UseSetting("InternalServiceAuthentication:Services:1:AllowedOperations:0", InternalServiceOperationNames.CatalogSnapshot);

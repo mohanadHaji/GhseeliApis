@@ -28,6 +28,9 @@ public class User : IdentityUser<Guid>, IValidatable
     // Navigation properties
     public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
     public ICollection<Vehicle> Vehicles { get; set; } = new List<Vehicle>();
+    public ICollection<BusinessReview> BusinessReviews { get; set; } = new List<BusinessReview>();
+    public ICollection<BusinessFavourite> BusinessFavourites { get; set; } =
+        new List<BusinessFavourite>();
 
     // Audit fields
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

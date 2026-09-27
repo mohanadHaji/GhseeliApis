@@ -47,6 +47,12 @@ public sealed class WorkOrder
         get => VehicleDetails.VehicleColor;
         set => VehicleDetails.VehicleColor = value;
     }
+    [NotMapped]
+    public string? VehicleImageUrl
+    {
+        get => VehicleDetails.ImageUrl;
+        set => VehicleDetails.ImageUrl = value;
+    }
     public string AddressLine { get; set; } = string.Empty;
     public string? City { get; set; }
     public string? Area { get; set; }
@@ -61,6 +67,7 @@ public sealed class VehicleWorkOrderDetails
     public Guid WorkOrderId { get; set; }
     public WorkOrder WorkOrder { get; set; } = null!;
     public string VehicleType { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? VehicleMake { get; set; }
     public string? VehicleModel { get; set; }

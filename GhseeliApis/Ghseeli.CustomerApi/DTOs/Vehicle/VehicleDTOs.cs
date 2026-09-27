@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Ghseeli.IntegrationContracts.Vehicles;
 
 namespace GhseeliApis.DTOs.Vehicle;
 
@@ -17,6 +18,10 @@ public class CreateVehicleRequest
     public string? LicensePlate { get; set; }
 
     public string? Color { get; set; }
+    public VehicleType? VehicleType { get; set; }
+
+    [MaxLength(500)]
+    public string? ImageUrl { get; set; }
 }
 
 public class UpdateVehicleRequest
@@ -34,6 +39,10 @@ public class UpdateVehicleRequest
     public string? LicensePlate { get; set; }
 
     public string? Color { get; set; }
+    public VehicleType? VehicleType { get; set; }
+
+    [MaxLength(500)]
+    public string? ImageUrl { get; set; }
 }
 
 public class VehicleResponse
@@ -45,5 +54,7 @@ public class VehicleResponse
     public string? Year { get; set; }
     public string? LicensePlate { get; set; }
     public string? Color { get; set; }
+    public VehicleType VehicleType { get; set; }
+    public string? ImageUrl { get; set; }
     public string DisplayName => $"{Year} {Make} {Model}".Trim();
 }

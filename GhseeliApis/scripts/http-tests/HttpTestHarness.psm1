@@ -3390,7 +3390,7 @@ function Invoke-HttpTestHarnessSelfTest {
 
     Add-SelfTestResult -Name 'Scenario transport preserves UTF-8 bytes and framing headers' -Action {
         if ($null -eq ('HttpHarnessCaptureHandler' -as [type])) {
-            Add-Type -TypeDefinition @'
+            $captureHandlerTypeDefinition = @'
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -3444,6 +3444,13 @@ public sealed class HttpHarnessCaptureHandler : HttpMessageHandler
     }
 }
 '@
+            if ($PSVersionTable.PSEdition -eq 'Desktop') {
+                Add-Type -TypeDefinition $captureHandlerTypeDefinition `
+                    -ReferencedAssemblies @('System.dll', 'System.Core.dll', 'System.Net.Http.dll')
+            }
+            else {
+                Add-Type -TypeDefinition $captureHandlerTypeDefinition
+            }
         }
 
         $variables = @{ webhookSecret = 'whsec_transport_self_test' }

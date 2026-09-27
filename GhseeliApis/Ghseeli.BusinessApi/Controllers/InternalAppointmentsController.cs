@@ -19,13 +19,47 @@ public class InternalAppointmentsController : ControllerBase
 
     private readonly IAppointmentValidationService _service;
     private readonly IAvailableSlotsService _availableSlotsService;
+    private readonly IAvailabilityDiscoveryService _availabilityDiscoveryService;
 
     public InternalAppointmentsController(
         IAppointmentValidationService service,
-        IAvailableSlotsService availableSlotsService)
+        IAvailableSlotsService availableSlotsService,
+        IAvailabilityDiscoveryService availabilityDiscoveryService)
     {
         _service = service;
         _availableSlotsService = availableSlotsService;
+        _availabilityDiscoveryService = availabilityDiscoveryService;
+    }
+
+    [HttpPost("availability-discovery")]
+    [Authorize(Policy = BusinessPolicies.InternalAppointmentAvailabilityDiscovery)]
+    [InternalServiceOperation(InternalServiceOperationNames.AppointmentAvailabilityDiscovery)]
+    [ProducesResponseType<AvailabilityDiscoveryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status413PayloadTooLarge)]
+    [ProducesResponseType(StatusCodes.Status415UnsupportedMediaType)]
+    public async Task<IActionResult> DiscoverAvailability(
+        AvailabilityDiscoveryRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return JsonResponse(
+                StatusCodes.Status200OK,
+                await _availabilityDiscoveryService.DiscoverAsync(
+                    request,
+                    cancellationToken));
+        }
+        catch (AvailabilityValidationException exception)
+        {
+            return JsonResponse(StatusCodes.Status400BadRequest, new
+            {
+                message = exception.Message,
+                errors = exception.Errors
+            });
+        }
     }
 
     [HttpPost("available-slots")]

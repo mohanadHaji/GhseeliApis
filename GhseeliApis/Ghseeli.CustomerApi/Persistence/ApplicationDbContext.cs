@@ -59,6 +59,9 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         Set<CustomerInternalIdempotencyRecord>();
     public DbSet<ProcessedBookingStatusMessage> ProcessedBookingStatusMessages =>
         Set<ProcessedBookingStatusMessage>();
+    public DbSet<BusinessReview> BusinessReviews => Set<BusinessReview>();
+    public DbSet<BusinessFavourite> BusinessFavourites => Set<BusinessFavourite>();
+    public DbSet<Banner> Banners => Set<Banner>();
 
     public override int SaveChanges()
     {
@@ -259,12 +262,18 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         modelBuilder.ConfigureCatalogReadModel();
         modelBuilder.ConfigureCheckoutDrafts();
         modelBuilder.ConfigureCustomerBookings();
+        modelBuilder.ConfigureBusinessReviews();
+        modelBuilder.ConfigureBusinessFavourites();
+        modelBuilder.ConfigureBanners();
         modelBuilder.Entity<User>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         modelBuilder.Entity<CustomerDevice>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         modelBuilder.Entity<CustomerOtpChallenge>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         modelBuilder.Entity<CatalogProviderReadModel>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         modelBuilder.Entity<CheckoutDraft>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         modelBuilder.Entity<CustomerBooking>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<BusinessReview>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<BusinessFavourite>().Property(entity => entity.IsDemo).HasDefaultValue(false);
+        modelBuilder.Entity<Banner>().Property(entity => entity.IsDemo).HasDefaultValue(false);
         ConfigureDataPartitionFilters(modelBuilder);
 
         // ============================================
@@ -288,6 +297,14 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
         // Index for vehicle lookup
         modelBuilder.Entity<Vehicle>()
             .HasIndex(v => new { v.UserId, v.LicensePlate });
+        modelBuilder.Entity<Vehicle>()
+            .Property(v => v.VehicleType)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .IsRequired();
+        modelBuilder.Entity<Vehicle>()
+            .Property(v => v.ImageUrl)
+            .HasMaxLength(500);
 
     }
 
@@ -319,6 +336,21 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
             entry.Entity.IsDemo = _dataPartition.IsDemo;
         }
         foreach (var entry in ChangeTracker.Entries<CustomerBooking>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<BusinessReview>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<BusinessFavourite>()
+                     .Where(entry => entry.State == EntityState.Added))
+        {
+            entry.Entity.IsDemo = _dataPartition.IsDemo;
+        }
+        foreach (var entry in ChangeTracker.Entries<Banner>()
                      .Where(entry => entry.State == EntityState.Added))
         {
             entry.Entity.IsDemo = _dataPartition.IsDemo;
@@ -370,6 +402,12 @@ public class ApplicationDbContext : IdentityDbContext<Models.User, IdentityRole<
                 entity.PricingItemSnapshot.PricingSnapshot.CheckoutDraft.IsDemo ==
                 _dataPartition.IsDemo);
         modelBuilder.Entity<CustomerBooking>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<BusinessReview>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<BusinessFavourite>()
+            .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
+        modelBuilder.Entity<Banner>()
             .HasQueryFilter(entity => entity.IsDemo == _dataPartition.IsDemo);
         modelBuilder.Entity<CustomerBookingItem>()
             .HasQueryFilter(entity => entity.CustomerBooking.IsDemo == _dataPartition.IsDemo);

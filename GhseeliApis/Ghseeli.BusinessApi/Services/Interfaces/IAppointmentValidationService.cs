@@ -13,3 +13,10 @@ public interface IAvailableSlotsService
         AvailableSlotsRequest request,
         CancellationToken cancellationToken);
 }
+
+public interface IAvailabilityDiscoveryService
+{
+    Task<AvailabilityDiscoveryResponse> DiscoverAsync(
+        AvailabilityDiscoveryRequest request,
+        CancellationToken cancellationToken);
+}

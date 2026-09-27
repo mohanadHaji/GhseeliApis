@@ -289,6 +289,136 @@ public class BusinessApiClientTests
         handler.Requests.Should().HaveCount(1);
     }
 
+    [Fact]
+    public async Task DiscoverAvailabilityAsync_SendsExactlyOneSignedPostWithAllCandidatesAndBodyHash()
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(
+                        new AvailabilityDiscoveryResponse
+                        {
+                            Date = new DateOnly(2026, 9, 28),
+                            PreferredLocalTime = new TimeOnly(10, 30),
+                            GeneratedAtUtc = new DateTime(
+                                2026, 9, 27, 8, 0, 0, DateTimeKind.Utc)
+                        },
+                        BusinessCatalogContract.CreateJsonSerializerOptions()),
+                    Encoding.UTF8,
+                    "application/json")
+            }
+        ]);
+        var client = CreateClient(
+            handler,
+            "corr-availability-discovery",
+            maxRetryAttempts: 0);
+        var requestBody = new AvailabilityDiscoveryRequest
+        {
+            Date = new DateOnly(2026, 9, 28),
+            PreferredLocalTime = new TimeOnly(10, 30),
+            Candidates =
+            [
+                new AvailabilityDiscoveryCompanyCandidate
+                {
+                    CompanyId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    BranchIds =
+                    [
+                        Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                        Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+                    ]
+                },
+                new AvailabilityDiscoveryCompanyCandidate
+                {
+                    CompanyId = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    BranchIds =
+                    [
+                        Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc")
+                    ]
+                }
+            ]
+        };
+
+        await client.DiscoverAvailabilityAsync(requestBody);
+
+        var sent = handler.Requests.Should().ContainSingle().Subject;
+        sent.Method.Should().Be(HttpMethod.Post);
+        sent.RequestUri!.PathAndQuery.Should().Be(
+            "/api/v1/internal/appointments/availability-discovery?dataPartition=Production");
+        var body = await sent.Content!.ReadAsByteArrayAsync();
+        var deserialized = JsonSerializer.Deserialize<AvailabilityDiscoveryRequest>(
+            body,
+            BusinessCatalogContract.CreateJsonSerializerOptions());
+        deserialized!.Candidates.Should().HaveCount(2);
+        deserialized.Candidates.SelectMany(candidate => candidate.BranchIds)
+            .Should().HaveCount(3);
+
+        var timestamp = sent.Headers.GetValues(
+            InternalServiceWireConstants.TimestampHeaderName).Single();
+        var nonce = sent.Headers.GetValues(
+            InternalServiceWireConstants.NonceHeaderName).Single();
+        var signature = sent.Headers.GetValues(
+            InternalServiceWireConstants.SignatureHeaderName).Single();
+        sent.Headers.GetValues(InternalServiceWireConstants.ServiceIdHeaderName)
+            .Should().ContainSingle("customer-api-tests");
+        var canonical = string.Join('\n',
+            InternalServiceWireConstants.SignatureVersion,
+            "customer-api-tests",
+            HttpMethod.Post.Method,
+            sent.RequestUri.PathAndQuery,
+            timestamp,
+            nonce,
+            string.Empty,
+            InternalServiceCanonicalRequest.ComputeSha256Hex(body));
+        signature.Should().Be(ComputeSignature(
+            "CustomerStep6ActiveSecret_Minimum32Chars",
+            canonical));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("{")]
+    public async Task DiscoverAvailabilityAsync_RejectsEmptyOrMalformedSuccess(string payload)
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            }
+        ]);
+        var client = CreateClient(handler, maxRetryAttempts: 0);
+
+        var action = () => client.DiscoverAvailabilityAsync(
+            new AvailabilityDiscoveryRequest());
+
+        await action.Should().ThrowAsync<BusinessApiContractException>();
+        handler.Requests.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task DiscoverAvailabilityAsync_RejectsOversizedSuccess()
+    {
+        var handler = new RecordingHandler(
+        [
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    new string('x', InternalServiceWireConstants.MaxStoredResponseBytes + 1),
+                    Encoding.UTF8,
+                    "application/json")
+            }
+        ]);
+        var client = CreateClient(handler, maxRetryAttempts: 0);
+
+        var action = () => client.DiscoverAvailabilityAsync(
+            new AvailabilityDiscoveryRequest());
+
+        await action.Should().ThrowAsync<BusinessApiContractException>();
+        handler.Requests.Should().ContainSingle();
+    }
+
     [Theory]
     [InlineData("catalog", DataPartitionNames.Production)]
     [InlineData("catalog", DataPartitionNames.Demo)]
@@ -296,6 +426,8 @@ public class BusinessApiClientTests
     [InlineData("validate", DataPartitionNames.Demo)]
     [InlineData("slots", DataPartitionNames.Production)]
     [InlineData("slots", DataPartitionNames.Demo)]
+    [InlineData("availability", DataPartitionNames.Production)]
+    [InlineData("availability", DataPartitionNames.Demo)]
     [InlineData("reservation", DataPartitionNames.Production)]
     [InlineData("reservation", DataPartitionNames.Demo)]
     [InlineData("status", DataPartitionNames.Production)]
@@ -619,6 +751,22 @@ public class BusinessApiClientTests
                             Items =
                             [
                                 new AvailableSlotsItemRequest { OfferingId = offeringId }
+                            ]
+                        });
+                    break;
+                case "availability":
+                    await client.DiscoverAvailabilityAsync(
+                        new AvailabilityDiscoveryRequest
+                        {
+                            Date = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1)),
+                            PreferredLocalTime = new TimeOnly(10, 30),
+                            Candidates =
+                            [
+                                new AvailabilityDiscoveryCompanyCandidate
+                                {
+                                    CompanyId = companyId,
+                                    BranchIds = [branchId]
+                                }
                             ]
                         });
                     break;

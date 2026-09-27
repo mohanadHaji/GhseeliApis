@@ -248,13 +248,14 @@ public sealed class CustomerRateLimitPartitionMiddleware
         IDeviceRegistrationService deviceService,
         ICustomerDataPartitionContext dataPartition)
     {
-        if (!RequiresDeviceToken(context))
+        if (DeviceTokenMiddleware.GetRequirement(context) == DeviceTokenRequirement.None)
         {
             return;
         }
 
-        var token = context.Request.Headers[DeviceTokenDefaults.HeaderName].ToString();
-        if (!DeviceTokenHasher.IsValidFormat(token))
+        var values = context.Request.Headers[DeviceTokenDefaults.HeaderName];
+        var token = values.ToString();
+        if (values.Count != 1 || !DeviceTokenHasher.IsValidFormat(token))
         {
             return;
         }
@@ -459,30 +460,6 @@ public sealed class CustomerRateLimitPartitionMiddleware
         HttpMethods.IsPost(request.Method) &&
         request.Path.Equals("/api/lahza/webhook", StringComparison.OrdinalIgnoreCase);
 
-    private static bool RequiresDeviceToken(HttpContext context)
-    {
-        if (!context.Request.Path.StartsWithSegments(
-                "/api/v1",
-                StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.StartsWithSegments(
-                "/api/v1/internal",
-                StringComparison.OrdinalIgnoreCase) ||
-            context.Request.Path.Equals(
-                "/api/v1/devices/register",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var endpoint = context.GetEndpoint();
-        return endpoint is not null &&
-               !string.Equals(
-                   endpoint.DisplayName,
-                   "405 HTTP Method Not Supported",
-                   StringComparison.Ordinal) &&
-               endpoint.Metadata.GetMetadata<AllowWithoutDeviceTokenAttribute>() is null;
-    }
-
     private static bool IsJson(string? contentType)
     {
         var mediaType = contentType?.Split(';', 2)[0].Trim();
@@ -596,20 +573,28 @@ public static class CustomerRateLimitingExtensions
                 options.PaymentIntentWindowSeconds);
         }
 
-        if (IsDeviceRoute(path))
+        if (context.User.Identity?.IsAuthenticated == true)
+        {
+            if (IsMutation(request))
+            {
+                return FixedWindow(
+                    $"bearer:{SubjectHash(context)}:{deviceHash}:{RouteFamily(request)}",
+                    options.BearerMutationPermitLimit,
+                    options.BearerMutationWindowSeconds);
+            }
+
+            return FixedWindow(
+                $"bearer:{SubjectHash(context)}:{RouteFamily(request)}",
+                options.DevicePermitLimit,
+                options.DeviceWindowSeconds);
+        }
+
+        if (HasValidDevice(context) && IsDeviceRoute(path))
         {
             return FixedWindow(
                 $"device:{deviceHash}:{RouteFamily(request)}",
                 options.DevicePermitLimit,
                 options.DeviceWindowSeconds);
-        }
-
-        if (IsMutation(request) && context.User.Identity?.IsAuthenticated == true)
-        {
-            return FixedWindow(
-                $"bearer:{SubjectHash(context)}:{deviceHash}:{RouteFamily(request)}",
-                options.BearerMutationPermitLimit,
-                options.BearerMutationWindowSeconds);
         }
 
         return FixedWindow(
@@ -702,6 +687,10 @@ public static class CustomerRateLimitingExtensions
         return $"peer:{TrustedPeerHash(context)}";
     }
 
+    private static bool HasValidDevice(HttpContext context) =>
+        context.Items.ContainsKey(
+            CustomerRateLimitPartitionMiddleware.ValidDeviceTokenPartitionItemKey);
+
     private static string SubjectHash(HttpContext context)
     {
         var subject = context.User.FindFirstValue(ClaimTypes.NameIdentifier)
@@ -742,6 +731,7 @@ public static class CustomerRateLimitingExtensions
         path.StartsWithSegments("/api/v1/catalog", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWithSegments("/api/v1/checkout", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWithSegments("/api/v1/pricing", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWithSegments("/api/v1/banners", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWithSegments("/api/v1/payments", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsMutation(HttpRequest request) =>

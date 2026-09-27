@@ -27,7 +27,9 @@ internal static class InternalServiceTestRequestFactory
 
         if (body is not null)
         {
-            var json = JsonSerializer.Serialize(body, JsonOptions);
+            var json = body is InternalServiceRawJson raw
+                ? raw.Json
+                : JsonSerializer.Serialize(body, JsonOptions);
             bodyBytes = Encoding.UTF8.GetBytes(json);
             request.Content = new ByteArrayContent(bodyBytes);
             request.Content.Headers.ContentType = new("application/json");
@@ -92,3 +94,5 @@ internal static class InternalServiceTestRequestFactory
             .ToLowerInvariant();
     }
 }
+
+internal sealed record InternalServiceRawJson(string Json);

@@ -39,7 +39,10 @@ internal static class CustomerBookingConfiguration
             entity.Property(booking => booking.ProviderNameHe).HasMaxLength(200);
             entity.Property(booking => booking.BranchNameAr).HasMaxLength(200).IsRequired();
             entity.Property(booking => booking.BranchNameHe).HasMaxLength(200);
-            entity.Property(booking => booking.VehicleType).HasMaxLength(50).IsRequired();
+            entity.Property(booking => booking.VehicleType)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(booking => booking.VehicleImageUrl).HasMaxLength(500);
             entity.Property(booking => booking.LicensePlate).HasMaxLength(50);
             entity.Property(booking => booking.VehicleMake).HasMaxLength(150);
             entity.Property(booking => booking.VehicleModel).HasMaxLength(150);

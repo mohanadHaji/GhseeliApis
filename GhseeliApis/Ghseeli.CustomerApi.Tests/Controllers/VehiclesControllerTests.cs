@@ -199,6 +199,7 @@ public class VehiclesControllerTests
         // Arrange
         var request = new CreateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = "Honda",
             Model = "Accord",
             Year = "2021",
@@ -241,6 +242,7 @@ public class VehiclesControllerTests
         // Arrange
         var request = new CreateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = new string('X', 200), // Invalid - exceeds max length of 150
             Model = "Test",
             Year = "2021",
@@ -264,6 +266,7 @@ public class VehiclesControllerTests
         // Arrange
         var request = new CreateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = "Toyota",
             Model = "Camry",
             Year = "2020",
@@ -296,6 +299,7 @@ public class VehiclesControllerTests
         var vehicleId = Guid.NewGuid();
         var request = new UpdateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = "Honda",
             Model = "Civic",
             Year = "2022",
@@ -336,6 +340,7 @@ public class VehiclesControllerTests
         var vehicleId = Guid.NewGuid();
         var request = new UpdateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = "Honda",
             Model = "Civic",
             Year = "2022",
@@ -363,6 +368,7 @@ public class VehiclesControllerTests
         var vehicleId = Guid.NewGuid();
         var request = new UpdateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = new string('X', 200), // Invalid - exceeds max length
             Model = "Test",
             Year = "2021",
@@ -386,6 +392,7 @@ public class VehiclesControllerTests
         var vehicleId = Guid.NewGuid();
         var request = new UpdateVehicleRequest
         {
+            VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
             Make = "Toyota",
             Model = "Camry",
             Year = "2020",

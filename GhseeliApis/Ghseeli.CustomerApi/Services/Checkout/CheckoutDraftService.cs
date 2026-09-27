@@ -109,7 +109,8 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
             CatalogVersion = normalized.CatalogVersion,
             PublicVersion = 1,
             RequestedSlotStartUtc = normalized.RequestedSlotStartUtc,
-            VehicleType = normalized.VehicleType,
+            VehicleType = normalized.VehicleType.ToString(),
+            VehicleImageUrl = normalized.VehicleImageUrl,
             LicensePlate = normalized.LicensePlate,
             VehicleMake = normalized.VehicleMake,
             VehicleModel = normalized.VehicleModel,
@@ -188,7 +189,8 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
         draft.BranchSourceId = normalized.BranchSourceId;
         draft.CatalogVersion = normalized.CatalogVersion;
         draft.RequestedSlotStartUtc = normalized.RequestedSlotStartUtc;
-        draft.VehicleType = normalized.VehicleType;
+        draft.VehicleType = normalized.VehicleType.ToString();
+        draft.VehicleImageUrl = normalized.VehicleImageUrl;
         draft.LicensePlate = normalized.LicensePlate;
         draft.VehicleMake = normalized.VehicleMake;
         draft.VehicleModel = normalized.VehicleModel;
@@ -311,7 +313,8 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
             request.BranchSourceId,
             provider.CatalogVersion,
             request.RequestedSlotStartUtc.ToUniversalTime(),
-            ConfigurationTextNormalizer.NormalizeRequired(request.Vehicle.VehicleType!),
+            request.Vehicle.VehicleType!.Value,
+            ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.ImageUrl),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.LicensePlate),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.Make),
             ConfigurationTextNormalizer.NormalizeOptional(request.Vehicle.Model),
@@ -858,6 +861,9 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
     private static bool IsEligibleBranch(CatalogBranchReadModel branch) =>
         branch.HasPublishedServiceArea && branch.ServiceAreaRadiusKm.HasValue;
 
+    private static Ghseeli.IntegrationContracts.Vehicles.VehicleType ParseVehicleType(string value) =>
+        Enum.Parse<Ghseeli.IntegrationContracts.Vehicles.VehicleType>(value, ignoreCase: false);
+
     private static void ValidateRequestStructure(CheckoutDraftMutationRequestBase request)
     {
         if (request.Vehicle is null)
@@ -978,7 +984,8 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
                 RequestedSlotStartUtc = draft.RequestedSlotStartUtc,
                 Vehicle = new CheckoutDraftVehicleResponse
                 {
-                    VehicleType = draft.VehicleType,
+                    VehicleType = ParseVehicleType(draft.VehicleType),
+                    ImageUrl = draft.VehicleImageUrl,
                     LicensePlate = draft.LicensePlate,
                     Make = draft.VehicleMake,
                     Model = draft.VehicleModel,
@@ -1088,7 +1095,8 @@ public sealed class CheckoutDraftService : ICheckoutDraftService
         Guid BranchSourceId,
         long CatalogVersion,
         DateTimeOffset RequestedSlotStartUtc,
-        string VehicleType,
+        Ghseeli.IntegrationContracts.Vehicles.VehicleType VehicleType,
+        string? VehicleImageUrl,
         string? LicensePlate,
         string? VehicleMake,
         string? VehicleModel,

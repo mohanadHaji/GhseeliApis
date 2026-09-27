@@ -1,4 +1,5 @@
 using Ghseeli.IntegrationContracts.InternalHttp;
+using Ghseeli.IntegrationContracts.Vehicles;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -164,6 +165,8 @@ public sealed class CatalogSnapshotCategory
     public string? NameHe { get; set; }
     public string? DescriptionAr { get; set; }
     public string? DescriptionHe { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
     public int DisplayOrder { get; set; }
     public IReadOnlyCollection<CatalogSnapshotOffering> Offerings { get; set; } =
         Array.Empty<CatalogSnapshotOffering>();
@@ -241,6 +244,43 @@ public sealed class AppointmentCustomerLocationFacts
 {
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+}
+
+public sealed class AvailabilityDiscoveryRequest
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public DateOnly Date { get; set; }
+    public TimeOnly PreferredLocalTime { get; set; }
+    public AppointmentCustomerLocationFacts? CustomerLocation { get; set; }
+    public IReadOnlyCollection<AvailabilityDiscoveryCompanyCandidate> Candidates { get; set; } =
+        Array.Empty<AvailabilityDiscoveryCompanyCandidate>();
+}
+
+public sealed class AvailabilityDiscoveryCompanyCandidate
+{
+    public Guid CompanyId { get; set; }
+    public IReadOnlyCollection<Guid> BranchIds { get; set; } = Array.Empty<Guid>();
+}
+
+public sealed class AvailabilityDiscoveryResponse
+{
+    public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
+    public DateOnly Date { get; set; }
+    public TimeOnly PreferredLocalTime { get; set; }
+    public DateTime GeneratedAtUtc { get; set; }
+    public IReadOnlyCollection<AvailabilityDiscoveryCompanyResult> Results { get; set; } =
+        Array.Empty<AvailabilityDiscoveryCompanyResult>();
+}
+
+public sealed class AvailabilityDiscoveryCompanyResult
+{
+    public Guid CompanyId { get; set; }
+    public Guid BranchId { get; set; }
+    public string TimeZoneId { get; set; } = string.Empty;
+    public DateTime SlotStartUtc { get; set; }
+    public DateTime SlotStartLocal { get; set; }
+    public int ConfiguredCapacity { get; set; }
+    public int RemainingCapacity { get; set; }
 }
 
 public sealed class ValidateAppointmentResponse
@@ -398,7 +438,8 @@ public sealed class ReservationCustomerSnapshot
 
 public sealed class ReservationVehicleSnapshot
 {
-    public string VehicleType { get; set; } = string.Empty;
+    public VehicleType VehicleType { get; set; }
+    public string? ImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? Make { get; set; }
     public string? Model { get; set; }

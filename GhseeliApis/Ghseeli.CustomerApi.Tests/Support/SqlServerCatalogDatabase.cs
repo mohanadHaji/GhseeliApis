@@ -1,4 +1,6 @@
 using GhseeliApis.Persistence;
+using GhseeliApis.DataPartitioning;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -20,6 +22,11 @@ internal sealed class SqlServerCatalogDatabase : IAsyncDisposable
     }
 
     public ApplicationDbContext CreateContext(params IInterceptor[] interceptors)
+        => CreateContext(DataPartitionNames.Production, interceptors);
+
+    public ApplicationDbContext CreateContext(
+        string partition,
+        params IInterceptor[] interceptors)
     {
         var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlServer(ConnectionString, sqlServerOptions =>
@@ -37,7 +44,9 @@ internal sealed class SqlServerCatalogDatabase : IAsyncDisposable
             optionsBuilder.AddInterceptors(interceptors);
         }
 
-        return new ApplicationDbContext(optionsBuilder.Options);
+        var dataPartition = new CustomerDataPartitionContext();
+        dataPartition.SetTrustedPartition(partition);
+        return new ApplicationDbContext(optionsBuilder.Options, dataPartition);
     }
 
     public async Task ExecuteAsync(Action<ApplicationDbContext> action)

@@ -34,7 +34,8 @@ Password: Demo123!
 ```
 
 The complete list of accounts, IDs, devices, companies, branches, catalog
-records, drafts, bookings, and payment examples is available in:
+records, drafts, bookings, favourites, completed-booking reviews, banners, and payment examples is
+available in:
 
 ```text
 demo-data/frontend-demo-data.json
@@ -59,6 +60,25 @@ the returned IDs, relationships, states, and values with this file.
 | Use a Demo JWT with a Production device, or the reverse | `403` |
 | Initialize card payment for a Demo booking | `409`, code `booking_not_payable` |
 | Send `dataPartition` from a public client | It does not select or override the partition |
+| Read public reviews with a Demo device | `200`; Demo reviews and aggregates only |
+| Create/update/delete a review for an owned completed booking | `201` / `200` / `204` |
+| Browse catalog as Maya with her JWT | Sparkle and Royal have `isFavourite=true`; rating aggregates are Demo-only |
+| Read public banners with a Demo device | `200`; two active Demo banners ordered by `displayOrder` then ID |
+
+The dataset includes three reviews, one for each `Completed` booking. Owned
+review routes use the Customer booking `id`; public review pages use the
+Customer catalog business local ID. Public review items mask customer display
+names and omit booking, account, contact, address, vehicle plate, and
+row-version data.
+
+The dataset includes three deterministic favourites. Maya favourites Sparkle
+Mobile Wash and Royal Auto Spa; Omar favourites Blue Wave Auto Care. Repeated
+PUT and DELETE calls remain idempotent.
+
+The dataset includes three Demo banners. Two are active public fixtures and one
+is inactive for Customer Admin management screens. Public responses expose
+only `id`, `imageUrl`, and `displayOrder`; admin responses also expose active
+state, timestamps, and row version.
 
 The catalog contains five businesses. Each has four offerings:
 
@@ -266,3 +286,10 @@ owner.cityshine@example.test
 owner.royal@example.test
 employee.jenin@example.test
 ```
+# Category presentation metadata
+
+Demo categories include deterministic nullable `imageUrl` and uppercase
+`colorHex` values. The Interior category intentionally keeps both fields
+`null`; the other categories use safe fictional `https://example.test` images.
+The same values are seeded into the Business authoritative catalog and the
+Customer catalog read model.

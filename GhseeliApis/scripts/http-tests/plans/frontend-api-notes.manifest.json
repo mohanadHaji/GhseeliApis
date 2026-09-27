@@ -1,6 +1,6 @@
 {
   "name": "Frontend API notes",
-  "description": "Progressive live-local checks for vehicle/category presentation, favourites, reviews, banners, optional-device public access, and advisory availability. Requires disposable local databases and local-only fixture variables.",
+  "description": "Live-local transport checks only. Select tag current-slice for implemented frontend, banner, and advisory availability Swagger coverage. Availability HMAC scenarios remain live-local checks and require configured fixtures and secrets.",
   "sensitiveFields": [
     "authorization",
     "token",
@@ -14,520 +14,471 @@
   ],
   "setupVariables": {
     "runStamp": "{{gen:timestamp:yyyyMMddHHmmssfff}}",
-    "vehicleImageUrl": "https://cdn.example.test/frontend-api-notes/vehicle.png",
-    "categoryImageUrl": "https://cdn.example.test/frontend-api-notes/category.png",
-    "bannerImageUrl": "https://cdn.example.test/frontend-api-notes/banner.png",
-    "unknownId": "00000000-0000-0000-0000-000000000001",
-    "invalidDeviceToken": "short-token",
-    "reviewComment": "Frontend API notes review {{var:runStamp}}",
+    "hmacNow": "{{gen:iso8601}}",
     "availabilityDate": "{{var:fixtureAvailabilityDate}}"
   },
   "scenarios": [
     {
-      "id": "FAN-CONTRACT-SWAGGER-001",
-      "planScenarioId": "FAN-CONTRACT-SWAGGER-001",
+      "id": "FAN-CONTRACT-SWAGGER-CURRENT-003",
+      "planScenarioId": "FAN-CONTRACT-SWAGGER-CURRENT-003",
       "feature": "frontend-api-notes",
-      "tags": ["contract", "swagger", "customer", "progressive"],
+      "tags": [
+        "contract",
+        "swagger",
+        "customer",
+        "live",
+        "current-slice"
+      ],
       "method": "GET",
       "url": "{{var:customerBaseUrl}}/swagger/v1/swagger.json",
-      "headers": {"Accept": "application/json"},
+      "headers": {
+        "Accept": "application/json"
+      },
       "expect": {
         "status": 200,
         "contentType": "application/json",
         "json": [
-          {"path": "$.paths['/api/v1/catalog/businesses'].get", "exists": true},
-          {"path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].put", "exists": true},
-          {"path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].delete", "exists": true},
-          {"path": "$.paths['/api/v1/bookings/{bookingId}/review'].get", "exists": true},
-          {"path": "$.paths['/api/v1/bookings/{bookingId}/review'].put", "exists": true},
-          {"path": "$.paths['/api/v1/bookings/{bookingId}/review'].delete", "exists": true},
-          {"path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get", "exists": true},
-          {"path": "$.paths['/api/v1/banners'].get", "exists": true},
-          {"path": "$.paths['/api/v1/admin/banners'].get", "exists": true},
-          {"path": "$.paths['/api/v1/admin/banners'].post", "exists": true},
-          {"path": "$.paths['/api/v1/admin/banners/{id}'].put", "exists": true},
-          {"path": "$.paths['/api/v1/admin/banners/{id}'].delete", "exists": true},
-          {"path": "$.paths['/api/v1/catalog/businesses/availability-search'].post", "exists": true},
-          {"path": "$.components.schemas.VehicleType.enum[0]", "equals": "Sedan"},
-          {"path": "$.components.schemas.VehicleType.enum[1]", "equals": "Motorcycle"},
-          {"path": "$.components.schemas.VehicleType.enum[2]", "equals": "Suv5Seater"},
-          {"path": "$.components.schemas.VehicleType.enum[3]", "equals": "Suv7Seater"},
-          {"path": "$.components.schemas.VehicleType.enum[4]", "equals": "Van7Seater"}
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].name",
+            "equals": "search"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].required",
+            "equals": false
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].description",
+            "equals": "Optional business-name search. The value is trimmed and Unicode Form C normalized before case-insensitive matching against Arabic and Hebrew business names."
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].schema.type",
+            "equals": "string"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].schema.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[3].schema.maxLength",
+            "equals": 100
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].name",
+            "equals": "top"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].required",
+            "equals": false
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].description",
+            "equals": "Optional ranked result limit. Values 5 and 10 rank by average rating, rating count, display order, Arabic name, and stable identifier before applying the limit."
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].schema.type",
+            "equals": "integer"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].schema.format",
+            "equals": "int32"
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].schema.nullable",
+            "equals": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].schema.enum[0]",
+            "equals": 5
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.parameters[4].schema.enum[1]",
+            "equals": 10
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].put",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].put.security[0]",
+            "propertyNamesEqual": [
+              "CustomerBearer"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].put.security[1]",
+            "propertyNamesEqual": [
+              "CustomerBearer",
+              "DeviceToken"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].put.responses",
+            "propertyNamesEqual": [
+              "204",
+              "401",
+              "403",
+              "404"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].delete",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].delete.security[0]",
+            "propertyNamesEqual": [
+              "CustomerBearer"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].delete.security[1]",
+            "propertyNamesEqual": [
+              "CustomerBearer",
+              "DeviceToken"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/favourite'].delete.responses",
+            "propertyNamesEqual": [
+              "204",
+              "401",
+              "403",
+              "404"
+            ]
+          }
         ],
-        "bodyNotContains": ["ConnectionString", "ActiveSecret", "Bearer ", "@example.com"]
+        "bodyNotContains": [
+          "ConnectionString",
+          "ActiveSecret"
+        ]
+      }
+    },
+    {
+      "id": "FAN-CONTRACT-SWAGGER-001",
+      "planScenarioId": "FAN-CONTRACT-SWAGGER-001",
+      "feature": "frontend-api-notes",
+      "tags": [
+        "contract",
+        "swagger",
+        "customer",
+        "live",
+        "current-slice"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/swagger/v1/swagger.json",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.security[0]",
+            "propertyNamesEqual": []
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.security[1].DeviceToken",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.security[2].CustomerBearer",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.security[3]",
+            "propertyNamesEqual": [
+              "CustomerBearer",
+              "DeviceToken"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['429']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['403']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses'].get.responses['503']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.security[0]",
+            "propertyNamesEqual": []
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.security[1].DeviceToken",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.responses['429']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/pricing/reprice'].post.responses['503']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get.security[0]",
+            "propertyNamesEqual": []
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get.security[1].DeviceToken",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/banners'].get.responses['429']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.security[0]",
+            "propertyNamesEqual": []
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.security[1].DeviceToken",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.responses['404']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/{businessId}/reviews'].get.responses['429']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.security[0]",
+            "propertyNamesEqual": []
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.security[1].DeviceToken",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.security[2].CustomerBearer",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.security[3]",
+            "propertyNamesEqual": [
+              "CustomerBearer",
+              "DeviceToken"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['403']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['429']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['502']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post.responses['503']",
+            "exists": true
+          }
+        ],
+        "bodyNotContains": [
+          "ConnectionString",
+          "ActiveSecret"
+        ]
       }
     },
     {
       "id": "FAN-CONTRACT-SWAGGER-002",
       "planScenarioId": "FAN-CONTRACT-SWAGGER-002",
       "feature": "frontend-api-notes",
-      "tags": ["contract", "swagger", "business", "progressive"],
+      "tags": [
+        "contract",
+        "swagger",
+        "business",
+        "live",
+        "current-slice"
+      ],
       "method": "GET",
       "url": "{{var:businessBaseUrl}}/swagger/v1/swagger.json",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "json": [
-          {"path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post", "exists": true},
-          {"path": "$.components.schemas.CreateServiceCategoryRequest.properties.imageUrl", "exists": true},
-          {"path": "$.components.schemas.CreateServiceCategoryRequest.properties.colorHex", "exists": true}
-        ],
-        "bodyNotContains": ["ConnectionString", "ActiveSecret", "Bearer ", "@example.com"]
-      }
-    },
-    {
-      "id": "FAN-OPTIONAL-CONFIG-001",
-      "planScenarioId": "FAN-OPTIONAL-CONFIG-001",
-      "feature": "frontend-api-notes",
-      "tags": ["optional-device", "anonymous", "configuration", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/configuration?language=ar",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {
-          "Cache-Control": {"equals": "no-store"},
-          "Content-Language": {"equals": "ar"}
-        },
-        "json": [{"path": "$.language", "equals": "ar"}],
-        "bodyNotContains": ["stack", "exception", "ConnectionString", "X-Device-Token"]
-      }
-    },
-    {
-      "id": "FAN-OPTIONAL-INVALID-006",
-      "planScenarioId": "FAN-OPTIONAL-INVALID-006",
-      "feature": "frontend-api-notes",
-      "tags": ["optional-device", "negative", "security", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/configuration",
       "headers": {
-        "Accept": "application/problem+json",
-        "X-Device-Token": "{{var:invalidDeviceToken}}"
-      },
-      "expect": {
-        "status": 401,
-        "contentType": "application/problem+json",
-        "errorCode": "device_token_invalid",
-        "bodyNotContains": ["stack", "exception", "ConnectionString", "{{var:invalidDeviceToken}}"]
-      }
-    },
-    {
-      "id": "FAN-CATEGORY-CUSTOMER-007",
-      "planScenarioId": "FAN-CATEGORY-CUSTOMER-007",
-      "feature": "frontend-api-notes",
-      "tags": ["category", "catalog", "anonymous", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/categories?businessId={{var:productionBusinessLocalId}}&language=ar",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.categories[0].id", "equals": "{{var:productionCategoryLocalId}}"},
-          {"path": "$.categories[0].imageUrl", "equals": "{{var:categoryImageUrl}}"},
-          {"path": "$.categories[0].colorHex", "equals": "#1A73E8"}
-        ],
-        "bodyNotContains": ["stack", "exception", "ConnectionString"]
-      }
-    },
-    {
-      "id": "FAN-BUSINESS-BROWSE-001",
-      "planScenarioId": "FAN-BUSINESS-BROWSE-001",
-      "feature": "frontend-api-notes",
-      "tags": ["business", "catalog", "anonymous", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.businesses[0].isFavourite", "equals": false},
-          {"path": "$.businesses[0].averageRating", "exists": true},
-          {"path": "$.businesses[0].ratingCount", "exists": true}
-        ],
-        "bodyNotContains": ["stack", "exception", "ConnectionString"]
-      }
-    },
-    {
-      "id": "FAN-BUSINESS-SEARCH-002",
-      "planScenarioId": "FAN-BUSINESS-SEARCH-002",
-      "feature": "frontend-api-notes",
-      "tags": ["business", "search", "anonymous", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses?search={{var:productionBusinessSearchTerm}}&language=ar",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "json": [
-          {"path": "$.businesses[0].id", "equals": "{{var:productionBusinessLocalId}}"},
-          {"path": "$.businesses[1]", "exists": false}
-        ]
-      }
-    },
-    {
-      "id": "FAN-BUSINESS-TOP-005",
-      "planScenarioId": "FAN-BUSINESS-TOP-005",
-      "feature": "frontend-api-notes",
-      "tags": ["business", "ranking", "anonymous", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses?top=5",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "json": [
-          {"path": "$.businesses[0].id", "equals": "{{var:topRankedBusinessLocalId}}"},
-          {"path": "$.businesses[5]", "exists": false}
-        ]
-      }
-    },
-    {
-      "id": "FAN-BUSINESS-TOP-006",
-      "planScenarioId": "FAN-BUSINESS-TOP-006",
-      "feature": "frontend-api-notes",
-      "tags": ["business", "ranking", "negative", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses?top=6",
-      "headers": {"Accept": "application/problem+json"},
-      "expect": {
-        "status": 400,
-        "contentType": "application/problem+json",
-        "errorCode": "catalog_top_invalid"
-      }
-    },
-    {
-      "id": "FAN-VEHICLE-CRUD-001",
-      "planScenarioId": "FAN-VEHICLE-CRUD-001",
-      "feature": "frontend-api-notes",
-      "tags": ["vehicle", "write", "customer-jwt", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/Vehicles",
-      "headers": {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"
-      },
-      "jsonBody": {
-        "make": "Frontend Notes",
-        "model": "Vehicle {{var:runStamp}}",
-        "year": "2026",
-        "licensePlate": "LOCAL-{{var:runStamp}}",
-        "color": "White",
-        "vehicleType": "Sedan",
-        "imageUrl": "{{var:vehicleImageUrl}}"
-      },
-      "expect": {
-        "status": 201,
-        "contentType": "application/json",
-        "json": [
-          {"path": "$.id", "exists": true},
-          {"path": "$.vehicleType", "equals": "Sedan"},
-          {"path": "$.imageUrl", "equals": "{{var:vehicleImageUrl}}"}
-        ],
-        "bodyNotContains": ["stack", "exception", "Bearer "]
-      },
-      "extract": {"createdVehicleId": "$.id"}
-    },
-    {
-      "id": "FAN-VEHICLE-VALIDATION-006",
-      "planScenarioId": "FAN-VEHICLE-VALIDATION-006",
-      "feature": "frontend-api-notes",
-      "tags": ["vehicle", "validation", "negative", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/Vehicles",
-      "headers": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"
-      },
-      "jsonBody": {
-        "make": "Frontend Notes",
-        "model": "Invalid",
-        "vehicleType": "Car",
-        "imageUrl": "http://example.test/not-https.png"
-      },
-      "expect": {
-        "status": 400,
-        "contentType": "application/problem+json",
-        "errorCode": "vehicle_type_invalid",
-        "json": [{"path": "$.fieldErrors.vehicleType", "exists": true}]
-      }
-    },
-    {
-      "id": "FAN-BUSINESS-FAVOURITE-008",
-      "planScenarioId": "FAN-BUSINESS-FAVOURITE-008",
-      "feature": "frontend-api-notes",
-      "tags": ["favourite", "write", "customer-jwt", "progressive"],
-      "method": "PUT",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:productionBusinessLocalId}}/favourite",
-      "headers": {
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}",
-        "X-Device-Token": "{{var:productionDeviceToken}}"
-      },
-      "expect": {"status": 204, "bodyEquals": ""}
-    },
-    {
-      "id": "FAN-BUSINESS-FAVOURITE-009",
-      "planScenarioId": "FAN-BUSINESS-FAVOURITE-009",
-      "feature": "frontend-api-notes",
-      "tags": ["favourite", "read", "customer-jwt", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:productionBusinessLocalId}}",
-      "headers": {
-        "Accept": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}",
-        "X-Device-Token": "{{var:productionDeviceToken}}"
+        "Accept": "application/json"
       },
       "expect": {
         "status": 200,
         "contentType": "application/json",
-        "json": [{"path": "$.business.isFavourite", "equals": true}]
-      }
-    },
-    {
-      "id": "FAN-REVIEW-CREATE-001",
-      "planScenarioId": "FAN-REVIEW-CREATE-001",
-      "feature": "frontend-api-notes",
-      "tags": ["review", "write", "customer-jwt", "progressive"],
-      "method": "PUT",
-      "url": "{{var:customerBaseUrl}}/api/v1/bookings/{{var:completedOwnedBookingId}}/review",
-      "headers": {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"
-      },
-      "jsonBody": {
-        "rating": 5,
-        "comment": "{{var:reviewComment}}",
-        "expectedRowVersion": null
-      },
-      "expect": {
-        "status": 201,
-        "contentType": "application/json",
         "json": [
-          {"path": "$.bookingId", "equals": "{{var:completedOwnedBookingId}}"},
-          {"path": "$.rating", "equals": 5},
-          {"path": "$.comment", "equals": "{{var:reviewComment}}"},
-          {"path": "$.rowVersion", "exists": true}
-        ],
-        "bodyNotContains": ["email", "phone", "ConnectionString"]
-      },
-      "extract": {
-        "createdReviewId": "$.id",
-        "reviewRowVersion": "$.rowVersion"
-      }
-    },
-    {
-      "id": "FAN-REVIEW-ELIGIBILITY-005",
-      "planScenarioId": "FAN-REVIEW-ELIGIBILITY-005",
-      "feature": "frontend-api-notes",
-      "tags": ["review", "state", "negative", "progressive"],
-      "method": "PUT",
-      "url": "{{var:customerBaseUrl}}/api/v1/bookings/{{var:nonCompletedOwnedBookingId}}/review",
-      "headers": {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"
-      },
-      "jsonBody": {"rating": 4, "comment": null, "expectedRowVersion": null},
-      "expect": {
-        "status": 409,
-        "contentType": "application/problem+json",
-        "errorCode": "review_booking_not_completed"
-      }
-    },
-    {
-      "id": "FAN-REVIEW-PUBLIC-011",
-      "planScenarioId": "FAN-REVIEW-PUBLIC-011",
-      "feature": "frontend-api-notes",
-      "tags": ["review", "public", "privacy", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:productionBusinessLocalId}}/reviews?page=1&pageSize=20&language=ar",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.page", "equals": 1},
-          {"path": "$.pageSize", "equals": 20},
-          {"path": "$.averageRating", "exists": true},
-          {"path": "$.ratingCount", "exists": true},
-          {"path": "$.items[0].rating", "exists": true},
-          {"path": "$.items[0].customerDisplayName", "exists": true}
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.security[0]",
+            "propertyNamesEqual": [
+              "HmacServiceId",
+              "HmacTimestamp",
+              "HmacNonce",
+              "HmacSignature"
+            ]
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.security[0].HmacServiceId",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.security[0].HmacTimestamp",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.security[0].HmacNonce",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.security[0].HmacSignature",
+            "exists": true
+          },
+          {
+            "path": "$.components.securitySchemes.HmacServiceId.name",
+            "equals": "X-Ghseeli-Service-Id"
+          },
+          {
+            "path": "$.components.securitySchemes.HmacTimestamp.name",
+            "equals": "X-Ghseeli-Timestamp"
+          },
+          {
+            "path": "$.components.securitySchemes.HmacNonce.name",
+            "equals": "X-Ghseeli-Nonce"
+          },
+          {
+            "path": "$.components.securitySchemes.HmacSignature.name",
+            "equals": "X-Ghseeli-Signature"
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['200']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['400']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['401']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['403']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['413']",
+            "exists": true
+          },
+          {
+            "path": "$.paths['/api/v1/internal/appointments/availability-discovery'].post.responses['415']",
+            "exists": true
+          },
+          {
+            "path": "$.components.schemas.CreateServiceCategoryRequest.properties.imageUrl",
+            "exists": true
+          },
+          {
+            "path": "$.components.schemas.CreateServiceCategoryRequest.properties.colorHex",
+            "exists": true
+          }
         ],
         "bodyNotContains": [
-          "bookingId",
-          "userId",
-          "email",
-          "phone",
-          "licensePlate",
-          "rowVersion",
-          "ConnectionString"
-        ]
-      }
-    },
-    {
-      "id": "FAN-BANNER-PUBLIC-001",
-      "planScenarioId": "FAN-BANNER-PUBLIC-001",
-      "feature": "frontend-api-notes",
-      "tags": ["banner", "public", "anonymous", "progressive"],
-      "method": "GET",
-      "url": "{{var:customerBaseUrl}}/api/v1/banners",
-      "headers": {"Accept": "application/json"},
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.banners[0].id", "equals": "{{var:activeBannerId}}"},
-          {"path": "$.banners[0].imageUrl", "equals": "{{var:bannerImageUrl}}"},
-          {"path": "$.banners[0].displayOrder", "equals": "{{var:activeBannerDisplayOrder}}"}
-        ],
-        "bodyNotContains": ["isActive", "rowVersion", "createdAtUtc", "updatedAtUtc"]
-      }
-    },
-    {
-      "id": "FAN-BANNER-ADMIN-004",
-      "planScenarioId": "FAN-BANNER-ADMIN-004",
-      "feature": "frontend-api-notes",
-      "tags": ["banner", "admin", "write", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/v1/admin/banners",
-      "headers": {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_ADMIN_JWT}}"
-      },
-      "jsonBody": {
-        "imageUrl": "{{var:bannerImageUrl}}",
-        "displayOrder": 9000,
-        "isActive": false
-      },
-      "expect": {
-        "status": 201,
-        "contentType": "application/json",
-        "json": [
-          {"path": "$.id", "exists": true},
-          {"path": "$.isActive", "equals": false},
-          {"path": "$.rowVersion", "exists": true}
-        ]
-      },
-      "extract": {
-        "createdBannerId": "$.id",
-        "bannerRowVersion": "$.rowVersion"
-      }
-    },
-    {
-      "id": "FAN-OPTIONAL-PRICING-003",
-      "planScenarioId": "FAN-OPTIONAL-PRICING-003",
-      "feature": "frontend-api-notes",
-      "tags": ["optional-device", "pricing", "anonymous", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/v1/pricing/reprice",
-      "headers": {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-      },
-      "jsonBody": {
-        "businessSourceId": "{{var:productionBusinessSourceId}}",
-        "branchSourceId": "{{var:productionBranchSourceId}}",
-        "requestedSlotStartUtc": "{{var:pricingSlotStartUtc}}",
-        "vehicle": {
-          "vehicleType": "Sedan",
-          "imageUrl": "{{var:vehicleImageUrl}}",
-          "licensePlate": null,
-          "make": "Frontend Notes",
-          "model": "Anonymous",
-          "color": "White"
-        },
-        "location": {
-          "addressLine": "Local disposable fixture",
-          "city": "Local",
-          "area": null,
-          "latitude": 32.0853,
-          "longitude": 34.7818
-        },
-        "items": [
-          {
-            "offeringSourceId": "{{var:productionOfferingSourceId}}",
-            "selections": []
-          }
-        ]
-      },
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.intent.vehicle.vehicleType", "equals": "Sedan"},
-          {"path": "$.intent.vehicle.imageUrl", "equals": "{{var:vehicleImageUrl}}"},
-          {"path": "$.pricing.grandTotal", "exists": true},
-          {"path": "$.paymentCapabilities.methods", "exists": true}
-        ],
-        "bodyNotContains": ["deviceId", "stack", "exception", "ConnectionString"]
-      }
-    },
-    {
-      "id": "FAN-AVAILABILITY-CUSTOMER-001",
-      "planScenarioId": "FAN-AVAILABILITY-CUSTOMER-001",
-      "feature": "frontend-api-notes",
-      "tags": ["availability", "customer", "anonymous", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
-      "headers": {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-      },
-      "jsonBody": {
-        "vehicleType": "Sedan",
-        "date": "{{var:availabilityDate}}",
-        "preferredLocalTime": "10:30:00",
-        "categoryId": "{{var:productionCategoryLocalId}}",
-        "location": {"latitude": 32.0853, "longitude": 34.7818}
-      },
-      "expect": {
-        "status": 200,
-        "contentType": "application/json",
-        "headers": {"Cache-Control": {"equals": "no-store"}},
-        "json": [
-          {"path": "$.language", "equals": "ar"},
-          {"path": "$.date", "equals": "{{var:availabilityDate}}"},
-          {"path": "$.preferredLocalTime", "equals": "10:30:00"},
-          {"path": "$.results[0].business.id", "equals": "{{var:availabilityFirstBusinessLocalId}}"},
-          {"path": "$.results[0].branch.id", "exists": true},
-          {"path": "$.results[0].nearestSlot.startUtc", "exists": true},
-          {"path": "$.results[0].advisory", "equals": true}
-        ],
-        "bodyNotContains": ["companyId", "bookingId", "stack", "exception", "ConnectionString"]
-      }
-    },
-    {
-      "id": "FAN-AVAILABILITY-VALIDATION-005",
-      "planScenarioId": "FAN-AVAILABILITY-VALIDATION-005",
-      "feature": "frontend-api-notes",
-      "tags": ["availability", "validation", "negative", "progressive"],
-      "method": "POST",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search",
-      "headers": {"Content-Type": "application/json"},
-      "jsonBody": {
-        "vehicleType": "Car",
-        "date": "2000-01-01",
-        "preferredLocalTime": "25:00:00",
-        "location": {"latitude": 91}
-      },
-      "expect": {
-        "status": 400,
-        "contentType": "application/problem+json",
-        "json": [
-          {"path": "$.fieldErrors.vehicleType", "exists": true},
-          {"path": "$.fieldErrors.date", "exists": true},
-          {"path": "$.fieldErrors.preferredLocalTime", "exists": true},
-          {"path": "$.fieldErrors.location", "exists": true}
+          "ConnectionString",
+          "ActiveSecret"
         ]
       }
     },
@@ -535,19 +486,24 @@
       "id": "FAN-AVAILABILITY-INTERNAL-009",
       "planScenarioId": "FAN-AVAILABILITY-INTERNAL-009",
       "feature": "frontend-api-notes",
-      "tags": ["availability", "internal-hmac", "business", "progressive"],
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "live"
+      ],
       "method": "POST",
       "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
       "headers": {
         "Accept": "application/json",
         "Content-Type": "application/json",
-        "X-Correlation-Id": "fan-availability-internal-{{var:runStamp}}"
+        "X-Correlation-Id": "fan-availability-internal-009-{{var:runStamp}}",
+        "Idempotency-Key": "fan-fan-availability-internal-009-{{var:runStamp}}"
       },
       "internalAuth": {
         "serviceId": "{{var:customerToBusinessServiceId}}",
         "secretEnv": "FRONTEND_API_NOTES_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
-        "timestamp": "{{gen:iso8601}}",
-        "nonce": "{{gen:nonce}}"
+        "timestamp": "{{var:hmacNow}}",
+        "nonce": "fan-availability-valid-009-{{var:runStamp}}"
       },
       "jsonBody": {
         "contractVersion": "v1",
@@ -556,85 +512,465 @@
         "candidates": [
           {
             "companyId": "{{var:productionBusinessSourceId}}",
-            "branchIds": ["{{var:productionBranchSourceId}}"]
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
           }
         ]
       },
       "expect": {
         "status": 200,
         "contentType": "application/json",
-        "json": [
-          {"path": "$.contractVersion", "equals": "v1"},
-          {"path": "$.results[0].companyId", "equals": "{{var:productionBusinessSourceId}}"},
-          {"path": "$.results[0].branchId", "equals": "{{var:productionBranchSourceId}}"},
-          {"path": "$.results[0].nearestSlot.startUtc", "exists": true}
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
         ],
-        "bodyNotContains": ["customerId", "bookingId", "stack", "exception", "ConnectionString"]
+        "json": [
+          {
+            "path": "$.contractVersion",
+            "equals": "v1"
+          },
+          {
+            "path": "$.results[0].companyId",
+            "equals": "{{var:productionBusinessSourceId}}"
+          },
+          {
+            "path": "$.results[0].branchId",
+            "equals": "{{var:productionBranchSourceId}}"
+          },
+          {
+            "path": "$.results[1].companyId",
+            "equals": "{{var:secondProductionBusinessSourceId}}"
+          },
+          {
+            "path": "$.results[1].branchId",
+            "equals": "{{var:secondProductionBranchSourceId}}"
+          },
+          {
+            "path": "$.results[2]",
+            "exists": false
+          }
+        ]
       }
     },
     {
       "id": "FAN-AVAILABILITY-INTERNAL-010",
       "planScenarioId": "FAN-AVAILABILITY-INTERNAL-010",
       "feature": "frontend-api-notes",
-      "tags": ["availability", "internal-hmac", "negative", "progressive"],
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "missing",
+        "live"
+      ],
       "method": "POST",
       "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
-      "headers": {"Content-Type": "application/json"},
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-hmac-missing-{{var:runStamp}}",
+        "Idempotency-Key": "fan-fan-availability-internal-010-{{var:runStamp}}"
+      },
       "jsonBody": {
         "contractVersion": "v1",
         "date": "{{var:availabilityDate}}",
         "preferredLocalTime": "10:30:00",
-        "candidates": []
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
       },
       "expect": {
         "status": 401,
         "contentType": "application/problem+json",
-        "errorCode": "internal_auth_missing_header",
-        "bodyNotContains": ["ActiveSecret", "X-Ghseeli-Signature", "ConnectionString"]
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "errorCode": "internal_auth_missing_header"
       }
     },
     {
-      "id": "FAN-BUSINESS-FAVOURITE-010",
-      "planScenarioId": "FAN-BUSINESS-FAVOURITE-010",
+      "id": "FAN-AVAILABILITY-INTERNAL-026",
+      "planScenarioId": "FAN-AVAILABILITY-INTERNAL-026",
       "feature": "frontend-api-notes",
-      "tags": ["favourite", "cleanup", "customer-jwt", "progressive"],
-      "method": "DELETE",
-      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/{{var:productionBusinessLocalId}}/favourite",
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "stale",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
       "headers": {
-        "Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}",
-        "X-Device-Token": "{{var:productionDeviceToken}}"
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-availability-internal-026-{{var:runStamp}}",
+        "Idempotency-Key": "fan-fan-availability-internal-026-{{var:runStamp}}"
       },
-      "expect": {"status": 204, "bodyEquals": ""}
+      "internalAuth": {
+        "serviceId": "{{var:customerToBusinessServiceId}}",
+        "secretEnv": "FRONTEND_API_NOTES_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
+        "timestamp": "2000-01-01T00:00:00.0000000+00:00",
+        "nonce": "fan-availability-stale-026-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "10:30:00",
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "errorCode": "internal_auth_timestamp_out_of_range"
+      }
     },
     {
-      "id": "FAN-REVIEW-DELETE-004",
-      "planScenarioId": "FAN-REVIEW-DELETE-004",
+      "id": "FAN-AVAILABILITY-INTERNAL-027",
+      "planScenarioId": "FAN-AVAILABILITY-INTERNAL-027",
       "feature": "frontend-api-notes",
-      "tags": ["review", "cleanup", "customer-jwt", "progressive"],
-      "method": "DELETE",
-      "url": "{{var:customerBaseUrl}}/api/v1/bookings/{{var:completedOwnedBookingId}}/review",
-      "headers": {"Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"},
-      "expect": {"status": 204, "bodyEquals": ""}
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "replay-prime",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-availability-internal-027-{{var:runStamp}}",
+        "Idempotency-Key": "fan-availability-replay-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:customerToBusinessServiceId}}",
+        "secretEnv": "FRONTEND_API_NOTES_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
+        "timestamp": "{{var:hmacNow}}",
+        "nonce": "fan-availability-replay-027-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "10:30:00",
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "json": [
+          {
+            "path": "$.contractVersion",
+            "equals": "v1"
+          }
+        ]
+      }
     },
     {
-      "id": "FAN-VEHICLE-CRUD-004",
-      "planScenarioId": "FAN-VEHICLE-CRUD-004",
+      "id": "FAN-AVAILABILITY-INTERNAL-028",
+      "planScenarioId": "FAN-AVAILABILITY-INTERNAL-028",
       "feature": "frontend-api-notes",
-      "tags": ["vehicle", "cleanup", "customer-jwt", "progressive"],
-      "method": "DELETE",
-      "url": "{{var:customerBaseUrl}}/api/Vehicles/{{var:createdVehicleId}}",
-      "headers": {"Authorization": "Bearer {{env:FRONTEND_API_NOTES_CUSTOMER_JWT}}"},
-      "expect": {"status": 204, "bodyEquals": ""}
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "replay",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-availability-internal-028-{{var:runStamp}}",
+        "Idempotency-Key": "fan-availability-replay-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:customerToBusinessServiceId}}",
+        "secretEnv": "FRONTEND_API_NOTES_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
+        "timestamp": "{{var:hmacNow}}",
+        "nonce": "fan-availability-replay-027-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "10:30:00",
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 401,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "errorCode": "internal_auth_replay_nonce"
+      }
     },
     {
-      "id": "FAN-BANNER-ADMIN-007",
-      "planScenarioId": "FAN-BANNER-ADMIN-007",
+      "id": "FAN-AVAILABILITY-INTERNAL-011",
+      "planScenarioId": "FAN-AVAILABILITY-INTERNAL-011",
       "feature": "frontend-api-notes",
-      "tags": ["banner", "cleanup", "admin", "progressive"],
-      "method": "DELETE",
-      "url": "{{var:customerBaseUrl}}/api/v1/admin/banners/{{var:createdBannerId}}?expectedRowVersion={{var:bannerRowVersion}}",
-      "headers": {"Authorization": "Bearer {{env:FRONTEND_API_NOTES_ADMIN_JWT}}"},
-      "expect": {"status": 204, "bodyEquals": ""}
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "forbidden",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{var:businessBaseUrl}}/api/v1/internal/appointments/availability-discovery",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-availability-internal-011-{{var:runStamp}}",
+        "Idempotency-Key": "fan-fan-availability-internal-011-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:forbiddenServiceId}}",
+        "secretEnv": "FRONTEND_API_NOTES_FORBIDDEN_HMAC_SECRET",
+        "timestamp": "{{var:hmacNow}}",
+        "nonce": "fan-availability-forbidden-011-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "10:30:00",
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 403,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "errorCode": "internal_service_forbidden"
+      }
+    },
+    {
+      "id": "FAN-AVAILABILITY-INTERNAL-012",
+      "planScenarioId": "FAN-AVAILABILITY-INTERNAL-012",
+      "feature": "frontend-api-notes",
+      "tags": [
+        "availability",
+        "internal-hmac",
+        "https",
+        "live"
+      ],
+      "method": "POST",
+      "url": "{{var:businessHttpBaseUrl}}/api/v1/internal/appointments/availability-discovery",
+      "headers": {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "X-Correlation-Id": "fan-availability-internal-012-{{var:runStamp}}",
+        "Idempotency-Key": "fan-fan-availability-internal-012-{{var:runStamp}}"
+      },
+      "internalAuth": {
+        "serviceId": "{{var:customerToBusinessServiceId}}",
+        "secretEnv": "FRONTEND_API_NOTES_CUSTOMER_TO_BUSINESS_HMAC_SECRET",
+        "timestamp": "{{var:hmacNow}}",
+        "nonce": "fan-availability-http-012-{{var:runStamp}}"
+      },
+      "jsonBody": {
+        "contractVersion": "v1",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "10:30:00",
+        "candidates": [
+          {
+            "companyId": "{{var:productionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:productionBranchSourceId}}"
+            ]
+          },
+          {
+            "companyId": "{{var:secondProductionBusinessSourceId}}",
+            "branchIds": [
+              "{{var:secondProductionBranchSourceId}}"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "status": 403,
+        "contentType": "application/problem+json",
+        "headers": {
+          "X-Correlation-Id": {
+            "exists": true
+          }
+        },
+        "bodyNotContains": [
+          "ActiveSecret",
+          "ConnectionString",
+          "stack",
+          "exception"
+        ],
+        "errorCode": "https_required"
+      }
+    },
+    {
+      "id": "FAN-CONTRACT-STARTUP-007",
+      "planScenarioId": "FAN-CONTRACT-STARTUP-007",
+      "feature": "frontend-api-notes",
+      "tags": [
+        "startup",
+        "health",
+        "customer",
+        "live"
+      ],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/Health/db",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "bodyNotContains": [
+          "BusinessConnection",
+          "ConnectionString",
+          "exception"
+        ]
+      }
+    },
+    {
+      "id": "FAN-CONTRACT-STARTUP-010",
+      "planScenarioId": "FAN-CONTRACT-STARTUP-010",
+      "feature": "frontend-api-notes",
+      "tags": [
+        "startup",
+        "health",
+        "business",
+        "live"
+      ],
+      "method": "GET",
+      "url": "{{var:businessBaseUrl}}/api/health",
+      "headers": {
+        "Accept": "application/json"
+      },
+      "expect": {
+        "status": 200,
+        "bodyNotContains": [
+          "CustomerConnection",
+          "ConnectionString",
+          "exception"
+        ]
+      }
     }
   ]
 }

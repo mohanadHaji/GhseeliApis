@@ -17,6 +17,8 @@ public static class BusinessPolicies
     public const string InternalCatalogRead = "InternalCatalogRead";
     public const string InternalAppointmentValidate = "InternalAppointmentValidate";
     public const string InternalAppointmentAvailableSlots = "InternalAppointmentAvailableSlots";
+    public const string InternalAppointmentAvailabilityDiscovery =
+        "InternalAppointmentAvailabilityDiscovery";
     public const string InternalReservationCreate = "InternalReservationCreate";
     public const string InternalReservationStatusRead = "InternalReservationStatusRead";
 }

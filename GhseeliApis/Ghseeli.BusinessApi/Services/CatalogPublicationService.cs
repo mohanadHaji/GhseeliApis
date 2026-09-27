@@ -72,6 +72,8 @@ public class CatalogPublicationService : ICatalogPublicationService
                     NameHe = category.NameHe,
                     DescriptionAr = category.DescriptionAr,
                     DescriptionHe = category.DescriptionHe,
+                    ImageUrl = category.ImageUrl,
+                    ColorHex = category.ColorHex,
                     DisplayOrder = category.DisplayOrder,
                     Offerings = category.Offerings
                         .Where(offering => offering.IsActive)

@@ -1,6 +1,7 @@
 using Ghseeli.BusinessApi.DTOs.Catalog;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Services;
+using Ghseeli.BusinessApi.Validation;
 
 namespace Ghseeli.BusinessApi.Services.Catalog;
 
@@ -20,6 +21,8 @@ internal static class CatalogMapper
             NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe),
             DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr),
             DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe),
+            ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl),
+            ColorHex = CategoryPresentationValidation.NormalizeColorHex(request.ColorHex),
             DisplayOrder = request.DisplayOrder,
             IsActive = request.IsActive,
             CreatedAt = utcNow
@@ -35,6 +38,8 @@ internal static class CatalogMapper
         category.NameHe = BusinessTextNormalizer.NormalizeOptional(request.NameHe);
         category.DescriptionAr = BusinessTextNormalizer.NormalizeOptional(request.DescriptionAr);
         category.DescriptionHe = BusinessTextNormalizer.NormalizeOptional(request.DescriptionHe);
+        category.ImageUrl = BusinessTextNormalizer.NormalizeOptional(request.ImageUrl);
+        category.ColorHex = CategoryPresentationValidation.NormalizeColorHex(request.ColorHex);
         category.DisplayOrder = request.DisplayOrder;
         category.IsActive = request.IsActive;
         category.UpdatedAt = utcNow;
@@ -173,6 +178,8 @@ internal static class CatalogMapper
             CompanyId = category.CompanyId,
             NameAr = category.NameAr,
             NameHe = category.NameHe,
+            ImageUrl = category.ImageUrl,
+            ColorHex = category.ColorHex,
             DisplayOrder = category.DisplayOrder,
             IsActive = category.IsActive
         };
@@ -188,6 +195,8 @@ internal static class CatalogMapper
             NameHe = category.NameHe,
             DescriptionAr = category.DescriptionAr,
             DescriptionHe = category.DescriptionHe,
+            ImageUrl = category.ImageUrl,
+            ColorHex = category.ColorHex,
             DisplayOrder = category.DisplayOrder,
             IsActive = category.IsActive,
             Offerings = category.Offerings

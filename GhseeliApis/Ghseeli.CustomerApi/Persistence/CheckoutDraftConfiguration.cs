@@ -21,6 +21,8 @@ internal static class CheckoutDraftConfiguration
             entity.Property(draft => draft.VehicleType)
                 .HasMaxLength(50)
                 .IsRequired();
+            entity.Property(draft => draft.VehicleImageUrl)
+                .HasMaxLength(500);
             entity.Property(draft => draft.LicensePlate)
                 .HasMaxLength(50);
             entity.Property(draft => draft.VehicleMake)

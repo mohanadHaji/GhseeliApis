@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.Models;
 
 namespace GhseeliApis.Tests.Models;
@@ -14,6 +15,8 @@ public class VehicleValidationTests
         // Arrange
         var vehicle = new Vehicle
         {
+            VehicleType = VehicleType.Sedan,
+            ImageUrl = "https://cdn.example.test/vehicles/sedan.png",
             Make = "Toyota",
             Model = "Camry",
             Year = "2023",
@@ -26,6 +29,38 @@ public class VehicleValidationTests
         // Assert
         result.IsValid.Should().BeTrue();
         result.Errors.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("http://cdn.example.test/vehicle.png")]
+    [InlineData("/images/vehicle.png")]
+    [InlineData("https://user:password@cdn.example.test/vehicle.png")]
+    [InlineData("not-a-url")]
+    public void Validate_ReturnsInvalid_WhenImageUrlIsNotSafeAbsoluteHttps(string imageUrl)
+    {
+        var vehicle = new Vehicle
+        {
+            VehicleType = VehicleType.Sedan,
+            ImageUrl = imageUrl
+        };
+
+        var result = vehicle.Validate();
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.Contains("image URL", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void Validate_ReturnsInvalid_WhenImageUrlExceedsMaximumLength()
+    {
+        var vehicle = new Vehicle
+        {
+            VehicleType = VehicleType.Sedan,
+            ImageUrl = $"https://cdn.example.test/{new string('a', 480)}.png"
+        };
+
+        vehicle.ImageUrl!.Length.Should().BeGreaterThan(500);
+        vehicle.Validate().IsValid.Should().BeFalse();
     }
 
     [Fact]

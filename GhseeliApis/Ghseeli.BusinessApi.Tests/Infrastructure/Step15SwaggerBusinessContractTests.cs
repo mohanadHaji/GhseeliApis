@@ -98,6 +98,65 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
         }
     }
 
+    [Fact]
+    public async Task AvailabilityDiscoverySwagger_HasExactContractsStatusesAndHmacQuartet()
+    {
+        using var document = await GetSwaggerAsync();
+        var root = document.RootElement;
+        var operation = OperationAt(
+            root,
+            "/api/v1/internal/appointments/availability-discovery",
+            "post");
+
+            SecurityNames(operation).Should().Equal(
+                ["HmacServiceId", "HmacTimestamp", "HmacNonce", "HmacSignature"]);
+            var requestRef = operation.GetProperty("requestBody")
+                .GetProperty("content")
+                .GetProperty("application/json")
+                .GetProperty("schema")
+                .GetProperty("$ref")
+                .GetString();
+            requestRef.Should().EndWith("/AvailabilityDiscoveryRequest");
+            var responses = operation.GetProperty("responses");
+            foreach (var status in new[] { "200", "400", "401", "403", "413", "415" })
+            {
+                responses.TryGetProperty(status, out _).Should().BeTrue();
+            }
+            responses.GetProperty("200")
+                .GetProperty("content")
+                .GetProperty("application/json")
+                .GetProperty("schema")
+                .GetProperty("$ref")
+                .GetString()
+                .Should().EndWith("/AvailabilityDiscoveryResponse");
+
+            var requestProperties = Schema(root, "AvailabilityDiscoveryRequest")
+                .GetProperty("properties");
+            foreach (var property in new[]
+                     {
+                         "contractVersion", "date", "preferredLocalTime", "candidates"
+                     })
+            {
+                requestProperties.TryGetProperty(property, out _).Should().BeTrue();
+            }
+            var candidateProperties = Schema(
+                root,
+                "AvailabilityDiscoveryCompanyCandidate").GetProperty("properties");
+            candidateProperties.TryGetProperty("companyId", out _).Should().BeTrue();
+            candidateProperties.TryGetProperty("branchIds", out _).Should().BeTrue();
+            var resultProperties = Schema(
+                root,
+                "AvailabilityDiscoveryCompanyResult").GetProperty("properties");
+            foreach (var property in new[]
+                     {
+                         "companyId", "branchId", "timeZoneId", "slotStartUtc",
+                         "slotStartLocal", "configuredCapacity", "remainingCapacity"
+                     })
+            {
+                resultProperties.TryGetProperty(property, out _).Should().BeTrue();
+            }
+    }
+
     [Fact(DisplayName = "STEP15-SWAGGER-IDEMPOTENCY-148 STEP15-SWAGGER-LANGUAGE-135")]
     public async Task Business_headers_are_operation_accurate_and_bounded()
     {
@@ -194,6 +253,27 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
                 .Should().Contain("MostRequested");
         }
 
+        foreach (var schemaName in new[]
+                 {
+                     "CreateServiceCategoryRequest",
+                     "UpdateServiceCategoryRequest"
+                 })
+        {
+            var properties = Schema(root, schemaName).GetProperty("properties");
+            properties.GetProperty("imageUrl").GetProperty("nullable").GetBoolean().Should().BeTrue();
+            properties.GetProperty("imageUrl").GetProperty("type").GetString().Should().Be("string");
+            properties.GetProperty("imageUrl").GetProperty("maxLength").GetInt32().Should().Be(500);
+            properties.GetProperty("imageUrl").GetProperty("pattern").GetString()
+                .Should().Be("^https://[^\\s/@]+(?:/[^\\s]*)?$");
+            properties.GetProperty("imageUrl").GetProperty("description").GetString()
+                .Should().ContainAll("HTTPS", "no embedded credentials");
+            properties.GetProperty("colorHex").GetProperty("nullable").GetBoolean().Should().BeTrue();
+            properties.GetProperty("colorHex").GetProperty("type").GetString().Should().Be("string");
+            properties.GetProperty("colorHex").GetProperty("maxLength").GetInt32().Should().Be(7);
+            properties.GetProperty("colorHex").GetProperty("pattern").GetString()
+                .Should().Be("^#[0-9A-Fa-f]{6}$");
+        }
+
         var offering = Schema(root, "CreateServiceOfferingRequest");
         AssertDecimal(offering, "basePrice");
         AssertFormat(offering, "categoryId", "uuid");
@@ -268,8 +348,17 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
             ["200", "400", "401", "403", "404", "409", "413", "415", "500", "503"]);
         AssertStatuses(root, "/api/v1/business/catalog/categories/{categoryId}", "delete",
             ["204", "400", "401", "403", "404", "409", "500", "503"]);
+        AssertStatuses(root, "/api/v1/business/catalog/categories", "post",
+            ["201", "400", "401", "403", "409", "413", "415", "500", "503"]);
+        AssertStatuses(root, "/api/v1/business/catalog/categories/{categoryId}", "put",
+            ["200", "400", "401", "403", "404", "409", "413", "415", "500", "503"]);
         AssertStatuses(root, "/api/v1/internal/reservations", "post",
             ["200", "400", "401", "403", "409", "413", "415", "500"]);
+
+        SecurityNames(OperationAt(root, "/api/v1/business/catalog/categories", "post"))
+            .Should().Equal("BusinessBearer");
+        SecurityNames(OperationAt(root, "/api/v1/business/catalog/categories/{categoryId}", "put"))
+            .Should().Equal("BusinessBearer");
 
         foreach (var operation in Operations(root))
         {
@@ -429,6 +518,7 @@ public sealed class Step15SwaggerBusinessContractTests : IClassFixture<CatalogAp
         "POST /api/v1/business/admin/booking-status-outbox/{eventId}/requeue",
         "GET /api/v1/internal/catalog/snapshot",
         "POST /api/v1/internal/appointments/validate",
+        "POST /api/v1/internal/appointments/availability-discovery",
         "POST /api/v1/internal/appointments/available-slots",
         "POST /api/v1/internal/reservations",
         "GET /api/v1/internal/reservations/{reference}",

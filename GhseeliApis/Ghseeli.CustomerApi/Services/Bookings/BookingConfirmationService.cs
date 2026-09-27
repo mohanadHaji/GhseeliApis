@@ -614,7 +614,8 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             },
             Vehicle = new ReservationVehicleSnapshot
             {
-                VehicleType = draft.VehicleType,
+                VehicleType = ParseVehicleType(draft.VehicleType),
+                ImageUrl = draft.VehicleImageUrl,
                 LicensePlate = draft.LicensePlate,
                 Make = draft.VehicleMake,
                 Model = draft.VehicleModel,
@@ -791,6 +792,7 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             BranchNameAr = branch.NameAr,
             BranchNameHe = branch.NameHe,
             VehicleType = draft.VehicleType,
+            VehicleImageUrl = draft.VehicleImageUrl,
             LicensePlate = draft.LicensePlate,
             VehicleMake = draft.VehicleMake,
             VehicleModel = draft.VehicleModel,
@@ -902,6 +904,15 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             Currency = booking.Currency,
             GrandTotal = booking.GrandTotal,
             TotalDurationMinutes = booking.TotalDurationMinutes,
+            Vehicle = new ConfirmedBookingVehicleResponse
+            {
+                VehicleType = ParseVehicleType(booking.VehicleType),
+                ImageUrl = booking.VehicleImageUrl,
+                LicensePlate = booking.LicensePlate,
+                Make = booking.VehicleMake,
+                Model = booking.VehicleModel,
+                Color = booking.VehicleColor
+            },
             Items = booking.Items.OrderBy(item => item.DisplayOrder).Select(item =>
                 new ConfirmedBookingItemResponse
                 {
@@ -920,6 +931,9 @@ public sealed class BookingConfirmationService : IBookingConfirmationService
             BookingConfirmationProblemCodes.DraftNotFound,
             StatusCodes.Status404NotFound,
             "The checkout draft was not found.");
+
+    private static Ghseeli.IntegrationContracts.Vehicles.VehicleType ParseVehicleType(string value) =>
+        Enum.Parse<Ghseeli.IntegrationContracts.Vehicles.VehicleType>(value, ignoreCase: false);
 
     private static BookingConfirmationException UpstreamUnavailable(string message) =>
         new(

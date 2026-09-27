@@ -107,6 +107,8 @@ authentication on the Customer host.
 - CustomerInternalServiceNonce
 - CustomerInternalIdempotencyRecord
 - ProcessedBookingStatusMessage
+- BusinessFavourite
+- Banner
 
 ### Business database
 
@@ -138,7 +140,12 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Device tokens identify an application installation; they do not authenticate a customer user.
 - Customer endpoints may require a device token, a customer JWT, or both.
 - Customer device tokens are 256-bit opaque values returned only at issuance or rotation; only SHA-256 hashes are stored.
-- `X-Device-Token` is required by default for matched `/api/v1/*` Customer endpoints unless the endpoint has an explicit device-token exemption.
+- `X-Device-Token` is required by default for matched `/api/v1/*` Customer
+  endpoints unless the endpoint has an explicit required-device exemption.
+  Public configuration, catalog discovery, direct pricing, public banners,
+  public reviews, and advisory availability are optional-device operations:
+  no token selects Production, while a supplied token must validate and selects
+  its trusted Production/Demo partition.
 - Registering an existing installation requires its current unexpired token and rotates it immediately; old tokens stop authorizing requests.
 - Device tokens expire without sliding renewal. Rotation issues a new configured lifetime.
 - Internal service credentials are separate from both user identity systems.
@@ -152,13 +159,20 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - `BusinessBearer` is the Business API HTTP bearer scheme. Business management
   operations additionally enforce the applicable Owner, Employee, Admin, and
   company/branch-assignment policies.
-- `X-Device-Token` is an API-key-style installation credential. Modern
-  configuration, catalog, draft, and pricing operations are device-only;
-  booking confirmation and payment operations require both device and Customer
-  bearer authentication.
+- `X-Device-Token` is an API-key-style installation credential. Configuration,
+  catalog discovery, direct pricing, public banners, public reviews, and
+  advisory availability accept no device token and then select Production, or
+  accept one validated device token and select that device's trusted
+  Production/Demo partition. A malformed, unknown, expired, inactive, rotated,
+  or duplicated supplied token fails with `401 device_token_invalid`; it is
+  never ignored. Checkout drafts remain device-required. Booking and payment
+  operations require both a device token and Customer bearer authentication.
+  When a Customer JWT and device token are both supplied, their trusted
+  partitions must agree or the request fails with
+  `403 data_partition_mismatch`.
 - Internal routes on either host require all four HMAC credentials described in
   section 6. HMAC credentials never satisfy a bearer or device requirement, and
-  either host's bearer token never satisfies HMAC.
+  bearer or device credentials never authorize internal routes.
 - The Lahza webhook is authenticated only by `X-Lahza-Signature` over the exact
   bounded raw body. It is exempt from JWT, device, and internal HMAC.
 - Device registration, implemented Customer and Business authentication entry
@@ -395,19 +409,27 @@ summarize the cross-domain routes; they do not create compatibility aliases.
 | POST | `/api/Auth/otp/confirm` | No | No | Confirm OTP and issue access/refresh tokens |
 | POST | `/api/Auth/refresh` | No | No | Rotate a customer refresh token |
 | POST | `/api/v1/devices/register` | No | No | Register/rotate a device token and update its optional FCM token |
-| GET | `/api/v1/configuration` | Yes | No | Get localized active app configuration |
-| GET | `/api/v1/catalog/categories` | Yes | No | Browse localized categories |
-| GET | `/api/v1/catalog/businesses` | Yes | No | Browse eligible companies/branches |
-| GET | `/api/v1/catalog/businesses/{id}` | Yes | No | Get business details |
-| GET | `/api/v1/catalog/businesses/{id}/offerings` | Yes | No | Browse offerings |
-| POST | `/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots` | Yes | No | List authoritative capacity-aware appointment slots |
-| GET | `/api/v1/catalog/offerings/{id}` | Yes | No | Get offering and add-on rules |
-| POST | `/api/v1/pricing/reprice` | Yes | No | Stateless authoritative reprice for a checkout-like intent |
+| GET | `/api/v1/configuration` | Optional | No | Get localized active app configuration; anonymous selects Production |
+| GET | `/api/v1/catalog/categories` | Optional | No | Browse localized categories; anonymous selects Production |
+| GET | `/api/v1/catalog/businesses` | Optional | Optional | Browse eligible companies/branches; JWT adds caller-specific favourite state |
+| GET | `/api/v1/catalog/businesses/{id}` | Optional | Optional | Get business details; JWT adds caller-specific favourite state |
+| GET | `/api/v1/catalog/businesses/{id}/offerings` | Optional | Optional | Browse offerings; JWT adds caller-specific favourite state |
+| PUT | `/api/v1/catalog/businesses/{businessId}/favourite` | Optional | Yes | Idempotently save an enabled business; supplied device and JWT partitions must match |
+| DELETE | `/api/v1/catalog/businesses/{businessId}/favourite` | Optional | Yes | Idempotently remove a saved business; supplied device and JWT partitions must match |
+| POST | `/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots` | Optional | No | List authoritative capacity-aware appointment slots; anonymous selects Production |
+| GET | `/api/v1/catalog/offerings/{id}` | Optional | No | Get offering and add-on rules; anonymous selects Production |
+| POST | `/api/v1/pricing/reprice` | Optional | No | Stateless authoritative reprice; anonymous selects Production |
+| GET | `/api/v1/banners` | Optional | No | Read active public banners; anonymous selects Production |
+| GET | `/api/v1/catalog/businesses/{businessId}/reviews` | Optional | No | Read public reviews and rating aggregates; anonymous selects Production |
+| POST | `/api/v1/catalog/businesses/availability-search` | Optional | Optional | Advisory business/branch discovery; anonymous selects Production and Customer JWT adds favourite state |
 | POST | `/api/v1/checkout/drafts` | Yes | No | Create anonymous draft |
 | GET | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Read device-owned draft |
 | PUT | `/api/v1/checkout/drafts/{orderGuid}` | Yes | No | Update anonymous draft intent |
 | POST | `/api/v1/checkout/reprice` | Yes | No | Reprice a device-owned draft using `X-Order-Guid` and `expectedVersion` |
 | POST | `/api/v1/bookings/from-draft` | Yes | Yes | Confirm a draft as a booking |
+| GET | `/api/v1/bookings/{bookingId}/review` | Yes | Yes | Read the caller's completed-booking review |
+| PUT | `/api/v1/bookings/{bookingId}/review` | Yes | Yes | Create or concurrency-safe update of one completed-booking review |
+| DELETE | `/api/v1/bookings/{bookingId}/review` | Yes | Yes | Delete the caller's completed-booking review |
 | POST | `/api/v1/payments/intents` | Yes | Yes | Initialize Lahza hosted checkout from booking total |
 | GET | `/api/v1/payments/{id}` | Yes | Yes | Read owned payment |
 | POST | `/api/v1/payments/{id}/verify` | Yes | Yes | Verify an owned Lahza transaction |
@@ -433,6 +455,7 @@ Customer profile, vehicle, and address routes remain Customer API responsibiliti
 | GET | `/api/v1/internal/catalog/snapshot` | Return a versioned catalog snapshot |
 | POST | `/api/v1/internal/appointments/validate` | Validate catalog selections, duration, price, service area, and slot |
 | POST | `/api/v1/internal/appointments/available-slots` | Generate branch-local slots with current remaining capacity |
+| POST | `/api/v1/internal/appointments/availability-discovery` | Batch advisory company/branch discovery using schedules, service areas, time zones, lead/horizon rules, and reservation capacity |
 | POST | `/api/v1/internal/reservations` | Idempotently reserve an appointment and create a work order |
 | GET | `/api/v1/internal/reservations/{reference}` | Reconcile reservation/work-order state |
 
@@ -520,7 +543,9 @@ Rules:
 - Hebrew values are optional and fall back to Arabic when omitted.
 - The explicit `language` query override accepts only `ar` or `he`; malformed or unsupported `Accept-Language` headers fall back to Arabic unless they still contain a supported weighted language.
 - The public Customer API returns only the selected localized values; it does not expose arbitrary JSON blobs or inactive records.
-- Device-token middleware protects `GET /api/v1/configuration`; customer JWTs are not required.
+- `GET /api/v1/configuration` uses optional-device partition selection.
+  Anonymous requests select Production; a supplied device token must validate
+  and selects its trusted partition. Customer JWTs are not required.
 - Migrations do not seed placeholder production configuration. Each environment must provision an active configuration record before the endpoint can return data.
 - When no active configuration is available, the endpoint returns a stable unavailable problem instead of an empty success payload.
 
@@ -530,7 +555,13 @@ Rules:
 - `CatalogReadModel` configuration contains validated `freshWindowSeconds`, `maxStaleWindowSeconds`, `leaseDurationSeconds`, and `providers[]` registrations (`sourceCompanyId`, `enabled`, `order`).
 - The committed `appsettings.json` provider list stays empty and safe for production. Real provider registrations must come from environment variables, user secrets, or environment-specific configuration.
 - Registration synchronization creates or updates configured providers and disables removed providers without deleting historical cached graph data.
-- Public catalog responses are device-token protected, anonymous to customer JWTs, localized with the same Arabic/Hebrew rules as customer configuration, and always return `Cache-Control: no-store`.
+- Public catalog responses use optional-device partition selection and are
+  localized with the same Arabic/Hebrew rules as customer configuration.
+  Anonymous requests select Production; a supplied valid device selects its
+  trusted partition. Business browse/detail/offering-context may also accept a
+  Customer JWT for caller-specific favourite state. If both identities are
+  supplied, partition mismatch fails closed. Responses always return
+  `Cache-Control: no-store`.
 - `GET /api/v1/catalog/categories` accepts an optional `businessId` filter. Unfiltered category responses include owning business context so results stay unambiguous.
 - `GET /api/v1/catalog/businesses` and `GET /api/v1/catalog/businesses/{id}/offerings` accept optional `branchId` and `categoryId` filters. Cross-provider or cross-business filter combinations return `400 catalog_filter_mismatch`.
 - Leaving `providers[]` empty is an intentional safe default: list browse routes return localized empty collections and do not contact Business until a provider is explicitly configured.
@@ -665,8 +696,12 @@ Customer API validates the transition and stores callback IDs to prevent duplica
 - Customer API serves its last successfully synchronized read model when it is within the configured staleness limit.
 - Responses disclose freshness metadata when stale data is served.
 - When no providers are configured, list browse routes return localized empty collections instead of a failure.
+- A valid availability request with no eligible business, branch, or free slot
+  returns `200` with an empty `results` collection.
 - With no usable snapshot, return `503 catalog_unavailable`.
-- Never replace an upstream failure with an empty `200` list.
+- Catalog, pricing, and availability upstream failures return their explicit
+  `502`/`503` problem contract and are never replaced with a fabricated empty
+  `200` collection.
 
 ### Pricing and booking
 

@@ -27,7 +27,11 @@ public class CatalogReadModelModelTests
         providerEntity.Should().NotBeNull();
         providerEntity!.GetIndexes().Should().Contain(index =>
             index.IsUnique &&
-            index.Properties.Single().Name == nameof(CatalogProviderReadModel.SourceCompanyId));
+            index.Properties.Select(property => property.Name).SequenceEqual(new[]
+            {
+                nameof(CatalogProviderReadModel.SourceCompanyId),
+                nameof(CatalogProviderReadModel.IsDemo)
+            }));
         providerEntity.FindProperty(nameof(CatalogProviderReadModel.RowVersion))!
             .IsConcurrencyToken.Should().BeTrue();
 
@@ -36,7 +40,11 @@ public class CatalogReadModelModelTests
             index.Properties.Single().Name == nameof(CatalogBranchReadModel.SourceBranchId));
         categoryEntity!.GetIndexes().Should().Contain(index =>
             index.IsUnique &&
-            index.Properties.Single().Name == nameof(CatalogCategoryReadModel.SourceCategoryId));
+            index.Properties.Select(property => property.Name).SequenceEqual(new[]
+            {
+                nameof(CatalogCategoryReadModel.ProviderId),
+                nameof(CatalogCategoryReadModel.SourceCategoryId)
+            }));
         offeringEntity!.GetIndexes().Should().Contain(index =>
             index.IsUnique &&
             index.Properties.Single().Name == nameof(CatalogOfferingReadModel.SourceOfferingId));

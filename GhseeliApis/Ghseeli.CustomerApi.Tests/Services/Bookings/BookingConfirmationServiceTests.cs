@@ -19,6 +19,7 @@ namespace GhseeliApis.Tests.Services.Bookings;
 public class BookingConfirmationServiceTests
 {
     [Fact]
+    [Trait("ScenarioId", "FAN-VEHICLE-BOOKING-011")]
     public async Task ConfirmAsync_WithPricedOwnedDraft_PersistsImmutableSnapshotsAndReplays()
     {
         var fixture = await CreateFixtureAsync();
@@ -45,6 +46,13 @@ public class BookingConfirmationServiceTests
         first.ProviderName.Should().Be("Provider HE");
         second.ProviderName.Should().Be("Provider AR");
         fixture.BusinessClient.CreateReservationRequests.Should().Be(1);
+        first.Vehicle.VehicleType.Should().Be(Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan);
+        first.Vehicle.ImageUrl.Should().Be("https://cdn.example.test/vehicles/sedan.png");
+        var internalRequest = fixture.BusinessClient.ReservationRequests.Single().Request;
+        internalRequest.Vehicle.VehicleType.Should()
+            .Be(Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan);
+        internalRequest.Vehicle.ImageUrl.Should()
+            .Be("https://cdn.example.test/vehicles/sedan.png");
 
         var stored = await fixture.Context.CustomerBookings
             .Include(booking => booking.Items)
@@ -56,6 +64,8 @@ public class BookingConfirmationServiceTests
         stored.Status.Should().Be(ReservationStatuses.Pending);
         stored.BusinessStatusSequence.Should().Be(0);
         stored.GrandTotal.Should().Be(126m);
+        stored.VehicleType.Should().Be("Sedan");
+        stored.VehicleImageUrl.Should().Be("https://cdn.example.test/vehicles/sedan.png");
         stored.Items.Should().ContainSingle();
         stored.Items.Single().ServiceNameAr.Should().Be("Service AR");
         stored.Items.Single().Selections.Should().ContainSingle();
@@ -656,6 +666,7 @@ public class BookingConfirmationServiceTests
             PublicVersion = 2,
             RequestedSlotStartUtc = now.AddHours(2),
             VehicleType = "Sedan",
+            VehicleImageUrl = "https://cdn.example.test/vehicles/sedan.png",
             AddressLine = "Street 1",
             Latitude = 32.1m,
             Longitude = 34.8m,

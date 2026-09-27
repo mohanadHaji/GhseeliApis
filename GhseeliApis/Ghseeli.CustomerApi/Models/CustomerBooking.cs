@@ -26,6 +26,7 @@ public sealed class CustomerBooking
     public string BranchNameAr { get; set; } = string.Empty;
     public string? BranchNameHe { get; set; }
     public string VehicleType { get; set; } = string.Empty;
+    public string? VehicleImageUrl { get; set; }
     public string? LicensePlate { get; set; }
     public string? VehicleMake { get; set; }
     public string? VehicleModel { get; set; }
@@ -59,6 +60,7 @@ public sealed class CustomerBooking
     public ICollection<ProcessedBookingStatusMessage> ProcessedStatusMessages { get; set; } =
         new List<ProcessedBookingStatusMessage>();
     public CustomerPayment? Payment { get; set; }
+    public BusinessReview? Review { get; set; }
 }
 
 public sealed class BookingConfirmationAttempt

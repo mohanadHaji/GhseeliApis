@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.DTOs.Checkout;
 using GhseeliApis.Validators.Checkout;
 
@@ -16,7 +17,7 @@ public class CheckoutDraftRequestValidatorTests
     public void Validate_RejectsZeroWidthRequiredText_AndNonFiniteCoordinates()
     {
         var request = CreateValidCreateRequest();
-        request.Vehicle.VehicleType = "\u200B";
+        request.Vehicle.VehicleType = null;
         request.Location.AddressLine = "\u200B";
         request.Location.Latitude = double.NaN;
         request.Location.Longitude = double.PositiveInfinity;
@@ -112,7 +113,7 @@ public class CheckoutDraftRequestValidatorTests
             RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddHours(2),
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = "SUV"
+                VehicleType = VehicleType.Suv5Seater
             },
             Location = new CheckoutDraftLocationRequest
             {
@@ -175,7 +176,8 @@ public class CheckoutDraftRequestValidatorTests
             RequestedSlotStartUtc = DateTimeOffset.UtcNow.AddHours(2),
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = "Sedan",
+                VehicleType = VehicleType.Sedan,
+                ImageUrl = "https://cdn.example.test/vehicles/sedan.png",
                 LicensePlate = "12-345-67",
                 Make = "Toyota",
                 Model = "Corolla",
@@ -205,4 +207,21 @@ public class CheckoutDraftRequestValidatorTests
                 }
             ]
         };
+
+    [Theory]
+    [InlineData("http://cdn.example.test/vehicle.png")]
+    [InlineData("/images/vehicle.png")]
+    [InlineData("https://user:password@cdn.example.test/vehicle.png")]
+    [InlineData("not-a-url")]
+    public void Validate_RejectsInvalidVehicleImageUrl(string imageUrl)
+    {
+        var request = CreateValidCreateRequest();
+        request.Vehicle.ImageUrl = imageUrl;
+
+        var result = _createValidator.Validate(request);
+
+        result.Errors.Should().ContainSingle(error =>
+            error.PropertyName == "Vehicle.ImageUrl" &&
+            error.ErrorCode == "vehicle_image_url_invalid");
+    }
 }

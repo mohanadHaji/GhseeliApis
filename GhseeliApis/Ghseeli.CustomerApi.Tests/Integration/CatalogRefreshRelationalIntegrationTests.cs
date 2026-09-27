@@ -1,5 +1,6 @@
 using FluentAssertions;
 using GhseeliApis.DTOs.Catalog;
+using GhseeliApis.DataPartitioning;
 using GhseeliApis.Models;
 using GhseeliApis.Persistence;
 using GhseeliApis.Repositories;
@@ -8,6 +9,7 @@ using GhseeliApis.Services.Business;
 using GhseeliApis.Services.Catalog;
 using GhseeliApis.Tests.Support;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.DataPartitioning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +24,53 @@ namespace GhseeliApis.Tests.Integration;
 /// </summary>
 public class CatalogRefreshRelationalIntegrationTests
 {
+    [Fact]
+    [Trait("ScenarioId", "FAN-CATEGORY-PARTITION-009")]
+    [Trait("ScenarioId", "FAN-CATEGORY-PARTITION-017")]
+    public async Task CategorySourceIdentity_AllowsSameIdsAcrossTrustedPartitions_AndPersistsIsolation()
+    {
+        await using var database = await SqlServerCatalogDatabase.CreateAsync();
+        var sourceCompanyId = Guid.NewGuid();
+        var sourceCategoryId = Guid.NewGuid();
+
+        await SeedPartitionAsync(
+            database.ConnectionString,
+            DataPartitionNames.Production,
+            sourceCompanyId,
+            sourceCategoryId,
+            "فئة الإنتاج",
+            "https://cdn.example.test/categories/production.png",
+            "#112233");
+        await SeedPartitionAsync(
+            database.ConnectionString,
+            DataPartitionNames.Demo,
+            sourceCompanyId,
+            sourceCategoryId,
+            "فئة العرض",
+            "https://cdn.example.test/categories/demo.png",
+            "#AABBCC");
+
+        var production = await ReadPartitionCategoryAsync(
+            database.ConnectionString,
+            DataPartitionNames.Production,
+            sourceCompanyId);
+        var demo = await ReadPartitionCategoryAsync(
+            database.ConnectionString,
+            DataPartitionNames.Demo,
+            sourceCompanyId);
+
+        production.Provider.IsDemo.Should().BeFalse();
+        production.Category.NameAr.Should().Be("فئة الإنتاج");
+        production.Category.ImageUrl.Should().EndWith("/production.png");
+        production.Category.ColorHex.Should().Be("#112233");
+        demo.Provider.IsDemo.Should().BeTrue();
+        demo.Category.NameAr.Should().Be("فئة العرض");
+        demo.Category.ImageUrl.Should().EndWith("/demo.png");
+        demo.Category.ColorHex.Should().Be("#AABBCC");
+        production.Provider.Id.Should().NotBe(demo.Provider.Id);
+        production.Category.Id.Should().NotBe(demo.Category.Id);
+    }
+
     [Fact]
     public async Task GetBusinessesAsync_WhenRetryStrategyEnabled_PerformsInitialRefreshWithoutExecutionStrategyErrors()
     {
@@ -534,6 +583,62 @@ public class CatalogRefreshRelationalIntegrationTests
         addonGroup.Choices.Add(addonChoice);
 
         return provider;
+    }
+
+    private static async Task SeedPartitionAsync(
+        string connectionString,
+        string partition,
+        Guid sourceCompanyId,
+        Guid sourceCategoryId,
+        string nameAr,
+        string imageUrl,
+        string colorHex)
+    {
+        var partitionContext = new CustomerDataPartitionContext();
+        partitionContext.SetTrustedPartition(partition);
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        await using var context = new ApplicationDbContext(options, partitionContext);
+        var provider = new CatalogProviderReadModel
+        {
+            Id = Guid.NewGuid(),
+            SourceCompanyId = sourceCompanyId,
+            IsEnabled = true,
+            NameAr = $"{nameAr} provider",
+            CatalogVersion = 1
+        };
+        provider.Categories.Add(new CatalogCategoryReadModel
+        {
+            Id = Guid.NewGuid(),
+            SourceCategoryId = sourceCategoryId,
+            Provider = provider,
+            ProviderId = provider.Id,
+            NameAr = nameAr,
+            ImageUrl = imageUrl,
+            ColorHex = colorHex
+        });
+        context.CatalogProviders.Add(provider);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task<(CatalogProviderReadModel Provider, CatalogCategoryReadModel Category)>
+        ReadPartitionCategoryAsync(
+            string connectionString,
+            string partition,
+            Guid sourceCompanyId)
+    {
+        var partitionContext = new CustomerDataPartitionContext();
+        partitionContext.SetTrustedPartition(partition);
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        await using var context = new ApplicationDbContext(options, partitionContext);
+        var provider = await context.CatalogProviders
+            .AsNoTracking()
+            .Include(item => item.Categories)
+            .SingleAsync(item => item.SourceCompanyId == sourceCompanyId);
+        return (provider, provider.Categories.Single());
     }
 }
 

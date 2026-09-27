@@ -7,6 +7,8 @@ using System.Text.Json;
 using FluentAssertions;
 using Ghseeli.Common.Logging;
 using GhseeliApis.DTOs.Payment;
+using GhseeliApis.Persistence;
+using GhseeliApis.Services.Devices;
 using GhseeliApis.Services.Payments;
 using GhseeliApis.Tests.Support;
 using Microsoft.Extensions.DependencyInjection;
@@ -371,6 +373,41 @@ public sealed class CustomerPaymentApiIntegrationTests
     public async Task PostIntent_EmptyJwt_ReturnsTypedAuthenticationProblem()
     {
         await AssertAuthenticationProblemAsync("Bearer");
+    }
+
+    [Fact]
+    [Trait("ScenarioId", "FAN-OPTIONAL-REQUIRED-040")]
+    public async Task PostIntent_WithValidJwtAndBodyButMissingDevice_IsRejectedBeforePersistenceOrService()
+    {
+        var service = new ControlledPaymentService();
+        await using var factory = CreateFactory(service);
+        using var client = factory.CreateApiClient();
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            "/api/v1/payments/intents")
+        {
+            Content = new StringContent(
+                """{"bookingId":"11111111-1111-1111-1111-111111111111","method":"Card"}""",
+                Encoding.UTF8,
+                "application/json")
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(Guid.NewGuid()));
+        request.Headers.TryAddWithoutValidation("Idempotency-Key", "valid-missing-device-key");
+
+        using var response = await client.SendAsync(request);
+
+        await AssertPaymentProblemAsync(
+            response,
+            HttpStatusCode.Unauthorized,
+            DeviceProblemCodes.TokenMissing,
+            "ar");
+        service.CreateCalls.Should().Be(0);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        (await context.CustomerPayments.CountAsync()).Should().Be(0);
+        (await context.CustomerPaymentIdempotencyRecords.CountAsync()).Should().Be(0);
     }
 
     [Fact]

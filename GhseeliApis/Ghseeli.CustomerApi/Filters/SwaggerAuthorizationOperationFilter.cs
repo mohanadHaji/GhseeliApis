@@ -1,5 +1,6 @@
 using GhseeliApis.Services.Internal;
 using GhseeliApis.Services.Devices;
+using GhseeliApis.Middleware;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.OpenApi.Any;
 using Microsoft.OpenApi.Models;
@@ -51,6 +52,44 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
             return [];
         }
 
+        var devicePolicy = metadata
+            .OfType<DeviceTokenPolicyAttribute>()
+            .LastOrDefault()?
+            .Requirement;
+        if (devicePolicy == DeviceTokenRequirement.Optional)
+        {
+            if (metadata.OfType<IAuthorizeData>().Any())
+            {
+                return
+                [
+                    Requirement("CustomerBearer"),
+                    Requirement("CustomerBearer", "DeviceToken")
+                ];
+            }
+
+            return
+            [
+                new OpenApiSecurityRequirement(),
+                Requirement("DeviceToken"),
+                Requirement("CustomerBearer"),
+                Requirement("CustomerBearer", "DeviceToken")
+            ];
+        }
+
+        if (path.StartsWith("/api/v1/admin/banners", StringComparison.Ordinal))
+        {
+            return [Requirement("CustomerBearer")];
+        }
+
+        if (path == "/api/v1/catalog/businesses/{businessId}/favourite")
+        {
+            return
+            [
+                Requirement("CustomerBearer"),
+                Requirement("CustomerBearer", "DeviceToken")
+            ];
+        }
+
         if (path.StartsWith("/api/v1/", StringComparison.Ordinal))
         {
             return path.StartsWith("/api/v1/bookings/", StringComparison.Ordinal) ||
@@ -87,6 +126,44 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         string method)
     {
         operation.Parameters ??= [];
+        var devicePolicy = contextlessOptionalPath(path);
+        if (devicePolicy)
+        {
+            operation.Description =
+                "Public operation with optional device authentication. Requests without a " +
+                "device token use the trusted Production partition unless a valid Customer " +
+                "bearer selects its account partition. A supplied X-Device-Token must validate " +
+                "and selects its trusted partition. When bearer and device credentials are both " +
+                "supplied they must belong to the same partition.";
+        }
+        else if (path == "/api/v1/catalog/businesses/{businessId}/reviews")
+        {
+            operation.Description =
+                "Public review page. Anonymous requests without credentials select Production. " +
+                "A supplied X-Device-Token is optional but must validate and selects its trusted " +
+                "partition. An optional Customer bearer may select its trusted partition; when " +
+                "both credentials are supplied they must belong to the same partition.";
+        }
+        else if (path == "/api/v1/banners")
+        {
+            operation.Description =
+                "Public active banner list. Anonymous requests select Production. A supplied " +
+                "X-Device-Token is optional but must validate and selects its trusted partition.";
+        }
+
+        else if (path.StartsWith("/api/v1/admin/banners", StringComparison.Ordinal))
+        {
+            operation.Description =
+                "Customer Admin banner management. Requires a Customer bearer with the Admin role.";
+        }
+        else if (path == "/api/v1/bookings/{bookingId}/review")
+        {
+            operation.Description =
+                "Customer-owned completed-booking review operation. Requires both a Customer " +
+                "bearer token and X-Device-Token. Missing or foreign bookings are returned as " +
+                "the same non-disclosing booking_not_found response.";
+        }
+
         if (IsLocalized(path))
         {
             AddParameter(operation, "language", ParameterLocation.Query, false, schema =>
@@ -138,6 +215,18 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         }
     }
 
+    private static bool contextlessOptionalPath(string path) =>
+        path == "/api/v1/configuration" ||
+        path == "/api/v1/pricing/reprice" ||
+        path == "/api/v1/banners" ||
+        path == "/api/v1/catalog/categories" ||
+        path == "/api/v1/catalog/businesses" ||
+        path == "/api/v1/catalog/businesses/{id}" ||
+        path == "/api/v1/catalog/businesses/{id}/offerings" ||
+        path == "/api/v1/catalog/offerings/{id}" ||
+        path == "/api/v1/catalog/businesses/{businessId}/reviews" ||
+        path == "/api/v1/catalog/businesses/{businessId}/branches/{branchId}/available-slots";
+
     private static void AddParameter(
         OpenApiOperation operation,
         string name,
@@ -172,6 +261,22 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         string method,
         OperationFilterContext context)
     {
+        if (path == "/api/v1/catalog/businesses/{businessId}/favourite" &&
+            method is "PUT" or "DELETE")
+        {
+            foreach (var response in operation.Responses.Keys
+                         .Where(key => key is not ("204" or "401" or "403" or "404"))
+                         .ToArray())
+            {
+                operation.Responses.Remove(response);
+            }
+
+            AddProblemResponse(operation, 401, path);
+            AddProblemResponse(operation, 403, path);
+            AddProblemResponse(operation, 404, path);
+            return;
+        }
+
         var statuses = new HashSet<int> { 405, 500 };
         var securityNames = operation.Security
             .SelectMany(requirement => requirement.Keys)
@@ -185,6 +290,13 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         if (securityNames.Contains("CustomerBearer"))
         {
             statuses.Add(403);
+        }
+        if (operation.Security.Any(requirement => requirement.Count == 0) &&
+            securityNames.Contains("DeviceToken"))
+        {
+            statuses.Add(401);
+            statuses.Add(403);
+            statuses.Add(429);
         }
         if (IsLocalized(path) || method is "POST" or "PUT" or "PATCH")
         {
@@ -209,6 +321,23 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
             path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
         {
             statuses.Add(409);
+        }
+        if (path == "/api/v1/bookings/{bookingId}/review")
+        {
+            statuses.Add(404);
+            statuses.Add(429);
+            if (method is "PUT" or "DELETE")
+            {
+                statuses.Add(409);
+            }
+        }
+
+        if (path == "/api/v1/catalog/businesses/{businessId}/reviews")
+        {
+            statuses.Add(401);
+            statuses.Add(403);
+            statuses.Add(404);
+            statuses.Add(429);
         }
         if (path is "/api/v1/bookings/from-draft" or "/api/v1/payments/intents")
         {
@@ -283,6 +412,46 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
                 Examples = ProblemExamples(path)
             };
         }
+    }
+
+    private static void AddProblemResponse(
+        OpenApiOperation operation,
+        int status,
+        string path)
+    {
+        var key = status.ToString();
+        if (!operation.Responses.TryGetValue(key, out var response))
+        {
+            response = new OpenApiResponse { Description = $"HTTP {status} problem." };
+            operation.Responses[key] = response;
+        }
+
+        response.Headers["X-Correlation-Id"] = new OpenApiHeader
+        {
+            Description = "Request correlation identifier.",
+            Schema = new OpenApiSchema { Type = "string", MaxLength = 64 }
+        };
+        response.Headers["Cache-Control"] = new OpenApiHeader
+        {
+            Description = "Always no-store.",
+            Schema = new OpenApiSchema
+            {
+                Type = "string",
+                Example = new OpenApiString("no-store")
+            }
+        };
+        response.Content["application/problem+json"] = new OpenApiMediaType
+        {
+            Schema = new OpenApiSchema
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.Schema,
+                    Id = "ProblemDetails"
+                }
+            },
+            Examples = ProblemExamples(path)
+        };
     }
 
     private static IDictionary<string, OpenApiExample> ProblemExamples(string path)

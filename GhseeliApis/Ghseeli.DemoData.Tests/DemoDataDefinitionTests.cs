@@ -33,6 +33,16 @@ public sealed class DemoDataDefinitionTests
         Assert.Equal(6, data.Drafts.Count);
         Assert.Equal(12, data.Bookings.Count);
         Assert.Equal(8, data.Bookings.Count(booking => booking.Payment is not null));
+        Assert.Equal(3, data.Reviews.Count);
+        Assert.Equal(3, data.Banners.Count);
+        Assert.Equal(2, data.Banners.Count(banner => banner.IsActive));
+        Assert.All(data.Banners, banner =>
+            Assert.StartsWith("https://", banner.ImageUrl, StringComparison.Ordinal));
+        Assert.All(data.Reviews, review =>
+            Assert.Equal(
+                "Completed",
+                data.Bookings.Single(booking =>
+                    booking.CustomerReferenceId == review.BookingReferenceId).Status));
     }
 
     [Fact]
@@ -75,6 +85,14 @@ public sealed class DemoDataDefinitionTests
         var offerings = document.RootElement
             .GetProperty("companies")[0]
             .GetProperty("offerings");
+        var categories = document.RootElement
+            .GetProperty("companies")[0]
+            .GetProperty("categories");
+        Assert.Equal("https://example.test/demo/categories/1.png",
+            categories[0].GetProperty("imageUrl").GetString());
+        Assert.Equal("#255203", categories[0].GetProperty("colorHex").GetString());
+        Assert.Equal(JsonValueKind.Null, categories[1].GetProperty("imageUrl").ValueKind);
+        Assert.Equal(JsonValueKind.Null, categories[1].GetProperty("colorHex").ValueKind);
         Assert.Equal("بدون التعقيم", offerings[0].GetProperty("qualifierAr").GetString());
         Assert.Equal("ללא חיטוי", offerings[0].GetProperty("qualifierHe").GetString());
         Assert.Equal("MostRequested", offerings[0].GetProperty("badgeCode").GetString());
@@ -89,6 +107,34 @@ public sealed class DemoDataDefinitionTests
             "demo-data",
             "frontend-demo-data.json"));
         Assert.Equal(first, checkedInJson);
+    }
+
+    [Fact]
+    public void Create_VehiclesUseApprovedTypesAndSafeHttpsImages()
+    {
+        var data = DemoDataDefinition.Create();
+        var approvedTypes = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "Sedan",
+            "Motorcycle",
+            "Suv5Seater",
+            "Suv7Seater",
+            "Van7Seater"
+        };
+        var vehicles = data.Customers.SelectMany(customer => customer.Vehicles).ToArray();
+
+        Assert.NotEmpty(vehicles);
+        Assert.Contains(vehicles, vehicle => vehicle.VehicleType == "Sedan");
+        Assert.Contains(vehicles, vehicle => vehicle.VehicleType == "Suv5Seater");
+        Assert.All(vehicles, vehicle =>
+        {
+            Assert.Contains(vehicle.VehicleType, approvedTypes);
+            Assert.NotNull(vehicle.ImageUrl);
+            Assert.True(Uri.TryCreate(vehicle.ImageUrl, UriKind.Absolute, out var uri));
+            Assert.Equal(Uri.UriSchemeHttps, uri!.Scheme);
+            Assert.True(string.IsNullOrEmpty(uri.UserInfo));
+            Assert.InRange(vehicle.ImageUrl!.Length, 1, 500);
+        });
     }
 
     [Fact]

@@ -69,7 +69,8 @@ internal static class CheckoutDraftTestSupport
             RequestedSlotStartUtc = requestedSlotStartUtc,
             Vehicle = new CheckoutDraftVehicleRequest
             {
-                VehicleType = "Sedan",
+                VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan,
+                ImageUrl = "https://cdn.example.test/vehicles/sedan.png",
                 LicensePlate = "12-345-67",
                 Make = "Toyota",
                 Model = "Corolla",

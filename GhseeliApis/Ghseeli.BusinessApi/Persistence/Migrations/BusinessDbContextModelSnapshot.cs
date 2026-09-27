@@ -1025,6 +1025,10 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                         .HasColumnType("uniqueidentifier")
                         .HasDefaultValue(new Guid("a842f536-17b7-4be6-a18d-1bdc6245094c"));
 
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(7)
+                        .HasColumnType("nvarchar(7)");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1043,6 +1047,10 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1169,6 +1177,10 @@ namespace Ghseeli.BusinessApi.Persistence.Migrations
                 {
                     b.Property<Guid>("WorkOrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("LicensePlate")
                         .HasMaxLength(50)

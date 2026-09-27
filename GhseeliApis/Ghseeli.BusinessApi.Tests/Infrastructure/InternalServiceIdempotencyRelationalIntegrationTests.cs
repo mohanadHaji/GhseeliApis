@@ -235,7 +235,7 @@ public class InternalServiceIdempotencyRelationalIntegrationTests
             ExpectedItemSubtotal = 100m,
             ExpectedTotalDurationMinutes = 30,
             Customer = new ReservationCustomerSnapshot { Name = "Customer" },
-            Vehicle = new ReservationVehicleSnapshot { VehicleType = "Sedan" },
+            Vehicle = new ReservationVehicleSnapshot { VehicleType = Ghseeli.IntegrationContracts.Vehicles.VehicleType.Sedan },
             Location = new ReservationLocationSnapshot
             {
                 AddressLine = "Street 1",

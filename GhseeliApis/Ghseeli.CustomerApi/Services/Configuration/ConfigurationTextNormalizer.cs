@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 
 namespace GhseeliApis.Services.Configuration;
 
@@ -20,7 +21,7 @@ internal static class ConfigurationTextNormalizer
             return null;
         }
 
-        return trimmed;
+        return trimmed.Normalize(NormalizationForm.FormC);
     }
 
     private static bool IsIgnorableTextCharacter(char value)

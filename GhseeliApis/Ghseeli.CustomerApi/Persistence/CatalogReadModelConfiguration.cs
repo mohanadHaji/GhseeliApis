@@ -34,7 +34,11 @@ internal static class CatalogReadModelConfiguration
             entity.Property(provider => provider.RowVersion)
                 .IsRowVersion()
                 .IsConcurrencyToken();
-            entity.HasIndex(provider => provider.SourceCompanyId)
+            entity.HasIndex(provider => new
+            {
+                provider.SourceCompanyId,
+                provider.IsDemo
+            })
                 .IsUnique();
             entity.HasIndex(provider => new
             {
@@ -85,11 +89,19 @@ internal static class CatalogReadModelConfiguration
                 .HasMaxLength(1000);
             entity.Property(category => category.DescriptionHe)
                 .HasMaxLength(1000);
+            entity.Property(category => category.ImageUrl)
+                .HasMaxLength(500);
+            entity.Property(category => category.ColorHex)
+                .HasMaxLength(7);
             entity.HasOne(category => category.Provider)
                 .WithMany(provider => provider.Categories)
                 .HasForeignKey(category => category.ProviderId)
                 .OnDelete(DeleteBehavior.Cascade);
-            entity.HasIndex(category => category.SourceCategoryId)
+            entity.HasIndex(category => new
+            {
+                category.ProviderId,
+                category.SourceCategoryId
+            })
                 .IsUnique();
             entity.HasIndex(category => new
             {

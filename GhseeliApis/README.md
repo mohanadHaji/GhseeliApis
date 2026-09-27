@@ -16,10 +16,10 @@ repository root [`README.md`](../README.md).
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
-- Current verified automated baseline: **1,965 passed, 0 failed, 0 skipped**.
-- Customer tests: 1,332.
-- Business tests: 609.
-- Demo-data tests: 24.
+- Current verified automated baseline: **2,337 passed, 0 failed, 0 skipped**.
+- Customer tests: 1,626.
+- Business tests: 686.
+- Demo-data tests: 25.
 - Release build: 0 warnings and 0 errors.
 - The Customer-to-Business Demo partition propagation fix was deployed and
   hosted-verified on 2026-09-17: the seeded Demo catalog returned five fresh
@@ -49,6 +49,46 @@ then update it as work is completed.
 The offering-presentation metadata slice is deployed and covered by unit,
 TestServer, relational SQL Server, migration, Demo parity, Customer live HTTP,
 and hosted Demo tests.
+The category image/color presentation slice is implemented locally with
+Business and Customer migrations, unit/TestServer/schema/Swagger/contract
+coverage, catalog hash/version refresh coverage, and deterministic Demo parity.
+It has not been deployed or hosted live-HTTP verified.
+The catalog favourites/search/top-ranking slice is implemented locally with
+partitioned Customer-owned favourites, idempotent authenticated mutations,
+anonymous/authenticated favourite and rating projections, bilingual normalized
+business-name search, deterministic top-5/10 ranking, migration/schema,
+Swagger/TestServer, service/repository, Demo fixture, and regression coverage.
+The final coverage includes matching/mismatched JWT-device mutation partitions,
+PUT/DELETE non-disclosure parity, category/offering projection assertions,
+per-service batched projection dependency checks, search-before-top ordering,
+and relational Demo favourite reconciliation/cleanup/reseed behavior. The
+advisory availability-discovery slice is implemented locally with a Customer
+public search route, one batched Customer-to-Business HMAC request,
+Business-authoritative scheduling/capacity evaluation, deterministic
+nearest-slot ranking, optional-device partition selection, explicit upstream
+failure mapping, and preservation of the offering-aware detailed-slots
+authority. Its final gate passed the Customer, Business, and DemoData suites
+(2,337 tests), Release build with no warnings or errors, both disposable API
+health checks, 31/31 HTTP harness self-tests, 12/12 live-local availability
+scenarios, and 78/78 traced frontend-note scenarios.
+It has not been deployed or verified against the hosted APIs.
+The completed-booking customer review slice is implemented locally with
+Customer-owned partitioned persistence, optimistic concurrency, public
+privacy-safe pagination and aggregates, Demo fixtures, Swagger, TestServer,
+SQL Server relational, executable up/down migration, concurrent HTTP
+create/update/delete/update-vs-delete conflict handling, ownership
+non-disclosure, authentication/device boundaries, localization, masking,
+paging, catalog-resolution, aggregate, and partition-isolation coverage. It
+has not been deployed or live-HTTP verified.
+The banner slice is implemented locally with Customer-owned partitioned
+persistence, required credential-free absolute HTTPS image URLs, deterministic
+public active-only reads, Customer Admin CRUD, optimistic SQL rowversion
+concurrency, localized problems, Swagger, Demo fixtures, executable migration,
+and unit/TestServer/relational coverage. Final banner QA additionally covers
+disposable migration up/down verification, SQL-backed CRUD and three race
+shapes, request/body boundaries, optional-device states, partition
+non-disclosure, safe induced failures, and deterministic Demo reconciliation.
+It has not been deployed or verified against a live hosted API.
 The complete Step 17 local gate passed on 2026-09-22, including all 50 active
 provider-neutral Step 17 scenarios, 1,167 inherited scenarios, Step 16
 database/schema isolation, adverse-schema checks, and final process/database
@@ -88,7 +128,7 @@ These become blockers only when the chosen frontend/product requires them:
 | Browser CORS | No CORS policy | A browser SPA calls the APIs directly instead of using a same-origin BFF |
 | OAuth | Existing redirect flow is unapproved | Google/Facebook login is included at launch |
 | Wallet/Cash/ThirdParty payments | Disabled | Any of these methods are included in product scope |
-| Separate Development/Staging hosting | Not available on the current free hosting allocation | The team requires isolated pre-production promotion environments |
+| Separate Development/Staging hosting | Two additional databases are now available, but the environment split is deferred; see [`DEV_ENVIRONMENT_FOLLOWUP.md`](DEV_ENVIRONMENT_FOLLOWUP.md) | Before moving seeded Demo data out of Production and enabling isolated pre-production promotion |
 | Remote Demo cleanup | Intentionally unavailable | Hosted Demo data must be removed before separate test infrastructure exists |
 
 ### Optional later improvements
@@ -109,17 +149,29 @@ These become blockers only when the chosen frontend/product requires them:
 - Device registration, opaque token hashing, rotation, expiry, ownership, and
   authenticated recovery after a lost/reformatted phone.
 - Optional FCM token registration and updating.
-- Customer profile, vehicle, and address management.
+- Customer profile, vehicle, and address management, including stable vehicle
+  type strings and optional HTTPS image snapshots propagated through checkout,
+  booking, reservations, and work orders.
 - Arabic/Hebrew localization and stable Problem Details.
 - Customer catalog read model synchronized from Business.
 - Company, branch, category, offering, add-on, and available-slot browsing.
 - Device-owned checkout drafts.
 - Authoritative repricing and immutable price snapshots.
 - Authenticated booking confirmation.
+- Completed-booking customer reviews and public partition-safe review pages
+  with masked customer names and rating aggregates.
+- Partition-safe business favourites, bilingual business-name search, top-5/10
+  rating ranking, and favourite/rating projections across catalog list, detail,
+  and offering contexts.
 - Signed booking-status callback processing and reconciliation.
 - Lahza hosted checkout initialization, verification, webhook processing,
   idempotency, and refund-event convergence.
 - Production/Demo request partitioning.
+- Explicit optional-device public discovery for configuration, all current
+  public catalog routes (including detailed slots and reviews), direct
+  stateless pricing, and public banners. Anonymous requests select Production;
+  supplied device tokens are validated strictly; Customer JWTs may select the
+  account partition; dual credentials must match.
 
 ### Business API
 

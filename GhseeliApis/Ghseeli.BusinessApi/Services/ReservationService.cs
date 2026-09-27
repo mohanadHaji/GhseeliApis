@@ -10,6 +10,7 @@ using System.Data;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Ghseeli.BusinessApi.Validation;
 
 namespace Ghseeli.BusinessApi.Services;
 
@@ -152,7 +153,8 @@ public sealed class ReservationService : IReservationService
                         CustomerName = request.Customer.Name,
                         CustomerEmail = request.Customer.Email,
                         CustomerPhone = request.Customer.Phone,
-                        VehicleType = request.Vehicle.VehicleType,
+                        VehicleType = request.Vehicle.VehicleType.ToString(),
+                        VehicleImageUrl = request.Vehicle.ImageUrl,
                         LicensePlate = request.Vehicle.LicensePlate,
                         VehicleMake = request.Vehicle.Make,
                         VehicleModel = request.Vehicle.Model,
@@ -372,8 +374,8 @@ public sealed class ReservationService : IReservationService
             request.Customer.Email?.Length > 254 ||
             request.Customer.Phone?.Length > 32 ||
             request.Vehicle is null ||
-            string.IsNullOrWhiteSpace(request.Vehicle.VehicleType) ||
-            request.Vehicle.VehicleType.Length > 50 ||
+            !Enum.IsDefined(request.Vehicle.VehicleType) ||
+            !VehicleImageUrlValidation.IsValid(request.Vehicle.ImageUrl) ||
             request.Location is null ||
             string.IsNullOrWhiteSpace(request.Location.AddressLine) ||
             request.Location.AddressLine.Length > 300 ||
@@ -422,7 +424,8 @@ public sealed class ReservationService : IReservationService
         Append(canonical, Normalize(request.Customer.Name));
         Append(canonical, NormalizeNullable(request.Customer.Email));
         Append(canonical, NormalizeNullable(request.Customer.Phone));
-        Append(canonical, Normalize(request.Vehicle.VehicleType));
+        Append(canonical, request.Vehicle.VehicleType.ToString());
+        Append(canonical, NormalizeNullable(request.Vehicle.ImageUrl));
         Append(canonical, NormalizeNullable(request.Vehicle.LicensePlate));
         Append(canonical, NormalizeNullable(request.Vehicle.Make));
         Append(canonical, NormalizeNullable(request.Vehicle.Model));

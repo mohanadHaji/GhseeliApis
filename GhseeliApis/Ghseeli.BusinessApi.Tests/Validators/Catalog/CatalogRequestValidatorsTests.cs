@@ -26,6 +26,54 @@ public class CatalogRequestValidatorsTests
         result.IsValid.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("https://cdn.example.test/categories/exterior.png")]
+    public void CreateServiceCategoryRequestValidator_AcceptsNullableAbsoluteHttpsImageUrl(string? imageUrl)
+    {
+        var result = new CreateServiceCategoryRequestValidator().Validate(new CreateServiceCategoryRequest
+        {
+            NameAr = "غسيل",
+            ImageUrl = imageUrl,
+            ColorHex = " #1a73e8 "
+        });
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("http://cdn.example.test/category.png")]
+    [InlineData("/category.png")]
+    [InlineData("https://user:password@cdn.example.test/category.png")]
+    [InlineData("not-a-url")]
+    public void CreateServiceCategoryRequestValidator_RejectsInvalidImageUrl(string imageUrl)
+    {
+        var result = new CreateServiceCategoryRequestValidator().Validate(new CreateServiceCategoryRequest
+        {
+            NameAr = "غسيل",
+            ImageUrl = imageUrl
+        });
+
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(CreateServiceCategoryRequest.ImageUrl));
+    }
+
+    [Fact]
+    public void UpdateServiceCategoryRequestValidator_RejectsOverlongImageAndInvalidColor()
+    {
+        var result = new UpdateServiceCategoryRequestValidator().Validate(new UpdateServiceCategoryRequest
+        {
+            NameAr = "غسيل",
+            ImageUrl = $"https://cdn.example.test/{new string('x', 480)}.png",
+            ColorHex = "#12345G"
+        });
+
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(UpdateServiceCategoryRequest.ImageUrl));
+        result.Errors.Should().Contain(error =>
+            error.PropertyName == nameof(UpdateServiceCategoryRequest.ColorHex));
+    }
+
     [Fact]
     public void UpdateServiceCategoryRequestValidator_RejectsMissingArabicName()
     {

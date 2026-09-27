@@ -81,7 +81,7 @@ public static class DemoDataDefinition
             [
                 Offering(1, 1, 1, 1, "Quick Exterior", "غسيل خارجي سريع تجريبي", "שטיפה חיצונית מהירה ניסיונית", 25m, 25,
                     Group(1, 1, "Vehicle size", "حجم المركبة", "גודל הרכב", "SingleChoice", true, 1, 1,
-                        Choice(1, 1, "Sedan", "سيدان", "סדאן", 0m, 0),
+                        Choice(1, 1, "Sedan", "سيدان", "סדאן", 0m, 0, 1),
                         Choice(2, 1, "SUV", "دفع رباعي", "רכב שטח", 8m, 10))),
                 Offering(2, 1, 1, 1, "Premium Exterior", "غسيل خارجي فاخر تجريبي", "שטיפה חיצונית פרימיום ניסיונית", 45m, 40,
                     Group(2, 2, "Finish", "طبقة الحماية", "שכבת גימור", "MultipleChoice", false, 0, 2,
@@ -91,7 +91,7 @@ public static class DemoDataDefinition
                 Offering(3, 1, 2, 2, "Interior Refresh", "تنظيف داخلي خفيف تجريبي", "רענון פנימי ניסיוני", 35m, 35),
                 Offering(4, 1, 2, 2, "Deep Interior", "تنظيف داخلي عميق تجريبي", "ניקוי פנימי עמוק ניסיוני", 70m, 75,
                     Group(3, 4, "Seat rows", "صفوف المقاعد", "שורות מושבים", "QuantityCounter", true, 1, 3,
-                        Choice(6, 3, "Seat row", "صف مقاعد", "שורת מושבים", 10m, 10),
+                        Choice(6, 3, "Seat row", "صف مقاعد", "שורת מושבים", 10m, 10, 1),
                         Choice(7, 3, "Child seat", "مقعد أطفال", "מושב ילדים", 7m, 8),
                         Choice(8, 3, "Pet hair", "إزالة شعر الحيوانات", "הסרת שיער בעלי חיים", 15m, 15)))
             ]);
@@ -119,7 +119,7 @@ public static class DemoDataDefinition
                 Offering(7, 2, 3, 4, "Headlight Polish", "تلميع المصابيح تجريبي", "ליטוש פנסים ניסיוני", 40m, 35),
                 Offering(8, 2, 3, 4, "Engine Bay Clean", "تنظيف حجرة المحرك تجريبي", "ניקוי תא מנוע ניסיוני", 55m, 45,
                     Group(5, 8, "Included inspection", "فحص مشمول", "בדיקה כלולה", "FixedIncludedChoice", true, 1, 1,
-                        Choice(12, 5, "Visual inspection", "فحص بصري", "בדיקה חזותית", 0m, 5),
+                        Choice(12, 5, "Visual inspection", "فحص بصري", "בדיקה חזותית", 0m, 5, 1),
                         Choice(13, 5, "Protective dressing", "طبقة حماية", "חומר הגנה", 10m, 5)))
             ]);
 
@@ -165,7 +165,7 @@ public static class DemoDataDefinition
                 Offering(13, 4, 5, 6, "Express Wash", "غسيل سريع تجريبي", "שטיפה מהירה ניסיונית", 22m, 20),
                 Offering(14, 4, 5, 6, "Wash and Vacuum", "غسيل وشفط تجريبي", "שטיפה ושאיבה ניסיונית", 42m, 40,
                     Group(7, 14, "Vacuum level", "مستوى الشفط", "רמת שאיבה", "SingleChoice", true, 1, 1,
-                        Choice(19, 7, "Standard", "عادي", "רגיל", 0m, 0),
+                        Choice(19, 7, "Standard", "عادي", "רגיל", 0m, 0, 1),
                         Choice(20, 7, "Deep", "عميق", "עמוק", 10m, 10),
                         Choice(21, 7, "Pet hair", "شعر حيوانات", "שיער בעלי חיים", 18m, 15))),
                 Offering(15, 4, 5, 7, "Dashboard Care", "عناية لوحة القيادة تجريبية", "טיפול בלוח מחוונים ניסיוני", 28m, 25),
@@ -192,13 +192,13 @@ public static class DemoDataDefinition
                 Offering(17, 5, 6, 8, "Executive Wash", "غسيل تنفيذي تجريبي", "שטיפה מנהלים ניסיונית", 75m, 70),
                 Offering(18, 5, 6, 8, "Leather Treatment", "معالجة جلد تجريبية", "טיפול עור ניסיוני", 95m, 80,
                     Group(9, 18, "Leather condition", "حالة الجلد", "מצב העור", "SegmentedSingleButtonChoice", true, 1, 1,
-                        Choice(25, 9, "Light care", "عناية خفيفة", "טיפול קל", 0m, 0),
+                        Choice(25, 9, "Light care", "عناية خفيفة", "טיפול קל", 0m, 0, 1),
                         Choice(26, 9, "Conditioning", "ترطيب", "ריכוך", 20m, 15),
                         Choice(27, 9, "Restoration", "ترميم", "שיקום", 55m, 40))),
                 Offering(19, 5, 6, 8, "Paint Correction", "تصحيح طلاء تجريبي", "תיקון צבע ניסיוני", 210m, 240),
                 Offering(20, 5, 6, 8, "Event Ready Package", "باقة جاهزية للمناسبات التجريبية", "חבילת הכנה לאירוע ניסיונית", 165m, 170,
                     Group(10, 20, "Final finish", "اللمسة النهائية", "גימור סופי", "SingleChoice", true, 1, 1,
-                        Choice(28, 10, "Gloss", "لامع", "מבריק", 0m, 0),
+                        Choice(28, 10, "Gloss", "لامع", "מבריק", 0m, 0, 1),
                         Choice(29, 10, "Satin", "ساتان", "סאטן", 10m, 5),
                         Choice(30, 10, "Show finish", "لمسة عرض", "גימור תצוגה", 30m, 20)))
             ]);
@@ -444,8 +444,17 @@ public static class DemoDataDefinition
         string nameAr,
         string nameHe,
         decimal price,
-        int duration) =>
-        new(Id('x', number), Id('h', groupNumber), nameEn, nameAr, nameHe, price, duration, 1);
+        int duration,
+        int defaultQuantity = 0) =>
+        new(
+            Id('x', number),
+            Id('h', groupNumber),
+            nameEn,
+            nameAr,
+            nameHe,
+            price,
+            duration,
+            defaultQuantity);
 
     private static DemoDraft Draft(
         int number,

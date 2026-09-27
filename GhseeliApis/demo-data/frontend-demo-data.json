@@ -182,7 +182,7 @@
                   "nameHe": "\u05E8\u05DB\u05D1 \u05E9\u05D8\u05D7",
                   "priceAdjustment": 8,
                   "durationAdjustmentMinutes": 10,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -222,7 +222,7 @@
                   "nameHe": "\u05D5\u05D5\u05E7\u05E1",
                   "priceAdjustment": 12,
                   "durationAdjustmentMinutes": 10,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "347e786c-0742-db92-97ab-b9d53d570b7d",
@@ -232,7 +232,7 @@
                   "nameHe": "\u05D4\u05D1\u05E8\u05E7\u05EA \u05E6\u05DE\u05D9\u05D2\u05D9\u05DD",
                   "priceAdjustment": 6,
                   "durationAdjustmentMinutes": 5,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "e041d5cc-9e46-633f-fd99-f20e21bd8091",
@@ -242,7 +242,7 @@
                   "nameHe": "\u05D3\u05D5\u05D7\u05D4 \u05D2\u05E9\u05DD",
                   "priceAdjustment": 9,
                   "durationAdjustmentMinutes": 5,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -308,7 +308,7 @@
                   "nameHe": "\u05DE\u05D5\u05E9\u05D1 \u05D9\u05DC\u05D3\u05D9\u05DD",
                   "priceAdjustment": 7,
                   "durationAdjustmentMinutes": 8,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "8abfac68-5a60-c64a-f8aa-970d385037a3",
@@ -318,7 +318,7 @@
                   "nameHe": "\u05D4\u05E1\u05E8\u05EA \u05E9\u05D9\u05E2\u05E8 \u05D1\u05E2\u05DC\u05D9 \u05D7\u05D9\u05D9\u05DD",
                   "priceAdjustment": 15,
                   "durationAdjustmentMinutes": 15,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -424,7 +424,7 @@
                   "nameHe": "\u05D0\u05D9\u05D8\u05D5\u05DD \u05E8\u05D2\u05D9\u05DC",
                   "priceAdjustment": 20,
                   "durationAdjustmentMinutes": 15,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "743cd9c8-a82e-f7f6-bf2f-0a5b22a01514",
@@ -434,7 +434,7 @@
                   "nameHe": "\u05EA\u05E8\u05E1\u05D9\u05E1 \u05E7\u05E8\u05DE\u05D9",
                   "priceAdjustment": 45,
                   "durationAdjustmentMinutes": 25,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "feabb056-4d8e-0b3c-a813-929c61fd7411",
@@ -444,7 +444,7 @@
                   "nameHe": "\u05E6\u05D9\u05E4\u05D5\u05D9 \u05E7\u05E8\u05DE\u05D9",
                   "priceAdjustment": 180,
                   "durationAdjustmentMinutes": 120,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -510,7 +510,7 @@
                   "nameHe": "\u05D7\u05D5\u05DE\u05E8 \u05D4\u05D2\u05E0\u05D4",
                   "priceAdjustment": 10,
                   "durationAdjustmentMinutes": 5,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -602,7 +602,7 @@
                   "nameHe": "\u05DC\u05DC\u05D0 \u05E8\u05D9\u05D7",
                   "priceAdjustment": 0,
                   "durationAdjustmentMinutes": 0,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "f2b925ed-82c2-e2c8-d465-af508d126936",
@@ -612,7 +612,7 @@
                   "nameHe": "\u05D4\u05D3\u05E8\u05D9\u05DD",
                   "priceAdjustment": 3,
                   "durationAdjustmentMinutes": 0,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "b8c31403-08e3-5ec5-d227-9961c579a362",
@@ -622,7 +622,7 @@
                   "nameHe": "\u05D0\u05D5\u05E7\u05D9\u05D9\u05E0\u05D5\u05E1",
                   "priceAdjustment": 3,
                   "durationAdjustmentMinutes": 0,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "cefbecf6-73a8-20dd-1c54-03f4d5423993",
@@ -632,7 +632,7 @@
                   "nameHe": "\u05E8\u05DB\u05D1 \u05D7\u05D3\u05E9",
                   "priceAdjustment": 3,
                   "durationAdjustmentMinutes": 0,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "495a6f0f-15a5-a04e-6a42-d319b6cdfc45",
@@ -642,7 +642,7 @@
                   "nameHe": "\u05DC\u05D1\u05E0\u05D3\u05E8",
                   "priceAdjustment": 3,
                   "durationAdjustmentMinutes": 0,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -790,7 +790,7 @@
                   "nameHe": "\u05E2\u05DE\u05D5\u05E7",
                   "priceAdjustment": 10,
                   "durationAdjustmentMinutes": 10,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "ff12fca7-be59-a701-c361-72316a145626",
@@ -800,7 +800,7 @@
                   "nameHe": "\u05E9\u05D9\u05E2\u05E8 \u05D1\u05E2\u05DC\u05D9 \u05D7\u05D9\u05D9\u05DD",
                   "priceAdjustment": 18,
                   "durationAdjustmentMinutes": 15,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -856,7 +856,7 @@
                   "nameHe": "\u05E0\u05D9\u05E7\u05D5\u05D9 \u05DE\u05D5\u05E9\u05D1 \u05D9\u05DC\u05D3",
                   "priceAdjustment": 8,
                   "durationAdjustmentMinutes": 10,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "8a6aebdb-d5d1-5a84-e512-8401c79262bd",
@@ -866,7 +866,7 @@
                   "nameHe": "\u05E9\u05D0\u05D9\u05D1\u05EA \u05EA\u05D0 \u05DE\u05D8\u05E2\u05DF",
                   "priceAdjustment": 7,
                   "durationAdjustmentMinutes": 8,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "a22e71c6-d5a2-7e65-9310-f91590b12f3a",
@@ -876,7 +876,7 @@
                   "nameHe": "\u05D7\u05D9\u05D8\u05D5\u05D9",
                   "priceAdjustment": 12,
                   "durationAdjustmentMinutes": 10,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -978,7 +978,7 @@
                   "nameHe": "\u05E8\u05D9\u05DB\u05D5\u05DA",
                   "priceAdjustment": 20,
                   "durationAdjustmentMinutes": 15,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "230cd194-a3cc-ed52-ffa2-329f498dac82",
@@ -988,7 +988,7 @@
                   "nameHe": "\u05E9\u05D9\u05E7\u05D5\u05DD",
                   "priceAdjustment": 55,
                   "durationAdjustmentMinutes": 40,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }
@@ -1054,7 +1054,7 @@
                   "nameHe": "\u05E1\u05D0\u05D8\u05DF",
                   "priceAdjustment": 10,
                   "durationAdjustmentMinutes": 5,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 },
                 {
                   "id": "d891141d-1b0c-31f5-5de2-7ff16ef6e777",
@@ -1064,7 +1064,7 @@
                   "nameHe": "\u05D2\u05D9\u05DE\u05D5\u05E8 \u05EA\u05E6\u05D5\u05D2\u05D4",
                   "priceAdjustment": 30,
                   "durationAdjustmentMinutes": 20,
-                  "defaultQuantity": 1
+                  "defaultQuantity": 0
                 }
               ]
             }

@@ -30,7 +30,7 @@ function Assert-True([bool]$Condition, [string]$Message) {
 
 function Invoke-Check([string]$Name, [scriptblock]$Action) {
     try {
-        & $Action
+        . $Action
         $script:Passed++
         Write-Host "PASS $Name"
     }
@@ -52,9 +52,18 @@ function ConvertTo-JsonBody([object]$Value) {
     return $json
 }
 
+function Get-ResponseText([object]$Response) {
+    if ($null -eq $Response.Content) { return '' }
+    if ($Response.Content -is [byte[]]) {
+        return [Text.Encoding]::UTF8.GetString($Response.Content)
+    }
+    return [string]$Response.Content
+}
+
 function Read-Json([object]$Response) {
-    if ([string]::IsNullOrWhiteSpace([string]$Response.Content)) { return $null }
-    return $Response.Content | ConvertFrom-Json -Depth 50
+    $text = Get-ResponseText $Response
+    if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+    return $text | ConvertFrom-Json -Depth 50
 }
 
 function Invoke-HostedRequest(
@@ -104,31 +113,68 @@ function Invoke-HostedRequest(
 }
 
 function Assert-Status([object]$Response, [int[]]$Expected) {
-    Assert-True ($Expected -contains [int]$Response.StatusCode) `
-        "Unexpected HTTP status $([int]$Response.StatusCode); expected $($Expected -join '/')."
+    if ($Expected -contains [int]$Response.StatusCode) { return }
+
+    $code = ''
+    $fieldNames = ''
+    try {
+        $problem = Read-Json $Response
+        if ($null -ne $problem.PSObject.Properties['code']) {
+            $code = [string]$problem.code
+        }
+        if ($null -ne $problem.PSObject.Properties['fieldErrors']) {
+            $fieldNames = @($problem.fieldErrors.PSObject.Properties.Name) -join ','
+        }
+    }
+    catch {
+    }
+    $diagnostic = if ([string]::IsNullOrWhiteSpace($code)) {
+        ''
+    }
+    elseif ([string]::IsNullOrWhiteSpace($fieldNames)) {
+        " Problem code: $code."
+    }
+    else {
+        " Problem code: $code. Invalid fields: $fieldNames."
+    }
+    throw "Unexpected HTTP status $([int]$Response.StatusCode); expected $($Expected -join '/').$diagnostic"
+}
+
+function Get-DemoStableId([string]$Scope, [Guid]$Value) {
+    $bytes = [Security.Cryptography.SHA256]::HashData(
+        [Text.Encoding]::UTF8.GetBytes(
+            "ghseeli-demo-$Scope-$($Value.ToString('N'))"))
+    return [Guid]::new([byte[]]$bytes[0..15])
 }
 
 function Assert-Headers([object]$Response, [switch]$NoStore) {
-    Assert-True ($Response.Headers['X-Correlation-Id'] -eq
-        $Response.SmokeCorrelation) 'Correlation ID was not echoed.'
-    Assert-True ($Response.Headers['X-Content-Type-Options'] -eq 'nosniff') `
+    $correlation = @($Response.Headers['X-Correlation-Id']) -join ','
+    $contentTypeOptions = @($Response.Headers['X-Content-Type-Options']) -join ','
+    $referrerPolicy = @($Response.Headers['Referrer-Policy']) -join ','
+    $contentSecurityPolicy =
+        @($Response.Headers['Content-Security-Policy']) -join ','
+    $strictTransportSecurity =
+        @($Response.Headers['Strict-Transport-Security']) -join ','
+    $cacheControl = @($Response.Headers['Cache-Control']) -join ','
+
+    Assert-True ($correlation -eq $Response.SmokeCorrelation) `
+        'Correlation ID was not echoed.'
+    Assert-True ($contentTypeOptions -eq 'nosniff') `
         'X-Content-Type-Options is missing.'
-    Assert-True ($Response.Headers['Referrer-Policy'] -eq 'no-referrer') `
+    Assert-True ($referrerPolicy -eq 'no-referrer') `
         'Referrer-Policy is missing.'
-    Assert-True (-not [string]::IsNullOrWhiteSpace(
-        [string]$Response.Headers['Content-Security-Policy'])) `
+    Assert-True (-not [string]::IsNullOrWhiteSpace($contentSecurityPolicy)) `
         'Content-Security-Policy is missing.'
-    Assert-True (-not [string]::IsNullOrWhiteSpace(
-        [string]$Response.Headers['Strict-Transport-Security'])) `
+    Assert-True (-not [string]::IsNullOrWhiteSpace($strictTransportSecurity)) `
         'Strict-Transport-Security is missing.'
     if ($NoStore) {
-        Assert-True ([string]$Response.Headers['Cache-Control'] -match 'no-store') `
+        Assert-True ($cacheControl -match 'no-store') `
             'Cache-Control no-store is missing.'
     }
 }
 
 function Assert-SafeBody([object]$Response, [string[]]$Secrets) {
-    $text = [string]$Response.Content
+    $text = Get-ResponseText $Response
     foreach ($secret in $Secrets) {
         if (-not [string]::IsNullOrWhiteSpace($secret)) {
             Assert-True (-not $text.Contains($secret, [StringComparison]::Ordinal)) `
@@ -144,8 +190,17 @@ function Assert-Problem([object]$Response, [int]$Status, [string]$Code) {
     Assert-Headers $Response -NoStore
     $problem = Read-Json $Response
     Assert-True ($problem.code -eq $Code) "Expected problem code '$Code'."
-    Assert-True (-not [string]::IsNullOrWhiteSpace([string]$problem.traceId)) `
-        'Problem traceId is missing.'
+    $correlationId = if ($null -ne $problem.PSObject.Properties['correlationId']) {
+        [string]$problem.correlationId
+    }
+    elseif ($null -ne $problem.PSObject.Properties['traceId']) {
+        [string]$problem.traceId
+    }
+    else {
+        ''
+    }
+    Assert-True (-not [string]::IsNullOrWhiteSpace($correlationId)) `
+        'Problem correlation identifier is missing.'
 }
 
 function New-AuthHeaders([string]$Token, [string]$DeviceToken = '') {
@@ -168,9 +223,21 @@ function New-PricingBody([object]$Business, [object]$Offering) {
         'No matching branch is available for direct pricing.'
     $selections = @()
     foreach ($group in @($Offering.addonGroups)) {
-        if ($group.minimumSelections -gt 0 -and @($group.choices).Count -gt 0) {
+        $selectedIds = [Collections.Generic.HashSet[string]]::new()
+        foreach ($choice in @($group.choices |
+            Where-Object defaultQuantity -gt 0)) {
             $selections += @{
-                addonChoiceSourceId = [string]$group.choices[0].sourceId
+                addonChoiceSourceId = [string]$choice.sourceId
+                quantity = [int]$choice.defaultQuantity
+            }
+            [void]$selectedIds.Add([string]$choice.sourceId)
+        }
+        $required = [Math]::Max(0, [int]$group.minimumSelections - $selectedIds.Count)
+        foreach ($choice in @($group.choices |
+            Where-Object { -not $selectedIds.Contains([string]$_.sourceId) } |
+            Select-Object -First $required)) {
+            $selections += @{
+                addonChoiceSourceId = [string]$choice.sourceId
                 quantity = 1
             }
         }
@@ -221,12 +288,12 @@ $demoCompany = @($demo.companies |
 Assert-True ($null -ne $demoDevice -and $null -ne $demoCompany) `
     'Required deterministic Demo device/company is missing.'
 
-$customerToken = $null
-$businessToken = $null
-$reviewToken = $null
-$reviewDeviceToken = $null
-$demoCatalog = $null
-$anonymousCatalog = $null
+$script:customerToken = $null
+$script:businessToken = $null
+$script:reviewToken = $null
+$script:reviewDeviceToken = $null
+$script:demoCatalog = $null
+$script:anonymousCatalog = $null
 $allSecrets = @(
     [string]$maya.password,
     [string]$owner.password,
@@ -309,7 +376,7 @@ try {
         Assert-True ($body.userId -eq $maya.id) 'Customer login user ID mismatch.'
         Assert-True (-not [string]::IsNullOrWhiteSpace([string]$body.token)) `
             'Customer login token is missing.'
-        $customerToken = [string]$body.token
+        $script:customerToken = [string]$body.token
     }
     Invoke-Check 'Business Demo login' {
         $r = Invoke-HostedRequest $BusinessBaseUri POST `
@@ -323,7 +390,7 @@ try {
         Assert-True ($body.userId -eq $owner.id) 'Business login user ID mismatch.'
         Assert-True ($body.companyId -eq $owner.companyId) `
             'Business login company ID mismatch.'
-        $businessToken = [string]$body.token
+        $script:businessToken = [string]$body.token
     }
     $allSecrets += @($customerToken, $businessToken)
 
@@ -348,10 +415,10 @@ try {
             '/api/v1/catalog/businesses?language=ar'
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $anonymousCatalog = Read-Json $r
-        Assert-True (@($anonymousCatalog.businesses).Count -gt 0) `
-            'Production business list is empty; detail coverage cannot continue.'
-        foreach ($business in $anonymousCatalog.businesses) {
+        $script:anonymousCatalog = Read-Json $r
+        Assert-True ($null -ne $anonymousCatalog.PSObject.Properties['businesses']) `
+            'Production business collection is missing.'
+        foreach ($business in @($anonymousCatalog.businesses)) {
             Assert-True ($business.isFavourite -eq $false) `
                 'Anonymous business projection exposed a favourite.'
             Assert-True ($null -ne $business.averageRating -and
@@ -359,14 +426,25 @@ try {
         }
     }
     Invoke-Check 'Anonymous business search' {
-        $term = [Uri]::EscapeDataString(
-            [string]$anonymousCatalog.businesses[0].name)
+        $term = if (@($anonymousCatalog.businesses).Count -gt 0) {
+            [Uri]::EscapeDataString([string]$anonymousCatalog.businesses[0].name)
+        }
+        else {
+            '__hosted_smoke_no_match__'
+        }
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
             "/api/v1/catalog/businesses?search=$term&language=ar"
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        Assert-True (@((Read-Json $r).businesses).Count -ge 1) `
-            'Search did not return its exact source business.'
+        $items = @((Read-Json $r).businesses)
+        if (@($anonymousCatalog.businesses).Count -gt 0) {
+            Assert-True ($items.Count -ge 1) `
+                'Search did not return its exact source business.'
+        }
+        else {
+            Assert-True ($items.Count -eq 0) `
+                'Search returned a business from an empty Production catalog.'
+        }
     }
     Invoke-Check 'Anonymous top-five businesses' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
@@ -382,34 +460,42 @@ try {
         Assert-Problem $r 400 'catalog_top_invalid'
     }
 
-    $productionBusiness = $anonymousCatalog.businesses[0]
-    $productionOfferings = $null
-    Invoke-Check 'Anonymous business detail' {
-        $r = Invoke-HostedRequest $CustomerBaseUri GET `
-            "/api/v1/catalog/businesses/$($productionBusiness.id)?language=ar"
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
-        $body = Read-Json $r
-        Assert-True ($body.business.id -eq $productionBusiness.id) `
-            'Business detail ID mismatch.'
+    $productionBusiness = @($anonymousCatalog.businesses) |
+        Select-Object -First 1
+    $script:productionOfferings = $null
+    if ($null -ne $productionBusiness) {
+        Invoke-Check 'Anonymous business detail' {
+            $r = Invoke-HostedRequest $CustomerBaseUri GET `
+                "/api/v1/catalog/businesses/$($productionBusiness.id)?language=ar"
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
+            $body = Read-Json $r
+            Assert-True ($body.business.id -eq $productionBusiness.id) `
+                'Business detail ID mismatch.'
+        }
+        Invoke-Check 'Anonymous business offerings' {
+            $r = Invoke-HostedRequest $CustomerBaseUri GET `
+                "/api/v1/catalog/businesses/$($productionBusiness.id)/offerings?language=ar"
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
+            $script:productionOfferings = Read-Json $r
+            Assert-True (@($productionOfferings.offerings).Count -gt 0) `
+                'Production business has no offerings.'
+        }
+        Invoke-Check 'Anonymous offering detail' {
+            $offering = $productionOfferings.offerings[0]
+            $r = Invoke-HostedRequest $CustomerBaseUri GET `
+                "/api/v1/catalog/offerings/$($offering.id)?language=ar"
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
+            Assert-True ((Read-Json $r).offering.id -eq $offering.id) `
+                'Offering detail ID mismatch.'
+        }
     }
-    Invoke-Check 'Anonymous business offerings' {
-        $r = Invoke-HostedRequest $CustomerBaseUri GET `
-            "/api/v1/catalog/businesses/$($productionBusiness.id)/offerings?language=ar"
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
-        $productionOfferings = Read-Json $r
-        Assert-True (@($productionOfferings.offerings).Count -gt 0) `
-            'Production business has no offerings.'
-    }
-    Invoke-Check 'Anonymous offering detail' {
-        $offering = $productionOfferings.offerings[0]
-        $r = Invoke-HostedRequest $CustomerBaseUri GET `
-            "/api/v1/catalog/offerings/$($offering.id)?language=ar"
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
-        Assert-True ((Read-Json $r).offering.id -eq $offering.id) `
-            'Offering detail ID mismatch.'
+    else {
+        Skip-Check 'Anonymous business detail' 'Production catalog is empty.'
+        Skip-Check 'Anonymous business offerings' 'Production catalog is empty.'
+        Skip-Check 'Anonymous offering detail' 'Production catalog is empty.'
     }
     Invoke-Check 'Anonymous public banners' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET '/api/v1/banners'
@@ -421,15 +507,20 @@ try {
                 'Production banners are not ordered by displayOrder.'
         }
     }
-    Invoke-Check 'Anonymous public reviews privacy' {
-        $r = Invoke-HostedRequest $CustomerBaseUri GET `
-            "/api/v1/catalog/businesses/$($productionBusiness.id)/reviews?page=1&pageSize=20"
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
-        $text = [string]$r.Content
-        Assert-True ($text -notmatch
-            '(?i)"(bookingId|bookingReferenceId|customerId|userId|email|phone|address|licensePlate|rowVersion)"\s*:') `
-            'Public reviews exposed a private field.'
+    if ($null -ne $productionBusiness) {
+        Invoke-Check 'Anonymous public reviews privacy' {
+            $r = Invoke-HostedRequest $CustomerBaseUri GET `
+                "/api/v1/catalog/businesses/$($productionBusiness.id)/reviews?page=1&pageSize=20"
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
+            $text = Get-ResponseText $r
+            Assert-True ($text -notmatch
+                '(?i)"(bookingId|bookingReferenceId|customerId|userId|email|phone|address|licensePlate|rowVersion)"\s*:') `
+                'Public reviews exposed a private field.'
+        }
+    }
+    else {
+        Skip-Check 'Anonymous public reviews privacy' 'Production catalog is empty.'
     }
     Invoke-Check 'Anonymous advisory availability search' {
         $body = @{
@@ -446,19 +537,25 @@ try {
             $null -ne $result.results) `
             'Anonymous availability contract is incomplete.'
     }
-    Invoke-Check 'Anonymous direct pricing is stateless' {
-        $body = New-PricingBody $productionBusiness `
-            $productionOfferings.offerings[0]
-        $r = Invoke-HostedRequest $CustomerBaseUri POST `
-            '/api/v1/pricing/reprice?language=ar' @{} $body
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
-        $quote = Read-Json $r
-        Assert-True ($quote.intent.vehicle.vehicleType -eq 'Sedan' -and
-            $quote.intent.vehicle.imageUrl -eq
-                'https://example.test/hosted-smoke/vehicle.png' -and
-            $quote.pricing.grandTotal -gt 0) `
-            'Anonymous direct-pricing contract is incomplete.'
+    if ($null -ne $productionOfferings) {
+        Invoke-Check 'Anonymous direct pricing is stateless' {
+            $body = New-PricingBody $productionBusiness `
+                $productionOfferings.offerings[0]
+            $r = Invoke-HostedRequest $CustomerBaseUri POST `
+                '/api/v1/pricing/reprice?language=ar' @{} $body
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
+            $quote = Read-Json $r
+            Assert-True ($quote.intent.vehicle.vehicleType -eq 'Sedan' -and
+                $quote.intent.vehicle.imageUrl -eq
+                    'https://example.test/hosted-smoke/vehicle.png' -and
+                $quote.pricing.grandTotal -gt 0) `
+                'Anonymous direct-pricing contract is incomplete.'
+        }
+    }
+    else {
+        Skip-Check 'Anonymous direct pricing is stateless' `
+            'Production catalog is empty.'
     }
 
     $demoHeaders = @{ 'X-Device-Token' = [string]$demoDevice.token }
@@ -483,7 +580,7 @@ try {
             '/api/v1/catalog/businesses?language=ar' $demoHeaders
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $demoCatalog = Read-Json $r
+        $script:demoCatalog = Read-Json $r
         Assert-True (@($demoCatalog.businesses).Count -eq 5) `
             'Demo catalog must contain exactly five businesses.'
         $expectedIds = @($demo.companies.id | Sort-Object)
@@ -523,7 +620,7 @@ try {
 
     $demoBusiness = $demoCatalog.businesses |
         Where-Object sourceId -eq $demoCompany.id
-    $demoOfferingContext = $null
+    $script:demoOfferingContext = $null
     Invoke-Check 'Demo business detail projection' {
         $headers = New-AuthHeaders $customerToken $demoDevice.token
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
@@ -540,7 +637,7 @@ try {
             "/api/v1/catalog/businesses/$($demoBusiness.id)/offerings?language=ar" $headers
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $demoOfferingContext = Read-Json $r
+        $script:demoOfferingContext = Read-Json $r
         Assert-True (@($demoOfferingContext.offerings).Count -eq 4) `
             'Demo company must contain exactly four offerings.'
         $first = $demoOfferingContext.offerings |
@@ -586,14 +683,14 @@ try {
         latitude = [double]$demoCompany.branches[0].latitude
         longitude = [double]$demoCompany.branches[0].longitude
     }
-    $availability = $null
+    $script:availability = $null
     Invoke-Check 'Demo advisory availability search capacity' {
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/catalog/businesses/availability-search?language=ar' `
             $demoHeaders $availabilityBody
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $availability = Read-Json $r
+        $script:availability = Read-Json $r
         Assert-True ($availability.isAdvisory -eq $true) `
             'Availability response is not marked advisory.'
         Assert-True (@($availability.results).Count -gt 0) `
@@ -614,8 +711,23 @@ try {
             Where-Object id -eq $result.branchId
         $sourceCompany = $demo.companies |
             Where-Object id -eq $catalogBusiness.sourceId
-        $sourceOffering = @($sourceCompany.offerings |
-            Where-Object branchId -eq $catalogBranch.sourceId)[0]
+        $offeringsResponse = Invoke-HostedRequest $CustomerBaseUri GET `
+            "/api/v1/catalog/businesses/$($catalogBusiness.id)/offerings?branchId=$($catalogBranch.id)&language=ar" `
+            $demoHeaders
+        Assert-Status $offeringsResponse @(200)
+        $catalogOffering = @((Read-Json $offeringsResponse).offerings)[0]
+        Assert-True ($null -ne $catalogOffering) `
+            'The selected availability branch has no offering.'
+        $slotSelections = @()
+        foreach ($group in @($catalogOffering.addonGroups)) {
+            foreach ($choice in @($group.choices |
+                Where-Object defaultQuantity -gt 0)) {
+                $slotSelections += @{
+                    addonChoiceId = [string]$choice.id
+                    quantity = [int]$choice.defaultQuantity
+                }
+            }
+        }
         $body = @{
             date = $availabilityDate
             expectedCatalogVersion = [long]$sourceCompany.catalogVersion
@@ -624,11 +736,8 @@ try {
                 longitude = [double]$sourceCompany.branches[0].longitude
             }
             items = @(@{
-                offeringId = [string]$sourceOffering.id
-                selectedAddons = @(@{
-                    addonChoiceId = [string]$sourceOffering.addonGroups[0].choices[0].id
-                    quantity = 1
-                })
+                offeringId = [string]$catalogOffering.id
+                selectedAddons = $slotSelections
             })
             includeUnavailable = $true
             language = 'ar'
@@ -842,21 +951,23 @@ try {
     $reviewDevice = @($reviewCustomer.devices | Where-Object isActive)[0]
     if ($null -ne $seedReview -and $null -ne $reviewBooking -and
         $null -ne $reviewCustomer -and $null -ne $reviewDevice) {
+        $reviewBookingId = Get-DemoStableId `
+            'customer-booking' ([Guid]$reviewBooking.customerReferenceId)
         Invoke-Check 'Review owner Demo login' {
             $r = Invoke-HostedRequest $CustomerBaseUri POST '/api/Auth/login' @{} @{
                 email = $reviewCustomer.email
                 password = $reviewCustomer.password
             }
             Assert-Status $r @(200)
-            $reviewToken = [string](Read-Json $r).token
-            $reviewDeviceToken = [string]$reviewDevice.token
+            $script:reviewToken = [string](Read-Json $r).token
+            $script:reviewDeviceToken = [string]$reviewDevice.token
             Assert-True (-not [string]::IsNullOrWhiteSpace($reviewToken)) `
                 'Review owner token is missing.'
         }
         Invoke-Check 'Owned review read and exact fixture' {
             $headers = New-AuthHeaders $reviewToken $reviewDeviceToken
             $r = Invoke-HostedRequest $CustomerBaseUri GET `
-                "/api/v1/bookings/$($reviewBooking.customerReferenceId)/review" `
+                "/api/v1/bookings/$reviewBookingId/review" `
                 $headers
             Assert-Status $r @(200)
             Assert-Headers $r -NoStore
@@ -865,7 +976,7 @@ try {
                 $owned.comment -eq $seedReview.comment) `
                 'Owned review differs from the canonical fixture.'
             $script:ReviewRestore = @{
-                BookingId = [string]$reviewBooking.customerReferenceId
+                BookingId = [string]$reviewBookingId
                 Rating = [int]$owned.rating
                 Comment = $owned.comment
                 RowVersion = [string]$owned.rowVersion

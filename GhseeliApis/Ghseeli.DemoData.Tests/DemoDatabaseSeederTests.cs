@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Ghseeli.DemoData;
 using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Persistence;
@@ -38,6 +40,12 @@ public sealed class DemoDatabaseSeederTests
             var unexpectedBannerId = await MutateBannersBeforeReseedAsync(
                 customerConnection,
                 data);
+            await DeleteReviewBeforeReseedAsync(
+                customerConnection,
+                data.Reviews[0].Id);
+            await MutateAddonDefaultsBeforeReseedAsync(
+                customerConnection,
+                businessConnection);
             await ClearOfferingMetadataAsync(businessConnection, "ServiceOfferings");
             await ClearOfferingMetadataAsync(customerConnection, "CatalogOfferings");
             await ClearCategoryMetadataAsync(businessConnection, "ServiceCategories");
@@ -65,6 +73,11 @@ public sealed class DemoDatabaseSeederTests
                 customerConnection,
                 data,
                 unexpectedBannerId);
+            await AssertReviewReconciliationAsync(customerConnection, data);
+            await AssertAddonDefaultParityAsync(
+                customerConnection,
+                businessConnection,
+                data);
             await AssertVehiclePropagationAfterReloadAsync(
                 customerConnection,
                 businessConnection);
@@ -124,6 +137,115 @@ public sealed class DemoDatabaseSeederTests
 
     private static string Connection(string database) =>
         $"Server=(localdb)\\MSSQLLocalDB;Database={database};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+
+    private static Guid StableId(string scope, Guid value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(
+            $"ghseeli-demo-{scope}-{value:N}"));
+        return new Guid(hash.AsSpan(0, 16));
+    }
+
+    private static async Task DeleteReviewBeforeReseedAsync(
+        string connectionString,
+        Guid reviewId)
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        var partition = new CustomerDataPartitionContext();
+        partition.SetTrustedPartition(DataPartitionNames.Demo);
+        await using var context = new ApplicationDbContext(options, partition);
+        await context.BusinessReviews
+            .Where(value => value.Id == reviewId)
+            .ExecuteDeleteAsync();
+    }
+
+    private static async Task AssertReviewReconciliationAsync(
+        string connectionString,
+        DemoDataset data)
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        var partition = new CustomerDataPartitionContext();
+        partition.SetTrustedPartition(DataPartitionNames.Demo);
+        await using var context = new ApplicationDbContext(options, partition);
+        var actual = await context.BusinessReviews
+            .AsNoTracking()
+            .OrderBy(value => value.Id)
+            .ToListAsync();
+
+        Assert.Equal(data.Reviews.Count, actual.Count);
+        foreach (var expected in data.Reviews)
+        {
+            var review = Assert.Single(actual, value => value.Id == expected.Id);
+            Assert.Equal(
+                StableId("customer-booking", expected.BookingReferenceId),
+                review.CustomerBookingId);
+            Assert.Equal(expected.CustomerId, review.UserId);
+            Assert.Equal(expected.CompanyId, review.BusinessSourceId);
+            Assert.Equal(expected.Rating, review.Rating);
+            Assert.Equal(expected.Comment, review.Comment);
+            Assert.Equal(expected.CreatedAtUtc, review.CreatedAtUtc);
+            Assert.Equal(expected.CreatedAtUtc, review.UpdatedAtUtc);
+        }
+    }
+
+    private static async Task MutateAddonDefaultsBeforeReseedAsync(
+        string customerConnection,
+        string businessConnection)
+    {
+        foreach (var (connectionString, table) in new[]
+                 {
+                     (customerConnection, "CatalogAddonChoices"),
+                     (businessConnection, "AddonChoices")
+                 })
+        {
+            await using var connection = new SqlConnection(connectionString);
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText = $"UPDATE [{table}] SET [DefaultQuantity] = 1;";
+            await command.ExecuteNonQueryAsync();
+        }
+    }
+
+    private static async Task AssertAddonDefaultParityAsync(
+        string customerConnection,
+        string businessConnection,
+        DemoDataset data)
+    {
+        var expected = data.Companies
+            .SelectMany(company => company.Offerings)
+            .SelectMany(offering => offering.AddonGroups)
+            .SelectMany(group => group.Choices)
+            .ToDictionary(choice => choice.Id, choice => choice.DefaultQuantity);
+
+        await using var businessSql = new SqlConnection(businessConnection);
+        await businessSql.OpenAsync();
+        await using var businessCommand = businessSql.CreateCommand();
+        businessCommand.CommandText = "SELECT [Id],[DefaultQuantity] FROM [AddonChoices];";
+        await using var businessReader = await businessCommand.ExecuteReaderAsync();
+        var businessActual = new Dictionary<Guid, int>();
+        while (await businessReader.ReadAsync())
+        {
+            businessActual.Add(businessReader.GetGuid(0), businessReader.GetInt32(1));
+        }
+
+        await using var customerSql = new SqlConnection(customerConnection);
+        await customerSql.OpenAsync();
+        await using var customerCommand = customerSql.CreateCommand();
+        customerCommand.CommandText =
+            "SELECT [SourceAddonChoiceId],[DefaultQuantity] FROM [CatalogAddonChoices];";
+        await using var customerReader = await customerCommand.ExecuteReaderAsync();
+        var customerActual = new Dictionary<Guid, int>();
+        while (await customerReader.ReadAsync())
+        {
+            customerActual.Add(customerReader.GetGuid(0), customerReader.GetInt32(1));
+        }
+
+        Assert.Equal(expected, businessActual);
+        Assert.Equal(expected, customerActual);
+    }
 
     private static async Task<Guid> MutateBannersBeforeReseedAsync(
         string connectionString,

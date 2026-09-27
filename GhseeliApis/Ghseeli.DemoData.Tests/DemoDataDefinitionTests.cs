@@ -73,6 +73,45 @@ public sealed class DemoDataDefinitionTests
     }
 
     [Fact]
+    public void Create_AddonDefaultsSatisfySelectionConstraints()
+    {
+        var groups = DemoDataDefinition.Create().Companies
+            .SelectMany(company => company.Offerings)
+            .SelectMany(offering => offering.AddonGroups);
+
+        foreach (var group in groups)
+        {
+            var selected = group.Choices
+                .Where(choice => choice.DefaultQuantity > 0)
+                .ToArray();
+            var selectedCount = selected.Length;
+            var quantitySum = selected.Sum(choice => choice.DefaultQuantity);
+
+            switch (group.SelectionType)
+            {
+                case "SingleChoice":
+                case "SegmentedSingleButtonChoice":
+                case "MultipleChoice":
+                    Assert.All(selected, choice => Assert.Equal(1, choice.DefaultQuantity));
+                    Assert.InRange(selectedCount, group.MinimumSelections,
+                        group.MaximumSelections ?? int.MaxValue);
+                    break;
+                case "QuantityCounter":
+                    Assert.InRange(quantitySum, group.MinimumSelections,
+                        group.MaximumSelections ?? int.MaxValue);
+                    break;
+                case "FixedIncludedChoice":
+                    Assert.Single(selected);
+                    Assert.Equal(1, quantitySum);
+                    break;
+                default:
+                    throw new InvalidOperationException(
+                        $"Unknown Demo selection type '{group.SelectionType}'.");
+            }
+        }
+    }
+
+    [Fact]
     public void Create_ProducesStableJson()
     {
         var first = DemoDataJson.Serialize(DemoDataDefinition.Create());

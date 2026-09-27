@@ -132,6 +132,12 @@ public static class DemoDatabaseSeeder
                 .SelectMany(company => company.Offerings)
                 .ToDictionary(offering => offering.Id);
             var offeringIds = offeringsById.Keys.ToArray();
+            var addonChoicesById = data.Companies
+                .SelectMany(company => company.Offerings)
+                .SelectMany(offering => offering.AddonGroups)
+                .SelectMany(group => group.Choices)
+                .ToDictionary(choice => choice.Id);
+            var addonChoiceIds = addonChoicesById.Keys.ToArray();
             var categoriesById = data.Companies
                 .SelectMany(company => company.Categories)
                 .ToDictionary(category => category.Id);
@@ -147,6 +153,12 @@ public static class DemoDatabaseSeeder
                 .ToListAsync(cancellationToken);
             var customerOfferings = await customer.CatalogOfferings
                 .Where(offering => offeringIds.Contains(offering.SourceOfferingId))
+                .ToListAsync(cancellationToken);
+            var businessAddonChoices = await business.AddonChoices
+                .Where(choice => addonChoiceIds.Contains(choice.Id))
+                .ToListAsync(cancellationToken);
+            var customerAddonChoices = await customer.CatalogAddonChoices
+                .Where(choice => addonChoiceIds.Contains(choice.SourceAddonChoiceId))
                 .ToListAsync(cancellationToken);
 
             foreach (var category in businessCategories)
@@ -179,10 +191,22 @@ public static class DemoDatabaseSeeder
                 offering.BadgeCode = fixture.BadgeCode;
             }
 
+            foreach (var choice in businessAddonChoices)
+            {
+                choice.DefaultQuantity = addonChoicesById[choice.Id].DefaultQuantity;
+            }
+
+            foreach (var choice in customerAddonChoices)
+            {
+                choice.DefaultQuantity =
+                    addonChoicesById[choice.SourceAddonChoiceId].DefaultQuantity;
+            }
+
             await business.SaveChangesAsync(cancellationToken);
             await customer.SaveChangesAsync(cancellationToken);
         }
 
+        await ReconcileReviewsAsync(customer, data, cancellationToken);
         await ReconcileFavouritesAsync(customer, data, cancellationToken);
         await ReconcileBannersAsync(customer, data, cancellationToken);
 
@@ -1027,6 +1051,50 @@ public static class DemoDatabaseSeeder
             banner.IsActive = fixture.IsActive;
             banner.CreatedAtUtc = fixture.CreatedAtUtc;
             banner.UpdatedAtUtc = fixture.UpdatedAtUtc;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task ReconcileReviewsAsync(
+        ApplicationDbContext context,
+        DemoDataset data,
+        CancellationToken cancellationToken)
+    {
+        var expectedIds = data.Reviews.Select(review => review.Id).ToArray();
+        var existing = await context.BusinessReviews
+            .Where(review => expectedIds.Contains(review.Id))
+            .ToDictionaryAsync(review => review.Id, cancellationToken);
+
+        foreach (var fixture in data.Reviews)
+        {
+            if (!existing.TryGetValue(fixture.Id, out var review))
+            {
+                context.BusinessReviews.Add(new BusinessReview
+                {
+                    Id = fixture.Id,
+                    CustomerBookingId = StableId(
+                        "customer-booking",
+                        fixture.BookingReferenceId),
+                    UserId = fixture.CustomerId,
+                    BusinessSourceId = fixture.CompanyId,
+                    Rating = fixture.Rating,
+                    Comment = fixture.Comment,
+                    CreatedAtUtc = fixture.CreatedAtUtc,
+                    UpdatedAtUtc = fixture.CreatedAtUtc
+                });
+                continue;
+            }
+
+            review.CustomerBookingId = StableId(
+                "customer-booking",
+                fixture.BookingReferenceId);
+            review.UserId = fixture.CustomerId;
+            review.BusinessSourceId = fixture.CompanyId;
+            review.Rating = fixture.Rating;
+            review.Comment = fixture.Comment;
+            review.CreatedAtUtc = fixture.CreatedAtUtc;
+            review.UpdatedAtUtc = fixture.CreatedAtUtc;
         }
 
         await context.SaveChangesAsync(cancellationToken);

@@ -40,12 +40,23 @@ jobs:
           CustomerBookingStatusClient__BaseUrl: https://customer.test
           CustomerBookingStatusClient__ServiceId: business-api-test
           CustomerBookingStatusClient__ActiveSecret: test-only-callback-secret-32-characters
-        run: >
-          dotnet test GhseeliApis/GhseeliApis.sln
-          --configuration Release
-          --no-restore
-          --nologo
-          --logger "console;verbosity=minimal"
+        shell: pwsh
+        run: |
+          $projects = @(
+            "GhseeliApis/Ghseeli.CustomerApi.Tests/Ghseeli.CustomerApi.Tests.csproj",
+            "GhseeliApis/Ghseeli.BusinessApi.Tests/Ghseeli.BusinessApi.Tests.csproj",
+            "GhseeliApis/Ghseeli.DemoData.Tests/Ghseeli.DemoData.Tests.csproj"
+          )
+          foreach ($project in $projects) {
+            dotnet test $project `
+              --configuration Release `
+              --no-restore `
+              --nologo `
+              --logger "console;verbosity=minimal"
+            if ($LASTEXITCODE -ne 0) {
+              throw "Tests failed for '$project'."
+            }
+          }
 
       - name: Build solution
         run: >

@@ -20,8 +20,10 @@ Date: 2026-09-27
 - Live harness:
   `scripts/http-tests/plans/frontend-api-notes.manifest.json`.
 - Execution level: TestServer plus live local HTTP against disposable Customer
-  and Business SQL Server databases.
-- Production execution: prohibited and not performed.
+  and Business SQL Server databases, followed by the safe hosted smoke suite
+  against the deployed Customer and Business APIs.
+- Production execution: read-only Production checks plus reversible Demo
+  mutations were performed. No fabricated Production records were created.
 
 ## HTTP Test Results
 
@@ -29,8 +31,8 @@ Date: 2026-09-27
 |---|---|
 | Customer tests | 1,626 passed, 0 failed, 0 skipped |
 | Business tests | 686 passed, 0 failed, 0 skipped |
-| DemoData tests | 25 passed, 0 failed, 0 skipped |
-| Total automated tests | 2,337 passed, 0 failed, 0 skipped |
+| DemoData tests | 26 passed, 0 failed, 0 skipped |
+| Total automated tests | 2,338 passed, 0 failed, 0 skipped |
 | Release build | Passed, 0 warnings, 0 errors |
 | Customer disposable database health | HTTP 200 |
 | Business disposable database health | HTTP 200 |
@@ -38,6 +40,9 @@ Date: 2026-09-27
 | Availability live-local manifest | 12 passed, 0 failed |
 | Scoped availability/optional scenario tests | 76 passed, 0 failed |
 | Frontend-note scenario traceability | 78/78 mapped, no semantic mismatch |
+| Production deployment | Run `36318402420`, commit `f579428`, passed |
+| Hosted Demo reconciliation | Run `36316366658`, passed |
+| Hosted frontend-notes smoke | 56 passed, 0 failed, 7 skipped |
 | Cleanup | 0 listeners, 0 disposable databases, 0 generated gate artifacts |
 
 The live availability set covered valid HMAC discovery, missing
@@ -47,6 +52,30 @@ and Business database health. The public advisory response includes both
 `configuredCapacity` and `remainingCapacity`; the offering-aware detailed-slot
 operation remains authoritative and can return different current capacity.
 
-All live values were generated for disposable local fixtures. No credentials,
-signatures, tokens, connection strings, PII, raw harness artifacts, Production
-requests, or Production mutations are included in this result.
+The hosted suite covered database health, Swagger, Demo authentication,
+optional-device handling, catalog metadata, search/top ranking, favourites,
+reviews, banners, advisory availability, authoritative detailed slots, direct
+pricing, vehicle CRUD, role separation, and Business owner reads.
+
+The seven hosted skips were intentional:
+
+- five positive anonymous business detail/offering/review/pricing scenarios
+  require a Production catalog fixture, but Production currently has no
+  businesses;
+- the cross-partition mismatch scenario requires a deterministic Production
+  identity, which the canonical fixture intentionally does not provide;
+- banner Admin mutation requires a Demo Customer Admin, which the canonical
+  fixture intentionally does not provide.
+
+No active global customer configuration is provisioned by product decision.
+`GET /api/v1/configuration` therefore passed its intended contract by returning
+localized `503 configuration_unavailable` with a not-configured-yet detail.
+
+Deployment:
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36318402420>
+
+Hosted Demo seed:
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36316366658>
+
+No credentials, signatures, tokens, connection strings, PII, or raw harness
+artifacts are included in this result.

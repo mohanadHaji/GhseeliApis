@@ -107,6 +107,7 @@ authentication on the Customer host.
 - CustomerInternalServiceNonce
 - CustomerInternalIdempotencyRecord
 - ProcessedBookingStatusMessage
+- BusinessReview
 - BusinessFavourite
 - Banner
 

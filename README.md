@@ -64,7 +64,7 @@ Controllers -> Handlers/Services -> Repositories -> EF Core -> owned database
 
 | Flow | Description |
 |---|---|
-| Anonymous discovery | Read configuration, browse catalog/public reviews/banners, search detailed slots, and request direct pricing in Production without registering a device |
+| Anonymous discovery | Read configuration when provisioned, browse catalog/public reviews/banners, search detailed slots, and request direct pricing in Production without registering a device. Missing configuration returns `503 configuration_unavailable` with a localized not-configured-yet detail |
 | Customer authentication | Register or log in with password, email OTP, or refresh token |
 | Booking | Reprice a draft, authenticate the customer, and reserve the appointment through the Business API |
 | Business operations | Staff manage the catalog and move work orders through their status lifecycle |

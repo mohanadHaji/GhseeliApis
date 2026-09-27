@@ -11,19 +11,20 @@ repository root [`README.md`](../README.md).
 - Both APIs use trusted HTTPS and separate SQL Server databases.
 - Production deployment is manual through
   `.github/workflows/deploy-monsterasp.yml`.
-- The deployed Customer and Business schemas are current through the
-  offering-presentation metadata migrations as of 2026-09-22.
+- The deployed Customer and Business schemas are current through the frontend
+  vehicle, category, review, favourite, and banner migrations as of 2026-09-27.
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
-- Current verified automated baseline: **2,337 passed, 0 failed, 0 skipped**.
+- Current verified automated baseline: **2,338 passed, 0 failed, 0 skipped**.
 - Customer tests: 1,626.
 - Business tests: 686.
-- Demo-data tests: 25.
+- Demo-data tests: 26.
 - Release build: 0 warnings and 0 errors.
-- The Customer-to-Business Demo partition propagation fix was deployed and
-  hosted-verified on 2026-09-17: the seeded Demo catalog returned five fresh
-  businesses with no stale providers.
+- Frontend-notes hosted smoke: **56 passed, 0 failed, 7 safely skipped**.
+- Production deployment run `36318402420` deployed commit `f579428` and passed
+  validation, migrations, publishing, and both API health checks.
+- Hosted Demo seed run `36316366658` reconciled the canonical Demo dataset.
 
 ## Production-readiness ledger
 
@@ -49,11 +50,10 @@ then update it as work is completed.
 The offering-presentation metadata slice is deployed and covered by unit,
 TestServer, relational SQL Server, migration, Demo parity, Customer live HTTP,
 and hosted Demo tests.
-The category image/color presentation slice is implemented locally with
+The category image/color presentation slice is deployed with
 Business and Customer migrations, unit/TestServer/schema/Swagger/contract
 coverage, catalog hash/version refresh coverage, and deterministic Demo parity.
-It has not been deployed or hosted live-HTTP verified.
-The catalog favourites/search/top-ranking slice is implemented locally with
+The catalog favourites/search/top-ranking slice is deployed with
 partitioned Customer-owned favourites, idempotent authenticated mutations,
 anonymous/authenticated favourite and rating projections, bilingual normalized
 business-name search, deterministic top-5/10 ranking, migration/schema,
@@ -62,25 +62,23 @@ The final coverage includes matching/mismatched JWT-device mutation partitions,
 PUT/DELETE non-disclosure parity, category/offering projection assertions,
 per-service batched projection dependency checks, search-before-top ordering,
 and relational Demo favourite reconciliation/cleanup/reseed behavior. The
-advisory availability-discovery slice is implemented locally with a Customer
+advisory availability-discovery slice is deployed with a Customer
 public search route, one batched Customer-to-Business HMAC request,
 Business-authoritative scheduling/capacity evaluation, deterministic
 nearest-slot ranking, optional-device partition selection, explicit upstream
 failure mapping, and preservation of the offering-aware detailed-slots
 authority. Its final gate passed the Customer, Business, and DemoData suites
-(2,337 tests), Release build with no warnings or errors, both disposable API
+(2,338 tests), Release build with no warnings or errors, both disposable API
 health checks, 31/31 HTTP harness self-tests, 12/12 live-local availability
 scenarios, and 78/78 traced frontend-note scenarios.
-It has not been deployed or verified against the hosted APIs.
-The completed-booking customer review slice is implemented locally with
+The completed-booking customer review slice is deployed with
 Customer-owned partitioned persistence, optimistic concurrency, public
 privacy-safe pagination and aggregates, Demo fixtures, Swagger, TestServer,
 SQL Server relational, executable up/down migration, concurrent HTTP
 create/update/delete/update-vs-delete conflict handling, ownership
 non-disclosure, authentication/device boundaries, localization, masking,
-paging, catalog-resolution, aggregate, and partition-isolation coverage. It
-has not been deployed or live-HTTP verified.
-The banner slice is implemented locally with Customer-owned partitioned
+paging, catalog-resolution, aggregate, and partition-isolation coverage. The
+banner slice is deployed with Customer-owned partitioned
 persistence, required credential-free absolute HTTPS image URLs, deterministic
 public active-only reads, Customer Admin CRUD, optimistic SQL rowversion
 concurrency, localized problems, Swagger, Demo fixtures, executable migration,
@@ -88,7 +86,12 @@ and unit/TestServer/relational coverage. Final banner QA additionally covers
 disposable migration up/down verification, SQL-backed CRUD and three race
 shapes, request/body boundaries, optional-device states, partition
 non-disclosure, safe induced failures, and deterministic Demo reconciliation.
-It has not been deployed or verified against a live hosted API.
+The comprehensive hosted smoke verified authentication boundaries, optional
+device behavior, vehicle CRUD, catalog metadata, search/top, favourites,
+reviews, banners, advisory and authoritative availability, direct pricing,
+and Business owner reads. Production has no active customer configuration by
+product decision, so the endpoint intentionally returns localized
+`503 configuration_unavailable` stating that it is not configured yet.
 The complete Step 17 local gate passed on 2026-09-22, including all 50 active
 provider-neutral Step 17 scenarios, 1,167 inherited scenarios, Step 16
 database/schema isolation, adverse-schema checks, and final process/database
@@ -103,6 +106,14 @@ verification passed for all 5 businesses and 20 offerings: fresh catalogs,
 Arabic and Hebrew qualifiers, Hebrew-to-Arabic fallback, `MostRequested`,
 null metadata fixtures, list/detail parity, Customer and Business Demo login,
 deterministic Demo-only source IDs, and both deployed Swagger contracts.
+
+Latest frontend-notes deployment run
+[`36318402420`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36318402420)
+deployed commit `f579428`. Hosted Demo seed run
+[`36316366658`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36316366658)
+reconciled reviews, add-on defaults, and favourites. The final 63-check hosted
+suite passed 56, failed 0, and safely skipped 7 scenarios that require absent
+Production catalog/identity fixtures or a Demo Customer Admin.
 
 ### Required before a real public production launch
 

@@ -1105,21 +1105,42 @@ public static class DemoDatabaseSeeder
         DemoDataset data,
         CancellationToken cancellationToken)
     {
-        var expectedIds = data.Favourites.Select(favourite => favourite.Id).ToArray();
-        var existingIds = await context.BusinessFavourites
-            .Where(favourite => expectedIds.Contains(favourite.Id))
-            .Select(favourite => favourite.Id)
+        var existing = await context.BusinessFavourites
             .ToListAsync(cancellationToken);
-        var existing = existingIds.ToHashSet();
-        foreach (var favourite in data.Favourites.Where(value => !existing.Contains(value.Id)))
+        var canonicalIds = data.Favourites.Select(favourite => favourite.Id).ToHashSet();
+        var conflictingNaturalRows = data.Favourites
+            .Where(fixture => existing.All(value => value.Id != fixture.Id))
+            .Select(fixture => existing.SingleOrDefault(value =>
+                value.UserId == fixture.CustomerId &&
+                value.BusinessSourceId == fixture.CompanyId))
+            .Where(value => value is not null && !canonicalIds.Contains(value.Id))
+            .Cast<BusinessFavourite>()
+            .ToArray();
+        if (conflictingNaturalRows.Length > 0)
         {
-            context.BusinessFavourites.Add(new BusinessFavourite
+            context.BusinessFavourites.RemoveRange(conflictingNaturalRows);
+            await context.SaveChangesAsync(cancellationToken);
+            existing = existing.Except(conflictingNaturalRows).ToList();
+        }
+
+        var existingById = existing.ToDictionary(value => value.Id);
+        foreach (var fixture in data.Favourites)
+        {
+            if (!existingById.TryGetValue(fixture.Id, out var favourite))
             {
-                Id = favourite.Id,
-                UserId = favourite.CustomerId,
-                BusinessSourceId = favourite.CompanyId,
-                CreatedAtUtc = favourite.CreatedAtUtc
-            });
+                context.BusinessFavourites.Add(new BusinessFavourite
+                {
+                    Id = fixture.Id,
+                    UserId = fixture.CustomerId,
+                    BusinessSourceId = fixture.CompanyId,
+                    CreatedAtUtc = fixture.CreatedAtUtc
+                });
+                continue;
+            }
+
+            favourite.UserId = fixture.CustomerId;
+            favourite.BusinessSourceId = fixture.CompanyId;
+            favourite.CreatedAtUtc = fixture.CreatedAtUtc;
         }
 
         await context.SaveChangesAsync(cancellationToken);

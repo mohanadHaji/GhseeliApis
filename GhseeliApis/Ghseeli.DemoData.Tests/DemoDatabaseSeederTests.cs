@@ -543,9 +543,19 @@ public sealed class DemoDatabaseSeederTests
                 .UseSqlServer(connectionString)
                 .Options,
             partition);
+        var removed = await context.BusinessFavourites
+            .AsNoTracking()
+            .SingleAsync(value => value.Id == removedFavouriteId);
         await context.BusinessFavourites
             .Where(value => value.Id == removedFavouriteId)
             .ExecuteDeleteAsync();
+        context.BusinessFavourites.Add(new GhseeliApis.Models.BusinessFavourite
+        {
+            Id = Guid.NewGuid(),
+            UserId = removed.UserId,
+            BusinessSourceId = removed.BusinessSourceId,
+            CreatedAtUtc = DateTimeOffset.UtcNow
+        });
         context.BusinessFavourites.Add(new GhseeliApis.Models.BusinessFavourite
         {
             Id = unexpectedFavouriteId,

@@ -43,8 +43,8 @@ jobs:
         shell: pwsh
         run: |
           $projects = @(
-            "GhseeliApis/Ghseeli.CustomerApi.Tests/Ghseeli.CustomerApi.Tests.csproj",
             "GhseeliApis/Ghseeli.BusinessApi.Tests/Ghseeli.BusinessApi.Tests.csproj",
+            "GhseeliApis/Ghseeli.CustomerApi.Tests/Ghseeli.CustomerApi.Tests.csproj",
             "GhseeliApis/Ghseeli.DemoData.Tests/Ghseeli.DemoData.Tests.csproj"
           )
           foreach ($project in $projects) {

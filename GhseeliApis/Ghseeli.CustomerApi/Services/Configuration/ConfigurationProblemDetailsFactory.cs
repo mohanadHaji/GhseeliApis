@@ -96,8 +96,8 @@ internal static class ConfigurationProblemDetailsFactory
                 "השירות אינו זמין זמנית.",
             ("service_unavailable", _) => "الخدمة غير متاحة مؤقتًا.",
             (ConfigurationProblemCodes.Unavailable, ConfigurationLanguageResolver.Hebrew) =>
-                "תצורת היישום אינה זמינה כעת.",
+                "הגדרות היישום טרם הוגדרו.",
             _ =>
-                "إعدادات التطبيق غير متاحة حالياً."
+                "لم يتم تكوين إعدادات التطبيق بعد."
         };
 }

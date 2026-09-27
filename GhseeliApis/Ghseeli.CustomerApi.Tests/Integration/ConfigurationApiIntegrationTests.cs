@@ -445,6 +445,8 @@ public class ConfigurationApiIntegrationTests
             HttpStatusCode.ServiceUnavailable,
             ConfigurationProblemCodes.Unavailable,
             ConfigurationLanguageResolver.Hebrew);
+        document.RootElement.GetProperty("detail").GetString()
+            .Should().Be("הגדרות היישום טרם הוגדרו.");
     }
 
     [Fact]

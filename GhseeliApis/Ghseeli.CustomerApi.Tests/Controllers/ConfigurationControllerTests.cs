@@ -108,6 +108,7 @@ public class ConfigurationControllerTests
         var problem = unavailable.Value.Should().BeOfType<ProblemDetails>().Subject;
         problem.Extensions["code"].Should().Be(ConfigurationProblemCodes.Unavailable);
         problem.Extensions["language"].Should().Be(ConfigurationLanguageResolver.Arabic);
+        problem.Detail.Should().Be("لم يتم تكوين إعدادات التطبيق بعد.");
     }
 
     private ConfigurationController CreateController()

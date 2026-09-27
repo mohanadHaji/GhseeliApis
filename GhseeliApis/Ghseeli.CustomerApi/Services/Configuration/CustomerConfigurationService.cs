@@ -56,7 +56,7 @@ public sealed class CustomerConfigurationService : ICustomerConfigurationService
                 throw new CustomerConfigurationException(
                     ConfigurationProblemCodes.Unavailable,
                     StatusCodes.Status503ServiceUnavailable,
-                    "No active customer configuration exists.");
+                    "Customer configuration has not been configured yet.");
             }
 
             var response = new ConfigurationResponse

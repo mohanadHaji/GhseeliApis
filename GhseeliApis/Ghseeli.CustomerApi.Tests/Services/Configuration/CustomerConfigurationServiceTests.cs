@@ -59,7 +59,8 @@ public class CustomerConfigurationServiceTests
         await action.Should().ThrowAsync<CustomerConfigurationException>()
             .Where(exception =>
                 exception.Code == ConfigurationProblemCodes.Unavailable &&
-                exception.StatusCode == StatusCodes.Status503ServiceUnavailable);
+                exception.StatusCode == StatusCodes.Status503ServiceUnavailable &&
+                exception.Message == "Customer configuration has not been configured yet.");
     }
 
     [Fact]

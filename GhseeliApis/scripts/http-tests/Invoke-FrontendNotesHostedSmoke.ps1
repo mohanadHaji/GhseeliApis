@@ -394,12 +394,12 @@ try {
     }
     $allSecrets += @($customerToken, $businessToken)
 
-    Invoke-Check 'Anonymous public configuration' {
+    Invoke-Check 'Anonymous public configuration not configured' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET '/api/v1/configuration'
-        Assert-Status $r @(200)
-        Assert-Headers $r -NoStore
+        Assert-Problem $r 503 'configuration_unavailable'
         Assert-SafeBody $r $allSecrets
-        Assert-True ($null -ne (Read-Json $r)) 'Configuration body is empty.'
+        Assert-True ((Read-Json $r).detail -eq 'لم يتم تكوين إعدادات التطبيق بعد.') `
+            'Missing configuration detail does not say that configuration is not configured yet.'
     }
     Invoke-Check 'Anonymous public categories' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
@@ -674,16 +674,26 @@ try {
             'Public banners exposed admin-only fields.'
     }
 
+    $availabilityCompany = $demo.companies |
+        Where-Object {
+            @($_.offerings |
+                Where-Object { $_.durationMinutes % 30 -eq 0 }).Count -gt 0
+        } |
+        Select-Object -First 1
+    Assert-True ($null -ne $availabilityCompany) `
+        'No Demo company has an offering aligned to the seeded slot duration.'
     $availabilityDate = [DateTime]::UtcNow.Date.AddDays(7).ToString('yyyy-MM-dd')
     $availabilityBody = @{
         vehicleType = 'Sedan'
         date = $availabilityDate
         preferredLocalTime = '10:30:00'
-        categoryId = [string]$demoCompany.categories[0].id
-        latitude = [double]$demoCompany.branches[0].latitude
-        longitude = [double]$demoCompany.branches[0].longitude
+        categoryId = [string]$availabilityCompany.categories[0].id
+        latitude = [double]$availabilityCompany.branches[0].latitude
+        longitude = [double]$availabilityCompany.branches[0].longitude
     }
     $script:availability = $null
+    $script:availabilityBusiness = $null
+    $script:availabilityOffering = $null
     Invoke-Check 'Demo advisory availability search capacity' {
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/catalog/businesses/availability-search?language=ar' `
@@ -715,9 +725,11 @@ try {
             "/api/v1/catalog/businesses/$($catalogBusiness.id)/offerings?branchId=$($catalogBranch.id)&language=ar" `
             $demoHeaders
         Assert-Status $offeringsResponse @(200)
-        $catalogOffering = @((Read-Json $offeringsResponse).offerings)[0]
+        $offerings = @((Read-Json $offeringsResponse).offerings)
+        $catalogOffering = @($offerings |
+            Where-Object { $_.durationMinutes % 30 -eq 0 })[0]
         Assert-True ($null -ne $catalogOffering) `
-            'The selected availability branch has no offering.'
+            'The selected availability branch has no slot-aligned offering.'
         $slotSelections = @()
         foreach ($group in @($catalogOffering.addonGroups)) {
             foreach ($choice in @($group.choices |
@@ -751,9 +763,11 @@ try {
         Assert-True ($slots.Count -gt 0) 'Detailed slots are empty.'
         Assert-True ($slots[0].configuredCapacity -ge $slots[0].remainingCapacity) `
             'Detailed slot capacity is invalid.'
+        $script:availabilityBusiness = $catalogBusiness
+        $script:availabilityOffering = $catalogOffering
     }
     Invoke-Check 'Demo direct pricing vehicle projection' {
-        $body = New-PricingBody $demoBusiness $demoOfferingContext.offerings[0]
+        $body = New-PricingBody $availabilityBusiness $availabilityOffering
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/pricing/reprice?language=ar' $demoHeaders $body
         Assert-Status $r @(200)

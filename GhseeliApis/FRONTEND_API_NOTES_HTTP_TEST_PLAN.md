@@ -713,7 +713,7 @@ does not claim execution or a pass result.
 
 | ID | Call / identity | Setup and request | Expected / side effects | Automation | Status |
 |---|---|---|---|---|---|
-| `FAN-OPTIONAL-CONFIG-001` | GET `/api/v1/configuration`; ANON | Production config | 200 Production, localized | automated-testserver | automated |
+| `FAN-OPTIONAL-CONFIG-001` | GET `/api/v1/configuration`; ANON | Active Production config | 200 Production, localized; if no active record is provisioned, 503 `configuration_unavailable` with a localized "not configured yet" detail | automated-testserver + hosted-smoke | automated |
 | `FAN-OPTIONAL-CATALOG-002` | GET `/api/v1/catalog/categories`; ANON | Body: none; Production catalog | 200; no missing-token error | automated-testserver | automated |
 | `FAN-OPTIONAL-CATALOG-013` | GET `/api/v1/catalog/businesses`; ANON | Body: none; Production catalog | 200; no missing-token error | automated-testserver | automated |
 | `FAN-OPTIONAL-CATALOG-014` | GET `/api/v1/catalog/businesses/{id}`; ANON | Body: none; Production business | 200; no missing-token error | automated-testserver | automated |
@@ -724,7 +724,7 @@ does not claim execution or a pass result.
 | `FAN-OPTIONAL-READS-004` | GET `/api/v1/banners`; ANON | Body: none; Production fixtures | 200 Production banners | automated-testserver | automated |
 | `FAN-OPTIONAL-READS-017` | GET `/api/v1/catalog/businesses/{businessId}/reviews?page=1&pageSize=20`; ANON | Body: none; Production fixtures | 200 Production reviews without a device token | automated-testserver | automated |
 | `FAN-OPTIONAL-READS-018` | POST `/api/v1/catalog/businesses/availability-search`; ANON | exact valid availability body | 200 Production results or valid empty results | automated-testserver | automated |
-| `FAN-OPTIONAL-DEMO-005` | GET `/api/v1/configuration`; DEV(D) | Body: none | 200 Demo configuration | automated-testserver | automated |
+| `FAN-OPTIONAL-DEMO-005` | GET `/api/v1/configuration`; DEV(D) | Body: none; active global config | 200 localized configuration; if no active global record is provisioned, 503 `configuration_unavailable` with a localized "not configured yet" detail | automated-testserver | automated |
 | `FAN-OPTIONAL-DEMO-019` | GET `/api/v1/catalog/categories`; DEV(D) | Body: none | 200 Demo catalog only | automated-testserver | automated |
 | `FAN-OPTIONAL-DEMO-020` | POST `/api/v1/pricing/reprice`; DEV(D) | exact valid Demo pricing body | 200 Demo authoritative quote | automated-testserver | automated |
 | `FAN-OPTIONAL-DEMO-021` | GET `/api/v1/banners`; DEV(D) | Body: none | 200 Demo banners only | automated-testserver | automated |

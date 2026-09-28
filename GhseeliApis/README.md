@@ -20,15 +20,16 @@ repository root [`README.md`](../README.md).
   `DemoData:PublicApisOnly=true` makes configuration, direct pricing, and
   public catalog discovery/reviews/availability credential-free and Demo-only.
   Customer-owned mutations and transactional routes remain authenticated.
-- Current verified automated baseline: **2,338 passed, 0 failed, 0 skipped**.
-- Customer tests: 1,626.
+- Current verified automated baseline: **2,343 passed, 0 failed, 0 skipped**.
+- Customer tests: 1,631.
 - Business tests: 686.
 - Demo-data tests: 26.
 - Release build: 0 warnings and 0 errors.
-- Frontend-notes hosted smoke: **56 passed, 0 failed, 7 safely skipped**.
-- Production deployment run `36318402420` deployed commit `f579428` and passed
+- Frontend-notes hosted smoke: **61 passed, 0 failed, 1 safely skipped**.
+- Development deployment run `36400551972` deployed commit `7a859d2` and passed
   validation, migrations, publishing, and both API health checks.
-- Hosted Demo seed run `36316366658` reconciled the canonical Demo dataset.
+- Hosted Demo seed run `36401665318` reconciled the canonical Demo dataset and
+  deterministic Development configuration.
 
 ## Production-readiness ledger
 
@@ -112,12 +113,12 @@ null metadata fixtures, list/detail parity, Customer and Business Demo login,
 deterministic Demo-only source IDs, and both deployed Swagger contracts.
 
 Latest frontend-notes deployment run
-[`36318402420`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36318402420)
-deployed commit `f579428`. Hosted Demo seed run
-[`36316366658`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36316366658)
-reconciled reviews, add-on defaults, and favourites. The final 63-check hosted
-suite passed 56, failed 0, and safely skipped 7 scenarios that require absent
-Production catalog/identity fixtures or a Demo Customer Admin.
+[`36400551972`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36400551972)
+deployed commit `7a859d2`. Hosted Demo seed run
+[`36401665318`](https://github.com/mohanadHaji/GhseeliApis/actions/runs/36401665318)
+reconciled configuration, reviews, add-on defaults, and favourites. The final
+62-check hosted suite passed 61, failed 0, and safely skipped only banner Admin
+mutation because the fixture has no Demo Customer Admin.
 
 ### Required before a real public production launch
 

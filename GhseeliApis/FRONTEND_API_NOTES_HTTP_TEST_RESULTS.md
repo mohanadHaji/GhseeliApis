@@ -29,10 +29,10 @@ Date: 2026-09-27
 
 | Validation | Result |
 |---|---|
-| Customer tests | 1,626 passed, 0 failed, 0 skipped |
+| Customer tests | 1,631 passed, 0 failed, 0 skipped |
 | Business tests | 686 passed, 0 failed, 0 skipped |
 | DemoData tests | 26 passed, 0 failed, 0 skipped |
-| Total automated tests | 2,338 passed, 0 failed, 0 skipped |
+| Total automated tests | 2,343 passed, 0 failed, 0 skipped |
 | Release build | Passed, 0 warnings, 0 errors |
 | Customer disposable database health | HTTP 200 |
 | Business disposable database health | HTTP 200 |
@@ -40,9 +40,9 @@ Date: 2026-09-27
 | Availability live-local manifest | 12 passed, 0 failed |
 | Scoped availability/optional scenario tests | 76 passed, 0 failed |
 | Frontend-note scenario traceability | 78/78 mapped, no semantic mismatch |
-| Production deployment | Run `36318402420`, commit `f579428`, passed |
-| Hosted Demo reconciliation | Run `36316366658`, passed |
-| Hosted frontend-notes smoke | 56 passed, 0 failed, 7 skipped |
+| Development deployment | Run `36400551972`, commit `7a859d2`, passed |
+| Hosted Demo reconciliation | Run `36401665318`, passed |
+| Hosted frontend-notes smoke | 61 passed, 0 failed, 1 skipped |
 | Cleanup | 0 listeners, 0 disposable databases, 0 generated gate artifacts |
 
 The live availability set covered valid HMAC discovery, missing
@@ -57,25 +57,21 @@ optional-device handling, catalog metadata, search/top ranking, favourites,
 reviews, banners, advisory availability, authoritative detailed slots, direct
 pricing, vehicle CRUD, role separation, and Business owner reads.
 
-The seven hosted skips were intentional:
+The hosted environment is now intentionally treated as Development.
+`DemoData:PublicApisOnly=true` makes configuration, direct pricing, and public
+catalog discovery/reviews/availability always select seeded Demo data and
+ignore supplied device/JWT credentials. Live checks verified anonymous,
+malformed-device, invalid-bearer, and valid-bearer/device calls. Customer-owned
+favourites/reviews, vehicles, checkout, bookings, and payments remain protected.
 
-- five positive anonymous business detail/offering/review/pricing scenarios
-  require a Production catalog fixture, but Production currently has no
-  businesses;
-- the cross-partition mismatch scenario requires a deterministic Production
-  identity, which the canonical fixture intentionally does not provide;
-- banner Admin mutation requires a Demo Customer Admin, which the canonical
-  fixture intentionally does not provide.
-
-No active global customer configuration is provisioned by product decision.
-`GET /api/v1/configuration` therefore passed its intended contract by returning
-localized `503 configuration_unavailable` with a not-configured-yet detail.
+The only skipped hosted scenario was banner Admin mutation because the
+canonical fixture intentionally contains no Demo Customer Admin.
 
 Deployment:
-<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36318402420>
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36400551972>
 
 Hosted Demo seed:
-<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36316366658>
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36401665318>
 
 No credentials, signatures, tokens, connection strings, PII, or raw harness
 artifacts are included in this result.

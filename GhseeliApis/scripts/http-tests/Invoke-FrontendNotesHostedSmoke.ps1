@@ -211,7 +211,10 @@ function New-AuthHeaders([string]$Token, [string]$DeviceToken = '') {
     return $headers
 }
 
-function New-PricingBody([object]$Business, [object]$Offering) {
+function New-PricingBody(
+    [object]$Business,
+    [object]$Offering,
+    [string]$RequestedSlotStartUtc = '') {
     $branch = if ($null -ne $Offering.branch) {
         @($Business.branches |
             Where-Object sourceId -eq $Offering.branch.sourceId)[0]
@@ -245,8 +248,13 @@ function New-PricingBody([object]$Business, [object]$Offering) {
     return @{
         businessSourceId = [string]$Business.sourceId
         branchSourceId = [string]$branch.sourceId
-        requestedSlotStartUtc = [DateTimeOffset]::UtcNow.AddDays(7).
-            ToString('yyyy-MM-ddT10:00:00Z')
+        requestedSlotStartUtc = if ([string]::IsNullOrWhiteSpace(
+            $RequestedSlotStartUtc)) {
+            [DateTimeOffset]::UtcNow.AddDays(7).ToString('yyyy-MM-ddT10:00:00Z')
+        }
+        else {
+            $RequestedSlotStartUtc
+        }
         vehicle = @{
             vehicleType = 'Sedan'
             imageUrl = 'https://example.test/hosted-smoke/vehicle.png'
@@ -526,6 +534,7 @@ try {
     else {
         throw 'Seeded Demo catalog unexpectedly contains no review target.'
     }
+    $script:anonymousAvailability = $null
     Invoke-Check 'Anonymous advisory availability search' {
         $body = @{
             vehicleType = 'Sedan'
@@ -536,15 +545,41 @@ try {
             '/api/v1/catalog/businesses/availability-search?language=ar' @{} $body
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $result = Read-Json $r
-        Assert-True ($result.isAdvisory -eq $true -and
-            $null -ne $result.results) `
+        $script:anonymousAvailability = Read-Json $r
+        Assert-True ($anonymousAvailability.isAdvisory -eq $true -and
+            $null -ne $anonymousAvailability.results) `
             'Anonymous availability contract is incomplete.'
     }
     if ($null -ne $productionOfferings) {
         Invoke-Check 'Anonymous direct pricing is stateless' {
-            $body = New-PricingBody $productionBusiness `
-                $productionOfferings.offerings[0]
+            $availabilityResult = $null
+            $pricingBusiness = $null
+            $pricingBranch = $null
+            $pricingOffering = $null
+            foreach ($candidate in @($anonymousAvailability.results)) {
+                $candidateBusiness = $anonymousCatalog.businesses |
+                    Where-Object id -eq $candidate.businessId
+                $candidateBranch = $candidateBusiness.branches |
+                    Where-Object id -eq $candidate.branchId
+                $offeringsResponse = Invoke-HostedRequest $CustomerBaseUri GET `
+                    "/api/v1/catalog/businesses/$($candidateBusiness.id)/offerings?branchId=$($candidateBranch.id)&language=ar"
+                Assert-Status $offeringsResponse @(200)
+                $candidateOffering = @((Read-Json $offeringsResponse).offerings |
+                    Where-Object { $_.durationMinutes % 30 -eq 0 } |
+                    Select-Object -First 1)
+                if ($candidateOffering.Count -gt 0) {
+                    $availabilityResult = $candidate
+                    $pricingBusiness = $candidateBusiness
+                    $pricingBranch = $candidateBranch
+                    $pricingOffering = $candidateOffering[0]
+                    break
+                }
+            }
+            Assert-True ($null -ne $pricingOffering) `
+                'Anonymous availability returned no business with a slot-aligned offering.'
+            $slotStartUtc = ([DateTimeOffset]$availabilityResult.slotStartUtc).
+                ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+            $body = New-PricingBody $pricingBusiness $pricingOffering $slotStartUtc
             $r = Invoke-HostedRequest $CustomerBaseUri POST `
                 '/api/v1/pricing/reprice?language=ar' @{} $body
             Assert-Status $r @(200)
@@ -749,7 +784,6 @@ try {
                 latitude = [double]$sourceCompany.branches[0].latitude
                 longitude = [double]$sourceCompany.branches[0].longitude
             }
-            $script:detailedSlotsBody = $body
             items = @(@{
                 offeringId = [string]$catalogOffering.id
                 selectedAddons = $slotSelections
@@ -757,6 +791,7 @@ try {
             includeUnavailable = $true
             language = 'ar'
         }
+        $script:detailedSlotsBody = $body
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             "/api/v1/catalog/businesses/$($catalogBusiness.id)/branches/$($catalogBranch.id)/available-slots" `
             $demoHeaders $body
@@ -771,7 +806,10 @@ try {
         $script:availabilityOffering = $catalogOffering
     }
     Invoke-Check 'Demo direct pricing vehicle projection' {
-        $body = New-PricingBody $availabilityBusiness $availabilityOffering
+        $slotStartUtc = ([DateTimeOffset]@($availability.results)[0].slotStartUtc).
+            ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        $body = New-PricingBody $availabilityBusiness $availabilityOffering `
+            $slotStartUtc
         $script:directPricingBody = $body
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/pricing/reprice?language=ar' $demoHeaders $body

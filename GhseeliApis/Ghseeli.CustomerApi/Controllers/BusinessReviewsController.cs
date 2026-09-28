@@ -163,7 +163,7 @@ public sealed class BookingReviewsController : ControllerBase
 
 [ApiController]
 [Route("api/v1/catalog/businesses/{businessId:guid}/reviews")]
-[OptionalDeviceToken]
+[DemoSeedDataOnly]
 public sealed class PublicBusinessReviewsController : ControllerBase
 {
     private readonly IBusinessReviewService _service;

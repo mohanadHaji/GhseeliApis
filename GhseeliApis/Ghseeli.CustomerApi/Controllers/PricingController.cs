@@ -33,7 +33,7 @@ public sealed class PricingController : ControllerBase
     }
 
     [HttpPost("reprice")]
-    [OptionalDeviceToken]
+    [DemoSeedDataOnly]
     [EnforceJsonRequestContentType]
     [RequestSizeLimit(MaxPricingRequestBodyBytes)]
     [EnforceRequestBodySizeLimit(

@@ -10,6 +10,13 @@ namespace GhseeliApis.Filters;
 
 public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
 {
+    private readonly bool _demoPublicApisOnly;
+
+    public SwaggerAuthorizationOperationFilter(IConfiguration configuration)
+    {
+        _demoPublicApisOnly = configuration.GetValue<bool>("DemoData:PublicApisOnly");
+    }
+
     public void Apply(OpenApiOperation operation, OperationFilterContext context)
     {
         var path = "/" + context.ApiDescription.RelativePath!.Split('?')[0];
@@ -20,16 +27,26 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
         operation.Description ??= $"Customer API operation for {method} {path}.";
         operation.Tags ??= [new OpenApiTag { Name = Tag(path) }];
 
-        operation.Security = Security(path, context);
-        AddContractParameters(operation, path, method);
+        var demoSeedDataOnly = _demoPublicApisOnly &&
+            context.ApiDescription.ActionDescriptor.EndpointMetadata
+                .OfType<DemoSeedDataOnlyAttribute>()
+                .Any();
+        operation.Security = Security(path, context, demoSeedDataOnly);
+        AddContractParameters(operation, path, method, demoSeedDataOnly);
         AddProblemResponses(operation, path, method, context);
         AddExamples(operation, path);
     }
 
     private static List<OpenApiSecurityRequirement> Security(
         string path,
-        OperationFilterContext context)
+        OperationFilterContext context,
+        bool demoSeedDataOnly)
     {
+        if (demoSeedDataOnly)
+        {
+            return [];
+        }
+
         if (path.StartsWith("/api/v1/internal/bookings", StringComparison.Ordinal))
         {
             return [Requirement(
@@ -123,11 +140,17 @@ public sealed class SwaggerAuthorizationOperationFilter : IOperationFilter
     private static void AddContractParameters(
         OpenApiOperation operation,
         string path,
-        string method)
+        string method,
+        bool demoSeedDataOnly)
     {
         operation.Parameters ??= [];
-        var devicePolicy = contextlessOptionalPath(path);
-        if (devicePolicy)
+        if (demoSeedDataOnly)
+        {
+            operation.Description =
+                "Hosted Development operation backed only by deterministic seeded Demo data. " +
+                "Device and bearer credentials are not processed for this route.";
+        }
+        else if (contextlessOptionalPath(path))
         {
             operation.Description =
                 "Public operation with optional device authentication. Requests without a " +

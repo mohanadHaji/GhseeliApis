@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Security.Claims;
 using Ghseeli.IntegrationContracts.DataPartitioning;
+using GhseeliApis.Middleware;
 
 namespace GhseeliApis.DataPartitioning;
 
@@ -11,8 +13,18 @@ public sealed class CustomerDataPartitionMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        ICustomerDataPartitionContext dataPartition)
+        ICustomerDataPartitionContext dataPartition,
+        IConfiguration configuration)
     {
+        if (configuration.GetValue<bool>("DemoData:PublicApisOnly") &&
+            context.GetEndpoint()?.Metadata.GetMetadata<DemoSeedDataOnlyAttribute>() is not null)
+        {
+            context.User = new ClaimsPrincipal(new ClaimsIdentity());
+            dataPartition.SetTrustedPartition(DataPartitionNames.Demo);
+            await _next(context);
+            return;
+        }
+
         if (context.User.Identity?.IsAuthenticated == true)
         {
             var claim = context.User.FindFirst(DataPartitionNames.ClaimType)?.Value

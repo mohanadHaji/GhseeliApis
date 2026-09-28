@@ -209,6 +209,7 @@ public static class DemoDatabaseSeeder
         await ReconcileReviewsAsync(customer, data, cancellationToken);
         await ReconcileFavouritesAsync(customer, data, cancellationToken);
         await ReconcileBannersAsync(customer, data, cancellationToken);
+        await ReconcileConfigurationAsync(customer, data.Metadata.GeneratedAtUtc, cancellationToken);
 
         var companyCount = await business.Companies
             .CountAsync(company => data.Companies.Select(value => value.Id).Contains(company.Id), cancellationToken);
@@ -1052,6 +1053,44 @@ public static class DemoDatabaseSeeder
             banner.CreatedAtUtc = fixture.CreatedAtUtc;
             banner.UpdatedAtUtc = fixture.UpdatedAtUtc;
         }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task ReconcileConfigurationAsync(
+        ApplicationDbContext context,
+        DateTimeOffset generatedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        var id = StableId(
+            "customer-configuration",
+            Guid.Parse("00000000-0000-0000-0000-000000000001"));
+        var configurations = await context.CustomerConfigurations
+            .ToListAsync(cancellationToken);
+        var configuration = configurations.SingleOrDefault(value => value.Id == id);
+        context.CustomerConfigurations.RemoveRange(
+            configurations.Where(value => value.Id != id));
+
+        if (configuration is null)
+        {
+            configuration = new CustomerConfiguration { Id = id };
+            context.CustomerConfigurations.Add(configuration);
+        }
+
+        configuration.IsActive = true;
+        configuration.SupportEmail = "support@ghseeli.example.test";
+        configuration.SupportPhone = "+972555000000";
+        configuration.DisplayNameAr = "غسيلي - بيئة التطوير";
+        configuration.DisplayNameHe = "غسילי - סביבת פיתוח";
+        configuration.LegalNoticeAr = "هذه بيئة تطوير تحتوي على بيانات تجريبية فقط.";
+        configuration.LegalNoticeHe = "זוהי סביבת פיתוח המכילה נתוני בדיקה בלבד.";
+        configuration.PrivacyPolicyUrl = "https://ghseeli.example.test/privacy";
+        configuration.TermsOfServiceUrl = "https://ghseeli.example.test/terms";
+        configuration.IsMaintenanceModeEnabled = false;
+        configuration.MaintenanceMessageAr = null;
+        configuration.MaintenanceMessageHe = null;
+        configuration.CreatedAt = generatedAtUtc;
+        configuration.UpdatedAt = generatedAtUtc;
 
         await context.SaveChangesAsync(cancellationToken);
     }

@@ -394,12 +394,16 @@ try {
     }
     $allSecrets += @($customerToken, $businessToken)
 
-    Invoke-Check 'Anonymous public configuration not configured' {
+    Invoke-Check 'Anonymous seeded Demo configuration' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET '/api/v1/configuration'
-        Assert-Problem $r 503 'configuration_unavailable'
+        Assert-Status $r @(200)
+        Assert-Headers $r -NoStore
         Assert-SafeBody $r $allSecrets
-        Assert-True ((Read-Json $r).detail -eq 'لم يتم تكوين إعدادات التطبيق بعد.') `
-            'Missing configuration detail does not say that configuration is not configured yet.'
+        $body = Read-Json $r
+        Assert-True ($body.support.email -eq 'support@ghseeli.example.test') `
+            'Seeded Demo support email mismatch.'
+        Assert-True ($body.display.name -eq 'غسيلي - بيئة التطوير') `
+            'Seeded Demo display name mismatch.'
     }
     Invoke-Check 'Anonymous public categories' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
@@ -417,10 +421,12 @@ try {
         Assert-Headers $r -NoStore
         $script:anonymousCatalog = Read-Json $r
         Assert-True ($null -ne $anonymousCatalog.PSObject.Properties['businesses']) `
-            'Production business collection is missing.'
+            'Seeded Demo business collection is missing.'
+        Assert-True (@($anonymousCatalog.businesses).Count -eq 5) `
+            'Anonymous catalog must return the five seeded Demo businesses.'
         foreach ($business in @($anonymousCatalog.businesses)) {
             Assert-True ($business.isFavourite -eq $false) `
-                'Anonymous business projection exposed a favourite.'
+                'Credential-free Demo projection exposed a favourite.'
             Assert-True ($null -ne $business.averageRating -and
                 $null -ne $business.ratingCount) 'Rating projection is missing.'
         }
@@ -443,7 +449,7 @@ try {
         }
         else {
             Assert-True ($items.Count -eq 0) `
-                'Search returned a business from an empty Production catalog.'
+                'Search returned an unexpected seeded Demo business.'
         }
     }
     Invoke-Check 'Anonymous top-five businesses' {
@@ -480,7 +486,7 @@ try {
             Assert-Headers $r -NoStore
             $script:productionOfferings = Read-Json $r
             Assert-True (@($productionOfferings.offerings).Count -gt 0) `
-                'Production business has no offerings.'
+                'Seeded Demo business has no offerings.'
         }
         Invoke-Check 'Anonymous offering detail' {
             $offering = $productionOfferings.offerings[0]
@@ -493,9 +499,7 @@ try {
         }
     }
     else {
-        Skip-Check 'Anonymous business detail' 'Production catalog is empty.'
-        Skip-Check 'Anonymous business offerings' 'Production catalog is empty.'
-        Skip-Check 'Anonymous offering detail' 'Production catalog is empty.'
+        throw 'Seeded Demo catalog unexpectedly contains no businesses.'
     }
     Invoke-Check 'Anonymous public banners' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET '/api/v1/banners'
@@ -504,7 +508,7 @@ try {
         $items = @((Read-Json $r).banners)
         for ($i = 1; $i -lt $items.Count; $i++) {
             Assert-True ($items[$i - 1].displayOrder -le $items[$i].displayOrder) `
-                'Production banners are not ordered by displayOrder.'
+                'Public banners are not ordered by displayOrder.'
         }
     }
     if ($null -ne $productionBusiness) {
@@ -520,7 +524,7 @@ try {
         }
     }
     else {
-        Skip-Check 'Anonymous public reviews privacy' 'Production catalog is empty.'
+        throw 'Seeded Demo catalog unexpectedly contains no review target.'
     }
     Invoke-Check 'Anonymous advisory availability search' {
         $body = @{
@@ -554,8 +558,7 @@ try {
         }
     }
     else {
-        Skip-Check 'Anonymous direct pricing is stateless' `
-            'Production catalog is empty.'
+        throw 'Seeded Demo catalog unexpectedly contains no pricing target.'
     }
 
     $demoHeaders = @{ 'X-Device-Token' = [string]$demoDevice.token }
@@ -588,20 +591,16 @@ try {
         Assert-True (($expectedIds -join ',') -eq ($actualIds -join ',')) `
             'Demo business source IDs differ from the canonical dataset.'
     }
-    Invoke-Check 'Demo JWT favourites and ratings' {
+    Invoke-Check 'Public catalog ignores Demo JWT identity' {
         $headers = New-AuthHeaders $customerToken $demoDevice.token
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
             '/api/v1/catalog/businesses?language=ar' $headers
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
         $businesses = @((Read-Json $r).businesses)
-        $expected = @($demo.favourites |
-            Where-Object customerId -eq $maya.id |
-            ForEach-Object companyId)
         foreach ($business in $businesses) {
-            Assert-True ($business.isFavourite -eq
-                ($expected -contains [string]$business.sourceId)) `
-                "Favourite projection mismatch for $($business.sourceId)."
+            Assert-True ($business.isFavourite -eq $false) `
+                "Public catalog processed JWT identity for $($business.sourceId)."
             Assert-True ($business.ratingCount -ge 0 -and
                 $business.averageRating -ge 0) 'Invalid rating projection.'
         }
@@ -693,7 +692,10 @@ try {
     }
     $script:availability = $null
     $script:availabilityBusiness = $null
+    $script:availabilityBranch = $null
     $script:availabilityOffering = $null
+    $script:detailedSlotsBody = $null
+    $script:directPricingBody = $null
     Invoke-Check 'Demo advisory availability search capacity' {
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/catalog/businesses/availability-search?language=ar' `
@@ -747,6 +749,7 @@ try {
                 latitude = [double]$sourceCompany.branches[0].latitude
                 longitude = [double]$sourceCompany.branches[0].longitude
             }
+            $script:detailedSlotsBody = $body
             items = @(@{
                 offeringId = [string]$catalogOffering.id
                 selectedAddons = $slotSelections
@@ -764,10 +767,12 @@ try {
         Assert-True ($slots[0].configuredCapacity -ge $slots[0].remainingCapacity) `
             'Detailed slot capacity is invalid.'
         $script:availabilityBusiness = $catalogBusiness
+        $script:availabilityBranch = $catalogBranch
         $script:availabilityOffering = $catalogOffering
     }
     Invoke-Check 'Demo direct pricing vehicle projection' {
         $body = New-PricingBody $availabilityBusiness $availabilityOffering
+        $script:directPricingBody = $body
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/pricing/reprice?language=ar' $demoHeaders $body
         Assert-Status $r @(200)
@@ -781,26 +786,34 @@ try {
     }
 
     $invalidDevice = 'invalid-hosted-smoke-token'
-    $invalidCases = @(
+    $ignoredCredentialCases = @(
         @{ Name='configuration'; Method='GET'; Path='/api/v1/configuration' },
         @{ Name='categories'; Method='GET'; Path='/api/v1/catalog/categories' },
         @{ Name='business list'; Method='GET'; Path='/api/v1/catalog/businesses' },
         @{ Name='business detail'; Method='GET'; Path="/api/v1/catalog/businesses/$($demoBusiness.id)" },
         @{ Name='business offerings'; Method='GET'; Path="/api/v1/catalog/businesses/$($demoBusiness.id)/offerings" },
         @{ Name='offering detail'; Method='GET'; Path="/api/v1/catalog/offerings/$($demoOfferingContext.offerings[0].id)" },
-        @{ Name='banners'; Method='GET'; Path='/api/v1/banners' },
         @{ Name='reviews'; Method='GET'; Path="/api/v1/catalog/businesses/$($demoBusiness.id)/reviews" },
         @{ Name='availability'; Method='POST'; Path='/api/v1/catalog/businesses/availability-search'; Body=$availabilityBody },
-        @{ Name='detailed slots'; Method='POST'; Path="/api/v1/catalog/businesses/$($demoBusiness.id)/branches/$($demoBusiness.branches[0].id)/available-slots"; Body=@{} },
-        @{ Name='pricing'; Method='POST'; Path='/api/v1/pricing/reprice'; Body=@{} }
+        @{ Name='detailed slots'; Method='POST'; Path="/api/v1/catalog/businesses/$($availabilityBusiness.id)/branches/$($availabilityBranch.id)/available-slots"; Body=$detailedSlotsBody },
+        @{ Name='pricing'; Method='POST'; Path='/api/v1/pricing/reprice'; Body=$directPricingBody }
     )
-    foreach ($case in $invalidCases) {
-        Invoke-Check "Invalid optional device rejects $($case.Name)" {
+    foreach ($case in $ignoredCredentialCases) {
+        Invoke-Check "Demo-only public API ignores credentials for $($case.Name)" {
             $caseBody = if ($case.ContainsKey('Body')) { $case.Body } else { $null }
             $r = Invoke-HostedRequest $CustomerBaseUri $case.Method $case.Path `
-                @{ 'X-Device-Token' = $invalidDevice } $caseBody
-            Assert-Problem $r 401 'device_token_invalid'
+                @{
+                    'X-Device-Token' = $invalidDevice
+                    Authorization = "Bearer invalid-hosted-smoke-jwt"
+                } $caseBody
+            Assert-Status $r @(200)
+            Assert-Headers $r -NoStore
         }
+    }
+    Invoke-Check 'Invalid optional device still rejects banners' {
+        $r = Invoke-HostedRequest $CustomerBaseUri GET '/api/v1/banners' `
+            @{ 'X-Device-Token' = $invalidDevice }
+        Assert-Problem $r 401 'device_token_invalid'
     }
 
     Invoke-Check 'Anonymous vehicle auth rejection' {
@@ -832,30 +845,14 @@ try {
         Assert-Headers $r -NoStore
     }
 
-    Invoke-Check 'Customer JWT and Demo device match' {
+    Invoke-Check 'Public catalog ignores valid Customer JWT and device' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
             '/api/v1/catalog/businesses?top=5' `
             (New-AuthHeaders $customerToken $demoDevice.token)
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
         Assert-True (@((Read-Json $r).businesses).Count -eq 5) `
-            'Matching Demo credentials did not select Demo.'
-    }
-    $productionIdentity = $demo.PSObject.Properties['productionIdentity']
-    if ($null -ne $productionIdentity -and
-        -not [string]::IsNullOrWhiteSpace(
-            [string]$productionIdentity.Value.deviceToken)) {
-        Invoke-Check 'Deterministic cross-partition mismatch rejection' {
-            $r = Invoke-HostedRequest $CustomerBaseUri GET `
-                '/api/v1/catalog/businesses' `
-                (New-AuthHeaders $customerToken `
-                    ([string]$productionIdentity.Value.deviceToken))
-            Assert-Problem $r 403 'data_partition_mismatch'
-        }
-    }
-    else {
-        Skip-Check 'Deterministic cross-partition mismatch rejection' `
-            'Canonical dataset contains no deterministic Production identity.'
+            'Public catalog did not remain on seeded Demo data.'
     }
 
     Invoke-Check 'Demo vehicle create' {

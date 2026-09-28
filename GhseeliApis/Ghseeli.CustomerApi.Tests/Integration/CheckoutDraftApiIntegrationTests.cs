@@ -774,6 +774,31 @@ public class CheckoutDraftApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-DEV-DEMO-PRICING-003")]
+    public async Task PostPricingReprice_DemoOnlyEnvironment_IgnoresMalformedDevice()
+    {
+        await using var factory = new CheckoutDraftApiFactory(
+            settings: new Dictionary<string, string?>
+            {
+                ["DemoData:PublicApisOnly"] = bool.TrueString
+            },
+            useDemoData: true);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Post,
+            "/api/v1/pricing/reprice",
+            "malformed");
+        request.Content = JsonContent.Create(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                factory.Snapshot,
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)));
+
+        using var response = await client.SendAsync(request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task PostCheckoutReprice_WithoutDeviceToken_ReturnsLocalizedUnauthorizedProblem()
     {
         await using var factory = new CheckoutDraftApiFactory();

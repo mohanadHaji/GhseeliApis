@@ -64,7 +64,7 @@ Controllers -> Handlers/Services -> Repositories -> EF Core -> owned database
 
 | Flow | Description |
 |---|---|
-| Anonymous discovery | Read configuration when provisioned, browse catalog/public reviews/banners, search detailed slots, and request direct pricing in Production without registering a device. Missing configuration returns `503 configuration_unavailable` with a localized not-configured-yet detail |
+| Hosted Development discovery | Configuration, public catalog discovery/reviews/availability, and direct pricing require no credentials and always use deterministic Demo seed data. Device/JWT credentials are ignored on those routes while customer-owned mutations remain authenticated |
 | Customer authentication | Register or log in with password, email OTP, or refresh token |
 | Booking | Reprice a draft, authenticate the customer, and reserve the appointment through the Business API |
 | Business operations | Staff manage the catalog and move work orders through their status lifecycle |
@@ -91,12 +91,13 @@ Before login: X-Device-Token
 After login:  X-Device-Token + Authorization: Bearer <customer-jwt>
 ```
 
-Public discovery routes allow a missing `X-Device-Token` and select trusted
-Production by default. Supplying a token is strict: malformed, unknown,
-expired, inactive, rotated, or duplicate tokens return `401` and never fall
-back to anonymous Production. A valid Customer JWT without a device selects
-the account partition; when both credentials are supplied their partitions
-must match.
+The currently deployed environment is treated as Development. With
+`DemoData:PublicApisOnly=true`, configuration, direct pricing, and public
+catalog discovery (including reviews and availability) always select the Demo
+partition and do not process device or bearer credentials. Customer-owned
+favourites/reviews, vehicles, checkout, bookings, and payments retain their
+normal authentication requirements. A future Production deployment must
+disable this setting before accepting real Production data.
 
 ## Production and Demo isolation
 

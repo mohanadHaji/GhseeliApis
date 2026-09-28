@@ -9,7 +9,7 @@ namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/v1/configuration")]
-[OptionalDeviceToken]
+[DemoSeedDataOnly]
 public sealed class ConfigurationController : ControllerBase
 {
     private readonly ICustomerConfigurationService _service;

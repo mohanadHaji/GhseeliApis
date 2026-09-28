@@ -7,6 +7,7 @@ using GhseeliApis.Services.Devices;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Configuration;
 using Moq;
 using System.Text.Json;
 
@@ -46,6 +47,29 @@ public class DeviceTokenMiddlewareTests
             new EndpointMetadataCollection(new AllowWithoutDeviceTokenAttribute()),
             "register"));
         var middleware = CreateMiddleware(_ => { called = true; return Task.CompletedTask; });
+
+        await middleware.InvokeAsync(
+            context,
+            _service.Object,
+            new CustomerDataPartitionContext());
+
+        called.Should().BeTrue();
+        _service.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DemoSeedOnlyEndpoint_WhenEnabled_IgnoresMalformedDevice()
+    {
+        var called = false;
+        var context = CreateContext("/api/v1/configuration");
+        context.SetEndpoint(new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new DemoSeedDataOnlyAttribute()),
+            "demo-only"));
+        context.Request.Headers[DeviceTokenDefaults.HeaderName] = "malformed";
+        var middleware = CreateMiddleware(
+            _ => { called = true; return Task.CompletedTask; },
+            demoPublicApisOnly: true);
 
         await middleware.InvokeAsync(
             context,
@@ -231,8 +255,18 @@ public class DeviceTokenMiddlewareTests
             "אסימון המכשיר אינו תקין.");
     }
 
-    private DeviceTokenMiddleware CreateMiddleware(RequestDelegate next) =>
-        new(next, _logger.Object);
+    private DeviceTokenMiddleware CreateMiddleware(
+        RequestDelegate next,
+        bool demoPublicApisOnly = false) =>
+        new(
+            next,
+            _logger.Object,
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["DemoData:PublicApisOnly"] = demoPublicApisOnly.ToString()
+                })
+                .Build());
 
     private static DefaultHttpContext CreateProtectedContext(string? queryString = null)
     {

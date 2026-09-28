@@ -16,6 +16,10 @@ repository root [`README.md`](../README.md).
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
+- The current hosted environment is intentionally operated as Development:
+  `DemoData:PublicApisOnly=true` makes configuration, direct pricing, and
+  public catalog discovery/reviews/availability credential-free and Demo-only.
+  Customer-owned mutations and transactional routes remain authenticated.
 - Current verified automated baseline: **2,338 passed, 0 failed, 0 skipped**.
 - Customer tests: 1,626.
 - Business tests: 686.
@@ -86,12 +90,12 @@ and unit/TestServer/relational coverage. Final banner QA additionally covers
 disposable migration up/down verification, SQL-backed CRUD and three race
 shapes, request/body boundaries, optional-device states, partition
 non-disclosure, safe induced failures, and deterministic Demo reconciliation.
-The comprehensive hosted smoke verified authentication boundaries, optional
-device behavior, vehicle CRUD, catalog metadata, search/top, favourites,
+The comprehensive hosted smoke verified authentication boundaries, public
+Demo-only behavior, vehicle CRUD, catalog metadata, search/top, favourites,
 reviews, banners, advisory and authoritative availability, direct pricing,
 and Business owner reads. Production has no active customer configuration by
-product decision, so the endpoint intentionally returns localized
-`503 configuration_unavailable` stating that it is not configured yet.
+product decision; the Demo seeder now reconciles a deterministic Development
+configuration returned by the credential-free configuration endpoint.
 The complete Step 17 local gate passed on 2026-09-22, including all 50 active
 provider-neutral Step 17 scenarios, 1,167 inherited scenarios, Step 16
 database/schema isolation, adverse-schema checks, and final process/database

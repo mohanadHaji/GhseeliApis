@@ -284,6 +284,7 @@ jobs:
               "CustomerSmtp__Password" = $env:CUSTOMER_SMTP_PASSWORD
               "CustomerSmtp__FromAddress" = $env:CUSTOMER_SMTP_FROM_ADDRESS
               "CustomerSmtp__FromName" = "Ghseeli"
+              "DemoData__PublicApisOnly" = "true"
               "Swagger__Enabled" = "true"
             }
           }

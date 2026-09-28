@@ -142,11 +142,12 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - Customer endpoints may require a device token, a customer JWT, or both.
 - Customer device tokens are 256-bit opaque values returned only at issuance or rotation; only SHA-256 hashes are stored.
 - `X-Device-Token` is required by default for matched `/api/v1/*` Customer
-  endpoints unless the endpoint has an explicit required-device exemption.
-  Public configuration, catalog discovery, direct pricing, public banners,
-  public reviews, and advisory availability are optional-device operations:
-  no token selects Production, while a supplied token must validate and selects
-  its trusted Production/Demo partition.
+  endpoints unless the endpoint has an explicit exemption. In the current
+  hosted Development environment, configuration, direct pricing, and public
+  catalog discovery/reviews/availability use the trusted
+  `DemoData:PublicApisOnly` deployment switch: they always select Demo and do
+  not process device or bearer credentials. Public banners retain the
+  optional-device contract. Customer-owned mutations retain authentication.
 - Registering an existing installation requires its current unexpired token and rotates it immediately; old tokens stop authorizing requests.
 - Device tokens expire without sliding renewal. Rotation issues a new configured lifetime.
 - Internal service credentials are separate from both user identity systems.
@@ -160,13 +161,12 @@ Database IDs are private to their owning API. Integration contracts use explicit
 - `BusinessBearer` is the Business API HTTP bearer scheme. Business management
   operations additionally enforce the applicable Owner, Employee, Admin, and
   company/branch-assignment policies.
-- `X-Device-Token` is an API-key-style installation credential. Configuration,
-  catalog discovery, direct pricing, public banners, public reviews, and
-  advisory availability accept no device token and then select Production, or
-  accept one validated device token and select that device's trusted
-  Production/Demo partition. A malformed, unknown, expired, inactive, rotated,
-  or duplicated supplied token fails with `401 device_token_invalid`; it is
-  never ignored. Checkout drafts remain device-required. Booking and payment
+- `X-Device-Token` is an API-key-style installation credential. In the current
+  hosted Development environment, configuration, direct pricing, and public
+  catalog discovery/reviews/availability ignore it and always use Demo.
+  Public banners still accept no token for Production or one strictly
+  validated token for its trusted partition. Checkout drafts remain
+  device-required. Booking and payment
   operations require both a device token and Customer bearer authentication.
   When a Customer JWT and device token are both supplied, their trusted
   partitions must agree or the request fails with

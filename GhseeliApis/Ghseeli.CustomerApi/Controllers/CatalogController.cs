@@ -14,7 +14,7 @@ namespace GhseeliApis.Controllers;
 
 [ApiController]
 [Route("api/v1/catalog")]
-[OptionalDeviceToken]
+[DemoSeedDataOnly]
 public sealed class CatalogController : ControllerBase
 {
     private const long MaxAvailableSlotsRequestBodyBytes = 65_536;

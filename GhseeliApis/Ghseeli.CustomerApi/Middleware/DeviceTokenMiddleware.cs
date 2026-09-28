@@ -40,6 +40,14 @@ public sealed class AllowWithoutDeviceTokenAttribute : DeviceTokenPolicyAttribut
     }
 }
 
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class DemoSeedDataOnlyAttribute : DeviceTokenPolicyAttribute
+{
+    public DemoSeedDataOnlyAttribute() : base(DeviceTokenRequirement.Optional)
+    {
+    }
+}
+
 public static class DeviceHttpContextExtensions
 {
     private const string DeviceIdKey = "Ghseeli.DeviceId";
@@ -70,11 +78,16 @@ public sealed class DeviceTokenMiddleware
         };
     private readonly RequestDelegate _next;
     private readonly IAppLogger _logger;
+    private readonly IConfiguration _configuration;
 
-    public DeviceTokenMiddleware(RequestDelegate next, IAppLogger logger)
+    public DeviceTokenMiddleware(
+        RequestDelegate next,
+        IAppLogger logger,
+        IConfiguration configuration)
     {
         _next = next;
         _logger = logger;
+        _configuration = configuration;
     }
 
     public async Task InvokeAsync(
@@ -82,6 +95,12 @@ public sealed class DeviceTokenMiddleware
         IDeviceRegistrationService deviceService,
         ICustomerDataPartitionContext dataPartition)
     {
+        if (IsDemoSeedDataOnly(context))
+        {
+            await _next(context);
+            return;
+        }
+
         var requirement = GetRequirement(context);
         if (requirement == DeviceTokenRequirement.None)
         {
@@ -143,6 +162,10 @@ public sealed class DeviceTokenMiddleware
 
         await _next(context);
     }
+
+    private bool IsDemoSeedDataOnly(HttpContext context) =>
+        _configuration.GetValue<bool>("DemoData:PublicApisOnly") &&
+        context.GetEndpoint()?.Metadata.GetMetadata<DemoSeedDataOnlyAttribute>() is not null;
 
     internal static DeviceTokenRequirement GetRequirement(HttpContext context)
     {

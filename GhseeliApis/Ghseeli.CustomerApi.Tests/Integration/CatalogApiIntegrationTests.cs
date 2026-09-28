@@ -693,6 +693,32 @@ public class CatalogApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-DEV-DEMO-CATALOG-002")]
+    public async Task GetBusinesses_DemoOnlyEnvironment_IgnoresCredentialsAndReturnsDemo()
+    {
+        await using var factory = new CatalogApiFactory(
+            useDemoProviders: true,
+            demoPublicApisOnly: true);
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(companyId));
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/catalog/businesses",
+            "malformed");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(Guid.NewGuid(), "User", DataPartitionNames.Production));
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("businesses").GetArrayLength()
+            .Should().Be(2);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-028")]
     public Task Categories_RejectMalformedSuppliedDevice() =>
         AssertCatalogRouteRejectsMalformedDeviceAsync("/api/v1/catalog/categories");
@@ -2365,6 +2391,7 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
     private readonly HttpMessageHandler? _businessApiHandler;
     private readonly IReadOnlyList<CatalogProviderReadModel> _catalogProviders;
     private readonly IReadOnlyList<User> _users;
+    private readonly bool _demoPublicApisOnly;
 
     public CatalogApiFactory(
         IEnumerable<CustomerDevice>? devices = null,
@@ -2373,6 +2400,7 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
         IEnumerable<User>? users = null,
         bool useActualBusinessApiClient = false,
         bool useDemoProviders = false,
+        bool demoPublicApisOnly = false,
         HttpMessageHandler? businessApiHandler = null)
     {
         _devices = devices ?? Array.Empty<CustomerDevice>();
@@ -2381,6 +2409,7 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
         _users = users?.ToArray() ?? [];
         _useActualBusinessApiClient = useActualBusinessApiClient;
         _useDemoProviders = useDemoProviders;
+        _demoPublicApisOnly = demoPublicApisOnly;
         _businessApiHandler = businessApiHandler;
     }
 
@@ -2396,6 +2425,9 @@ public sealed class CatalogApiFactory : WebApplicationFactory<Program>, IAsyncDi
         builder.UseSetting("JwtSettings:Issuer", CatalogApiIntegrationTests.JwtIssuer);
         builder.UseSetting("JwtSettings:Audience", CatalogApiIntegrationTests.JwtAudience);
         builder.UseSetting("Swagger:Enabled", "true");
+        builder.UseSetting(
+            "DemoData:PublicApisOnly",
+            _demoPublicApisOnly.ToString());
         builder.UseSetting("CatalogReadModel:FreshWindowSeconds", "300");
         builder.UseSetting("CatalogReadModel:MaxStaleWindowSeconds", "3600");
         builder.UseSetting("CatalogReadModel:LeaseDurationSeconds", "30");

@@ -163,6 +163,31 @@ public class ConfigurationApiIntegrationTests
     }
 
     [Fact]
+    [Trait("ScenarioId", "FAN-DEV-DEMO-CONFIG-001")]
+    public async Task GetConfiguration_DemoOnlyEnvironment_IgnoresCredentials()
+    {
+        using var factory = CreateFactory(
+            seedActiveConfiguration: true,
+            useDemoData: true,
+            demoPublicApisOnly: true);
+        using var client = factory.CreateApiClient();
+        using var request = CreateRequest(
+            HttpMethod.Get,
+            "/api/v1/configuration",
+            deviceToken: "malformed");
+        request.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            CreateJwt(DataPartitionNames.Production));
+
+        using var response = await client.SendAsync(request);
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        document.RootElement.GetProperty("display").GetProperty("name")
+            .GetString().Should().Be(ArabicDisplayName);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "FAN-OPTIONAL-INVALID-024")]
     public async Task GetConfiguration_WithUnknownDeviceToken_ReturnsLocalizedHebrewProblem()
     {
@@ -539,7 +564,8 @@ public class ConfigurationApiIntegrationTests
     private static CustomerConfigurationApiFactory CreateFactory(
         bool seedActiveConfiguration,
         IEnumerable<CustomerDevice>? devices = null,
-        bool useDemoData = false) =>
+        bool useDemoData = false,
+        bool demoPublicApisOnly = false) =>
         new(context =>
         {
             if (seedActiveConfiguration)
@@ -551,7 +577,7 @@ public class ConfigurationApiIntegrationTests
             {
                 context.CustomerDevices.AddRange(devices);
             }
-        }, useDemoData);
+        }, useDemoData, demoPublicApisOnly);
 
     private static CustomerConfiguration CreateConfiguration() =>
         new()
@@ -654,13 +680,16 @@ public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Prog
     private readonly string _databaseName = $"CustomerConfigurationApiTests-{Guid.NewGuid()}";
     private readonly Action<ApplicationDbContext>? _seed;
     private readonly bool _useDemoData;
+    private readonly bool _demoPublicApisOnly;
 
     public CustomerConfigurationApiFactory(
         Action<ApplicationDbContext>? seed = null,
-        bool useDemoData = false)
+        bool useDemoData = false,
+        bool demoPublicApisOnly = false)
     {
         _seed = seed;
         _useDemoData = useDemoData;
+        _demoPublicApisOnly = demoPublicApisOnly;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -679,6 +708,9 @@ public sealed class CustomerConfigurationApiFactory : WebApplicationFactory<Prog
             "JwtSettings:Audience",
             ConfigurationApiIntegrationTests.JwtAudience);
         builder.UseSetting("Swagger:Enabled", "true");
+        builder.UseSetting(
+            "DemoData:PublicApisOnly",
+            _demoPublicApisOnly.ToString());
         builder.ConfigureServices(services =>
         {
             services.RemoveAll(typeof(DbContextOptions<ApplicationDbContext>));

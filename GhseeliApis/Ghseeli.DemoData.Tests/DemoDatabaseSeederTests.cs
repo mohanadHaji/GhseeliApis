@@ -78,6 +78,7 @@ public sealed class DemoDatabaseSeederTests
                 customerConnection,
                 businessConnection,
                 data);
+            await AssertDemoConfigurationAsync(customerConnection);
             await AssertVehiclePropagationAfterReloadAsync(
                 customerConnection,
                 businessConnection);
@@ -189,6 +190,28 @@ public sealed class DemoDatabaseSeederTests
             Assert.Equal(expected.CreatedAtUtc, review.CreatedAtUtc);
             Assert.Equal(expected.CreatedAtUtc, review.UpdatedAtUtc);
         }
+    }
+
+    private static async Task AssertDemoConfigurationAsync(string connectionString)
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlServer(connectionString)
+            .Options;
+        await using var context = new ApplicationDbContext(
+            options,
+            new CustomerDataPartitionContext());
+
+        var configuration = await context.CustomerConfigurations
+            .AsNoTracking()
+            .SingleAsync();
+
+        Assert.True(configuration.IsActive);
+        Assert.Equal("support@ghseeli.example.test", configuration.SupportEmail);
+        Assert.Equal("+972555000000", configuration.SupportPhone);
+        Assert.Equal("غسيلي - بيئة التطوير", configuration.DisplayNameAr);
+        Assert.Equal("https://ghseeli.example.test/privacy", configuration.PrivacyPolicyUrl);
+        Assert.Equal("https://ghseeli.example.test/terms", configuration.TermsOfServiceUrl);
+        Assert.False(configuration.IsMaintenanceModeEnabled);
     }
 
     private static async Task MutateAddonDefaultsBeforeReseedAsync(

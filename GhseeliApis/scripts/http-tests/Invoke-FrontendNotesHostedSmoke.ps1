@@ -599,7 +599,6 @@ try {
                     "/api/v1/catalog/businesses/$($candidateBusiness.id)/offerings?branchId=$($candidateBranch.id)&language=ar"
                 Assert-Status $offeringsResponse @(200)
                 $candidateOffering = @((Read-Json $offeringsResponse).offerings |
-                    Where-Object { $_.durationMinutes -eq 25 } |
                     Select-Object -First 1)
                 if ($candidateOffering.Count -gt 0) {
                     $availabilityResult = $candidate
@@ -610,7 +609,7 @@ try {
                 }
             }
             Assert-True ($null -ne $pricingOffering) `
-                'Anonymous availability returned no business with the seeded 25-minute offering.'
+                'Anonymous availability returned no business with an offering.'
             $slotStartUtc = ([DateTimeOffset]$availabilityResult.slotStartUtc).
                 ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             $body = New-PricingBody $pricingBusiness $pricingOffering $slotStartUtc
@@ -623,7 +622,8 @@ try {
                 $quote.intent.vehicle.imageUrl -eq
                     'https://example.test/hosted-smoke/vehicle.png' -and
                 $quote.pricing.grandTotal -gt 0 -and
-                $quote.pricing.totalDurationMinutes -eq 25) `
+                $quote.pricing.totalDurationMinutes -eq
+                    $pricingOffering.durationMinutes) `
                 'Anonymous direct-pricing contract is incomplete.'
         }
     }

@@ -2,11 +2,12 @@
 
 Date: 2026-09-24
 
-Status: **Implemented and validated locally; hosted deployment pending.** The
-final regression passed 2,355 tests, the Release build passed with no warnings
-or errors, the HTTP harness passed 31/31 self-tests, and the taxonomy extension
-passed 12/12 live-local scenarios against fresh migrated and deterministically
-seeded Customer and Business databases. See
+Status: **Implemented, deployed, seeded, and validated.** The final regression
+passed 2,355 tests, the Release build passed with no warnings or errors, the
+HTTP harness passed 31/31 self-tests, the taxonomy extension passed 12/12
+live-local scenarios against fresh migrated and deterministically seeded
+Customer and Business databases, and the hosted frontend suite passed 66
+checks with one intentional safe skip. See
 `FRONTEND_API_NOTES_HTTP_TEST_RESULTS.md`.
 
 ## 0. 2026-09-30 taxonomy and availability-validation extension

@@ -41,9 +41,9 @@ Date: 2026-09-30
 | Taxonomy live-local extension | 12 passed, 0 failed |
 | Scoped availability/optional scenario tests | 76 passed, 0 failed |
 | Frontend-note scenario traceability | 78/78 mapped, no semantic mismatch |
-| Taxonomy deployment | Pending |
-| Taxonomy hosted Demo reconciliation | Pending |
-| Taxonomy hosted frontend-notes smoke | Pending |
+| Taxonomy deployment | Run `36686452435`, commit `9561946`, passed |
+| Taxonomy hosted Demo reconciliation | Run `36687741892`, passed |
+| Taxonomy hosted frontend-notes smoke | 66 passed, 0 failed, 1 safely skipped |
 
 The live availability set covered valid HMAC discovery, missing
 authentication, stale timestamp, replay prime/rejection, operation denial,
@@ -80,6 +80,19 @@ favourites/reviews, vehicles, checkout, bookings, and payments remain protected.
 
 The only skipped hosted scenario was banner Admin mutation because the
 canonical fixture intentionally contains no Demo Customer Admin.
+
+The first expanded hosted run found a smoke-only assumption that unfiltered
+availability must expose the specific 25-minute fixture. The application paths
+for seeded 25-minute authoritative slots and pricing both passed. The smoke was
+corrected to price the first valid unfiltered offering while retaining the
+dedicated exact 25-minute checks, then the complete 67-check suite was rerun
+successfully.
+
+Taxonomy Development deployment:
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36686452435>
+
+Taxonomy hosted Demo seed:
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36687741892>
 
 Previous Development deployment:
 <https://github.com/mohanadHaji/GhseeliApis/actions/runs/36400551972>

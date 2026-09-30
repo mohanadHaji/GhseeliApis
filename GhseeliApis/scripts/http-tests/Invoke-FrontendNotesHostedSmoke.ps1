@@ -331,6 +331,7 @@ try {
             '/api/Vehicles/{id}',
             '/api/Vehicles/my-vehicles',
             '/api/v1/configuration',
+            '/api/v1/catalog/business-verticals',
             '/api/v1/catalog/categories',
             '/api/v1/catalog/businesses',
             '/api/v1/catalog/businesses/{id}',
@@ -422,6 +423,23 @@ try {
         Assert-True ($null -ne (Read-Json $r).categories) `
             'Categories collection is missing.'
     }
+    $script:businessVertical = $null
+    Invoke-Check 'Anonymous canonical business vertical' {
+        $r = Invoke-HostedRequest $CustomerBaseUri GET `
+            '/api/v1/catalog/business-verticals?language=ar'
+        Assert-Status $r @(200)
+        Assert-Headers $r -NoStore
+        Assert-SafeBody $r $allSecrets
+        $verticals = @((Read-Json $r).businessVerticals)
+        Assert-True ($verticals.Count -eq 1) `
+            'The Development fixture must expose exactly one business vertical.'
+        $script:businessVertical = $verticals[0]
+        Assert-True ($businessVertical.id -eq
+                'a842f536-17b7-4be6-a18d-1bdc6245094c' -and
+            $businessVertical.code -eq 'car_wash' -and
+            $businessVertical.displayOrder -eq 1) `
+            'The canonical Car Washing business vertical is invalid.'
+    }
     Invoke-Check 'Anonymous business list and projections' {
         $r = Invoke-HostedRequest $CustomerBaseUri GET `
             '/api/v1/catalog/businesses?language=ar'
@@ -437,6 +455,22 @@ try {
                 'Credential-free Demo projection exposed a favourite.'
             Assert-True ($null -ne $business.averageRating -and
                 $null -ne $business.ratingCount) 'Rating projection is missing.'
+            Assert-True ($business.businessVertical.id -eq $businessVertical.id -and
+                $business.businessVertical.code -eq 'car_wash') `
+                'A business is not projected under the canonical vertical.'
+        }
+    }
+    Invoke-Check 'Anonymous businesses filtered by business vertical' {
+        $r = Invoke-HostedRequest $CustomerBaseUri GET `
+            "/api/v1/catalog/businesses?businessVerticalId=$($businessVertical.id)&language=ar"
+        Assert-Status $r @(200)
+        Assert-Headers $r -NoStore
+        $businesses = @((Read-Json $r).businesses)
+        Assert-True ($businesses.Count -eq 5) `
+            'The canonical vertical did not return all five seeded businesses.'
+        foreach ($business in $businesses) {
+            Assert-True ($business.businessVertical.id -eq $businessVertical.id) `
+                'Vertical filtering returned a business from another vertical.'
         }
     }
     Invoke-Check 'Anonymous business search' {
@@ -565,7 +599,7 @@ try {
                     "/api/v1/catalog/businesses/$($candidateBusiness.id)/offerings?branchId=$($candidateBranch.id)&language=ar"
                 Assert-Status $offeringsResponse @(200)
                 $candidateOffering = @((Read-Json $offeringsResponse).offerings |
-                    Where-Object { $_.durationMinutes % 30 -eq 0 } |
+                    Where-Object { $_.durationMinutes -eq 25 } |
                     Select-Object -First 1)
                 if ($candidateOffering.Count -gt 0) {
                     $availabilityResult = $candidate
@@ -576,7 +610,7 @@ try {
                 }
             }
             Assert-True ($null -ne $pricingOffering) `
-                'Anonymous availability returned no business with a slot-aligned offering.'
+                'Anonymous availability returned no business with the seeded 25-minute offering.'
             $slotStartUtc = ([DateTimeOffset]$availabilityResult.slotStartUtc).
                 ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
             $body = New-PricingBody $pricingBusiness $pricingOffering $slotStartUtc
@@ -588,7 +622,8 @@ try {
             Assert-True ($quote.intent.vehicle.vehicleType -eq 'Sedan' -and
                 $quote.intent.vehicle.imageUrl -eq
                     'https://example.test/hosted-smoke/vehicle.png' -and
-                $quote.pricing.grandTotal -gt 0) `
+                $quote.pricing.grandTotal -gt 0 -and
+                $quote.pricing.totalDurationMinutes -eq 25) `
                 'Anonymous direct-pricing contract is incomplete.'
         }
     }
@@ -711,16 +746,17 @@ try {
     $availabilityCompany = $demo.companies |
         Where-Object {
             @($_.offerings |
-                Where-Object { $_.durationMinutes % 30 -eq 0 }).Count -gt 0
+                Where-Object { $_.durationMinutes -eq 25 }).Count -gt 0
         } |
         Select-Object -First 1
     Assert-True ($null -ne $availabilityCompany) `
-        'No Demo company has an offering aligned to the seeded slot duration.'
+        'No Demo company has the seeded 25-minute offering.'
     $availabilityDate = [DateTime]::UtcNow.Date.AddDays(7).ToString('yyyy-MM-dd')
     $availabilityBody = @{
         vehicleType = 'Sedan'
         date = $availabilityDate
         preferredLocalTime = '10:30:00'
+        businessVerticalId = [string]$businessVertical.id
         categoryId = [string]$availabilityCompany.categories[0].id
         latitude = [double]$availabilityCompany.branches[0].latitude
         longitude = [double]$availabilityCompany.branches[0].longitude
@@ -731,6 +767,49 @@ try {
     $script:availabilityOffering = $null
     $script:detailedSlotsBody = $null
     $script:directPricingBody = $null
+    Invoke-Check 'Malformed preferred time has a field-specific error' {
+        $invalidBody = @{
+            vehicleType = 'Sedan'
+            date = $availabilityDate
+            preferredLocalTime = '10:30'
+            businessVerticalId = [string]$businessVertical.id
+        }
+        $r = Invoke-HostedRequest $CustomerBaseUri POST `
+            '/api/v1/catalog/businesses/availability-search?language=ar' `
+            @{} $invalidBody
+        Assert-Problem $r 400 'preferred_local_time_invalid'
+        $problem = Read-Json $r
+        Assert-True ($problem.fieldErrors.preferredLocalTime[0] -eq
+            'preferred_local_time_invalid') `
+            'Malformed preferred time was mapped to the wrong field error.'
+    }
+    Invoke-Check 'Empty business vertical is rejected precisely' {
+        $invalidBody = @{
+            vehicleType = 'Sedan'
+            date = $availabilityDate
+            preferredLocalTime = '10:30:00'
+            businessVerticalId = [guid]::Empty.ToString()
+        }
+        $r = Invoke-HostedRequest $CustomerBaseUri POST `
+            '/api/v1/catalog/businesses/availability-search?language=ar' `
+            @{} $invalidBody
+        Assert-Problem $r 400 'business_vertical_invalid'
+    }
+    Invoke-Check 'Business vertical and subcategory mismatch is rejected' {
+        $invalidBody = @{
+            vehicleType = 'Sedan'
+            date = $availabilityDate
+            preferredLocalTime = '10:30:00'
+            businessVerticalId = '11111111-1111-1111-1111-111111111111'
+            categoryId = [string]$availabilityCompany.categories[0].id
+            latitude = [double]$availabilityCompany.branches[0].latitude
+            longitude = [double]$availabilityCompany.branches[0].longitude
+        }
+        $r = Invoke-HostedRequest $CustomerBaseUri POST `
+            '/api/v1/catalog/businesses/availability-search?language=ar' `
+            @{} $invalidBody
+        Assert-Problem $r 400 'catalog_filter_mismatch'
+    }
     Invoke-Check 'Demo advisory availability search capacity' {
         $r = Invoke-HostedRequest $CustomerBaseUri POST `
             '/api/v1/catalog/businesses/availability-search?language=ar' `
@@ -764,9 +843,9 @@ try {
         Assert-Status $offeringsResponse @(200)
         $offerings = @((Read-Json $offeringsResponse).offerings)
         $catalogOffering = @($offerings |
-            Where-Object { $_.durationMinutes % 30 -eq 0 })[0]
+            Where-Object { $_.durationMinutes -eq 25 })[0]
         Assert-True ($null -ne $catalogOffering) `
-            'The selected availability branch has no slot-aligned offering.'
+            'The selected availability branch has no seeded 25-minute offering.'
         $slotSelections = @()
         foreach ($group in @($catalogOffering.addonGroups)) {
             foreach ($choice in @($group.choices |
@@ -797,8 +876,15 @@ try {
             $demoHeaders $body
         Assert-Status $r @(200)
         Assert-Headers $r -NoStore
-        $slots = @((Read-Json $r).slots)
+        $slotResponse = Read-Json $r
+        $slots = @($slotResponse.slots)
         Assert-True ($slots.Count -gt 0) 'Detailed slots are empty.'
+        Assert-True ($slotResponse.totalDurationMinutes -eq 25) `
+            'Detailed slots did not preserve the 25-minute service duration.'
+        $firstSlotDuration = ([DateTimeOffset]$slots[0].endUtc -
+            [DateTimeOffset]$slots[0].startUtc).TotalMinutes
+        Assert-True ($firstSlotDuration -eq 25) `
+            'The authoritative slot does not end 25 minutes after its start.'
         Assert-True ($slots[0].configuredCapacity -ge $slots[0].remainingCapacity) `
             'Detailed slot capacity is invalid.'
         $script:availabilityBusiness = $catalogBusiness
@@ -821,6 +907,8 @@ try {
                 'https://example.test/hosted-smoke/vehicle.png') `
             'Direct pricing did not preserve vehicle type/image.'
         Assert-True ($quote.pricing.grandTotal -gt 0) 'Direct price is not positive.'
+        Assert-True ($quote.pricing.totalDurationMinutes -eq 25) `
+            'Direct pricing did not preserve the 25-minute service duration.'
     }
 
     $invalidDevice = 'invalid-hosted-smoke-token'

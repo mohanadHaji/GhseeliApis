@@ -230,6 +230,7 @@ public class Step16BusinessSchemaModelTests
             "BusinessUser|NormalizedEmail|False",
             "BusinessUser|NormalizedUserName|True",
             "BusinessVertical|Code|True",
+            "BusinessVertical|IsActive,DisplayOrder|False",
             "CompanyBusinessVertical|BusinessVerticalId,IsActive|False",
             "CompanyBusinessVertical|CompanyId|True",
             "InternalServiceIdempotencyRecord|ExpiresAtUtc|False",

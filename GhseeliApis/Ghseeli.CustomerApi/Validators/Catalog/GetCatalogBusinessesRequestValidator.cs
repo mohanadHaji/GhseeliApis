@@ -18,6 +18,11 @@ public sealed class GetCatalogBusinessesRequestValidator :
         RuleFor(request => request.BranchId)
             .MustUseNonEmptyCatalogId();
 
+        RuleFor(request => request.BusinessVerticalId)
+            .Must(value => !value.HasValue || value.Value != Guid.Empty)
+            .WithMessage("Business vertical id is invalid.")
+            .WithErrorCode(CatalogProblemCodes.BusinessVerticalInvalid);
+
         RuleFor(request => request.CategoryId)
             .MustUseNonEmptyCatalogId();
 

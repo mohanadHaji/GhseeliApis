@@ -36,6 +36,30 @@ public class CatalogApiIntegrationTests
     internal const string JwtAudience = "GhseeliApis.CatalogClients";
 
     [Fact]
+    [Trait("ScenarioId", "FAN-TAXONOMY-LIST-001")]
+    public async Task GetBusinessVerticals_Anonymous_ReturnsCanonicalCarWashOnce()
+    {
+        await using var factory = new CatalogApiFactory();
+        factory.BusinessApiClient.GetCatalogSnapshotHandler = (companyId, _) =>
+            Task.FromResult(CatalogTestSupport.CreateSnapshot(companyId));
+        using var client = factory.CreateApiClient();
+
+        using var response = await client.GetAsync(
+            "/api/v1/catalog/business-verticals?language=ar");
+        using var document = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var verticals = document.RootElement.GetProperty("businessVerticals");
+        verticals.GetArrayLength().Should().Be(1);
+        verticals[0].GetProperty("id").GetGuid()
+            .Should().Be(BusinessVerticalSnapshotDefaults.CarWashId);
+        verticals[0].GetProperty("code").GetString()
+            .Should().Be(BusinessVerticalSnapshotDefaults.CarWashCode);
+        verticals[0].GetProperty("name").GetString()
+            .Should().Be(BusinessVerticalSnapshotDefaults.CarWashNameAr);
+    }
+
+    [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-CUSTOMER-001")]
     [Trait("ScenarioId", "FAN-AVAILABILITY-ADVISORY-018")]
     [Trait("ScenarioId", "FAN-OPTIONAL-READS-018")]
@@ -475,35 +499,55 @@ public class CatalogApiIntegrationTests
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-005")]
     public Task AvailabilitySearch_InvalidVehicleType_ReturnsFieldErrorWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("vehicle", "vehicleType");
+        AssertAvailabilityValidationAsync(
+            "vehicle",
+            CatalogProblemCodes.VehicleTypeInvalid,
+            "vehicleType");
 
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-020")]
     public Task AvailabilitySearch_PastDate_ReturnsFieldErrorWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("past-date", "date");
+        AssertAvailabilityValidationAsync(
+            "past-date",
+            CatalogProblemCodes.DateInvalid,
+            "date");
 
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-021")]
     public Task AvailabilitySearch_InvalidTime_ReturnsFieldErrorWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("time", "preferredLocalTime");
+        AssertAvailabilityValidationAsync(
+            "time",
+            CatalogProblemCodes.PreferredLocalTimeInvalid,
+            "preferredLocalTime");
 
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-022")]
     public Task AvailabilitySearch_InvalidCategory_ReturnsFieldErrorWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("category", "categoryId");
+        AssertAvailabilityValidationAsync(
+            "category",
+            CatalogProblemCodes.CategoryInvalid,
+            "categoryId");
 
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-023")]
     public Task AvailabilitySearch_PartialLocation_ReturnsFieldErrorWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("partial-location", "location");
+        AssertAvailabilityValidationAsync(
+            "partial-location",
+            CatalogProblemCodes.LocationInvalid,
+            "location");
 
     [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-VALIDATION-024")]
     public Task AvailabilitySearch_OutOfRangeLocation_ReturnsFieldErrorsWithoutDiscovery() =>
-        AssertAvailabilityValidationAsync("location-range", "latitude", "longitude");
+        AssertAvailabilityValidationAsync(
+            "location-range",
+            CatalogProblemCodes.LocationInvalid,
+            "latitude",
+            "longitude");
 
     private static async Task AssertAvailabilityValidationAsync(
         string condition,
+        string expectedCode,
         params string[] expectedFields)
     {
         await using var factory = new CatalogApiFactory();
@@ -517,7 +561,7 @@ public class CatalogApiIntegrationTests
             "past-date" =>
                 $$"""{"vehicleType":"Sedan","date":"{{past}}","preferredLocalTime":"10:00:00"}""",
             "time" =>
-                $$"""{"vehicleType":"Sedan","date":"{{future}}","preferredLocalTime":"25:00:00"}""",
+                $$"""{"vehicleType":"Sedan","date":"{{future}}","preferredLocalTime":"13:30"}""",
             "category" =>
                 $$"""{"vehicleType":"Sedan","date":"{{future}}","preferredLocalTime":"10:00:00","categoryId":"invalid"}""",
             "partial-location" =>
@@ -532,6 +576,7 @@ public class CatalogApiIntegrationTests
         using var document = await ReadJsonAsync(response);
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        document.RootElement.GetProperty("code").GetString().Should().Be(expectedCode);
         document.RootElement.GetProperty("fieldErrors").EnumerateObject()
             .Select(property => property.Name)
             .Should().Contain(expectedFields);

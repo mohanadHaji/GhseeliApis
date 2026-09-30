@@ -561,6 +561,7 @@ public sealed class Step15SwaggerCustomerContractTests :
         "POST /api/v1/devices/register",
         "GET /api/v1/configuration",
         "GET /api/v1/catalog/categories",
+        "GET /api/v1/catalog/business-verticals",
         "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",

@@ -1035,6 +1035,28 @@ public class CheckoutDraftServiceTests
     }
 
     [Fact]
+    public async Task CreateAsync_WhenDurationEndsBetweenStartIntervals_Succeeds()
+    {
+        var snapshot = CatalogTestSupport.CreateSnapshot(Guid.NewGuid(), version: 17);
+        var offering = snapshot.Categories.Single().Offerings.Single();
+        offering.DurationMinutes = 25;
+        offering.AddonGroups.Single().Choices.Single().DurationAdjustmentMinutes = 0;
+        await using var harness = await CreateHarnessAsync(snapshot);
+        var request = CheckoutDraftTestSupport.CreateValidCreateRequest(
+            snapshot,
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
+
+        var response = await harness.Service.CreateAsync(
+            request,
+            harness.DeviceId,
+            requestedLanguage: "ar",
+            acceptLanguageHeader: "ar",
+            CancellationToken.None);
+
+        response.Intent.RequestedSlotStartUtc.Should().Be(request.RequestedSlotStartUtc);
+    }
+
+    [Fact]
     public async Task CreateAsync_WhenRequestedSlotFallsIntoDstAmbiguity_ThrowsSlotUnavailable()
     {
         var snapshot = CatalogTestSupport.CreateSnapshot(

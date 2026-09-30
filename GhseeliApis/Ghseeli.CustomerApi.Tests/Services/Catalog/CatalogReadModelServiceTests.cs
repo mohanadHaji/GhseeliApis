@@ -433,6 +433,39 @@ public class CatalogReadModelServiceTests
     }
 
     [Fact]
+    public void CatalogSnapshotValidator_BackfillsLegacySnapshotBusinessVertical()
+    {
+        var companyId = Guid.NewGuid();
+        var snapshot = CatalogTestSupport.CreateSnapshot(companyId);
+        snapshot.BusinessVertical = new CatalogSnapshotBusinessVertical();
+
+        CatalogSnapshotValidator.Validate(companyId, snapshot);
+
+        snapshot.BusinessVertical.Id.Should().Be(BusinessVerticalSnapshotDefaults.CarWashId);
+        snapshot.BusinessVertical.Code.Should().Be(BusinessVerticalSnapshotDefaults.CarWashCode);
+        snapshot.BusinessVertical.NameAr.Should().Be(BusinessVerticalSnapshotDefaults.CarWashNameAr);
+        snapshot.BusinessVertical.DisplayOrder.Should()
+            .Be(BusinessVerticalSnapshotDefaults.CarWashDisplayOrder);
+    }
+
+    [Fact]
+    public void CatalogSnapshotValidator_RejectsPartiallyPopulatedBusinessVertical()
+    {
+        var companyId = Guid.NewGuid();
+        var snapshot = CatalogTestSupport.CreateSnapshot(companyId);
+        snapshot.BusinessVertical = new CatalogSnapshotBusinessVertical
+        {
+            Code = "unexpected"
+        };
+
+        var action = () => CatalogSnapshotValidator.Validate(companyId, snapshot);
+
+        action.Should().Throw<CatalogSnapshotValidationException>()
+            .Where(exception =>
+                exception.Code == "catalog_snapshot_business_vertical_invalid");
+    }
+
+    [Fact]
     public async Task GetCategoriesAsync_PreservesPresentationMetadataAndLocalizedText()
     {
         var sourceCompanyId = Guid.NewGuid();

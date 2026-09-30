@@ -19,6 +19,38 @@ namespace GhseeliApis.Tests.Services.Catalog;
 public sealed class AvailabilityDiscoveryQueryServiceTests
 {
     [Fact]
+    [Trait("ScenarioId", "FAN-TAXONOMY-VERTICAL-SEARCH-003")]
+    public async Task SearchAsync_ForwardsGlobalBusinessVerticalFilter()
+    {
+        var business = CreateBusiness(99, "شركة", false, 0, 0);
+        var verticalId = Guid.NewGuid();
+        GetCatalogBusinessesRequest? captured = null;
+        var service = CreateService(
+            new CatalogBusinessesResponse
+            {
+                Language = "ar",
+                Businesses = [business]
+            },
+            [CreateProvider(business, 0)],
+            request => new AvailabilityDiscoveryResponse
+            {
+                Date = request.Date,
+                PreferredLocalTime = request.PreferredLocalTime,
+                GeneratedAtUtc = DateTime.UtcNow,
+                Results = [CreateResult(business, request.PreferredLocalTime)]
+            },
+            catalogRequestCaptured: request => captured = request);
+        var search = ValidRequest();
+        search.BusinessVerticalId = verticalId;
+
+        await service.SearchAsync(search, "ar", default);
+
+        captured.Should().NotBeNull();
+        captured!.BusinessVerticalId.Should().Be(verticalId);
+        captured.CategoryId.Should().BeNull();
+    }
+
+    [Fact]
     [Trait("ScenarioId", "FAN-AVAILABILITY-CUSTOMER-002")]
     public async Task SearchAsync_MergesFavouriteRatingsFallbackNamesAndFullOrderingChain()
     {
@@ -293,13 +325,16 @@ public sealed class AvailabilityDiscoveryQueryServiceTests
         CatalogBusinessesResponse catalog,
         IReadOnlyList<CatalogProviderReadModel> providers,
         Func<AvailabilityDiscoveryRequest, AvailabilityDiscoveryResponse> discover,
-        Mock<IBusinessApiClient>? suppliedClient = null)
+        Mock<IBusinessApiClient>? suppliedClient = null,
+        Action<GetCatalogBusinessesRequest>? catalogRequestCaptured = null)
     {
         var catalogService = new Mock<ICatalogReadModelService>();
         catalogService.Setup(value => value.GetBusinessesAsync(
                 It.IsAny<GetCatalogBusinessesRequest>(),
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
+            .Callback<GetCatalogBusinessesRequest, string?, CancellationToken>(
+                (request, _, _) => catalogRequestCaptured?.Invoke(request))
             .ReturnsAsync(catalog);
         var repository = new Mock<ICatalogReadModelRepository>();
         repository.Setup(value => value.GetEnabledProvidersWithGraphAsync(

@@ -190,10 +190,8 @@ public class TimeZoneAvailabilityResolver : ITimeZoneAvailabilityResolver
 
             var slotDuration = TimeSpan.FromMinutes(window.SlotDurationMinutes);
             var startOffset = localStart - window.StartLocalDateTime;
-            var appointmentDuration = localEnd - localStart;
 
-            if (appointmentDuration.Ticks % slotDuration.Ticks != 0 ||
-                startOffset.Ticks % slotDuration.Ticks != 0)
+            if (startOffset.Ticks % slotDuration.Ticks != 0)
             {
                 misaligned = true;
                 continue;

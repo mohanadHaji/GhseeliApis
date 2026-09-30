@@ -122,13 +122,29 @@ public class TimeZoneAvailabilityResolverTests
     }
 
     [Fact]
-    public void Resolve_WhenDurationDoesNotAlignToSlotBoundary_ReturnsSlotMisaligned()
+    public void Resolve_WhenDurationEndsBetweenStartIntervals_ReturnsAvailable()
     {
         var branch = CreateBranch();
 
         var result = _resolver.Resolve(
             branch,
             new DateTime(2026, 8, 24, 9, 0, 0, DateTimeKind.Utc),
+            20);
+
+        result.IsValid.Should().BeTrue();
+        result.Facts.IsAvailable.Should().BeTrue();
+        result.Facts.RequestedSlotEndUtc.Should().Be(
+            new DateTime(2026, 8, 24, 9, 20, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void Resolve_WhenStartDoesNotAlignToSlotBoundary_ReturnsSlotMisaligned()
+    {
+        var branch = CreateBranch();
+
+        var result = _resolver.Resolve(
+            branch,
+            new DateTime(2026, 8, 24, 9, 5, 0, DateTimeKind.Utc),
             20);
 
         result.IsValid.Should().BeFalse();

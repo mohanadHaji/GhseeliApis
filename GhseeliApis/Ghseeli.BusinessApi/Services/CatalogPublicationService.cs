@@ -30,6 +30,10 @@ public class CatalogPublicationService : ICatalogPublicationService
             .OrderBy(category => category.DisplayOrder)
             .ThenBy(category => category.NameAr)
             .ToArray();
+        var businessVertical = company.BusinessVerticals
+            .Where(assignment => assignment.IsActive && assignment.IsPrimary)
+            .Select(assignment => assignment.BusinessVertical)
+            .Single(vertical => vertical.IsActive);
         var publishedServiceAreas = activeBranches
             .Select(CreateSnapshotServiceArea)
             .Where(serviceArea => serviceArea is not null)
@@ -41,6 +45,17 @@ public class CatalogPublicationService : ICatalogPublicationService
             ContractVersion = BusinessCatalogContract.Version,
             CatalogVersion = company.CatalogVersion,
             GeneratedAtUtc = DateTime.UtcNow,
+            BusinessVertical = new CatalogSnapshotBusinessVertical
+            {
+                Id = businessVertical.Id,
+                Code = businessVertical.Code,
+                NameAr = businessVertical.NameAr,
+                NameHe = businessVertical.NameHe,
+                ImageUrl = businessVertical.ImageUrl,
+                ColorHex = businessVertical.ColorHex,
+                BadgeCode = businessVertical.BadgeCode,
+                DisplayOrder = businessVertical.DisplayOrder
+            },
             Company = new CatalogSnapshotCompany
             {
                 Id = company.Id,

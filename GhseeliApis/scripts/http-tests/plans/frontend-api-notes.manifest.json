@@ -321,6 +321,18 @@
             "exists": true
           },
           {
+            "path": "$.paths['/api/v1/catalog/business-verticals'].get",
+            "exists": true
+          },
+          {
+            "path": "$.components.schemas.AvailabilitySearchRequest.properties.businessVerticalId",
+            "exists": true
+          },
+          {
+            "path": "$.components.schemas.CatalogBusinessResponse.properties.businessVertical",
+            "exists": true
+          },
+          {
             "path": "$.paths['/api/v1/catalog/businesses/availability-search'].post",
             "exists": true
           },
@@ -922,6 +934,229 @@
           "exception"
         ],
         "errorCode": "https_required"
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-LIST-001",
+      "planScenarioId": "FAN-TAXONOMY-LIST-001",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "catalog", "public", "live", "current-slice"],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/business-verticals?language=ar",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.language", "equals": "ar" },
+          { "path": "$.businessVerticals[0].id", "equals": "a842f536-17b7-4be6-a18d-1bdc6245094c" },
+          { "path": "$.businessVerticals[0].code", "equals": "car_wash" },
+          { "path": "$.businessVerticals[0].displayOrder", "equals": 1 }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-BUSINESSES-002",
+      "planScenarioId": "FAN-TAXONOMY-BUSINESSES-002",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "catalog", "public", "live", "current-slice"],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses?businessVerticalId=a842f536-17b7-4be6-a18d-1bdc6245094c&language=ar",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.businesses[0].businessVertical.id", "equals": "a842f536-17b7-4be6-a18d-1bdc6245094c" },
+          { "path": "$.businesses[0].businessVertical.code", "equals": "car_wash" }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-CATEGORIES-003",
+      "planScenarioId": "FAN-TAXONOMY-CATEGORIES-003",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "catalog", "public", "live", "current-slice"],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/categories?businessId=118207ce-9bf0-2085-7a7e-16a3f45aad03&language=ar",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.categories[0].business.id", "equals": "118207ce-9bf0-2085-7a7e-16a3f45aad03" },
+          { "path": "$.categories[0].business.businessVertical.id", "equals": "a842f536-17b7-4be6-a18d-1bdc6245094c" }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-OFFERINGS-004",
+      "planScenarioId": "FAN-TAXONOMY-OFFERINGS-004",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "catalog", "public", "live", "current-slice"],
+      "method": "GET",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/118207ce-9bf0-2085-7a7e-16a3f45aad03/offerings?language=ar",
+      "headers": { "Accept": "application/json" },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.business.businessVertical.id", "equals": "a842f536-17b7-4be6-a18d-1bdc6245094c" },
+          { "path": "$.offerings[0].category.id", "exists": true },
+          { "path": "$.offerings[0].business.businessVertical.code", "equals": "car_wash" }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-AVAILABILITY-005",
+      "planScenarioId": "FAN-TAXONOMY-AVAILABILITY-005",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "vehicleType": "Sedan",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "13:30:00",
+        "businessVerticalId": "a842f536-17b7-4be6-a18d-1bdc6245094c",
+        "latitude": 31.9038,
+        "longitude": 35.2034
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.isAdvisory", "equals": true },
+          { "path": "$.results[0].businessId", "equals": "118207ce-9bf0-2085-7a7e-16a3f45aad03" },
+          { "path": "$.results[0].slotStartLocal", "exists": true }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-SUBCATEGORY-006",
+      "planScenarioId": "FAN-TAXONOMY-SUBCATEGORY-006",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "vehicleType": "Sedan",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "13:30:00",
+        "categoryId": "53c2ebb5-b1d9-c11e-c3cc-d0ff88a5a79e",
+        "latitude": 31.9038,
+        "longitude": 35.2034
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.results[0].businessId", "equals": "118207ce-9bf0-2085-7a7e-16a3f45aad03" }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-TIME-007",
+      "planScenarioId": "FAN-TAXONOMY-TIME-007",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "validation", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "vehicleType": "Sedan",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "13:30",
+        "businessVerticalId": "a842f536-17b7-4be6-a18d-1bdc6245094c"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "errorCode": "preferred_local_time_invalid",
+        "json": [
+          { "path": "$.fieldErrors.preferredLocalTime[0]", "equals": "preferred_local_time_invalid" }
+        ]
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-VERTICAL-008",
+      "planScenarioId": "FAN-TAXONOMY-VERTICAL-008",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "validation", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "vehicleType": "Sedan",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "13:30:00",
+        "businessVerticalId": "00000000-0000-0000-0000-000000000000"
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "errorCode": "business_vertical_invalid"
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-MISMATCH-009",
+      "planScenarioId": "FAN-TAXONOMY-MISMATCH-009",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "validation", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/availability-search?language=ar",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "vehicleType": "Sedan",
+        "date": "{{var:availabilityDate}}",
+        "preferredLocalTime": "13:30:00",
+        "businessVerticalId": "11111111-1111-1111-1111-111111111111",
+        "categoryId": "53c2ebb5-b1d9-c11e-c3cc-d0ff88a5a79e",
+        "latitude": 31.9038,
+        "longitude": 35.2034
+      },
+      "expect": {
+        "status": 400,
+        "contentType": "application/problem+json",
+        "errorCode": "catalog_filter_mismatch"
+      }
+    },
+    {
+      "id": "FAN-TAXONOMY-SLOTS-010",
+      "planScenarioId": "FAN-TAXONOMY-SLOTS-010",
+      "feature": "frontend-api-notes",
+      "tags": ["taxonomy", "availability", "pricing", "public", "live", "current-slice"],
+      "method": "POST",
+      "url": "{{var:customerBaseUrl}}/api/v1/catalog/businesses/118207ce-9bf0-2085-7a7e-16a3f45aad03/branches/8a2c8408-6624-d18c-d0e5-e3243b61d3dc/available-slots",
+      "headers": { "Accept": "application/json", "Content-Type": "application/json" },
+      "jsonBody": {
+        "date": "{{var:availabilityDate}}",
+        "expectedCatalogVersion": 11,
+        "customerLocation": { "latitude": 31.9038, "longitude": 35.2034 },
+        "items": [
+          {
+            "offeringId": "8cbdfc8d-31b7-f7a0-6277-5040fbcd62a0",
+            "selectedAddons": [
+              {
+                "addonChoiceId": "491f5448-a406-d8e5-994f-0d94d98cb9c2",
+                "quantity": 1
+              }
+            ]
+          }
+        ],
+        "includeUnavailable": true,
+        "language": "ar"
+      },
+      "expect": {
+        "status": 200,
+        "contentType": "application/json",
+        "json": [
+          { "path": "$.totalDurationMinutes", "equals": 25 },
+          { "path": "$.slots[0].startUtc", "exists": true },
+          { "path": "$.slots[0].endUtc", "exists": true }
+        ]
       }
     },
     {

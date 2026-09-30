@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Ghseeli.BusinessApi.Constants;
 using Ghseeli.BusinessApi.DataPartitioning;
 using Ghseeli.BusinessApi.Models;
 using Ghseeli.BusinessApi.Persistence;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
+using Ghseeli.IntegrationContracts.InternalHttp;
 using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.Constants;
 using GhseeliApis.DataPartitioning;
@@ -36,6 +38,9 @@ public sealed record DemoCleanupResult(
 
 public static class DemoDatabaseSeeder
 {
+    private static readonly JsonSerializerOptions CatalogJsonOptions =
+        BusinessCatalogContract.CreateJsonSerializerOptions();
+
     public static async Task<DemoSeedResult> SeedAsync(
         string customerConnectionString,
         string businessConnectionString,
@@ -112,6 +117,20 @@ public static class DemoDatabaseSeeder
         else
         {
             var refreshedAt = DateTimeOffset.UtcNow;
+            var carWash = await business.BusinessVerticals
+                .SingleAsync(
+                    vertical => vertical.Id == BusinessVerticalDefaults.CarWashId,
+                    cancellationToken);
+            carWash.Code = BusinessVerticalDefaults.CarWashCode;
+            carWash.NameAr = BusinessVerticalSnapshotDefaults.CarWashNameAr;
+            carWash.NameHe = BusinessVerticalSnapshotDefaults.CarWashNameHe;
+            carWash.ImageUrl = BusinessVerticalDefaults.CarWashImageUrl;
+            carWash.ColorHex = BusinessVerticalDefaults.CarWashColorHex;
+            carWash.BadgeCode = null;
+            carWash.DisplayOrder = BusinessVerticalDefaults.CarWashDisplayOrder;
+            carWash.IsActive = true;
+            carWash.RegistrationEnabled = true;
+
             var demoProviderSourceIds = data.Companies.Select(company => company.Id).ToArray();
             var providers = await customer.CatalogProviders
                 .Where(provider => demoProviderSourceIds.Contains(provider.SourceCompanyId))
@@ -121,11 +140,36 @@ public static class DemoDatabaseSeeder
                 var company = data.Companies.Single(value => value.Id == provider.SourceCompanyId);
                 provider.IsEnabled = true;
                 provider.DisplayOrder = data.Companies.IndexOf(company) + 1;
+                provider.BusinessVerticalId = BusinessVerticalSnapshotDefaults.CarWashId;
+                provider.BusinessVerticalCode = BusinessVerticalSnapshotDefaults.CarWashCode;
+                provider.BusinessVerticalNameAr = BusinessVerticalSnapshotDefaults.CarWashNameAr;
+                provider.BusinessVerticalNameHe = BusinessVerticalSnapshotDefaults.CarWashNameHe;
+                provider.BusinessVerticalImageUrl =
+                    BusinessVerticalSnapshotDefaults.CarWashImageUrl;
+                provider.BusinessVerticalColorHex =
+                    BusinessVerticalSnapshotDefaults.CarWashColorHex;
+                provider.BusinessVerticalBadgeCode = null;
+                provider.BusinessVerticalDisplayOrder =
+                    BusinessVerticalSnapshotDefaults.CarWashDisplayOrder;
                 provider.SnapshotGeneratedAtUtc = refreshedAt;
                 provider.LastSuccessfulRefreshAtUtc = refreshedAt;
                 provider.LastAttemptedRefreshAtUtc = refreshedAt;
                 provider.LastFailedRefreshAtUtc = null;
                 provider.LastFailureCode = null;
+            }
+
+            var branchesById = data.Companies
+                .SelectMany(company => company.Branches)
+                .ToDictionary(branch => branch.Id);
+            var branchIds = branchesById.Keys.ToArray();
+            var customerBranches = await customer.CatalogBranches
+                .Where(branch => branchIds.Contains(branch.SourceBranchId))
+                .ToListAsync(cancellationToken);
+            foreach (var branch in customerBranches)
+            {
+                branch.AvailabilitySnapshotJson = CreateAvailabilitySnapshotJson(
+                    branchesById[branch.SourceBranchId],
+                    data.Metadata.GeneratedAtUtc);
             }
 
             var offeringsById = data.Companies
@@ -735,7 +779,14 @@ public static class DemoDatabaseSeeder
             {
                 Id = providerId,
                 SourceCompanyId = company.Id,
+                BusinessVerticalId = BusinessVerticalSnapshotDefaults.CarWashId,
                 BusinessVerticalCode = BusinessVerticalSnapshotDefaults.CarWashCode,
+                BusinessVerticalNameAr = BusinessVerticalSnapshotDefaults.CarWashNameAr,
+                BusinessVerticalNameHe = BusinessVerticalSnapshotDefaults.CarWashNameHe,
+                BusinessVerticalImageUrl = BusinessVerticalSnapshotDefaults.CarWashImageUrl,
+                BusinessVerticalColorHex = BusinessVerticalSnapshotDefaults.CarWashColorHex,
+                BusinessVerticalDisplayOrder =
+                    BusinessVerticalSnapshotDefaults.CarWashDisplayOrder,
                 IsEnabled = true,
                 DisplayOrder = data.Companies.IndexOf(company) + 1,
                 NameAr = company.NameAr,
@@ -765,7 +816,7 @@ public static class DemoDatabaseSeeder
                 ServiceAreaCenterLatitude = branch.Latitude,
                 ServiceAreaCenterLongitude = branch.Longitude,
                 ServiceAreaRadiusKm = branch.ServiceRadiusKm,
-                AvailabilitySnapshotJson = "{\"datasetType\":\"demo\",\"slotDurationMinutes\":30,\"capacity\":3}",
+                AvailabilitySnapshotJson = CreateAvailabilitySnapshotJson(branch, now),
                 DisplayOrder = index + 1
             }));
             context.CatalogCategories.AddRange(company.Categories.Select((category, index) => new CatalogCategoryReadModel
@@ -1019,6 +1070,40 @@ public static class DemoDatabaseSeeder
         }
 
         await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private static string CreateAvailabilitySnapshotJson(
+        DemoBranch branch,
+        DateTimeOffset generatedAtUtc)
+    {
+        var availability = new CatalogSnapshotBranchAvailability
+        {
+            IsActive = true,
+            TimeZoneId = branch.TimeZoneId,
+            MinimumLeadMinutes = 60,
+            BookingHorizonDays = 30,
+            RecurringSchedules = Enumerable.Range(0, 6)
+                .Select(day => new CatalogSnapshotRecurringSchedule
+                {
+                    DayOfWeek = (DayOfWeek)day,
+                    StartLocalTime = TimeSpan.FromHours(day == 5 ? 9 : 8),
+                    EndLocalTime = TimeSpan.FromHours(day == 5 ? 15 : 18),
+                    SlotDurationMinutes = 30,
+                    Capacity = 3
+                })
+                .ToArray(),
+            AvailabilityOverrides =
+            [
+                new CatalogSnapshotAvailabilityOverride
+                {
+                    OverrideDate = DateOnly.FromDateTime(
+                        generatedAtUtc.UtcDateTime.AddDays(21)),
+                    IsClosed = true
+                }
+            ]
+        };
+
+        return JsonSerializer.Serialize(availability, CatalogJsonOptions);
     }
 
     private static async Task ReconcileBannersAsync(

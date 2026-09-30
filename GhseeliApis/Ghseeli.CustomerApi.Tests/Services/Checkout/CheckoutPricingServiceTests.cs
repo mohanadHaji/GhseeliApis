@@ -22,6 +22,32 @@ namespace GhseeliApis.Tests.Services.Checkout;
 public class CheckoutPricingServiceTests
 {
     [Fact]
+    public async Task RepriceAsync_WhenDurationEndsBetweenStartIntervals_Succeeds()
+    {
+        var snapshot = CatalogTestSupport.CreateSnapshot(
+            Guid.NewGuid(),
+            version: 8,
+            availability: CreateAvailability(slotDurationMinutes: 30));
+        var offering = snapshot.Categories.Single().Offerings.Single();
+        offering.DurationMinutes = 25;
+        offering.AddonGroups.Single().Choices.Single().DurationAdjustmentMinutes = 0;
+        await using var harness = await CreateHarnessAsync(snapshot);
+
+        var response = await harness.PricingService.RepriceAsync(
+            CheckoutDraftTestSupport.CreateValidCreateRequest(
+                snapshot,
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero)),
+            harness.DeviceId,
+            requestedLanguage: "ar",
+            acceptLanguageHeader: "ar",
+            CancellationToken.None);
+
+        response.Pricing.TotalDurationMinutes.Should().Be(25);
+        response.Intent.RequestedSlotStartUtc.Should().Be(
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
     public async Task RepriceAsync_WhenValidMultipleItems_ComputesTotalsAndDoesNotPersist()
     {
         var snapshot = CreateTwoOfferingSnapshot(Guid.NewGuid());

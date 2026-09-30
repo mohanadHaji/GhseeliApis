@@ -17,6 +17,11 @@ namespace GhseeliApis.Services.Catalog;
 
 public interface ICatalogReadModelService
 {
+    Task<CatalogBusinessVerticalsResponse> GetBusinessVerticalsAsync(
+        GetBusinessVerticalsRequest request,
+        string? acceptLanguageHeader,
+        CancellationToken cancellationToken);
+
     Task<CatalogCategoriesResponse> GetCategoriesAsync(
         GetCatalogCategoriesRequest request,
         string? acceptLanguageHeader,
@@ -94,6 +99,38 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
         _favouriteRepository = favouriteRepository;
         _reviewRepository = reviewRepository;
         _httpContextAccessor = httpContextAccessor;
+    }
+
+    public async Task<CatalogBusinessVerticalsResponse> GetBusinessVerticalsAsync(
+        GetBusinessVerticalsRequest request,
+        string? acceptLanguageHeader,
+        CancellationToken cancellationToken)
+    {
+        var language = ResolveLanguage(request.Language, acceptLanguageHeader);
+        await SynchronizeConfiguredProvidersAsync(cancellationToken);
+        var providers = await _repository.ListEnabledProviderSummariesAsync(cancellationToken);
+
+        foreach (var provider in providers)
+        {
+            await EnsureProviderUsableAsync(provider, forceRefresh: false, cancellationToken);
+        }
+
+        var refreshedProviders = await _repository.ListEnabledProviderSummariesAsync(
+            cancellationToken);
+        return new CatalogBusinessVerticalsResponse
+        {
+            Language = language,
+            BusinessVerticals = refreshedProviders
+                .GroupBy(provider => provider.BusinessVerticalId)
+                .Select(group => group
+                    .OrderBy(provider => provider.BusinessVerticalDisplayOrder)
+                    .ThenBy(provider => provider.BusinessVerticalCode)
+                    .First())
+                .OrderBy(provider => provider.BusinessVerticalDisplayOrder)
+                .ThenBy(provider => provider.BusinessVerticalCode)
+                .Select(provider => MapBusinessVertical(provider, language))
+                .ToArray()
+        };
     }
 
     public async Task<CatalogCategoriesResponse> GetCategoriesAsync(
@@ -187,6 +224,18 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             branchSummary is not null || !request.BranchId.HasValue,
             categorySummary is not null || !request.CategoryId.HasValue);
 
+        if (categorySummary is not null && request.BusinessVerticalId.HasValue)
+        {
+            var categoryProvider = await _repository.GetEnabledProviderSummaryAsync(
+                categorySummary.ProviderId,
+                cancellationToken);
+            if (categoryProvider is null ||
+                categoryProvider.BusinessVerticalId != request.BusinessVerticalId.Value)
+            {
+                throw CreateFilterMismatch();
+            }
+        }
+
         IReadOnlyCollection<Guid> providerIds;
         if (branchSummary is not null)
         {
@@ -263,6 +312,9 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
                 request.CategoryId))
             .Where(projection => projection is not null)
             .Select(projection => projection!)
+            .Where(projection =>
+                !request.BusinessVerticalId.HasValue ||
+                projection.Provider.BusinessVerticalId == request.BusinessVerticalId.Value)
             .Where(projection =>
                 normalizedSearch is null ||
                 ContainsNormalized(projection.Provider.NameAr, normalizedSearch) ||
@@ -630,6 +682,7 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             IsFavourite = projectionState.IsFavourite,
             AverageRating = projectionState.AverageRating,
             RatingCount = projectionState.RatingCount,
+            BusinessVertical = MapBusinessVertical(provider, language),
             Catalog = MapMetadata(provider),
             Branches = visibleBranches
                 .OrderBy(branch => branch.DisplayOrder)
@@ -652,9 +705,27 @@ public sealed class CatalogReadModelService : ICatalogReadModelService
             IsFavourite = projectionState.IsFavourite,
             AverageRating = projectionState.AverageRating,
             RatingCount = projectionState.RatingCount,
+            BusinessVertical = MapBusinessVertical(provider, language),
             Catalog = MapMetadata(provider)
         };
     }
+
+    private static CatalogBusinessVerticalResponse MapBusinessVertical(
+        CatalogProviderReadModel provider,
+        string language) =>
+        new()
+        {
+            Id = provider.BusinessVerticalId,
+            Code = provider.BusinessVerticalCode,
+            Name = SelectLocalizedText(
+                language,
+                provider.BusinessVerticalNameAr,
+                provider.BusinessVerticalNameHe),
+            ImageUrl = provider.BusinessVerticalImageUrl,
+            ColorHex = provider.BusinessVerticalColorHex,
+            BadgeCode = provider.BusinessVerticalBadgeCode,
+            DisplayOrder = provider.BusinessVerticalDisplayOrder
+        };
 
     private CatalogBranchResponse MapBranch(
         string language,
@@ -957,6 +1028,8 @@ internal static class CatalogSnapshotValidator
 {
     public static void Validate(Guid expectedCompanyId, CatalogSnapshotResponse snapshot)
     {
+        NormalizeLegacyBusinessVertical(snapshot);
+
         if (!string.Equals(
                 snapshot.ContractVersion,
                 Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
@@ -972,6 +1045,18 @@ internal static class CatalogSnapshotValidator
             throw new CatalogSnapshotValidationException(
                 "catalog_snapshot_company_mismatch",
                 "The catalog snapshot company does not match the configured provider.");
+        }
+
+        if (snapshot.BusinessVertical.Id == Guid.Empty ||
+            string.IsNullOrWhiteSpace(snapshot.BusinessVertical.Code) ||
+            string.IsNullOrWhiteSpace(snapshot.BusinessVertical.NameAr) ||
+            snapshot.BusinessVertical.DisplayOrder < 0 ||
+            !IsValidHttpsUrl(snapshot.BusinessVertical.ImageUrl) ||
+            !IsValidColorHex(snapshot.BusinessVertical.ColorHex))
+        {
+            throw new CatalogSnapshotValidationException(
+                "catalog_snapshot_business_vertical_invalid",
+                "The catalog snapshot business vertical is invalid.");
         }
 
         EnsureUnique(
@@ -1043,6 +1128,34 @@ internal static class CatalogSnapshotValidator
         }
     }
 
+    private static void NormalizeLegacyBusinessVertical(CatalogSnapshotResponse snapshot)
+    {
+        var businessVertical = snapshot.BusinessVertical;
+        if (businessVertical.Id != Guid.Empty ||
+            !string.IsNullOrWhiteSpace(businessVertical.Code) ||
+            !string.IsNullOrWhiteSpace(businessVertical.NameAr) ||
+            !string.IsNullOrWhiteSpace(businessVertical.NameHe) ||
+            !string.IsNullOrWhiteSpace(businessVertical.ImageUrl) ||
+            !string.IsNullOrWhiteSpace(businessVertical.ColorHex) ||
+            !string.IsNullOrWhiteSpace(businessVertical.BadgeCode) ||
+            businessVertical.DisplayOrder != 0)
+        {
+            return;
+        }
+
+        snapshot.BusinessVertical = new CatalogSnapshotBusinessVertical
+        {
+            Id = BusinessVerticalSnapshotDefaults.CarWashId,
+            Code = BusinessVerticalSnapshotDefaults.CarWashCode,
+            NameAr = BusinessVerticalSnapshotDefaults.CarWashNameAr,
+            NameHe = BusinessVerticalSnapshotDefaults.CarWashNameHe,
+            ImageUrl = BusinessVerticalSnapshotDefaults.CarWashImageUrl,
+            ColorHex = BusinessVerticalSnapshotDefaults.CarWashColorHex,
+            BadgeCode = null,
+            DisplayOrder = BusinessVerticalSnapshotDefaults.CarWashDisplayOrder
+        };
+    }
+
     private static void EnsureUnique(
         IEnumerable<Guid> values,
         string code)
@@ -1091,6 +1204,17 @@ internal static class CatalogSnapshotHasher
         {
             snapshot.ContractVersion,
             snapshot.CatalogVersion,
+            BusinessVertical = new
+            {
+                snapshot.BusinessVertical.Id,
+                snapshot.BusinessVertical.Code,
+                snapshot.BusinessVertical.NameAr,
+                snapshot.BusinessVertical.NameHe,
+                snapshot.BusinessVertical.ImageUrl,
+                snapshot.BusinessVertical.ColorHex,
+                snapshot.BusinessVertical.BadgeCode,
+                snapshot.BusinessVertical.DisplayOrder
+            },
             Company = new
             {
                 snapshot.Company.Id,

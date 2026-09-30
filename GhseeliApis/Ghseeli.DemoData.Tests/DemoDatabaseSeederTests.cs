@@ -50,6 +50,7 @@ public sealed class DemoDatabaseSeederTests
             await ClearOfferingMetadataAsync(customerConnection, "CatalogOfferings");
             await ClearCategoryMetadataAsync(businessConnection, "ServiceCategories");
             await ClearCategoryMetadataAsync(customerConnection, "CatalogCategories");
+            await CorruptAvailabilitySnapshotsAsync(customerConnection);
             var second = await DemoDatabaseSeeder.SeedAsync(customerConnection, businessConnection);
             var third = await DemoDatabaseSeeder.SeedAsync(customerConnection, businessConnection);
 
@@ -64,6 +65,8 @@ public sealed class DemoDatabaseSeederTests
 
             await AssertOfferingMetadataParityAsync(customerConnection, businessConnection);
             await AssertCategoryMetadataParityAsync(customerConnection, businessConnection);
+            await AssertBusinessVerticalHierarchyAsync(customerConnection, businessConnection);
+            await AssertAvailabilitySnapshotsAsync(customerConnection);
             await AssertCustomerCatalogLocalIdsAreDistinctFromSourceIdsAsync(customerConnection);
             await AssertFavouriteReconciliationAsync(
                 customerConnection,
@@ -432,6 +435,92 @@ public sealed class DemoDatabaseSeederTests
             Assert.Equal(expected, businessMetadata[category.Id]);
             Assert.Equal(expected, customerMetadata[category.Id]);
         }
+    }
+
+    private static async Task AssertBusinessVerticalHierarchyAsync(
+        string customerConnection,
+        string businessConnection)
+    {
+        await using (var connection = new SqlConnection(businessConnection))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT CONCAT(
+                    COUNT(*), '|',
+                    MAX([Code]), '|',
+                    MAX([ColorHex]), '|',
+                    MAX([DisplayOrder]))
+                FROM [BusinessVerticals]
+                WHERE [Id] = 'A842F536-17B7-4BE6-A18D-1BDC6245094C'
+                """;
+            Assert.Equal("1|car_wash|#1A73E8|1", await command.ExecuteScalarAsync());
+
+            command.CommandText =
+                """
+                SELECT COUNT(*)
+                FROM [ServiceCategories]
+                WHERE [BusinessVerticalId] <> 'A842F536-17B7-4BE6-A18D-1BDC6245094C'
+                """;
+            Assert.Equal(0, Convert.ToInt32(await command.ExecuteScalarAsync()));
+        }
+
+        await using (var connection = new SqlConnection(customerConnection))
+        {
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                """
+                SELECT COUNT(*)
+                FROM [CatalogProviders]
+                WHERE [BusinessVerticalId] <> 'A842F536-17B7-4BE6-A18D-1BDC6245094C'
+                   OR [BusinessVerticalCode] <> N'car_wash'
+                   OR [BusinessVerticalColorHex] <> N'#1A73E8'
+                   OR [BusinessVerticalDisplayOrder] <> 1
+                """;
+            Assert.Equal(0, Convert.ToInt32(await command.ExecuteScalarAsync()));
+        }
+    }
+
+    private static async Task CorruptAvailabilitySnapshotsAsync(
+        string customerConnection)
+    {
+        await using var connection = new SqlConnection(customerConnection);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            UPDATE [CatalogBranches]
+            SET [AvailabilitySnapshotJson] =
+                N'{"datasetType":"demo","slotDurationMinutes":30,"capacity":3}'
+            """;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static async Task AssertAvailabilitySnapshotsAsync(
+        string customerConnection)
+    {
+        await using var connection = new SqlConnection(customerConnection);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT COUNT(*)
+            FROM [CatalogBranches]
+            WHERE JSON_VALUE([AvailabilitySnapshotJson], '$.isActive') <> N'true'
+               OR JSON_VALUE([AvailabilitySnapshotJson], '$.timeZoneId') <> N'Asia/Jerusalem'
+               OR JSON_VALUE([AvailabilitySnapshotJson], '$.minimumLeadMinutes') <> N'60'
+               OR JSON_VALUE([AvailabilitySnapshotJson], '$.bookingHorizonDays') <> N'30'
+               OR (
+                    SELECT COUNT(*)
+                    FROM OPENJSON(
+                        JSON_QUERY(
+                            [CatalogBranches].[AvailabilitySnapshotJson],
+                            '$.recurringSchedules'))
+                  ) <> 6
+            """;
+        Assert.Equal(0, Convert.ToInt32(await command.ExecuteScalarAsync()));
     }
 
     private static async Task<Dictionary<Guid, (string? ImageUrl, string? ColorHex)>>

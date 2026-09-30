@@ -13,6 +13,8 @@ repository root [`README.md`](../README.md).
   `.github/workflows/deploy-monsterasp.yml`.
 - The deployed Customer and Business schemas are current through the frontend
   vehicle, category, review, favourite, and banner migrations as of 2026-09-27.
+  The 2026-09-30 main-category taxonomy migrations are implemented and
+  validated locally but not deployed yet.
 - The deterministic frontend dataset is deployed in a trusted `IsDemo=true`
   partition inside the hosted databases.
 - Production and Demo records are mutually filtered.
@@ -20,9 +22,9 @@ repository root [`README.md`](../README.md).
   `DemoData:PublicApisOnly=true` makes configuration, direct pricing, and
   public catalog discovery/reviews/availability credential-free and Demo-only.
   Customer-owned mutations and transactional routes remain authenticated.
-- Current verified automated baseline: **2,343 passed, 0 failed, 0 skipped**.
-- Customer tests: 1,631.
-- Business tests: 686.
+- Current verified automated baseline: **2,355 passed, 0 failed, 0 skipped**.
+- Customer tests: 1,641.
+- Business tests: 688.
 - Demo-data tests: 26.
 - Release build: 0 warnings and 0 errors.
 - Frontend-notes hosted smoke: **61 passed, 0 failed, 1 safely skipped**.
@@ -30,6 +32,10 @@ repository root [`README.md`](../README.md).
   validation, migrations, publishing, and both API health checks.
 - Hosted Demo seed run `36401665318` reconciled the canonical Demo dataset and
   deterministic Development configuration.
+- Pending deployment slice: global Business Vertical main categories,
+  business-owned Service Category subcategories, complete seeded availability
+  projection reconciliation, precise availability validation errors, and
+  25-minute services on 30-minute start intervals.
 
 ## Production-readiness ledger
 
@@ -215,6 +221,12 @@ These become blockers only when the chosen frontend/product requires them:
 - Guarded hosted Demo seeding with exact confirmation.
 - Deterministic cleanup for local Demo databases.
 - Frontend Demo handoff and canonical JSON fixture.
+- Global Business Vertical main categories with business-owned Service
+  Category subcategories. Only the canonical Car Washing vertical is currently
+  seeded.
+- Deterministic reconciliation of complete Customer branch-availability
+  snapshots so repeated Development seeding repairs stale projections without
+  duplicates.
 
 ## Known gaps and future improvements
 
@@ -245,6 +257,9 @@ that they exist from old models, plans, or comments.
   disabled with stable reason codes.
 - There is no customer-facing refund-initiation workflow. Current payment code
   safely processes provider refund events.
+- Only Car Washing is currently seeded as a global main category. Additional
+  verticals require real catalog, availability, pricing, and fixture behavior
+  before the frontend should expose them.
 
 ### Business product surface
 

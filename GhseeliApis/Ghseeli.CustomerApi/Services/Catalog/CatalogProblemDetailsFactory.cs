@@ -38,6 +38,12 @@ internal static class CatalogProblemDetailsFactory
             ConfigurationProblemCodes.LanguageInvalid => LocalizeDetail(code, language),
             CatalogProblemCodes.FilterMismatch => LocalizeDetail(code, language),
             CatalogProblemCodes.TopInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.VehicleTypeInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.DateInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.PreferredLocalTimeInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.BusinessVerticalInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.CategoryInvalid => LocalizeDetail(code, language),
+            CatalogProblemCodes.LocationInvalid => LocalizeDetail(code, language),
             _ => LocalizeDetail(CatalogProblemCodes.Unavailable, language)
         };
 
@@ -73,6 +79,30 @@ internal static class CatalogProblemDetailsFactory
                 "הערך top חייב להיות 5 או 10.",
             (CatalogProblemCodes.TopInvalid, _) =>
                 "يجب أن تكون قيمة top إما 5 أو 10.",
+            (CatalogProblemCodes.VehicleTypeInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "סוג הרכב שסופק אינו תקין.",
+            (CatalogProblemCodes.VehicleTypeInvalid, _) =>
+                "نوع المركبة المقدم غير صالح.",
+            (CatalogProblemCodes.DateInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "תאריך החיפוש שסופק אינו תקין.",
+            (CatalogProblemCodes.DateInvalid, _) =>
+                "تاريخ البحث المقدم غير صالح.",
+            (CatalogProblemCodes.PreferredLocalTimeInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "השעה המקומית המועדפת אינה תקינה. יש להשתמש בפורמט HH:mm:ss.",
+            (CatalogProblemCodes.PreferredLocalTimeInvalid, _) =>
+                "الوقت المحلي المفضل غير صالح. استخدم التنسيق HH:mm:ss.",
+            (CatalogProblemCodes.BusinessVerticalInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "מזהה הקטגוריה הראשית אינו תקין.",
+            (CatalogProblemCodes.BusinessVerticalInvalid, _) =>
+                "معرف الفئة الرئيسية غير صالح.",
+            (CatalogProblemCodes.CategoryInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "מזהה קטגוריית המשנה אינו תקין.",
+            (CatalogProblemCodes.CategoryInvalid, _) =>
+                "معرف الفئة الفرعية غير صالح.",
+            (CatalogProblemCodes.LocationInvalid, ConfigurationLanguageResolver.Hebrew) =>
+                "פרטי המיקום שסופקו אינם תקינים.",
+            (CatalogProblemCodes.LocationInvalid, _) =>
+                "بيانات الموقع المقدمة غير صالحة.",
             (CatalogProblemCodes.StaleVersion, ConfigurationLanguageResolver.Hebrew) =>
                 "קטלוג השירותים השתנה. יש לרענן ולנסות שוב.",
             (CatalogProblemCodes.StaleVersion, _) =>

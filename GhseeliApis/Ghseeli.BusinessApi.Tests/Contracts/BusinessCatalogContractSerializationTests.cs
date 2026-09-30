@@ -119,6 +119,13 @@ public class BusinessCatalogContractSerializationTests
         var response = new CatalogSnapshotResponse
         {
             GeneratedAtUtc = new DateTime(2026, 8, 24, 9, 30, 0, DateTimeKind.Utc),
+            BusinessVertical = new CatalogSnapshotBusinessVertical
+            {
+                Id = Guid.Parse("a842f536-17b7-4be6-a18d-1bdc6245094c"),
+                Code = "car_wash",
+                NameAr = "غسيل السيارات",
+                DisplayOrder = 1
+            },
             Company = new CatalogSnapshotCompany
             {
                 Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
@@ -133,6 +140,8 @@ public class BusinessCatalogContractSerializationTests
         contractVersion.GetString().Should().Be(BusinessCatalogContract.Version);
         document.RootElement.TryGetProperty("generatedAtUtc", out var generatedAtUtc).Should().BeTrue();
         generatedAtUtc.GetDateTime().Should().Be(response.GeneratedAtUtc);
+        document.RootElement.GetProperty("businessVertical").GetProperty("code").GetString()
+            .Should().Be("car_wash");
         document.RootElement.GetProperty("company").TryGetProperty("nameHe", out var nameHe).Should().BeTrue();
         nameHe.ValueKind.Should().Be(JsonValueKind.Null);
     }

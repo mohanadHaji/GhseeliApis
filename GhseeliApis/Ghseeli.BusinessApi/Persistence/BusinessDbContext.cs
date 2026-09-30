@@ -181,6 +181,9 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                     Code = BusinessVerticalDefaults.CarWashCode,
                     NameAr = "\u063a\u0633\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
                     NameHe = "\u05e9\u05d8\u05d9\u05e4\u05ea \u05e8\u05db\u05d1",
+                    ImageUrl = BusinessVerticalDefaults.CarWashImageUrl,
+                    ColorHex = BusinessVerticalDefaults.CarWashColorHex,
+                    DisplayOrder = BusinessVerticalDefaults.CarWashDisplayOrder,
                     IsActive = true,
                     RegistrationEnabled = true,
                     CreatedAtUtc = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc)
@@ -311,8 +314,17 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
             entity.Property(vertical => vertical.Code).HasMaxLength(64).IsRequired();
             entity.Property(vertical => vertical.NameAr).HasMaxLength(200).IsRequired();
             entity.Property(vertical => vertical.NameHe).HasMaxLength(200);
+            entity.Property(vertical => vertical.ImageUrl).HasMaxLength(500);
+            entity.Property(vertical => vertical.ColorHex).HasMaxLength(7);
+            entity.Property(vertical => vertical.BadgeCode).HasMaxLength(50);
+            entity.Property(vertical => vertical.DisplayOrder).IsRequired();
             entity.Property(vertical => vertical.RowVersion).IsRowVersion();
             entity.HasIndex(vertical => vertical.Code).IsUnique();
+            entity.HasIndex(vertical => new
+            {
+                vertical.IsActive,
+                vertical.DisplayOrder
+            });
             if (Database.IsRelational())
             {
                 entity.HasData(new
@@ -321,6 +333,10 @@ public class BusinessDbContext : IdentityDbContext<BusinessUser, IdentityRole<Gu
                     Code = BusinessVerticalDefaults.CarWashCode,
                     NameAr = "\u063a\u0633\u064a\u0644 \u0627\u0644\u0633\u064a\u0627\u0631\u0627\u062a",
                     NameHe = "\u05e9\u05d8\u05d9\u05e4\u05ea \u05e8\u05db\u05d1",
+                    ImageUrl = BusinessVerticalDefaults.CarWashImageUrl,
+                    ColorHex = BusinessVerticalDefaults.CarWashColorHex,
+                    BadgeCode = (string?)null,
+                    DisplayOrder = BusinessVerticalDefaults.CarWashDisplayOrder,
                     IsActive = true,
                     RegistrationEnabled = true,
                     CreatedAtUtc = new DateTime(2026, 8, 25, 0, 0, 0, DateTimeKind.Utc)

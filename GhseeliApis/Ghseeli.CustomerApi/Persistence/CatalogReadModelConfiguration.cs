@@ -11,10 +11,25 @@ internal static class CatalogReadModelConfiguration
         {
             entity.ToTable("CatalogProviders");
             entity.HasKey(provider => provider.Id);
+            entity.Property(provider => provider.BusinessVerticalId)
+                .HasDefaultValue(BusinessVerticalSnapshotDefaults.CarWashId)
+                .IsRequired();
             entity.Property(provider => provider.BusinessVerticalCode)
                 .HasMaxLength(64)
                 .HasDefaultValue(BusinessVerticalSnapshotDefaults.CarWashCode)
                 .IsRequired();
+            entity.Property(provider => provider.BusinessVerticalNameAr)
+                .HasMaxLength(200)
+                .HasDefaultValue(BusinessVerticalSnapshotDefaults.CarWashNameAr)
+                .IsRequired();
+            entity.Property(provider => provider.BusinessVerticalNameHe)
+                .HasMaxLength(200);
+            entity.Property(provider => provider.BusinessVerticalImageUrl)
+                .HasMaxLength(500);
+            entity.Property(provider => provider.BusinessVerticalColorHex)
+                .HasMaxLength(7);
+            entity.Property(provider => provider.BusinessVerticalBadgeCode)
+                .HasMaxLength(50);
             entity.Property(provider => provider.NameAr)
                 .HasMaxLength(200);
             entity.Property(provider => provider.NameHe)
@@ -44,6 +59,12 @@ internal static class CatalogReadModelConfiguration
             {
                 provider.IsEnabled,
                 provider.DisplayOrder
+            });
+            entity.HasIndex(provider => new
+            {
+                provider.BusinessVerticalId,
+                provider.IsEnabled,
+                provider.BusinessVerticalDisplayOrder
             });
         });
 

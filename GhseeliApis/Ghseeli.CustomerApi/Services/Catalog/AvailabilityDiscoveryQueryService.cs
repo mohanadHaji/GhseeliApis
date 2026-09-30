@@ -46,6 +46,7 @@ public sealed class AvailabilityDiscoveryQueryService :
             new GetCatalogBusinessesRequest
             {
                 Language = request.Language,
+                BusinessVerticalId = request.BusinessVerticalId,
                 CategoryId = request.CategoryId
             },
             acceptLanguage,

@@ -329,6 +329,16 @@ internal static class CatalogTestSupport
             ContractVersion = Ghseeli.IntegrationContracts.InternalHttp.BusinessCatalogContract.Version,
             CatalogVersion = version,
             GeneratedAtUtc = new DateTime(2026, 8, 21, 18, 0, 0, DateTimeKind.Utc).AddMinutes(version),
+            BusinessVertical = new CatalogSnapshotBusinessVertical
+            {
+                Id = BusinessVerticalSnapshotDefaults.CarWashId,
+                Code = BusinessVerticalSnapshotDefaults.CarWashCode,
+                NameAr = BusinessVerticalSnapshotDefaults.CarWashNameAr,
+                NameHe = BusinessVerticalSnapshotDefaults.CarWashNameHe,
+                ImageUrl = BusinessVerticalSnapshotDefaults.CarWashImageUrl,
+                ColorHex = BusinessVerticalSnapshotDefaults.CarWashColorHex,
+                DisplayOrder = BusinessVerticalSnapshotDefaults.CarWashDisplayOrder
+            },
             Company = new CatalogSnapshotCompany
             {
                 Id = companyId,

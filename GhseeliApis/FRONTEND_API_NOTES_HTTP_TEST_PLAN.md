@@ -2,12 +2,44 @@
 
 Date: 2026-09-24
 
-Status: **Implemented and validated locally.** The final serial regression
-passed 2,337 tests, the Release build passed with no warnings or errors, both
-disposable API health checks returned 200, the HTTP harness passed 31/31
-self-tests, and the availability live-local manifest passed 12/12 scenarios.
-All 78 scoped frontend-note scenarios have explicit test traceability. See
+Status: **Implemented and validated locally; hosted deployment pending.** The
+final regression passed 2,355 tests, the Release build passed with no warnings
+or errors, the HTTP harness passed 31/31 self-tests, and the taxonomy extension
+passed 12/12 live-local scenarios against fresh migrated and deterministically
+seeded Customer and Business databases. See
 `FRONTEND_API_NOTES_HTTP_TEST_RESULTS.md`.
+
+## 0. 2026-09-30 taxonomy and availability-validation extension
+
+The following scenarios are required before the taxonomy extension can ship:
+
+| Scenario ID | Level | Expected behavior |
+|---|---|---|
+| `FAN-TAXONOMY-LIST-001` | TestServer + live | `GET /api/v1/catalog/business-verticals` returns the canonical active Car Washing vertical without credentials. |
+| `FAN-TAXONOMY-BUSINESSES-002` | TestServer + live | Filtering businesses by the canonical main-category ID returns only businesses projected under it. |
+| `FAN-TAXONOMY-CATEGORIES-003` | TestServer + live | Business-owned subcategories expose their business and main-category context. |
+| `FAN-TAXONOMY-OFFERINGS-004` | TestServer + live | Offering hierarchy exposes business-owned subcategory and global main-category context. |
+| `FAN-TAXONOMY-AVAILABILITY-005` | Unit + TestServer + live | Availability search with `businessVerticalId` searches eligible businesses in that vertical and accepts `"preferredLocalTime":"13:30:00"`. |
+| `FAN-TAXONOMY-SUBCATEGORY-006` | Unit + TestServer + live | Availability search with a business-owned `categoryId` preserves the owning-provider behavior. |
+| `FAN-TAXONOMY-TIME-007` | TestServer + live | A malformed time returns `preferred_local_time_invalid` on `preferredLocalTime`, never `catalog_filter_mismatch`. |
+| `FAN-TAXONOMY-VERTICAL-008` | Unit + TestServer + live | An empty main-category ID returns `business_vertical_invalid`. |
+| `FAN-TAXONOMY-MISMATCH-009` | Unit + TestServer + live | A category and vertical from incompatible scopes return `catalog_filter_mismatch`. |
+| `FAN-TAXONOMY-SLOTS-010` | Unit + TestServer + live | A 25-minute offering produces authoritative slots on 30-minute start intervals without forcing its duration to be divisible by the interval. |
+
+Migration and seed coverage additionally verifies fresh and upgraded databases,
+one canonical Car Washing vertical, complete branch availability projection,
+idempotent repair of stale projections, no duplicates, and unchanged stable
+business/category/offering/source IDs.
+
+Database execution uses both fresh disposable databases and databases migrated
+from the current schema. The Business migration must preserve the existing
+`BusinessVerticalDefaults.CarWashId`, `CompanyBusinessVerticals`, and
+`ServiceCategories`. The Customer migration must backfill existing providers
+from `car_wash` without changing provider, category, offering, or source IDs.
+
+Only Car Washing is seeded and published by this extension. Future verticals
+remain schema-supported but are not exposed until their real catalog behavior
+is implemented.
 
 ## 1. Purpose and execution level
 

@@ -374,16 +374,22 @@ Do not require customer login for browsing, draft creation, or repricing.
 
 | Step | Endpoint |
 |---:|---|
-| 1 | `GET /api/v1/catalog/categories` |
-| 2 | `GET /api/v1/catalog/businesses` |
-| 3 | `GET /api/v1/catalog/businesses/{id}` |
-| 4 | `GET /api/v1/catalog/businesses/{id}/offerings` |
-| 5 | `GET /api/v1/catalog/offerings/{id}` |
+| 1 | `GET /api/v1/catalog/business-verticals` |
+| 2 | `GET /api/v1/catalog/businesses?businessVerticalId={id}` |
+| 3 | `GET /api/v1/catalog/categories?businessId={id}` |
+| 4 | `GET /api/v1/catalog/businesses/{id}` |
+| 5 | `GET /api/v1/catalog/businesses/{id}/offerings` |
+| 6 | `GET /api/v1/catalog/offerings/{id}` |
 
 Rules:
 
-- send the device token;
+- in the hosted Development environment, configuration, catalog discovery,
+  availability, and direct pricing are anonymous and Demo-only; customer-owned
+  operations still require their documented credentials;
 - honor localization;
+- treat `BusinessVertical` as a global main category such as Car Washing;
+- treat `ServiceCategory` as a business-owned subcategory. Never reuse one
+  business's `categoryId` as a global category ID;
 - use returned Customer IDs for Customer routes;
 - use `sourceId` only where the schema explicitly requests a source ID;
 - respect branch/category filters;
@@ -436,6 +442,17 @@ Important rules:
 - the final booking call performs the authoritative capacity check;
 - refresh after `409`, stale catalog, unavailable slot, or meaningful delay;
 - do not create slots client-side from business hours.
+- `preferredLocalTime` uses the full `HH:mm:ss` wire format. For example,
+  send `"13:30:00"`, not `"13:30"`.
+- `SlotDurationMinutes` controls valid start intervals, not service duration.
+  A 25-minute service may start at 08:00, 08:30, or 09:00 when the configured
+  interval is 30 minutes, and ends 25 minutes after the selected start.
+- Main-category-only search uses `businessVerticalId`. Subcategory search uses
+  the owning business's `categoryId`. When both are supplied, they must belong
+  to the same hierarchy or the API returns `catalog_filter_mismatch`.
+- Stable request errors include `preferred_local_time_invalid`,
+  `business_vertical_invalid`, `category_invalid`, `vehicle_type_invalid`,
+  `date_invalid`, and `location_invalid`.
 
 ## Checkout draft scenario
 
@@ -816,6 +833,8 @@ Business source IDs.
 
 | Identifier | Use |
 |---|---|
+| `businessVertical.id` | Global main-category filtering across businesses |
+| `category.id` | Business-owned subcategory filtering within its owning hierarchy |
 | `id` on Customer catalog resources | Customer catalog URLs and operations that explicitly request Customer IDs |
 | `sourceId` | Checkout intent fields and operations whose OpenAPI schema explicitly says `*SourceId` |
 | `orderGuid` | Draft identity, draft reprice header, and booking confirmation identity |

@@ -160,7 +160,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
             : availabilitySearchRoute
             ? CatalogProblemDetailsFactory.Create(
                 statusCode,
-                CatalogProblemCodes.FilterMismatch,
+                ResolveAvailabilityModelStateCode(context.ModelState),
                 language,
                 context.HttpContext.TraceIdentifier,
                 context.ModelState
@@ -174,7 +174,7 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
                                 : char.ToLowerInvariant(name[0]) + name[1..];
                         },
                         entry => entry.Value!.Errors
-                            .Select(_ => CatalogProblemCodes.FilterMismatch)
+                            .Select(_ => ResolveAvailabilityFieldCode(entry.Key))
                             .ToArray(),
                         StringComparer.Ordinal))
             : bookingStatusRoute
@@ -914,6 +914,50 @@ static bool IsAvailabilitySearchPath(PathString path) =>
     path.Equals(
         new PathString("/api/v1/catalog/businesses/availability-search"),
         StringComparison.OrdinalIgnoreCase);
+
+static string ResolveAvailabilityModelStateCode(
+    Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary modelState) =>
+    modelState
+        .Where(entry => entry.Value?.Errors.Count > 0)
+        .Select(entry => ResolveAvailabilityFieldCode(entry.Key))
+        .FirstOrDefault() ?? CatalogProblemCodes.FilterMismatch;
+
+static string ResolveAvailabilityFieldCode(string field)
+{
+    var name = field.Split('.').Last();
+    if (name.Equals("vehicleType", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.VehicleTypeInvalid;
+    }
+    if (name.Equals("date", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.DateInvalid;
+    }
+    if (name.Equals("preferredLocalTime", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.PreferredLocalTimeInvalid;
+    }
+    if (name.Equals("businessVerticalId", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.BusinessVerticalInvalid;
+    }
+    if (name.Equals("categoryId", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.CategoryInvalid;
+    }
+    if (name.Equals("latitude", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("longitude", StringComparison.OrdinalIgnoreCase) ||
+        name.Equals("location", StringComparison.OrdinalIgnoreCase))
+    {
+        return CatalogProblemCodes.LocationInvalid;
+    }
+    if (name.Equals("language", StringComparison.OrdinalIgnoreCase))
+    {
+        return ConfigurationProblemCodes.LanguageInvalid;
+    }
+
+    return CatalogProblemCodes.FilterMismatch;
+}
 
 static bool IsVehiclePath(PathString path) =>
     path.StartsWithSegments("/api/Vehicles", StringComparison.OrdinalIgnoreCase);

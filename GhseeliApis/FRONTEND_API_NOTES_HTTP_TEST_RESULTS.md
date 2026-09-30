@@ -1,6 +1,6 @@
 # Frontend API Notes HTTP Test Results
 
-Date: 2026-09-27
+Date: 2026-09-30
 
 ## Code Test Plan
 
@@ -29,21 +29,21 @@ Date: 2026-09-27
 
 | Validation | Result |
 |---|---|
-| Customer tests | 1,631 passed, 0 failed, 0 skipped |
-| Business tests | 686 passed, 0 failed, 0 skipped |
+| Customer tests | 1,641 passed, 0 failed, 0 skipped |
+| Business tests | 688 passed, 0 failed, 0 skipped |
 | DemoData tests | 26 passed, 0 failed, 0 skipped |
-| Total automated tests | 2,343 passed, 0 failed, 0 skipped |
+| Total automated tests | 2,355 passed, 0 failed, 0 skipped |
 | Release build | Passed, 0 warnings, 0 errors |
-| Customer disposable database health | HTTP 200 |
-| Business disposable database health | HTTP 200 |
+| Fresh Customer disposable database | Migrated, seeded, HTTP health 200 |
+| Fresh Business disposable database | Migrated, seeded, HTTP health 200 |
 | HTTP harness self-tests | 31 passed, 0 failed |
 | Availability live-local manifest | 12 passed, 0 failed |
+| Taxonomy live-local extension | 12 passed, 0 failed |
 | Scoped availability/optional scenario tests | 76 passed, 0 failed |
 | Frontend-note scenario traceability | 78/78 mapped, no semantic mismatch |
-| Development deployment | Run `36400551972`, commit `7a859d2`, passed |
-| Hosted Demo reconciliation | Run `36401665318`, passed |
-| Hosted frontend-notes smoke | 61 passed, 0 failed, 1 skipped |
-| Cleanup | 0 listeners, 0 disposable databases, 0 generated gate artifacts |
+| Taxonomy deployment | Pending |
+| Taxonomy hosted Demo reconciliation | Pending |
+| Taxonomy hosted frontend-notes smoke | Pending |
 
 The live availability set covered valid HMAC discovery, missing
 authentication, stale timestamp, replay prime/rejection, operation denial,
@@ -51,6 +51,20 @@ HTTP transport rejection, both Swagger documents, and independent Customer
 and Business database health. The public advisory response includes both
 `configuredCapacity` and `remainingCapacity`; the offering-aware detailed-slot
 operation remains authoritative and can return different current capacity.
+
+The taxonomy extension additionally covered the public Car Washing
+main-category list, vertical-filtered businesses, business-owned subcategories,
+the offering hierarchy, main-category and subcategory availability,
+field-specific malformed-time and invalid-vertical errors, true
+vertical/subcategory mismatch, authoritative 25-minute slots on 30-minute start
+intervals, and anonymous direct pricing with the same 25-minute duration.
+
+Fresh disposable databases were migrated through
+`AddBusinessVerticalPresentationMetadata` and
+`AddCustomerBusinessVerticalProjection`. The deterministic seeder populated
+both databases, then repaired a deliberately stale Customer branch
+availability projection idempotently without changing stable fixture IDs or
+creating duplicates.
 
 The hosted suite covered database health, Swagger, Demo authentication,
 optional-device handling, catalog metadata, search/top ranking, favourites,
@@ -67,10 +81,10 @@ favourites/reviews, vehicles, checkout, bookings, and payments remain protected.
 The only skipped hosted scenario was banner Admin mutation because the
 canonical fixture intentionally contains no Demo Customer Admin.
 
-Deployment:
+Previous Development deployment:
 <https://github.com/mohanadHaji/GhseeliApis/actions/runs/36400551972>
 
-Hosted Demo seed:
+Previous hosted Demo seed:
 <https://github.com/mohanadHaji/GhseeliApis/actions/runs/36401665318>
 
 No credentials, signatures, tokens, connection strings, PII, or raw harness

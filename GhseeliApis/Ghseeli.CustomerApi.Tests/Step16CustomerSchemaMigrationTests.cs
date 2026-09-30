@@ -61,6 +61,7 @@ public sealed class Step16CustomerSchemaMigrationTests
         migrationNames.Should().Contain("AddCustomerCompletedBookingBusinessReviews");
         migrationNames.Should().Contain("AddCustomerBusinessFavourites");
         migrationNames.Should().Contain("AddCustomerBanners");
+        migrationNames.Should().Contain("AddCustomerBusinessVerticalProjection");
         migrations.Keys.Should().BeInAscendingOrder();
         context.Database.HasPendingModelChanges().Should().BeFalse();
 
@@ -78,6 +79,10 @@ public sealed class Step16CustomerSchemaMigrationTests
         script.Should().Contain("[Banners]");
         script.Should().Contain("CK_Banners_DisplayOrder");
         script.Should().Contain("IX_Banners_IsDemo_IsActive_DisplayOrder_Id");
+        script.Should().Contain("[BusinessVerticalId]");
+        script.Should().Contain("[BusinessVerticalNameAr]");
+        script.Should().Contain(
+            "IX_CatalogProviders_BusinessVerticalId_IsEnabled_BusinessVerticalDisplayOrder");
     }
 
     [Fact]
@@ -346,7 +351,7 @@ public sealed class Step16CustomerSchemaMigrationTests
                 ORDER BY s.[name], t.[name]
                 """);
 
-            firstHistory.Should().HaveCount(14);
+            firstHistory.Should().HaveCount(15);
             firstTables.Order(StringComparer.Ordinal)
                 .Should().Equal(ExpectedTables
                     .Select(table => $"{CustomerSchemaOptions.OwnedDefaultSchema}.{table}")

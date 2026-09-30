@@ -51,6 +51,22 @@ public sealed class AvailableSlotsServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_WhenServiceDurationEndsBetweenStartIntervals_GeneratesSlots()
+    {
+        await using var fixture = await CreateFixtureAsync(
+            capacity: 2,
+            durationMinutes: 25);
+
+        var response = await fixture.Service.GetAsync(CreateRequest(fixture), default);
+
+        response.Valid.Should().BeTrue();
+        response.TotalDurationMinutes.Should().Be(25);
+        response.Slots.Should().HaveCount(6);
+        response.Slots.Should().OnlyContain(slot =>
+            slot.EndUtc - slot.StartUtc == TimeSpan.FromMinutes(25));
+    }
+
+    [Fact]
     public async Task GetAsync_WhenCapacityIsFull_OmitsSlotUnlessRequested()
     {
         await using var fixture = await CreateFixtureAsync(capacity: 1);
@@ -309,7 +325,9 @@ public sealed class AvailableSlotsServiceTests
         }
     };
 
-    private static async Task<Fixture> CreateFixtureAsync(int capacity)
+    private static async Task<Fixture> CreateFixtureAsync(
+        int capacity,
+        int durationMinutes = 60)
     {
         var options = new DbContextOptionsBuilder<BusinessDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString("N"))
@@ -363,11 +381,12 @@ public sealed class AvailableSlotsServiceTests
                 Currency = "ILS",
                 BranchId = branch.Id,
                 OfferingId = offeringId,
-                TotalDurationMinutes = 60,
+                TotalDurationMinutes = durationMinutes,
                 Availability = new AppointmentAvailabilityFacts
                 {
                     RequestedSlotStartUtc = request.RequestedSlotStartUtc.UtcDateTime,
-                    RequestedSlotEndUtc = request.RequestedSlotStartUtc.UtcDateTime.AddHours(1)
+                    RequestedSlotEndUtc = request.RequestedSlotStartUtc.UtcDateTime
+                        .AddMinutes(durationMinutes)
                 }
             });
         var repository = new Mock<IAvailabilityRepository>();

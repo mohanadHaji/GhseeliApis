@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Ghseeli.IntegrationContracts.Vehicles;
 using GhseeliApis.DTOs.Catalog;
+using GhseeliApis.Services.Catalog;
 using GhseeliApis.Tests.Support;
 using GhseeliApis.Validators.Catalog;
 
@@ -17,6 +18,7 @@ public sealed class AvailabilitySearchRequestValidatorTests
     [Theory]
     [InlineData("past-date")]
     [InlineData("future-date")]
+    [InlineData("business-vertical")]
     [InlineData("category")]
     [InlineData("latitude-only")]
     [InlineData("latitude-range")]
@@ -35,6 +37,9 @@ public sealed class AvailabilitySearchRequestValidatorTests
             case "category":
                 request.CategoryId = Guid.Empty;
                 break;
+            case "business-vertical":
+                request.BusinessVerticalId = Guid.Empty;
+                break;
             case "latitude-only":
                 request.Latitude = 31.7;
                 break;
@@ -52,6 +57,32 @@ public sealed class AvailabilitySearchRequestValidatorTests
             new ManualTimeProvider(Now)).Validate(request);
 
         result.IsValid.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("business-vertical", CatalogProblemCodes.BusinessVerticalInvalid)]
+    [InlineData("category", CatalogProblemCodes.CategoryInvalid)]
+    [InlineData("latitude-only", CatalogProblemCodes.LocationInvalid)]
+    public void Validate_UsesStableFieldSpecificCodes(string condition, string expectedCode)
+    {
+        var request = ValidRequest();
+        switch (condition)
+        {
+            case "business-vertical":
+                request.BusinessVerticalId = Guid.Empty;
+                break;
+            case "category":
+                request.CategoryId = Guid.Empty;
+                break;
+            default:
+                request.Latitude = 31.7;
+                break;
+        }
+
+        var result = new AvailabilitySearchRequestValidator(
+            new ManualTimeProvider(Now)).Validate(request);
+
+        result.Errors.Should().Contain(error => error.ErrorCode == expectedCode);
     }
 
     [Fact]

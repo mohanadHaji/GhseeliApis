@@ -107,10 +107,9 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
     {
         return await _context.CatalogProviders
             .AsNoTracking()
-            .Where(provider =>
-                provider.IsEnabled &&
-                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode)
-            .OrderBy(provider => provider.DisplayOrder)
+            .Where(provider => provider.IsEnabled)
+            .OrderBy(provider => provider.BusinessVerticalDisplayOrder)
+            .ThenBy(provider => provider.DisplayOrder)
             .ThenBy(provider => provider.NameAr)
             .ToListAsync(cancellationToken);
     }
@@ -123,8 +122,7 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .SingleOrDefaultAsync(
                 provider =>
                     provider.Id == providerId &&
-                    provider.IsEnabled &&
-                    provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode,
+                    provider.IsEnabled,
                 cancellationToken);
 
     public Task<CatalogProviderReadModel?> GetEnabledProviderBySourceCompanyIdWithGraphAsync(
@@ -135,7 +133,6 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .AsSingleQuery()
             .Where(provider =>
                 provider.IsEnabled &&
-                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode &&
                 provider.SourceCompanyId == sourceCompanyId)
             .Include(provider => provider.Branches)
             .Include(provider => provider.Categories)
@@ -155,9 +152,7 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .SingleOrDefaultAsync(
                 branch =>
                     branch.Id == branchId &&
-                    branch.Provider.IsEnabled &&
-                    branch.Provider.BusinessVerticalCode ==
-                        BusinessVerticalSnapshotDefaults.CarWashCode,
+                    branch.Provider.IsEnabled,
                 cancellationToken);
 
     public Task<CatalogCategoryReadModel?> GetEnabledCategorySummaryAsync(
@@ -168,9 +163,7 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .SingleOrDefaultAsync(
                 category =>
                     category.Id == categoryId &&
-                    category.Provider.IsEnabled &&
-                    category.Provider.BusinessVerticalCode ==
-                        BusinessVerticalSnapshotDefaults.CarWashCode,
+                    category.Provider.IsEnabled,
                 cancellationToken);
 
     public Task<CatalogOfferingReadModel?> GetEnabledOfferingSummaryAsync(
@@ -182,9 +175,7 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .SingleOrDefaultAsync(
                 offering =>
                     offering.Id == offeringId &&
-                    offering.Category.Provider.IsEnabled &&
-                    offering.Category.Provider.BusinessVerticalCode ==
-                        BusinessVerticalSnapshotDefaults.CarWashCode,
+                    offering.Category.Provider.IsEnabled,
                 cancellationToken);
 
     public async Task<IReadOnlyList<CatalogProviderReadModel>> GetEnabledProvidersWithGraphAsync(
@@ -200,9 +191,7 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
             .AsNoTracking()
             .AsSingleQuery()
             .TagWith(GraphQueryTag)
-            .Where(provider =>
-                provider.IsEnabled &&
-                provider.BusinessVerticalCode == BusinessVerticalSnapshotDefaults.CarWashCode);
+            .Where(provider => provider.IsEnabled);
 
         if (providerIds is not null)
         {
@@ -345,6 +334,20 @@ public sealed class CatalogReadModelRepository : ICatalogReadModelRepository
         provider.DescriptionAr = ConfigurationTextNormalizer.NormalizeOptional(snapshot.Company.DescriptionAr);
         provider.DescriptionHe = ConfigurationTextNormalizer.NormalizeOptional(snapshot.Company.DescriptionHe);
         provider.Phone = ConfigurationTextNormalizer.NormalizeOptional(snapshot.Company.Phone);
+        provider.BusinessVerticalId = snapshot.BusinessVertical.Id;
+        provider.BusinessVerticalCode =
+            ConfigurationTextNormalizer.NormalizeRequired(snapshot.BusinessVertical.Code);
+        provider.BusinessVerticalNameAr =
+            ConfigurationTextNormalizer.NormalizeRequired(snapshot.BusinessVertical.NameAr);
+        provider.BusinessVerticalNameHe =
+            ConfigurationTextNormalizer.NormalizeOptional(snapshot.BusinessVertical.NameHe);
+        provider.BusinessVerticalImageUrl =
+            ConfigurationTextNormalizer.NormalizeOptional(snapshot.BusinessVertical.ImageUrl);
+        provider.BusinessVerticalColorHex =
+            ConfigurationTextNormalizer.NormalizeOptional(snapshot.BusinessVertical.ColorHex);
+        provider.BusinessVerticalBadgeCode =
+            ConfigurationTextNormalizer.NormalizeOptional(snapshot.BusinessVertical.BadgeCode);
+        provider.BusinessVerticalDisplayOrder = snapshot.BusinessVertical.DisplayOrder;
         provider.SnapshotGeneratedAtUtc = new DateTimeOffset(
             DateTime.SpecifyKind(snapshot.GeneratedAtUtc, DateTimeKind.Utc));
         provider.LastSuccessfulRefreshAtUtc = refreshedAtUtc;

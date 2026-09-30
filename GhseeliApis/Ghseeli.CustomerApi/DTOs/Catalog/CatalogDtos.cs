@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Ghseeli.IntegrationContracts.BusinessCatalog;
 using Ghseeli.IntegrationContracts.Vehicles;
 
@@ -13,6 +16,7 @@ public sealed class GetCatalogCategoriesRequest
 public sealed class GetCatalogBusinessesRequest
 {
     public string? Language { get; set; }
+    public Guid? BusinessVerticalId { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? CategoryId { get; set; }
     public string? Search { get; set; }
@@ -49,11 +53,36 @@ public sealed class AvailabilitySearchRequest
 {
     public VehicleType VehicleType { get; set; }
     public DateOnly Date { get; set; }
+    [JsonConverter(typeof(HourMinuteSecondTimeOnlyJsonConverter))]
     public TimeOnly PreferredLocalTime { get; set; }
+    public Guid? BusinessVerticalId { get; set; }
     public Guid? CategoryId { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? Language { get; set; }
+}
+
+public sealed class GetBusinessVerticalsRequest
+{
+    public string? Language { get; set; }
+}
+
+public sealed class CatalogBusinessVerticalsResponse
+{
+    public string Language { get; set; } = string.Empty;
+    public IReadOnlyCollection<CatalogBusinessVerticalResponse> BusinessVerticals { get; set; } =
+        Array.Empty<CatalogBusinessVerticalResponse>();
+}
+
+public sealed class CatalogBusinessVerticalResponse
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
+    public string? BadgeCode { get; set; }
+    public int DisplayOrder { get; set; }
 }
 
 public sealed class AvailabilitySearchResponse
@@ -62,9 +91,40 @@ public sealed class AvailabilitySearchResponse
     public bool IsAdvisory { get; set; } = true;
     public VehicleType VehicleType { get; set; }
     public DateOnly Date { get; set; }
+    [JsonConverter(typeof(HourMinuteSecondTimeOnlyJsonConverter))]
     public TimeOnly PreferredLocalTime { get; set; }
     public IReadOnlyCollection<AvailabilitySearchResult> Results { get; set; } =
         Array.Empty<AvailabilitySearchResult>();
+}
+
+public sealed class HourMinuteSecondTimeOnlyJsonConverter : JsonConverter<TimeOnly>
+{
+    private const string Format = "HH:mm:ss";
+
+    public override TimeOnly Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
+    {
+        if (reader.TokenType != JsonTokenType.String ||
+            !TimeOnly.TryParseExact(
+                reader.GetString(),
+                Format,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var value))
+        {
+            throw new JsonException($"The time must use the {Format} format.");
+        }
+
+        return value;
+    }
+
+    public override void Write(
+        Utf8JsonWriter writer,
+        TimeOnly value,
+        JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.ToString(Format, CultureInfo.InvariantCulture));
 }
 
 public sealed class AvailabilitySearchResult
@@ -172,6 +232,7 @@ public sealed class CatalogBusinessResponse
     public bool IsFavourite { get; set; }
     public decimal AverageRating { get; set; }
     public int RatingCount { get; set; }
+    public CatalogBusinessVerticalResponse BusinessVertical { get; set; } = new();
     public CatalogMetadataResponse Catalog { get; set; } = new();
     public IReadOnlyCollection<CatalogBranchResponse> Branches { get; set; } =
         Array.Empty<CatalogBranchResponse>();
@@ -185,6 +246,7 @@ public sealed class CatalogBusinessContextResponse
     public bool IsFavourite { get; set; }
     public decimal AverageRating { get; set; }
     public int RatingCount { get; set; }
+    public CatalogBusinessVerticalResponse BusinessVertical { get; set; } = new();
     public CatalogMetadataResponse Catalog { get; set; } = new();
 }
 

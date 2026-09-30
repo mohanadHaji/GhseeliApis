@@ -86,6 +86,7 @@ public sealed class CatalogSnapshotResponse
     public string ContractVersion { get; set; } = BusinessCatalogContract.Version;
     public long CatalogVersion { get; set; }
     public DateTime GeneratedAtUtc { get; set; }
+    public CatalogSnapshotBusinessVertical BusinessVertical { get; set; } = new();
     public CatalogSnapshotCompany Company { get; set; } = new();
     public IReadOnlyCollection<CatalogSnapshotBranch> Branches { get; set; } =
         Array.Empty<CatalogSnapshotBranch>();
@@ -93,6 +94,18 @@ public sealed class CatalogSnapshotResponse
         Array.Empty<CatalogSnapshotServiceArea>();
     public IReadOnlyCollection<CatalogSnapshotCategory> Categories { get; set; } =
         Array.Empty<CatalogSnapshotCategory>();
+}
+
+public sealed class CatalogSnapshotBusinessVertical
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string NameAr { get; set; } = string.Empty;
+    public string? NameHe { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
+    public string? BadgeCode { get; set; }
+    public int DisplayOrder { get; set; }
 }
 
 public sealed class CatalogSnapshotCompany

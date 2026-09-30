@@ -59,6 +59,41 @@ public sealed class CatalogController : ControllerBase
         _dataPartition = dataPartition;
     }
 
+    [HttpGet("business-verticals")]
+    [ProducesResponseType<CatalogBusinessVerticalsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public async Task<IActionResult> GetBusinessVerticals(
+        [FromQuery] string? language,
+        [FromHeader(Name = "Accept-Language")] string? acceptLanguage,
+        CancellationToken cancellationToken)
+    {
+        ApplyNoStore();
+        var validation = await _resourceValidator.ValidateAsync(
+            new GetCatalogResourceRequest { Language = language },
+            cancellationToken);
+        if (!validation.IsValid)
+        {
+            return ValidationProblemResult(validation, acceptLanguage);
+        }
+
+        try
+        {
+            return Ok(await _service.GetBusinessVerticalsAsync(
+                new GetBusinessVerticalsRequest { Language = language },
+                acceptLanguage,
+                cancellationToken));
+        }
+        catch (CatalogReadModelException exception)
+        {
+            return CatalogProblemResult(
+                exception.StatusCode,
+                exception.Code,
+                language,
+                acceptLanguage);
+        }
+    }
+
     [HttpPost("businesses/availability-search")]
     [EnforceJsonRequestContentType]
     [RequestSizeLimit(MaxAvailableSlotsRequestBodyBytes)]
@@ -436,11 +471,18 @@ public sealed class CatalogController : ControllerBase
     private static string DetermineValidationCode(
         FluentValidation.Results.ValidationResult validation)
     {
-        return validation.Errors.Any(error => error.ErrorCode == ConfigurationProblemCodes.LanguageInvalid)
-            ? ConfigurationProblemCodes.LanguageInvalid
-            : validation.Errors.Any(error => error.ErrorCode == CatalogProblemCodes.TopInvalid)
-                ? CatalogProblemCodes.TopInvalid
-            : CatalogProblemCodes.FilterMismatch;
+        return validation.Errors
+            .Select(error => error.ErrorCode)
+            .FirstOrDefault(code =>
+                code == ConfigurationProblemCodes.LanguageInvalid ||
+                code == CatalogProblemCodes.TopInvalid ||
+                code == CatalogProblemCodes.VehicleTypeInvalid ||
+                code == CatalogProblemCodes.DateInvalid ||
+                code == CatalogProblemCodes.PreferredLocalTimeInvalid ||
+                code == CatalogProblemCodes.BusinessVerticalInvalid ||
+                code == CatalogProblemCodes.CategoryInvalid ||
+                code == CatalogProblemCodes.LocationInvalid)
+            ?? CatalogProblemCodes.FilterMismatch;
     }
 
     private static Dictionary<string, string[]> BuildFieldErrors(

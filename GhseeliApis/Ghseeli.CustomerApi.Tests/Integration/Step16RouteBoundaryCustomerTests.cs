@@ -237,7 +237,8 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
         "GET /api/Vehicles/my-vehicles", "GET /api/Vehicles/{id}", "POST /api/Vehicles",
         "PUT /api/Vehicles/{id}", "DELETE /api/Vehicles/{id}",
         "POST /api/v1/devices/register", "GET /api/v1/configuration",
-        "GET /api/v1/catalog/categories", "GET /api/v1/catalog/businesses",
+        "GET /api/v1/catalog/categories", "GET /api/v1/catalog/business-verticals",
+        "GET /api/v1/catalog/businesses",
         "GET /api/v1/catalog/businesses/{id}",
         "GET /api/v1/catalog/businesses/{id}/offerings",
         "PUT /api/v1/catalog/businesses/{businessId}/favourite",
@@ -425,6 +426,7 @@ public sealed class Step16RouteBoundaryCustomerTests : IAsyncLifetime
             return ["CustomerBearer"];
         if (path is "/api/v1/configuration" or
             "/api/v1/catalog/categories" or
+            "/api/v1/catalog/business-verticals" or
             "/api/v1/catalog/businesses" or
             "/api/v1/catalog/businesses/{id}" or
             "/api/v1/catalog/businesses/{id}/offerings" or

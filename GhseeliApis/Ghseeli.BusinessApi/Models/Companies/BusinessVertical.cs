@@ -5,6 +5,10 @@ public static class BusinessVerticalDefaults
     public static readonly Guid CarWashId =
         Guid.Parse("a842f536-17b7-4be6-a18d-1bdc6245094c");
     public const string CarWashCode = "car_wash";
+    public const string CarWashImageUrl =
+        "https://example.test/demo/verticals/car-wash.png";
+    public const string CarWashColorHex = "#1A73E8";
+    public const int CarWashDisplayOrder = 1;
 }
 
 public sealed class BusinessVertical
@@ -13,6 +17,10 @@ public sealed class BusinessVertical
     public string Code { get; set; } = string.Empty;
     public string NameAr { get; set; } = string.Empty;
     public string? NameHe { get; set; }
+    public string? ImageUrl { get; set; }
+    public string? ColorHex { get; set; }
+    public string? BadgeCode { get; set; }
+    public int DisplayOrder { get; set; }
     public bool IsActive { get; set; }
     public bool RegistrationEnabled { get; set; }
     public DateTime CreatedAtUtc { get; set; }

@@ -54,9 +54,10 @@ public class Step16BusinessSchemaMigrationTests
     {
         using var context = CreateContext("Step16BusinessMigrationMetadata");
 
-        context.Database.GetMigrations().Should().HaveCount(6);
+        context.Database.GetMigrations().Should().HaveCount(7);
         context.Database.GetMigrations().First().Should().EndWith("_InitialBusinessDatabase");
-        context.Database.GetMigrations().Last().Should().EndWith("_AddBusinessCategoryPresentationMetadata");
+        context.Database.GetMigrations().Last()
+            .Should().EndWith("_AddBusinessVerticalPresentationMetadata");
         var script = context.GetService<IMigrator>().GenerateScript();
         script.Should().Contain("Suv5Seater");
         script.Should().Contain("Sedan");
@@ -64,6 +65,9 @@ public class Step16BusinessSchemaMigrationTests
         script.Should().Contain("[ImageUrl]");
         script.Should().Contain("nvarchar(7)");
         script.Should().Contain("nvarchar(500)");
+        script.Should().Contain("[BusinessVerticals]");
+        script.Should().Contain("[DisplayOrder]");
+        script.Should().Contain("IX_BusinessVerticals_IsActive_DisplayOrder");
     }
 
     [Fact]
@@ -75,11 +79,11 @@ public class Step16BusinessSchemaMigrationTests
         try
         {
             await context.Database.EnsureDeletedAsync();
-            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(6);
+            (await context.Database.GetPendingMigrationsAsync()).Should().HaveCount(7);
 
             await context.Database.MigrateAsync();
 
-            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(6);
+            (await context.Database.GetAppliedMigrationsAsync()).Should().HaveCount(7);
             (await context.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
             context.Database.HasPendingModelChanges().Should().BeFalse();
 

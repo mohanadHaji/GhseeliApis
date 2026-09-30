@@ -26,7 +26,7 @@ repository root [`README.md`](../README.md).
 - Demo-data tests: 26.
 - Release build: 0 warnings and 0 errors.
 - Frontend-notes hosted smoke: **66 passed, 0 failed, 1 safely skipped**.
-- Development deployment run `36686452435` deployed commit `9561946` and passed
+- Development deployment run `36688174618` deployed commit `a8626d2` and passed
   validation, migrations, publishing, and both API health checks.
 - Hosted Demo seed run `36687741892` reconciled the canonical Demo dataset,
   complete Customer availability projections, and deterministic Development

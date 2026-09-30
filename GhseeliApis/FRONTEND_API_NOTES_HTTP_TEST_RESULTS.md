@@ -41,9 +41,10 @@ Date: 2026-09-30
 | Taxonomy live-local extension | 12 passed, 0 failed |
 | Scoped availability/optional scenario tests | 76 passed, 0 failed |
 | Frontend-note scenario traceability | 78/78 mapped, no semantic mismatch |
-| Taxonomy deployment | Run `36686452435`, commit `9561946`, passed |
+| Taxonomy deployment | Final run `36688174618`, commit `a8626d2`, passed |
 | Taxonomy hosted Demo reconciliation | Run `36687741892`, passed |
-| Taxonomy hosted frontend-notes smoke | 66 passed, 0 failed, 1 safely skipped |
+| Taxonomy hosted frontend-notes smoke | Final post-deployment run: 66 passed, 0 failed, 1 safely skipped |
+| Cleanup | Disposable Customer and Business LocalDB databases and temporary state removed |
 
 The live availability set covered valid HMAC discovery, missing
 authentication, stale timestamp, replay prime/rejection, operation denial,
@@ -89,7 +90,7 @@ dedicated exact 25-minute checks, then the complete 67-check suite was rerun
 successfully.
 
 Taxonomy Development deployment:
-<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36686452435>
+<https://github.com/mohanadHaji/GhseeliApis/actions/runs/36688174618>
 
 Taxonomy hosted Demo seed:
 <https://github.com/mohanadHaji/GhseeliApis/actions/runs/36687741892>
